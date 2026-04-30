@@ -1,34 +1,37 @@
 /* ============================================================
-   Aventurs — View: Magic (Tab Magia)
-   Grimorio del jugador. En Fase 1 solo se ven los hechizos
-   aprendidos (vacío por defecto, se aprenden con NPC sabio en Fase 3).
-   En combate Fase 2 se podrán lanzar.
+   Aventurs — View: Magic (helper)
+
+   En v1.1.0 Magia ya no es una tab. La vista la consume el modal
+   "magic" (ver modals.js). Acá exponemos un helper para que
+   modals.js pueda renderizar el contenido del grimorio.
    ============================================================ */
 
 (function (A) {
   'use strict';
 
-  let mainEl = null;
-
-  function render() {
-    if (!mainEl) return;
+  function renderHtml() {
     const p = A.State.player;
-    if (!p) { mainEl.innerHTML = ''; return; }
+    if (!p) return '';
+    if (!p.hasMagic) {
+      return `
+        <div class="empty-card">
+          <div class="empty-icon">🚫</div>
+          <div class="empty-title">Sin afinidad mágica</div>
+          <div class="empty-text muted">
+            Tu raza y herencia no te permiten canalizar maná. La magia no es para todos.
+          </div>
+        </div>
+      `;
+    }
 
     const knownIds = p.spells || [];
-    const known = knownIds
-      .map((id) => A.Data.getById('spells', id))
-      .filter(Boolean);
+    const known = knownIds.map((id) => A.Data.getById('spells', id)).filter(Boolean);
 
-    mainEl.innerHTML = `
-      <section class="magic-view">
-
-        <div class="magic-header">
-          <h2 class="tab-title">Grimorio</h2>
-          <div class="mana-readout">
-            <span class="dim">Maná disponible</span>
-            <span class="num">${p.mana} / ${p.maxMana}</span>
-          </div>
+    return `
+      <div class="magic-modal-body">
+        <div class="mana-readout">
+          <span class="dim">Maná disponible</span>
+          <span class="num">${p.mana} / ${p.maxMana}</span>
         </div>
 
         ${known.length === 0 ? `
@@ -44,8 +47,7 @@
             ${known.map(spellCard).join('')}
           </div>
         `}
-
-      </section>
+      </div>
     `;
   }
 
@@ -65,21 +67,13 @@
     `;
   }
 
-  // Re-render al cambiar maná
-  A.Bus.on('player:mana-changed', () => {
-    if (A.State.ui.activeTab === 'magic') render();
-  });
-
-  const MagicView = {
-    mount(container) {
-      mainEl = container;
-      render();
-    },
-    unmount() {
-      if (mainEl) mainEl.innerHTML = '';
-    },
-  };
-
   A.Views = A.Views || {};
-  A.Views.Magic = MagicView;
+  A.Views.Magic = {
+    renderHtml,
+    // mount() ya no se usa porque Magia no es tab. Lo dejamos como noop por compatibilidad.
+    mount(container) {
+      container.innerHTML = renderHtml();
+    },
+    unmount() {},
+  };
 })(window.Aventurs);

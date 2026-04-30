@@ -1,6 +1,13 @@
 /* ============================================================
    Aventurs — View: Shell
-   Header + main + sidebar + footer. Monta tabs según State.ui.activeTab.
+   Header + main + sidebar + footer.
+
+   Cambios v1.1.0:
+     - Quitada la tab "Magia" del nav.
+     - Agregado botón "Magia" en el sidebar al lado del nombre, solo si
+       player.hasMagic === true.
+     - Sidebar agrega mini-grid 2x5 del inventario debajo de los stats.
+     - Header indicador de viaje en curso.
    ============================================================ */
 
 (function (A) {
@@ -12,10 +19,10 @@
   let unsubscribers = [];
 
   function tabConfig() {
+    // Magia ya NO es una tab; queda accesible solo desde botón en sidebar.
     return [
       { id: 'world', label: 'Mundo', view: 'World' },
       { id: 'inventory', label: 'Inventario', view: 'Inventory' },
-      { id: 'magic', label: 'Magia', view: 'Magic' },
       { id: 'chronicles', label: 'Crónicas', view: 'Chronicles' },
     ];
   }
@@ -23,9 +30,14 @@
   function render() {
     if (!rootEl) return;
     const player = A.State.player;
-    const region = player ? A.Data.getById('regions', A.State.world.regionId) : null;
     const tabs = tabConfig();
     const activeTab = A.State.ui.activeTab || 'world';
+    // Si viene de save anterior con activeTab='magic' y ahora no es tab, lo redirigimos.
+    let validTab = activeTab;
+    if (!tabs.find((t) => t.id === activeTab)) {
+      validTab = 'world';
+      A.State.ui.activeTab = 'world';
+    }
 
     rootEl.innerHTML = `
       <div class="game-shell">
@@ -36,7 +48,7 @@
           </div>
           <nav class="shell-nav">
             ${tabs.map((t) => `
-              <button class="nav-tab ${t.id === activeTab ? 'is-active' : ''}" data-tab="${t.id}">
+              <button class="nav-tab ${t.id === validTab ? 'is-active' : ''}" data-tab="${t.id}">
                 ${A.Utils.escapeHtml(t.label)}
               </button>
             `).join('')}
@@ -54,7 +66,7 @@
         </div>
 
         <footer class="shell-footer">
-          <span class="version-pill">v1.0.0 · Fase 1</span>
+          <span class="version-pill">v1.1.0 · Fase 1</span>
         </footer>
       </div>
     `;
@@ -77,13 +89,17 @@
     const armor = p.equipment.armor ? A.Data.getById('armors', p.equipment.armor) : null;
     const xpToNext = xpForLevel(p.level + 1);
     const region = A.State.world ? A.Data.getById('regions', A.State.world.regionId) : null;
+    const bag = A.Data.getById('bags', p.bagId) || A.Data.getById('bags', A.State.DEFAULT_BAG_ID);
 
     sidebarEl.innerHTML = `
       <div class="sidebar-card">
         <div class="char-header">
           <div class="char-avatar">${race ? race.icon : '👤'}</div>
           <div class="char-id">
-            <div class="char-name">${A.Utils.escapeHtml(p.name)}</div>
+            <div class="char-name-row">
+              <span class="char-name">${A.Utils.escapeHtml(p.name)}</span>
+              ${p.hasMagic ? `<button class="magic-btn" data-action="open-magic" title="Magia">✨</button>` : ''}
+            </div>
             <div class="char-meta dim">${race ? race.name : '—'} · Nv ${p.level}</div>
           </div>
         </div>
@@ -95,11 +111,13 @@
           </div>
           <div class="bar bar-hp"><span style="width:${pct(p.hp, p.maxHp)}%"></span></div>
 
-          <div class="bar-row">
-            <span class="bar-label">Maná</span>
-            <span class="bar-val num">${p.mana}/${p.maxMana}</span>
-          </div>
-          <div class="bar bar-mana"><span style="width:${pct(p.mana, p.maxMana)}%"></span></div>
+          ${p.hasMagic ? `
+            <div class="bar-row">
+              <span class="bar-label">Maná</span>
+              <span class="bar-val num">${p.mana}/${p.maxMana}</span>
+            </div>
+            <div class="bar bar-mana"><span style="width:${pct(p.mana, p.maxMana)}%"></span></div>
+          ` : ''}
 
           <div class="bar-row">
             <span class="bar-label">XP</span>
@@ -131,7 +149,65 @@
           <span class="num">${A.Currency.formatWallet()}</span>
         </div>
 
+        ${p.pet ? `
+          <div class="pet-row">
+            <span class="pet-icon">${p.pet.icon || '🐾'}</span>
+            <span class="dim">Mascota</span>
+            <span>${A.Utils.escapeHtml(p.pet.name)}</span>
+          </div>
+        ` : ''}
+
+        ${renderMiniInventory(bag)}
+
         ${region ? `<div class="loc-pill"><span>${region.icon || '📍'}</span> <span>${A.Utils.escapeHtml(region.name)}</span></div>` : ''}
+      </div>
+    `;
+
+    bindSidebarEvents();
+  }
+
+  function renderMiniInventory(bag) {
+    const p = A.State.player;
+    const cap = bag ? bag.slots : 10;
+    const used = A.State.inventoryUsedSlots();
+    const visibleSlots = 10; // 2x5 grid
+
+    // No-coin inventory items
+    const items = (p.inventory || []).filter((s) => {
+      const it = A.Data.getById('items', s.itemId);
+      return !it || it.subtype !== 'coin';
+    });
+    const visible = items.slice(0, visibleSlots);
+    const overflow = Math.max(0, items.length - visibleSlots);
+
+    const cells = [];
+    for (let i = 0; i < visibleSlots; i++) {
+      const slot = visible[i];
+      if (slot) {
+        const data = A.Inventory.resolveData(slot.itemId);
+        const icon = data ? (data.icon || '📦') : '📦';
+        const qty = slot.qty > 1 ? `<span class="mini-qty num">${slot.qty}</span>` : '';
+        cells.push(`
+          <button class="mini-slot is-filled" data-mini-item="${A.Utils.escapeHtml(slot.itemId)}" title="${A.Utils.escapeHtml(data ? data.name : slot.itemId)}">
+            <span class="mini-icon">${icon}</span>
+            ${qty}
+          </button>
+        `);
+      } else {
+        cells.push(`<div class="mini-slot is-empty"></div>`);
+      }
+    }
+
+    return `
+      <div class="mini-inv-block">
+        <div class="mini-inv-header">
+          <span class="dim">Mochila</span>
+          <span class="num">${used} / ${cap}</span>
+        </div>
+        <div class="mini-grid">
+          ${cells.join('')}
+        </div>
+        ${overflow > 0 ? `<button class="mini-overflow" data-action="open-inventory">+${overflow} más en inventario</button>` : ''}
       </div>
     `;
   }
@@ -139,7 +215,7 @@
   function renderActiveTab() {
     if (!mainEl) return;
     const tab = A.State.ui.activeTab || 'world';
-    const map = { world: 'World', inventory: 'Inventory', magic: 'Magic', chronicles: 'Chronicles' };
+    const map = { world: 'World', inventory: 'Inventory', chronicles: 'Chronicles' };
     const viewName = map[tab];
     const view = A.Views[viewName];
     if (view && view.mount) {
@@ -151,12 +227,21 @@
 
   function bindEvents() {
     rootEl.querySelectorAll('.nav-tab').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        A.State.setTab(btn.dataset.tab);
-      });
+      btn.addEventListener('click', () => A.State.setTab(btn.dataset.tab));
     });
     rootEl.querySelectorAll('[data-action]').forEach((btn) => {
       btn.addEventListener('click', () => handleAction(btn.dataset.action));
+    });
+  }
+
+  function bindSidebarEvents() {
+    sidebarEl.querySelectorAll('[data-action]').forEach((btn) => {
+      btn.addEventListener('click', () => handleAction(btn.dataset.action));
+    });
+    sidebarEl.querySelectorAll('[data-mini-item]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        A.State.openModal('item-detail', { itemId: btn.dataset.miniItem });
+      });
     });
   }
 
@@ -167,6 +252,10 @@
       A.State.openModal('rules');
     } else if (action === 'menu') {
       A.State.openModal('menu');
+    } else if (action === 'open-magic') {
+      A.State.openModal('magic');
+    } else if (action === 'open-inventory') {
+      A.State.setTab('inventory');
     }
   }
 
@@ -181,7 +270,6 @@
 
   function subscribe() {
     unsubscribers.push(A.Bus.on('view:changed', renderActiveTab));
-    unsubscribers.push(A.Bus.on('state:changed', render));
     unsubscribers.push(A.Bus.on('player:hp-changed', renderSidebar));
     unsubscribers.push(A.Bus.on('player:mana-changed', renderSidebar));
     unsubscribers.push(A.Bus.on('player:xp-changed', renderSidebar));
@@ -189,8 +277,14 @@
     unsubscribers.push(A.Bus.on('inventory:changed', renderSidebar));
     unsubscribers.push(A.Bus.on('inventory:equipped', renderSidebar));
     unsubscribers.push(A.Bus.on('inventory:unequipped', renderSidebar));
+    unsubscribers.push(A.Bus.on('bag:equipped', renderSidebar));
     unsubscribers.push(A.Bus.on('currency:changed', renderSidebar));
     unsubscribers.push(A.Bus.on('region:changed', () => { renderSidebar(); renderActiveTab(); }));
+    unsubscribers.push(A.Bus.on('travel:started', () => renderActiveTab()));
+    unsubscribers.push(A.Bus.on('travel:step', () => renderActiveTab()));
+    unsubscribers.push(A.Bus.on('travel:completed', () => { renderSidebar(); renderActiveTab(); }));
+    unsubscribers.push(A.Bus.on('travel:cancelled', renderActiveTab));
+    unsubscribers.push(A.Bus.on('tame:success', renderSidebar));
     unsubscribers.push(A.Bus.on('chronicle:added', () => {
       if (A.State.ui.activeTab === 'chronicles') renderActiveTab();
     }));

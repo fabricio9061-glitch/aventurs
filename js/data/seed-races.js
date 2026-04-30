@@ -23,6 +23,7 @@
       icon: '🧑',
       sprite: '',
       combatType: 'hybrid',
+      magicChance: 0.40,
       bonuses: { hp: 4, mana: 2, speed: 1, precision: 1, armor: 0, damage: 0, dodge: 1 },
       description: 'Adaptables y resistentes. Equilibrados en todo, dominantes en nada. La raza más común de los reinos del centro.',
     },
@@ -32,6 +33,7 @@
       icon: '🧝',
       sprite: '',
       combatType: 'hybrid',
+      magicChance: 0.70,
       bonuses: { hp: -2, mana: 4, speed: 3, precision: 2, armor: 0, damage: 0, dodge: 2 },
       description: 'Ágiles y de instinto certero. Viven mil años bajo los bosques antiguos y rara vez bajan al mundo de los hombres.',
     },
@@ -59,6 +61,7 @@
       icon: '🧚',
       sprite: '',
       combatType: 'hybrid',
+      magicChance: 0.30,
       bonuses: { hp: -3, mana: 1, speed: 4, precision: 2, armor: 0, damage: 0, dodge: 4 },
       description: 'Pequeños y silenciosos. Lo que pierden en fuerza lo ganan en velocidad y picardía.',
     },
@@ -95,6 +98,7 @@
       icon: '🐉',
       sprite: '',
       combatType: 'hybrid',
+      magicChance: 0.60,
       bonuses: { hp: 3, mana: 3, speed: 0, precision: 0, armor: 1, damage: 2, dodge: 0 },
       description: 'Descendientes de dragones antiguos. Escamas duras, sangre caliente y orgullo más antiguo que los reinos.',
     },
@@ -132,8 +136,26 @@
     };
   }
 
+  /**
+   * Decide si un personaje recién creado puede usar magia, según su raza.
+   *   - mage   -> siempre true
+   *   - warrior-> siempre false
+   *   - hybrid -> roll contra magicChance (default 0.40 si no está definido)
+   *
+   * Devuelve true / false.
+   */
+  function rollMagicForRace(raceId) {
+    const race = RACES.find((r) => r.id === raceId);
+    if (!race) return false;
+    if (race.combatType === 'mage') return true;
+    if (race.combatType === 'warrior') return false;
+    const chance = typeof race.magicChance === 'number' ? race.magicChance : 0.40;
+    return Math.random() < chance;
+  }
+
   A.Seed = A.Seed || {};
   A.Seed.races = RACES;
   A.Seed.baseStats = BASE_STATS;
   A.Seed.statsForRace = statsForRace;
+  A.Seed.rollMagicForRace = rollMagicForRace;
 })(window.Aventurs);

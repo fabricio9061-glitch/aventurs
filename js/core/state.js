@@ -4,6 +4,7 @@
 
    Estructura:
      player     - { name, raceId, level, xp, hp, maxHp, mana, maxMana,
+                    hasMagic, bagId, pet,
                     stats: {speed, precision, armor, damage, dodge},
                     equipment: {weapon, armor},
                     inventory: [{itemId, qty}],
@@ -11,6 +12,7 @@
                     spells: [spellId] }
      world      - { regionId, visited:[regionId], npcsTalked:[npcId] }
      combat     - null o { ... } (Fase 2)
+     traveling  - null o { fromId, toId, totalSteps, currentStep, events, completed }
      ui         - { activeTab, openModal, modalPayload }
      chronicles - [{ ts, type, text, regionId }]
    ============================================================ */
@@ -19,12 +21,13 @@
   'use strict';
 
   const STORAGE_KEY = 'aventurs:save';
-  const INVENTORY_SLOTS = 10;
+  const DEFAULT_BAG_ID = 'bag_basic';
 
   const State = {
     player: null,
     world: null,
     combat: null,
+    traveling: null,
     ui: { activeTab: 'world', openModal: null, modalPayload: null },
     chronicles: [],
 
@@ -38,8 +41,10 @@
         State.player = data.player || null;
         State.world = data.world || null;
         State.combat = null;
+        State.traveling = data.traveling || null;
         State.ui = data.ui || { activeTab: 'world', openModal: null, modalPayload: null };
         State.chronicles = data.chronicles || [];
+        State._migrate();
         A.Bus.emit('state:loaded');
         return true;
       } catch (err) {
@@ -48,11 +53,37 @@
       }
     },
 
+    /**
+     * Migración silenciosa de saves anteriores a la estructura nueva.
+     * Si el player no tiene hasMagic / bagId / pet, los completa.
+     */
+    _migrate() {
+      const p = State.player;
+      if (!p) return;
+      let dirty = false;
+      if (p.hasMagic === undefined) {
+        p.hasMagic = A.Seed.rollMagicForRace(p.raceId);
+        if (!p.hasMagic) {
+          p.mana = 0;
+          p.maxMana = 0;
+        }
+        dirty = true;
+      }
+      if (!p.bagId) { p.bagId = DEFAULT_BAG_ID; dirty = true; }
+      if (p.pet === undefined) { p.pet = null; dirty = true; }
+      if (!p.spells) { p.spells = []; dirty = true; }
+      if (dirty) {
+        State.persist();
+        console.log('[State] Save migrado a estructura v1.1.0');
+      }
+    },
+
     persist() {
       try {
         const data = {
           player: State.player,
           world: State.world,
+          traveling: State.traveling,
           ui: State.ui,
           chronicles: State.chronicles,
         };
@@ -67,6 +98,7 @@
       State.player = null;
       State.world = null;
       State.combat = null;
+      State.traveling = null;
       State.ui = { activeTab: 'world', openModal: null, modalPayload: null };
       State.chronicles = [];
       try { localStorage.removeItem(STORAGE_KEY); } catch (e) {}
@@ -86,6 +118,8 @@
       const stats = A.Seed.statsForRace(raceId);
       if (!stats) throw new Error('Raza inválida: ' + raceId);
 
+      const hasMagic = A.Seed.rollMagicForRace(raceId);
+
       State.player = {
         name: (name || 'Aventurero').trim().slice(0, 24),
         raceId,
@@ -93,8 +127,11 @@
         xp: 0,
         hp: stats.maxHp,
         maxHp: stats.maxHp,
-        mana: stats.maxMana,
-        maxMana: stats.maxMana,
+        mana: hasMagic ? stats.maxMana : 0,
+        maxMana: hasMagic ? stats.maxMana : 0,
+        hasMagic,
+        bagId: DEFAULT_BAG_ID,
+        pet: null,
         stats: {
           speed: stats.speed,
           precision: stats.precision,
@@ -117,9 +154,11 @@
         npcsTalked: [],
       };
 
+      State.traveling = null;
       State.ui = { activeTab: 'world', openModal: null, modalPayload: null };
       State.chronicles = [];
-      State.addChronicle({ type: 'system', text: `${State.player.name} comienza su aventura en el Pueblo Inicial.` });
+      const magicNote = hasMagic ? ' Sentís el zumbido del maná en las venas.' : '';
+      State.addChronicle({ type: 'system', text: `${State.player.name} comienza su aventura en el Pueblo Inicial.${magicNote}` });
 
       A.Bus.emit('player:created', { player: State.player });
       State.persist();
@@ -198,11 +237,33 @@
     },
 
     inventoryCapacity() {
-      return INVENTORY_SLOTS;
+      if (!State.player) return 0;
+      const bag = A.Data.getById('bags', State.player.bagId || DEFAULT_BAG_ID);
+      return bag ? bag.slots : 10;
     },
 
     inventoryHasSpace() {
       return State.inventoryUsedSlots() < State.inventoryCapacity();
+    },
+
+    /**
+     * Cambia la mochila equipada. Falla si la nueva tiene menos slots que items
+     * actuales en el inventario.
+     * Devuelve { ok: bool, error?: string }
+     */
+    setBag(bagId) {
+      if (!State.player) return { ok: false, error: 'Sin personaje.' };
+      const bag = A.Data.getById('bags', bagId);
+      if (!bag) return { ok: false, error: 'Mochila inexistente.' };
+      const used = State.inventoryUsedSlots();
+      if (used > bag.slots) {
+        return { ok: false, error: `La mochila tiene ${bag.slots} slots y llevas ${used} items. Tira o guarda algo primero.` };
+      }
+      State.player.bagId = bagId;
+      A.Bus.emit('bag:equipped', { bagId });
+      A.Bus.emit('inventory:changed');
+      State.persist();
+      return { ok: true };
     },
 
     addItem(itemId, qty = 1) {
@@ -306,7 +367,7 @@
       A.Bus.emit('modal:close', { id });
     },
 
-    INVENTORY_SLOTS,
+    DEFAULT_BAG_ID,
   };
 
   A.State = State;

@@ -35,6 +35,7 @@
     { key: 'weapons', label: 'Armas', icon: '⚔️' },
     { key: 'armors', label: 'Armaduras', icon: '🛡️' },
     { key: 'items', label: 'Items', icon: '🎒' },
+    { key: 'bags', label: 'Mochilas', icon: '🧳' },
     { key: 'enemies', label: 'Enemigos', icon: '👹' },
     { key: 'npcs', label: 'NPCs', icon: '🧑' },
     { key: 'spells', label: 'Hechizos', icon: '✨' },
@@ -238,6 +239,8 @@
         return { ...base, ingredients: [], result: '', workshop: 'forge', tier: 1, description: '' };
       case 'pets':
         return { ...base, icon: '🐾', species: 'beast', tier: 1, health: 10, damage: 2, speed: 8, armor: 0, tameDifficulty: 20, description: '' };
+      case 'bags':
+        return { ...base, icon: '🎒', slots: 10, value: 0, rarity: 'common', tier: 1, description: '' };
       default:
         return base;
     }
@@ -258,6 +261,7 @@
       case 'spells': body = formSpells(e); break;
       case 'recipes': body = formRecipes(e); break;
       case 'pets': body = formPets(e); break;
+      case 'bags': body = formBags(e); break;
     }
     return `
       <div class="detail-toolbar">
@@ -340,6 +344,7 @@
       row('Tipo de combate', sel('combatType', e.combatType, [
         {value:'warrior',label:'Guerrero'},{value:'mage',label:'Mago'},{value:'hybrid',label:'Híbrido'},
       ])),
+      row('Probabilidad magia (0-1, solo hybrid)', inp('magicChance', e.magicChance ?? 0.4, 'number', 'min="0" max="1" step="0.05"')),
       row('Bonus HP', inp('bonuses.hp', e.bonuses.hp, 'number')),
       row('Bonus Maná', inp('bonuses.mana', e.bonuses.mana, 'number')),
       row('Bonus Velocidad', inp('bonuses.speed', e.bonuses.speed, 'number')),
@@ -455,6 +460,7 @@
       row('Loot mínimo (cobre)', inp('coinLoot.0', (e.coinLoot||[0,0])[0], 'number')),
       row('Loot máximo (cobre)', inp('coinLoot.1', (e.coinLoot||[0,0])[1], 'number')),
       row('Regiones (csv)', arr('regions', e.regions)),
+      row('Domable', chk('tameable', e.tameable)),
       row('AutoLoot habilitado', chk('autoLoot', e.autoLoot)),
       `<div class="form-row form-row-block">
         <label>Drops manuales</label>
@@ -544,6 +550,22 @@
       row('Armadura', inp('armor', e.armor, 'number')),
       row('Dificultad de doma', inp('tameDifficulty', e.tameDifficulty, 'number')),
       row('Comida requerida (id)', inp('requiredFood', e.requiredFood)),
+      row('Descripción', txt('description', e.description, 3)),
+    ].join('');
+  }
+
+  function formBags(e) {
+    return [
+      row('ID', inp('id', e.id)),
+      row('Nombre', inp('name', e.name)),
+      row('Icono', inp('icon', e.icon)),
+      row('Slots', inp('slots', e.slots, 'number', 'min="1" max="100"')),
+      row('Valor (cobre)', inp('value', e.value, 'number')),
+      row('Rareza', sel('rarity', e.rarity, [
+        {value:'common',label:'Común'},{value:'uncommon',label:'Poco común'},{value:'rare',label:'Raro'},
+        {value:'epic',label:'Épico'},{value:'legendary',label:'Legendario'},
+      ])),
+      row('Tier', inp('tier', e.tier, 'number', 'min="1" max="10"')),
       row('Descripción', txt('description', e.description, 3)),
     ].join('');
   }

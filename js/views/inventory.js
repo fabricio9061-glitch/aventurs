@@ -1,7 +1,11 @@
 /* ============================================================
    Aventurs — View: Inventory (Tab Inventario)
-   Equipamiento (arma, armadura) + grid de items.
-   Click en item abre modal item-detail con Equipar/Usar/Tirar.
+
+   Cambios v1.1.0:
+     - Mochila equipada arriba con botón "Cambiar mochila".
+     - Grid de slots según la capacidad de la mochila (slots vacíos
+       se muestran como espacios disponibles).
+     - Equipamiento (arma/armadura) sigue arriba.
    ============================================================ */
 
 (function (A) {
@@ -16,15 +20,29 @@
 
     const weapon = p.equipment.weapon ? A.Data.getById('weapons', p.equipment.weapon) : null;
     const armor = p.equipment.armor ? A.Data.getById('armors', p.equipment.armor) : null;
+    const bag = A.Data.getById('bags', p.bagId) || A.Data.getById('bags', A.State.DEFAULT_BAG_ID);
+    const cap = bag ? bag.slots : 10;
+    const used = A.State.inventoryUsedSlots();
+
+    // Items no-coin
+    const items = (p.inventory || []).filter((s) => {
+      const it = A.Data.getById('items', s.itemId);
+      return !it || it.subtype !== 'coin';
+    });
+
+    // Slots: items + relleno vacío hasta cap
+    const cells = [];
+    for (let i = 0; i < cap; i++) {
+      if (items[i]) cells.push(renderSlot(items[i]));
+      else cells.push(`<div class="bag-slot is-empty" aria-label="Slot vacío"></div>`);
+    }
 
     mainEl.innerHTML = `
       <section class="inv-view">
 
         <div class="inv-header">
           <h2 class="tab-title">Inventario</h2>
-          <div class="inv-cap dim">
-            ${A.State.inventoryUsedSlots()} / ${A.State.inventoryCapacity()} espacios
-          </div>
+          <div class="inv-cap dim">${used} / ${cap} slots</div>
         </div>
 
         <section class="inv-block">
@@ -36,20 +54,39 @@
         </section>
 
         <section class="inv-block">
-          <div class="block-title">Mochila</div>
-          ${p.inventory.length === 0 ? `
-            <div class="muted">No llevas nada.</div>
-          ` : `
-            <div class="item-list">
-              ${p.inventory.map((slot) => itemRow(slot)).join('')}
+          <div class="bag-header">
+            <div class="bag-title">
+              <span class="bag-icon-big">${bag ? bag.icon : '🎒'}</span>
+              <div>
+                <div class="bag-name">${A.Utils.escapeHtml(bag ? bag.name : 'Mochila')}</div>
+                <div class="bag-meta dim">${cap} slots · ${rarityLabel(bag ? bag.rarity : 'common')}</div>
+              </div>
             </div>
-          `}
+            <button class="btn-secondary" data-action="change-bag">Cambiar mochila</button>
+          </div>
+          <div class="bag-grid">
+            ${cells.join('')}
+          </div>
         </section>
 
       </section>
     `;
 
     bindEvents();
+  }
+
+  function renderSlot(slot) {
+    const data = A.Inventory.resolveData(slot.itemId);
+    if (!data) return `<div class="bag-slot is-empty"></div>`;
+    const icon = data.icon || '📦';
+    const qty = slot.qty > 1 ? `<span class="bag-slot-qty num">${slot.qty}</span>` : '';
+    return `
+      <button class="bag-slot is-filled" data-item="${A.Utils.escapeHtml(slot.itemId)}" title="${A.Utils.escapeHtml(data.name)}">
+        <span class="bag-slot-icon">${icon}</span>
+        <span class="bag-slot-name">${A.Utils.escapeHtml(data.name)}</span>
+        ${qty}
+      </button>
+    `;
   }
 
   function equipSlot(label, equipped, slotName) {
@@ -79,38 +116,8 @@
     `;
   }
 
-  function itemRow(slot) {
-    const data = A.Inventory.resolveData(slot.itemId);
-    if (!data) return '';
-    const kind = A.Inventory.classifyItem(slot.itemId);
-    const typeLabel = kindLabel(kind);
-    const icon = data.icon || '📦';
-    const qtyStr = slot.qty > 1 ? `×${slot.qty}` : '';
-
-    return `
-      <button class="item-row" data-item="${slot.itemId}">
-        <div class="item-icon">${icon}</div>
-        <div class="item-info">
-          <div class="item-name">${A.Utils.escapeHtml(data.name)} <span class="num dim">${qtyStr}</span></div>
-          <div class="item-meta dim">${typeLabel}${kind === 'weapon' ? ` · Daño ${data.damage}` : ''}${kind === 'armor' ? ` · Defensa +${data.defense}` : ''}</div>
-        </div>
-        <div class="item-arrow dim">›</div>
-      </button>
-    `;
-  }
-
-  function kindLabel(k) {
-    return {
-      weapon: 'Arma', armor: 'Armadura', consumable: 'Consumible',
-      material: 'Material', misc: 'Objeto', coin: 'Moneda',
-    }[k] || 'Objeto';
-  }
-
   function rarityLabel(r) {
-    return {
-      common: 'Común', uncommon: 'Poco común', rare: 'Raro',
-      epic: 'Épico', legendary: 'Legendario',
-    }[r] || r;
+    return ({ common: 'Común', uncommon: 'Poco común', rare: 'Raro', epic: 'Épico', legendary: 'Legendario' })[r] || r;
   }
 
   function bindEvents() {
@@ -125,18 +132,10 @@
         A.Inventory.unequip(btn.dataset.unequip);
       });
     });
+    mainEl.querySelectorAll('[data-action="change-bag"]').forEach((btn) => {
+      btn.addEventListener('click', () => A.State.openModal('change-bag'));
+    });
   }
-
-  const InventoryView = {
-    mount(container) {
-      mainEl = container;
-      render();
-    },
-    unmount() {
-      if (mainEl) mainEl.innerHTML = '';
-    },
-    rerender: render,
-  };
 
   // Re-render automático ante cambios
   A.Bus.on('inventory:changed', () => {
@@ -148,6 +147,20 @@
   A.Bus.on('inventory:unequipped', () => {
     if (A.State.ui.activeTab === 'inventory') render();
   });
+  A.Bus.on('bag:equipped', () => {
+    if (A.State.ui.activeTab === 'inventory') render();
+  });
+
+  const InventoryView = {
+    mount(container) {
+      mainEl = container;
+      render();
+    },
+    unmount() {
+      if (mainEl) mainEl.innerHTML = '';
+    },
+    rerender: render,
+  };
 
   A.Views = A.Views || {};
   A.Views.Inventory = InventoryView;

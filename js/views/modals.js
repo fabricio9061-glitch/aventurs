@@ -39,6 +39,11 @@
       case 'rules': html = renderRules(); break;
       case 'menu': html = renderMenu(); break;
       case 'confirm': html = renderConfirm(payload); break;
+      case 'creature': html = renderCreature(payload); break;
+      case 'all-creatures': html = renderAllCreatures(payload); break;
+      case 'tame': html = renderTame(payload); break;
+      case 'change-bag': html = renderChangeBag(); break;
+      case 'magic': html = renderMagic(); break;
       default: html = `<div class="modal"><div class="modal-body">Modal "${id}" desconocido.</div></div>`;
     }
 
@@ -218,6 +223,159 @@
     return modalShell(title || 'Confirmar', inner);
   }
 
+  // ---------- Creature (info / domar) ----------
+
+  function renderCreature({ enemyId }) {
+    const e = A.Data.getById('enemies', enemyId);
+    if (!e) return modalShell('Criatura', `<p class="muted">No encontrada.</p>`);
+    const families = (e.family || []).map(escapeChip).join(' ');
+    const tags = (e.tags || []).map(escapeChip).join(' ');
+    const canTame = !!e.tameable;
+    const havePet = !!A.State.player.pet;
+    const body = `
+      <div class="creature-modal">
+        <div class="creature-modal-header">
+          <div class="creature-modal-icon">${e.icon || '👹'}</div>
+          <div>
+            <div class="creature-modal-name">${A.Utils.escapeHtml(e.name)}</div>
+            <div class="creature-modal-meta dim">
+              <span class="pill pill-tier">Tier ${e.tier}</span>
+              <span class="pill">${categoryLabel(e.category)}</span>
+              ${canTame ? `<span class="pill pill-tameable">Domable</span>` : ''}
+            </div>
+          </div>
+        </div>
+        <div class="creature-stats">
+          <div class="stat-row"><span class="dim">Salud</span><span class="num">${e.health}</span></div>
+          <div class="stat-row"><span class="dim">Daño</span><span class="num">${e.damage}</span></div>
+          <div class="stat-row"><span class="dim">Armadura</span><span class="num">${e.armor}</span></div>
+          <div class="stat-row"><span class="dim">Velocidad</span><span class="num">${e.speed}</span></div>
+        </div>
+        ${families ? `<div class="creature-chips">${families}</div>` : ''}
+        ${tags ? `<div class="creature-chips">${tags}</div>` : ''}
+        <div class="creature-actions">
+          ${canTame && !havePet ? `
+            <button class="btn-primary" data-creature-action="tame" data-enemy-id="${A.Utils.escapeHtml(e.id)}">
+              Intentar domar
+            </button>
+          ` : ''}
+          ${canTame && havePet ? `
+            <span class="muted small">Ya tienes una mascota. Liberá a ${A.Utils.escapeHtml(A.State.player.pet.name)} antes de domar otra.</span>
+          ` : ''}
+          ${!canTame ? `
+            <span class="muted small">Esta criatura no puede ser domada.</span>
+          ` : ''}
+        </div>
+      </div>
+    `;
+    return modalShell(e.name, body);
+  }
+
+  function escapeChip(s) {
+    return `<span class="creature-chip-mini">${A.Utils.escapeHtml(s)}</span>`;
+  }
+
+  function categoryLabel(c) {
+    return ({ weak: 'Débil', normal: 'Normal', strong: 'Fuerte', boss: 'Jefe' })[c] || c;
+  }
+
+  // ---------- All creatures de una región ----------
+
+  function renderAllCreatures({ regionId }) {
+    const region = A.Data.getById('regions', regionId);
+    const enemies = A.Data.enemiesInRegion(regionId);
+    if (!region || enemies.length === 0) {
+      return modalShell('Criaturas', `<p class="muted">Sin información para esta región.</p>`);
+    }
+    const body = `
+      <div class="all-creatures-modal">
+        <p class="muted">${enemies.length} criaturas pueden aparecer en ${A.Utils.escapeHtml(region.name)}.</p>
+        <div class="creature-list">
+          ${enemies.map((e) => `
+            <button class="creature-list-row" data-creature="${A.Utils.escapeHtml(e.id)}">
+              <span class="creature-list-icon">${e.icon || '👹'}</span>
+              <span class="creature-list-info">
+                <span class="creature-list-name">${A.Utils.escapeHtml(e.name)}</span>
+                <span class="creature-list-meta dim">
+                  Tier ${e.tier} · ${categoryLabel(e.category)}${e.tameable ? ' · domable' : ''}
+                </span>
+              </span>
+              <span class="creature-list-arrow dim">›</span>
+            </button>
+          `).join('')}
+        </div>
+      </div>
+    `;
+    return modalShell(`Criaturas — ${region.name}`, body);
+  }
+
+  // ---------- Tame ----------
+
+  function renderTame({ enemyId, fromTravel }) {
+    const e = A.Data.getById('enemies', enemyId);
+    if (!e) return modalShell('Domar', `<p class="muted">Criatura no encontrada.</p>`);
+    const target = A.Tame.TARGET_BY_CAT[e.category] || 13;
+    const body = `
+      <div class="tame-modal">
+        <div class="tame-icon">${e.icon || '🐾'}</div>
+        <p class="tame-text">
+          Te acercas con cautela a ${A.Utils.escapeHtml(e.name)}. Una sola tirada decide si te acepta.
+        </p>
+        <div class="tame-info">
+          <div class="dim">Dificultad de doma:</div>
+          <div class="num">${target} (en d20 + nivel)</div>
+        </div>
+        <div class="tame-actions">
+          <button class="btn-primary" data-tame-action="attempt" data-enemy-id="${A.Utils.escapeHtml(e.id)}" data-from-travel="${fromTravel ? '1' : '0'}">Tirar</button>
+          <button class="btn-ghost" data-tame-action="cancel">Cancelar</button>
+        </div>
+      </div>
+    `;
+    return modalShell(`Domar a ${e.name}`, body);
+  }
+
+  // ---------- Change bag ----------
+
+  function renderChangeBag() {
+    const p = A.State.player;
+    const used = A.State.inventoryUsedSlots();
+    const bags = A.Data.bags || [];
+    const body = `
+      <div class="change-bag-modal">
+        <p class="muted">Elige una mochila. Si tiene menos slots que tus items actuales, no podrás equiparla.</p>
+        <div class="bag-list">
+          ${bags.map((b) => {
+            const isCurrent = b.id === p.bagId;
+            const tooSmall = b.slots < used;
+            const cls = `bag-option ${isCurrent ? 'is-current' : ''} ${tooSmall ? 'is-disabled' : ''}`;
+            return `
+              <button class="${cls}" data-bag="${A.Utils.escapeHtml(b.id)}" ${tooSmall ? 'disabled' : ''}>
+                <span class="bag-option-icon">${b.icon || '🎒'}</span>
+                <span class="bag-option-info">
+                  <span class="bag-option-name">${A.Utils.escapeHtml(b.name)}</span>
+                  <span class="bag-option-meta dim">${b.slots} slots · ${A.Utils.escapeHtml(rarityLabel(b.rarity))}</span>
+                  ${tooSmall ? `<span class="bag-option-warn">No alcanza para ${used} items</span>` : ''}
+                </span>
+                ${isCurrent ? `<span class="pill">Actual</span>` : ''}
+              </button>
+            `;
+          }).join('')}
+        </div>
+      </div>
+    `;
+    return modalShell('Cambiar mochila', body);
+  }
+
+  // ---------- Magic ----------
+
+  function renderMagic() {
+    return modalShell('Grimorio', A.Views.Magic.renderHtml());
+  }
+
+  function rarityLabel(r) {
+    return ({ common: 'Común', uncommon: 'Poco común', rare: 'Raro', epic: 'Épico', legendary: 'Legendario' })[r] || r;
+  }
+
   // ---------- Shell helpers ----------
 
   function modalShell(title, bodyHtml) {
@@ -260,6 +418,74 @@
           } else {
             confirmCallback = null;
             A.State.closeModal();
+          }
+        });
+      });
+    }
+
+    if (id === 'creature') {
+      overlay.querySelectorAll('[data-creature-action]').forEach((b) => {
+        b.addEventListener('click', () => {
+          if (b.dataset.creatureAction === 'tame') {
+            A.State.openModal('tame', { enemyId: b.dataset.enemyId });
+          }
+        });
+      });
+    }
+
+    if (id === 'all-creatures') {
+      overlay.querySelectorAll('[data-creature]').forEach((b) => {
+        b.addEventListener('click', () => {
+          A.State.openModal('creature', { enemyId: b.dataset.creature });
+        });
+      });
+    }
+
+    if (id === 'tame') {
+      overlay.querySelectorAll('[data-tame-action]').forEach((b) => {
+        b.addEventListener('click', () => {
+          const action = b.dataset.tameAction;
+          if (action === 'cancel') { A.State.closeModal(); return; }
+          if (action === 'attempt') {
+            const enemyId = b.dataset.enemyId;
+            const fromTravel = b.dataset.fromTravel === '1';
+            const result = A.Tame.attempt(enemyId);
+            // Si vino desde un encuentro de viaje, marcamos el evento como resuelto
+            if (fromTravel && A.State.traveling) {
+              const t = A.State.traveling;
+              const last = t.events[t.events.length - 1];
+              if (last && last.kind === 'creature') {
+                last.resolved = true;
+                last.text = result.success
+                  ? `Domaste a ${last.enemyName} en el camino.`
+                  : `${last.enemyName} no se dejó acercar (tirada ${result.roll} contra ${result.target}). Lograste evitarlo.`;
+                A.State.persist();
+              }
+            }
+            A.State.closeModal();
+            // Si el viaje seguía activo, avanzar un paso
+            if (fromTravel && A.State.traveling) A.Travel.step();
+          }
+        });
+      });
+    }
+
+    if (id === 'change-bag') {
+      overlay.querySelectorAll('[data-bag]').forEach((b) => {
+        if (b.disabled) return;
+        b.addEventListener('click', () => {
+          const result = A.State.setBag(b.dataset.bag);
+          if (result.ok) {
+            A.State.closeModal();
+          } else {
+            // Reusar el modal de confirm para mostrar error
+            A.State.closeModal();
+            Modals.confirm({
+              title: 'No se puede cambiar',
+              body: result.error,
+              danger: false,
+              onConfirm: () => {},
+            });
           }
         });
       });

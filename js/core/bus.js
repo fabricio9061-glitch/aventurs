@@ -20,10 +20,22 @@
    inventory:unequipped       - { slot, itemId }
    inventory:full             - Intento de agregar con inventario lleno
 
+   bag:equipped               - { bagId }       Mochila cambiada
+
    currency:changed           - { copper, silver, gold }
 
    region:changed             - { fromId, toId }
    region:visited             - { regionId }
+
+   travel:started             - { fromId, toId, totalSteps }
+   travel:step                - { currentStep, totalSteps }
+   travel:event               - { kind, payload }    Evento durante viaje
+   travel:completed           - { fromId, toId }
+   travel:cancelled           - { fromId }
+
+   tame:attempt               - { enemyId, success, roll, target }
+   tame:success               - { petId, name }
+   tame:failed                - { enemyId, roll, target }
 
    combat:started             - { enemies }
    combat:turn                - { actor, turnNumber }
