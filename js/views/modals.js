@@ -57,25 +57,28 @@
 
   // ---------- NPC ----------
 
-  function renderNpc({ npcId }) {
+  function renderNpc({ npcId, tab }) {
     const npc = A.Data.getById('npcs', npcId);
     if (!npc) return modalShell('NPC no encontrado', `<p class="muted">Algo salió mal.</p>`);
 
+    // Tabs disponibles según rol
+    const tabs = [];
+    tabs.push({ id: 'dialog', label: 'Hablar' });
+    if ((npc.sells || []).length > 0) tabs.push({ id: 'shop', label: 'Comerciar' });
+    if (npc.role === 'blacksmith') tabs.push({ id: 'craft', label: 'Forjar' });
+    if ((npc.teaches || []).length > 0) tabs.push({ id: 'learn', label: 'Aprender' });
+    if (npc.services && npc.services.restCost != null) tabs.push({ id: 'rest', label: 'Descansar' });
+
+    const activeTab = tab || tabs[0].id;
     const dialog = A.Utils.randomOf(npc.dialog || []) || '...';
 
-    const actions = [];
-    if (npc.role === 'merchant' || npc.role === 'shopkeeper' || npc.role === 'vendor' || npc.role === 'blacksmith') {
-      if ((npc.sells || []).length) {
-        actions.push({ id: 'shop', label: 'Comerciar' });
-      }
-    }
-    if (npc.role === 'tavernkeeper' || npc.role === 'innkeeper') {
-      if (npc.services && npc.services.restCost != null) {
-        actions.push({ id: 'rest', label: `Descansar (${npc.services.restCost}c)` });
-      }
-    }
-    if ((npc.role === 'sage' || npc.role === 'wizard' || npc.role === 'mage') && (npc.teaches || []).length) {
-      actions.push({ id: 'teach', label: 'Aprender hechizos' });
+    let bodyContent = '';
+    switch (activeTab) {
+      case 'dialog': bodyContent = renderNpcDialog(npc, dialog); break;
+      case 'shop': bodyContent = renderNpcShop(npc); break;
+      case 'craft': bodyContent = renderNpcCraft(npc); break;
+      case 'learn': bodyContent = renderNpcLearn(npc); break;
+      case 'rest': bodyContent = renderNpcRest(npc); break;
     }
 
     const body = `
@@ -87,20 +90,194 @@
             <div class="npc-modal-role dim">${roleLabel(npc.role)}</div>
           </div>
         </div>
-        <blockquote class="npc-dialog">${A.Utils.escapeHtml(dialog)}</blockquote>
-        ${actions.length ? `
-          <div class="npc-actions">
-            ${actions.map((a) => `
-              <button class="btn-secondary" data-npc-action="${a.id}" disabled>
-                ${A.Utils.escapeHtml(a.label)}
+        ${tabs.length > 1 ? `
+          <div class="npc-tabs">
+            ${tabs.map((t) => `
+              <button class="npc-tab ${t.id === activeTab ? 'is-active' : ''}" data-npc-tab="${t.id}" data-npc-id="${A.Utils.escapeHtml(npcId)}">
+                ${A.Utils.escapeHtml(t.label)}
               </button>
             `).join('')}
-            <div class="muted small">Las interacciones con NPCs (tienda, descanso pago, aprender) llegan en Fase 3.</div>
           </div>
         ` : ''}
+        <div class="npc-tab-content">
+          ${bodyContent}
+        </div>
       </div>
     `;
     return modalShell(npc.name, body);
+  }
+
+  function renderNpcDialog(npc, dialog) {
+    return `
+      <blockquote class="npc-dialog">${A.Utils.escapeHtml(dialog)}</blockquote>
+    `;
+  }
+
+  function renderNpcShop(npc) {
+    const items = (npc.sells || []).map((id) => {
+      const data = A.Inventory.resolveData(id);
+      if (!data) return null;
+      const price = A.NPC.getNpcSellPrice(npc, id);
+      const canPay = A.Currency.canPay(price);
+      return { id, data, price, canPay };
+    }).filter(Boolean);
+
+    // Sección de venta: items del jugador (no equipados, no monedas)
+    const p = A.State.player;
+    const sellable = (p.inventory || []).filter((s) => {
+      const d = A.Inventory.resolveData(s.itemId);
+      if (!d) return false;
+      if (d.subtype === 'coin') return false;
+      if (p.equipment.weapon === s.itemId || p.equipment.armor === s.itemId) return false;
+      return true;
+    });
+
+    return `
+      <div class="shop-modal">
+        <div class="shop-wallet dim">Tu cobre: <span class="num">${A.Currency.formatWallet()}</span></div>
+
+        <div class="shop-section">
+          <div class="shop-section-title">A la venta</div>
+          ${items.length === 0 ? `<div class="muted small">No tiene nada hoy.</div>` : `
+            <div class="shop-list">
+              ${items.map((it) => `
+                <div class="shop-row ${it.canPay ? '' : 'is-disabled'}">
+                  <div class="shop-row-icon">${it.data.icon || '📦'}</div>
+                  <div class="shop-row-info">
+                    <div class="shop-row-name">${A.Utils.escapeHtml(it.data.name)}</div>
+                    <div class="shop-row-desc dim">${A.Utils.escapeHtml(it.data.description || '')}</div>
+                  </div>
+                  <div class="shop-row-price num">${it.price}c</div>
+                  <button class="btn-mini" data-shop-buy="${A.Utils.escapeHtml(it.id)}" data-npc-id="${A.Utils.escapeHtml(npc.id)}" ${it.canPay ? '' : 'disabled'}>Comprar</button>
+                </div>
+              `).join('')}
+            </div>
+          `}
+        </div>
+
+        <div class="shop-section">
+          <div class="shop-section-title">Tus cosas para vender</div>
+          ${sellable.length === 0 ? `<div class="muted small">No tenés nada para vender.</div>` : `
+            <div class="shop-list">
+              ${sellable.map((s) => {
+                const d = A.Inventory.resolveData(s.itemId);
+                const price = Math.max(1, Math.floor((d.value || 0) / 2));
+                const qtyStr = s.qty > 1 ? ` ×${s.qty}` : '';
+                return `
+                  <div class="shop-row">
+                    <div class="shop-row-icon">${d.icon || '📦'}</div>
+                    <div class="shop-row-info">
+                      <div class="shop-row-name">${A.Utils.escapeHtml(d.name)}<span class="dim num">${qtyStr}</span></div>
+                    </div>
+                    <div class="shop-row-price dim num">+${price}c</div>
+                    <button class="btn-mini" data-shop-sell="${A.Utils.escapeHtml(s.itemId)}">Vender 1</button>
+                  </div>
+                `;
+              }).join('')}
+            </div>
+          `}
+        </div>
+      </div>
+    `;
+  }
+
+  function renderNpcLearn(npc) {
+    const p = A.State.player;
+    if (!p.hasMagic) {
+      return `<div class="muted small">No podés canalizar magia. ${A.Utils.escapeHtml(npc.name)} mira para otro lado.</div>`;
+    }
+    const spells = (npc.teaches || [])
+      .map((id) => A.Data.getById('spells', id))
+      .filter(Boolean);
+
+    return `
+      <div class="learn-modal">
+        <div class="shop-wallet dim">Tu cobre: <span class="num">${A.Currency.formatWallet()}</span></div>
+        ${spells.length === 0 ? `<div class="muted small">No tiene hechizos para enseñar.</div>` : `
+          <div class="learn-list">
+            ${spells.map((s) => {
+              const known = (p.spells || []).includes(s.id);
+              const price = A.NPC.spellPrice(s.id);
+              const canPay = A.Currency.canPay(price);
+              const dmgStr = s.damage ? `${s.damage} daño` : s.heal ? `${s.heal} cura` : '';
+              return `
+                <div class="learn-row ${known ? 'is-known' : ''}">
+                  <div class="learn-icon">${s.icon || '✨'}</div>
+                  <div class="learn-info">
+                    <div class="learn-name">${A.Utils.escapeHtml(s.name)}</div>
+                    <div class="learn-meta dim">${dmgStr}${dmgStr ? ' · ' : ''}Maná ${s.manaCost} · T${s.tier}</div>
+                    <div class="learn-desc dim">${A.Utils.escapeHtml(s.description || '')}</div>
+                  </div>
+                  <div class="learn-price num">${price}c</div>
+                  ${known
+                    ? `<span class="pill">aprendido</span>`
+                    : `<button class="btn-mini" data-learn-spell="${A.Utils.escapeHtml(s.id)}" data-npc-id="${A.Utils.escapeHtml(npc.id)}" ${canPay ? '' : 'disabled'}>Aprender</button>`}
+                </div>
+              `;
+            }).join('')}
+          </div>
+        `}
+      </div>
+    `;
+  }
+
+  function renderNpcRest(npc) {
+    const cost = npc.services.restCost;
+    const canPay = A.Currency.canPay(cost);
+    return `
+      <div class="rest-modal">
+        <p>Una cama firme, un techo, un poco de calma. Cuesta <span class="num">${cost}c</span>.</p>
+        <button class="btn-primary" data-rest="1" data-npc-id="${A.Utils.escapeHtml(npc.id)}" ${canPay ? '' : 'disabled'}>
+          ${canPay ? 'Pasar la noche' : `No te alcanza`}
+        </button>
+      </div>
+    `;
+  }
+
+  function renderNpcCraft(npc) {
+    const recipes = A.Crafting.recipesForWorkshop('forge');
+    return renderCraftList(recipes, 'forge');
+  }
+
+  function renderCraftList(recipes, workshopName) {
+    if (recipes.length === 0) {
+      return `<div class="muted small">No hay recetas disponibles.</div>`;
+    }
+    return `
+      <div class="craft-modal">
+        <div class="craft-list">
+          ${recipes.map((r) => {
+            const check = A.Crafting.canCraft(r.id);
+            const result = A.Data.getById('items', r.result) ||
+                           A.Data.getById('weapons', r.result) ||
+                           A.Data.getById('armors', r.result);
+            const resultName = result ? result.name : r.result;
+            const resultIcon = result ? (result.icon || '📦') : '📦';
+            return `
+              <div class="craft-row ${check.ok ? '' : 'is-disabled'}">
+                <div class="craft-row-result">
+                  <span class="craft-icon">${resultIcon}</span>
+                  <div>
+                    <div class="craft-row-name">${A.Utils.escapeHtml(resultName)}</div>
+                    <div class="dim small">${A.Utils.escapeHtml(r.name)}</div>
+                  </div>
+                </div>
+                <div class="craft-ingredients">
+                  ${(r.ingredients || []).map((ing) => {
+                    const d = A.Inventory.resolveData(ing.itemId);
+                    const slot = A.State.player.inventory.find((s) => s.itemId === ing.itemId);
+                    const have = slot ? slot.qty : 0;
+                    const ok = have >= ing.qty;
+                    return `<span class="ingredient ${ok ? 'is-ok' : 'is-missing'}">${d ? d.icon : '·'} ${A.Utils.escapeHtml(d ? d.name : ing.itemId)} <span class="num">${have}/${ing.qty}</span></span>`;
+                  }).join('')}
+                </div>
+                <button class="btn-mini" data-craft="${A.Utils.escapeHtml(r.id)}" ${check.ok ? '' : 'disabled'}>Crear</button>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      </div>
+    `;
   }
 
   // ---------- Item Detail ----------
@@ -144,6 +321,10 @@
     }
     if (kind === 'consumable') {
       actions.push(`<button class="btn-primary" data-detail-action="use">Usar</button>`);
+    }
+    if (kind === 'scroll') {
+      const isSpellScroll = data.subtype === 'scroll_spell';
+      actions.push(`<button class="btn-primary" data-detail-action="use">${isSpellScroll ? 'Aprender hechizo' : 'Usar'}</button>`);
     }
     actions.push(`<button class="btn-danger" data-detail-action="drop">Tirar</button>`);
 
@@ -495,6 +676,67 @@
           } else {
             confirmCallback = null;
             A.State.closeModal();
+          }
+        });
+      });
+    }
+
+    if (id === 'npc') {
+      // Cambiar de tab
+      overlay.querySelectorAll('[data-npc-tab]').forEach((b) => {
+        b.addEventListener('click', () => {
+          A.State.openModal('npc', { npcId: b.dataset.npcId, tab: b.dataset.npcTab });
+        });
+      });
+      // Comprar
+      overlay.querySelectorAll('[data-shop-buy]').forEach((b) => {
+        if (b.disabled) return;
+        b.addEventListener('click', () => {
+          const r = A.NPC.buy(b.dataset.npcId, b.dataset.shopBuy);
+          if (r.ok) {
+            // Re-render mismo modal/tab
+            A.State.openModal('npc', { npcId: b.dataset.npcId, tab: 'shop' });
+          } else {
+            console.warn('[Buy]', r.error);
+          }
+        });
+      });
+      // Vender
+      overlay.querySelectorAll('[data-shop-sell]').forEach((b) => {
+        b.addEventListener('click', () => {
+          const r = A.NPC.sell(b.dataset.shopSell);
+          if (r.ok) {
+            const npcId = overlay.querySelector('[data-npc-tab]')?.dataset.npcId;
+            if (npcId) A.State.openModal('npc', { npcId, tab: 'shop' });
+          }
+        });
+      });
+      // Aprender hechizo
+      overlay.querySelectorAll('[data-learn-spell]').forEach((b) => {
+        if (b.disabled) return;
+        b.addEventListener('click', () => {
+          const r = A.NPC.learnSpell(b.dataset.npcId, b.dataset.learnSpell);
+          if (r.ok) {
+            A.State.openModal('npc', { npcId: b.dataset.npcId, tab: 'learn' });
+          }
+        });
+      });
+      // Descansar
+      overlay.querySelectorAll('[data-rest]').forEach((b) => {
+        if (b.disabled) return;
+        b.addEventListener('click', () => {
+          const r = A.NPC.restAt(b.dataset.npcId);
+          if (r.ok) A.State.closeModal();
+        });
+      });
+      // Crafting
+      overlay.querySelectorAll('[data-craft]').forEach((b) => {
+        if (b.disabled) return;
+        b.addEventListener('click', () => {
+          const r = A.Crafting.craft(b.dataset.craft);
+          if (r.ok) {
+            const npcId = overlay.querySelector('[data-npc-tab]')?.dataset.npcId;
+            if (npcId) A.State.openModal('npc', { npcId, tab: 'craft' });
           }
         });
       });

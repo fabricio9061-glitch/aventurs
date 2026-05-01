@@ -71,6 +71,30 @@
     { id:'semillas', name:'Semillas', type:'item', subtype:'tame', icon:'🌾', value:3, weight:0, stack:99,
       description:'Granos secos. Atraen aves y criaturas pequeñas.' },
 
+    // --- Pergaminos de hechizo (Fase 3) ---
+    // Cada pergamino enseña un hechizo al usarlo. Drops de enemigos arcanos.
+    { id:'pergamino_chispa', name:'Pergamino: Chispa', type:'item', subtype:'scroll_spell', icon:'📜', value:80, weight:0, stack:10,
+      teachesSpell:'chispa',
+      description:'Tinta de plata sobre vitela. Al leerlo en voz alta, el hechizo se graba en tu mente.' },
+    { id:'pergamino_llama', name:'Pergamino: Llama', type:'item', subtype:'scroll_spell', icon:'📜', value:160, weight:0, stack:10,
+      teachesSpell:'llama',
+      description:'Bordes chamuscados. Las palabras parecen arder cuando las miras fijo.' },
+    { id:'pergamino_rayo_helado', name:'Pergamino: Rayo helado', type:'item', subtype:'scroll_spell', icon:'📜', value:160, weight:0, stack:10,
+      teachesSpell:'rayo_helado',
+      description:'El rollo está frío al tacto, aunque haga calor.' },
+    { id:'pergamino_curacion', name:'Pergamino: Curación', type:'item', subtype:'scroll_spell', icon:'📜', value:200, weight:0, stack:10,
+      teachesSpell:'curacion',
+      description:'Tinta dorada sobre pergamino blanco. Huele a hierbas frescas.' },
+    { id:'pergamino_bola_fuego', name:'Pergamino: Bola de fuego', type:'item', subtype:'scroll_spell', icon:'📜', value:600, weight:0, stack:10,
+      teachesSpell:'bola_de_fuego',
+      description:'Sello quebrado de un mago muerto. Manos torpes no deberían tocarlo.' },
+    { id:'pergamino_tormenta', name:'Pergamino: Tormenta arcana', type:'item', subtype:'scroll_spell', icon:'📜', value:1500, weight:0, stack:5,
+      teachesSpell:'tormenta_arcana',
+      description:'El cielo se nubla cuando lo destapas. Mejor no leer adentro.' },
+    { id:'pergamino_aliento_dragon', name:'Pergamino: Aliento de dragón', type:'item', subtype:'scroll_spell', icon:'📜', value:5000, weight:0, stack:3,
+      teachesSpell:'aliento_de_dragon',
+      description:'Escrito en sangre dracónica. Solo magos con sangre antigua pueden leerlo sin morir.' },
+
     // --- Materiales de crafting ---
     { id:'mat_hierro', name:'Lingote de hierro', type:'item', subtype:'material', icon:'⛓️', value:20, weight:1, stack:99,
       description:'Metal común, base de toda forja honesta.' },

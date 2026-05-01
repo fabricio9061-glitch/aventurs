@@ -98,7 +98,7 @@
     // TIER 3-4: amenaza moderada
     // ============================================================
     { id:'diablillo', name:'Diablillo', icon:'😈', family:['demon','flying'], category:'normal', tier:4, tags:['fire','flying'], biome:['hell','ruins'],
-      health:28, damage:7, difficulty:11, armor:1, speed:12, coinLoot:[3,8], drops:[], regions:['ruinas_perdidas'], spawn:{min:1,max:2,weight:1,groupable:true}, tameable:false, autoLoot:true },
+      health:28, damage:7, difficulty:11, armor:1, speed:12, coinLoot:[3,8], drops:[{itemId:'pergamino_llama',chance:0.15}], regions:['ruinas_perdidas'], spawn:{min:1,max:2,weight:1,groupable:true}, tameable:false, autoLoot:true },
 
     { id:'orco', name:'Orco', icon:'👹', family:['humanoid'], category:'strong', tier:4, tags:[], biome:['mountain','plains'],
       health:42, damage:9, difficulty:11, armor:3, speed:9, coinLoot:[5,12], drops:[], regions:['camino_real','montanas'], spawn:{min:1,max:1,weight:0.6,groupable:false}, tameable:false, autoLoot:true },
@@ -146,13 +146,13 @@
       health:50, damage:10, difficulty:13, armor:1, speed:11, coinLoot:[6,14], drops:[], regions:['alta_mar'], spawn:{min:1,max:2,weight:1,groupable:true}, tameable:false, autoLoot:true },
 
     { id:'salamandra', name:'Salamandra', icon:'🦎', family:['elemental','beast'], category:'normal', tier:5, tags:['fire'], biome:['volcano','cave'],
-      health:55, damage:11, difficulty:11, armor:2, speed:10, coinLoot:[6,14], drops:[], regions:['cuevas_ancestrales','volcan'], spawn:{min:1,max:2,weight:1,groupable:true}, tameable:true, tameItem:'carne_cruda', autoLoot:true },
+      health:55, damage:11, difficulty:11, armor:2, speed:10, coinLoot:[6,14], drops:[{itemId:'mat_colmillo',chance:0.4},{itemId:'pergamino_llama',chance:0.1}], regions:['cuevas_ancestrales','volcan'], spawn:{min:1,max:2,weight:1,groupable:true}, tameable:true, tameItem:'carne_cruda', autoLoot:true },
 
     { id:'mago_oscuro', name:'Mago oscuro', icon:'🧙‍♂️', family:['humanoid','arcane'], category:'strong', tier:6, tags:['magic'], biome:['arcane','ruins'],
-      health:55, damage:14, difficulty:13, armor:1, speed:10, coinLoot:[12,25], drops:[], regions:['ruinas_perdidas'], spawn:{min:1,max:1,weight:0.6,groupable:false}, tameable:false, autoLoot:true },
+      health:55, damage:14, difficulty:13, armor:1, speed:10, coinLoot:[12,25], drops:[{itemId:'pergamino_llama',chance:0.18},{itemId:'pergamino_rayo_helado',chance:0.18},{itemId:'mat_gema_arcana',chance:0.4}], regions:['ruinas_perdidas'], spawn:{min:1,max:1,weight:0.6,groupable:false}, tameable:false, autoLoot:true },
 
     { id:'nigromante', name:'Nigromante', icon:'💀', family:['humanoid','arcane'], category:'strong', tier:6, tags:['undead','magic'], biome:['crypt','graveyard'],
-      health:55, damage:13, difficulty:13, armor:1, speed:9, coinLoot:[12,25], drops:[], regions:['catacumbas'], spawn:{min:1,max:1,weight:0.6,groupable:false}, tameable:false, autoLoot:true },
+      health:55, damage:13, difficulty:13, armor:1, speed:9, coinLoot:[12,25], drops:[{itemId:'pergamino_chispa',chance:0.25},{itemId:'mat_esencia',chance:0.5},{itemId:'mat_gema_arcana',chance:0.3}], regions:['catacumbas'], spawn:{min:1,max:1,weight:0.6,groupable:false}, tameable:false, autoLoot:true },
 
     { id:'osgo', name:'Osgo', icon:'🐗', family:['humanoid'], category:'normal', tier:5, tags:[], biome:['forest','cave'],
       health:60, damage:11, difficulty:11, armor:2, speed:9, coinLoot:[6,14], drops:[], regions:['bosque_sombrio','cuevas_ancestrales'], spawn:{min:1,max:2,weight:1,groupable:true}, tameable:false, autoLoot:true },
@@ -176,13 +176,13 @@
       health:110, damage:17, difficulty:14, armor:3, speed:12, coinLoot:[15,30], drops:[], regions:['catacumbas'], spawn:{min:1,max:1,weight:0.6,groupable:false}, tameable:false, autoLoot:true },
 
     { id:'elem_hielo', name:'Elemental de hielo', icon:'❄️', family:['elemental'], category:'strong', tier:7, tags:['ice','arcane'], biome:['mountain','arcane'],
-      health:120, damage:16, difficulty:12, armor:4, speed:8, coinLoot:[12,24], drops:[], regions:['montanas','ruinas_perdidas'], spawn:{min:1,max:1,weight:0.6,groupable:false}, tameable:false, autoLoot:true },
+      health:120, damage:16, difficulty:12, armor:4, speed:8, coinLoot:[12,24], drops:[{itemId:'mat_gema_arcana',chance:0.4},{itemId:'pergamino_rayo_helado',chance:0.2}], regions:['montanas','ruinas_perdidas'], spawn:{min:1,max:1,weight:0.6,groupable:false}, tameable:false, autoLoot:true },
 
     { id:'elem_fuego', name:'Elemental de fuego', icon:'🔥', family:['elemental'], category:'strong', tier:7, tags:['fire','arcane'], biome:['volcano','arcane'],
-      health:115, damage:18, difficulty:12, armor:3, speed:10, coinLoot:[12,24], drops:[], regions:['volcan','ruinas_perdidas'], spawn:{min:1,max:1,weight:0.6,groupable:false}, tameable:false, autoLoot:true },
+      health:115, damage:18, difficulty:12, armor:3, speed:10, coinLoot:[12,24], drops:[{itemId:'mat_gema_arcana',chance:0.4},{itemId:'pergamino_llama',chance:0.2}], regions:['volcan','ruinas_perdidas'], spawn:{min:1,max:1,weight:0.6,groupable:false}, tameable:false, autoLoot:true },
 
     { id:'elem_arcano', name:'Elemental arcano', icon:'✨', family:['elemental','arcane'], category:'strong', tier:7, tags:['arcane','magic'], biome:['arcane','ruins'],
-      health:105, damage:18, difficulty:14, armor:2, speed:11, coinLoot:[14,28], drops:[], regions:['ruinas_perdidas'], spawn:{min:1,max:1,weight:0.6,groupable:false}, tameable:false, autoLoot:true },
+      health:105, damage:18, difficulty:14, armor:2, speed:11, coinLoot:[14,28], drops:[{itemId:'mat_gema_arcana',chance:0.6},{itemId:'pergamino_chispa',chance:0.25}], regions:['ruinas_perdidas'], spawn:{min:1,max:1,weight:0.6,groupable:false}, tameable:false, autoLoot:true },
 
     { id:'golem', name:'Gólem', icon:'🗿', family:['construct'], category:'strong', tier:7, tags:['stone','heavy'], biome:['ruins','cave'],
       health:140, damage:15, difficulty:11, armor:7, speed:6, coinLoot:[10,22], drops:[], regions:['ruinas_perdidas','cuevas_ancestrales'], spawn:{min:1,max:1,weight:0.6,groupable:false}, tameable:false, autoLoot:true },
@@ -215,7 +215,7 @@
       health:140, damage:19, difficulty:14, armor:3, speed:14, coinLoot:[18,35], drops:[], regions:['volcan'], spawn:{min:1,max:1,weight:0.6,groupable:false}, tameable:true, tameItem:'carne_cruda', autoLoot:true },
 
     { id:'lich', name:'Lich', icon:'💀', family:['undead','arcane'], category:'boss', tier:9, tags:['magic','undead'], biome:['crypt','arcane'],
-      health:220, damage:25, difficulty:15, armor:4, speed:10, coinLoot:[40,80], drops:[], regions:['catacumbas'], spawn:{min:1,max:1,weight:0.3,groupable:false}, tameable:false, autoLoot:true },
+      health:220, damage:25, difficulty:15, armor:4, speed:10, coinLoot:[40,80], drops:[{itemId:'mat_esencia',chance:0.7},{itemId:'mat_gema_arcana',chance:0.5},{itemId:'pergamino_bola_fuego',chance:0.2},{itemId:'pergamino_tormenta',chance:0.1}], regions:['catacumbas'], spawn:{min:1,max:1,weight:0.3,groupable:false}, tameable:false, autoLoot:true },
 
     { id:'espectro', name:'Espectro', icon:'👻', family:['undead','spirit'], category:'strong', tier:7, tags:['ethereal','drain'], biome:['crypt','graveyard'],
       health:95, damage:17, difficulty:14, armor:0, speed:12, coinLoot:[12,24], drops:[], regions:['catacumbas'], spawn:{min:1,max:1,weight:0.6,groupable:false}, tameable:false, autoLoot:true },
@@ -227,7 +227,7 @@
       health:115, damage:17, difficulty:14, armor:3, speed:10, coinLoot:[14,28], drops:[], regions:['alta_mar','pantano'], spawn:{min:1,max:1,weight:0.6,groupable:false}, tameable:false, autoLoot:true },
 
     { id:'contemplador', name:'Contemplador', icon:'👁️', family:['arcane'], category:'strong', tier:8, tags:['magic','flying'], biome:['cave','arcane'],
-      health:140, damage:20, difficulty:15, armor:3, speed:9, coinLoot:[18,35], drops:[], regions:['cuevas_ancestrales','ruinas_perdidas'], spawn:{min:1,max:1,weight:0.6,groupable:false}, tameable:false, autoLoot:true },
+      health:140, damage:20, difficulty:15, armor:3, speed:9, coinLoot:[18,35], drops:[{itemId:'mat_gema_arcana',chance:0.5},{itemId:'pergamino_bola_fuego',chance:0.2}], regions:['cuevas_ancestrales','ruinas_perdidas'], spawn:{min:1,max:1,weight:0.6,groupable:false}, tameable:false, autoLoot:true },
 
     { id:'cab_muerte', name:'Caballero de la muerte', icon:'☠️', family:['undead','humanoid'], category:'strong', tier:8, tags:['heavy','undead'], biome:['crypt','graveyard'],
       health:170, damage:20, difficulty:14, armor:6, speed:8, coinLoot:[18,36], drops:[], regions:['catacumbas'], spawn:{min:1,max:1,weight:0.6,groupable:false}, tameable:false, autoLoot:true },
@@ -239,13 +239,13 @@
     // TIER 9-10: catastróficos / boss
     // ============================================================
     { id:'brightwing', name:'Brightwing', icon:'🐉', family:['dragon','arcane','flying'], category:'strong', tier:6, tags:['magic','flying'], biome:['arcane'],
-      health:140, damage:18, difficulty:14, armor:4, speed:13, coinLoot:[25,50], drops:[], regions:['torre_del_mago','ruinas_perdidas'], spawn:{min:1,max:1,weight:0.6,groupable:false}, tameable:false, autoLoot:true },
+      health:140, damage:18, difficulty:14, armor:4, speed:13, coinLoot:[25,50], drops:[{itemId:'mat_escama_dragon',chance:0.6},{itemId:'mat_sangre_dragon',chance:0.4},{itemId:'pergamino_chispa',chance:0.3}], regions:['torre_del_mago','ruinas_perdidas'], spawn:{min:1,max:1,weight:0.6,groupable:false}, tameable:false, autoLoot:true },
 
     { id:'dragon_anciano', name:'Dragón anciano', icon:'🐉', family:['dragon','flying','legendary'], category:'boss', tier:10, tags:['fire','flying','ancient'], biome:['lair','volcano'],
-      health:380, damage:42, difficulty:16, armor:7, speed:13, coinLoot:[100,200], drops:[], regions:['nido_de_dragones'], spawn:{min:1,max:1,weight:0.1,groupable:false}, tameable:false, autoLoot:true },
+      health:380, damage:42, difficulty:16, armor:7, speed:13, coinLoot:[100,200], drops:[{itemId:'mat_escama_dragon',chance:0.9},{itemId:'mat_sangre_dragon',chance:0.85},{itemId:'pergamino_aliento_dragon',chance:0.3}], regions:['nido_de_dragones'], spawn:{min:1,max:1,weight:0.1,groupable:false}, tameable:false, autoLoot:true },
 
     { id:'alamuerte', name:'Alamuerte', icon:'🐲', family:['dragon','flying','legendary'], category:'boss', tier:10, tags:['fire','ancient','flying'], biome:['volcano','lair'],
-      health:400, damage:48, difficulty:16, armor:8, speed:12, coinLoot:[120,250], drops:[], regions:['volcan','nido_de_dragones'], spawn:{min:1,max:1,weight:0.1,groupable:false}, tameable:false, autoLoot:true },
+      health:400, damage:48, difficulty:16, armor:8, speed:12, coinLoot:[120,250], drops:[{itemId:'mat_escama_dragon',chance:0.95},{itemId:'mat_sangre_dragon',chance:0.95},{itemId:'pergamino_aliento_dragon',chance:0.5}], regions:['volcan','nido_de_dragones'], spawn:{min:1,max:1,weight:0.1,groupable:false}, tameable:false, autoLoot:true },
 
     { id:'demonio_mayor', name:'Demonio mayor', icon:'👹', family:['demon'], category:'boss', tier:9, tags:['fire'], biome:['hell'],
       health:280, damage:32, difficulty:15, armor:5, speed:10, coinLoot:[60,120], drops:[], regions:['infierno'], spawn:{min:1,max:1,weight:0.3,groupable:false}, tameable:false, autoLoot:true },
@@ -257,7 +257,7 @@
       health:260, damage:30, difficulty:15, armor:5, speed:13, coinLoot:[60,120], drops:[], regions:['catacumbas'], spawn:{min:1,max:1,weight:0.3,groupable:false}, tameable:false, autoLoot:true },
 
     { id:'archimago', name:'Archimago', icon:'🧙', family:['humanoid','arcane','legendary'], category:'boss', tier:9, tags:['magic','ancient'], biome:['arcane'],
-      health:200, damage:35, difficulty:16, armor:3, speed:11, coinLoot:[80,150], drops:[], regions:['ruinas_perdidas'], spawn:{min:1,max:1,weight:0.1,groupable:false}, tameable:false, autoLoot:true },
+      health:200, damage:35, difficulty:16, armor:3, speed:11, coinLoot:[80,150], drops:[{itemId:'pergamino_tormenta',chance:0.4},{itemId:'pergamino_bola_fuego',chance:0.5},{itemId:'mat_gema_arcana',chance:0.8}], regions:['ruinas_perdidas'], spawn:{min:1,max:1,weight:0.1,groupable:false}, tameable:false, autoLoot:true },
 
     { id:'kraken', name:'Kraken', icon:'🐙', family:['marine','aquatic','legendary'], category:'boss', tier:10, tags:['aquatic','ancient'], biome:['abyss','sea'],
       health:380, damage:38, difficulty:15, armor:5, speed:10, coinLoot:[100,200], drops:[], regions:['abismo_marino','alta_mar'], spawn:{min:1,max:1,weight:0.1,groupable:false}, tameable:false, autoLoot:true },

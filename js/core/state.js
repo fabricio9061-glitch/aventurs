@@ -72,9 +72,14 @@
       if (!p.bagId) { p.bagId = 'bag_basic'; dirty = true; }
       if (p.pet === undefined) { p.pet = null; dirty = true; }
       if (!p.spells) { p.spells = []; dirty = true; }
+      // v1.4.0: marcamos schemaVersion para futuras migraciones
+      if (!p.schemaVersion || p.schemaVersion < 14) {
+        p.schemaVersion = 14;
+        dirty = true;
+      }
       if (dirty) {
         State.persist();
-        console.log('[State] Save migrado a estructura v1.1.0');
+        console.log('[State] Save migrado a estructura v1.4.0');
       }
     },
 
@@ -269,7 +274,10 @@
 
     addItem(itemId, qty = 1) {
       if (!State.player) return false;
-      const item = A.Data.getById('items', itemId);
+      // Buscar en items, weapons, armors (orden de prioridad)
+      const item = A.Data.getById('items', itemId)
+                || A.Data.getById('weapons', itemId)
+                || A.Data.getById('armors', itemId);
       if (!item) return false;
 
       // Las monedas se manejan aparte

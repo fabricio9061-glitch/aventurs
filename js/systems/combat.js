@@ -168,7 +168,12 @@
     const total = roll + precBonus;
 
     if (roll === 1) {
-      addLog(c, 'player', `Atacaste a ${target.displayName}: D20=1, fallo crítico.`);
+      addLog(c, 'player', {
+        text: `Atacaste a ${target.displayName}`,
+        actor: p.name, target: target.displayName,
+        roll, bonus: precBonus, total, vs: enemyAC, vsLabel: 'AC',
+        result: 'fumble',
+      });
     } else if (total >= enemyAC || roll === 20) {
       const weaponId = p.equipment.weapon;
       const weapon = weaponId ? A.Data.getById('weapons', weaponId) : null;
@@ -178,14 +183,25 @@
       if (isCrit) dmg *= 2;
       dmg = Math.max(1, dmg);
       target.hp = Math.max(0, target.hp - dmg);
-      addLog(c, 'player',
-        `${isCrit ? '¡Crítico! ' : ''}Atacaste a ${target.displayName}: D20=${roll}+${precBonus}=${total} vs AC ${enemyAC} → ${dmg} de daño. (${target.hp}/${target.maxHp})`);
-
+      addLog(c, 'player', {
+        text: `Atacaste a ${target.displayName}`,
+        actor: p.name, target: target.displayName,
+        weapon: weapon ? weapon.name : 'puños',
+        damageDice,
+        roll, bonus: precBonus, total, vs: enemyAC, vsLabel: 'AC',
+        dmg, hpAfter: target.hp, hpMax: target.maxHp,
+        result: isCrit ? 'crit' : 'hit',
+      });
       if (target.hp <= 0) {
-        addLog(c, 'system', `${target.displayName} cayó.`);
+        addLog(c, 'system', { text: `${target.displayName} cayó.`, killed: target.displayName });
       }
     } else {
-      addLog(c, 'player', `Atacaste a ${target.displayName}: D20=${roll}+${precBonus}=${total} vs AC ${enemyAC}, no llegó.`);
+      addLog(c, 'player', {
+        text: `Atacaste a ${target.displayName}`,
+        actor: p.name, target: target.displayName,
+        roll, bonus: precBonus, total, vs: enemyAC, vsLabel: 'AC',
+        result: 'miss',
+      });
     }
 
     afterPlayerAction();
@@ -303,10 +319,21 @@
     if (roll >= enemyAC || roll === 20) {
       const dmg = Math.max(1, pet.damage);
       target.hp = Math.max(0, target.hp - dmg);
-      addLog(c, 'pet', `${pet.name} ataca a ${target.displayName}: D20=${roll} vs AC ${enemyAC} → ${dmg} de daño. (${target.hp}/${target.maxHp})`);
-      if (target.hp <= 0) addLog(c, 'system', `${target.displayName} cayó por la mascota.`);
+      addLog(c, 'pet', {
+        text: `${pet.name} ataca a ${target.displayName}`,
+        actor: pet.name, target: target.displayName,
+        roll, bonus: 0, total: roll, vs: enemyAC, vsLabel: 'AC',
+        dmg, hpAfter: target.hp, hpMax: target.maxHp,
+        result: roll === 20 ? 'crit' : 'hit',
+      });
+      if (target.hp <= 0) addLog(c, 'system', { text: `${target.displayName} cayó por la mascota.` });
     } else {
-      addLog(c, 'pet', `${pet.name} ataca a ${target.displayName} pero falla. (D20=${roll} vs AC ${enemyAC})`);
+      addLog(c, 'pet', {
+        text: `${pet.name} ataca a ${target.displayName}`,
+        actor: pet.name, target: target.displayName,
+        roll, bonus: 0, total: roll, vs: enemyAC, vsLabel: 'AC',
+        result: 'miss',
+      });
     }
   }
 
@@ -325,33 +352,53 @@
       const pet = p.pet;
       const targetPet = pet && pet.health > 0 && Math.random() < 0.4;
       const targetAC = targetPet ? (10 + (pet.armor || 0)) : playerAC;
-      const targetName = targetPet ? pet.name : 'ti';
+      const targetName = targetPet ? pet.name : p.name;
 
       const roll = A.Utils.dice(20);
       const total = roll + enemyAtkBonus;
 
       if (roll === 1) {
-        addLog(c, 'enemy', `${enemy.displayName} ataca a ${targetName}: D20=1, fallo crítico.`);
+        addLog(c, 'enemy', {
+          text: `${enemy.displayName} ataca a ${targetName}`,
+          actor: enemy.displayName, target: targetName,
+          roll, bonus: enemyAtkBonus, total, vs: targetAC, vsLabel: 'AC',
+          result: 'fumble',
+        });
       } else if (total >= targetAC || roll === 20) {
         let dmg = enemy.damage;
         if (roll === 20) dmg *= 2;
         dmg = Math.max(1, dmg);
         if (targetPet) {
           pet.health = Math.max(0, pet.health - dmg);
-          addLog(c, 'enemy',
-            `${roll === 20 ? '¡Crítico! ' : ''}${enemy.displayName} hiere a ${pet.name}: D20=${roll}+${enemyAtkBonus}=${total} vs AC ${targetAC} → ${dmg} de daño. (${pet.health}/${pet.maxHealth})`);
+          addLog(c, 'enemy', {
+            text: `${enemy.displayName} hiere a ${pet.name}`,
+            actor: enemy.displayName, target: pet.name,
+            roll, bonus: enemyAtkBonus, total, vs: targetAC, vsLabel: 'AC',
+            dmg, hpAfter: pet.health, hpMax: pet.maxHealth,
+            result: roll === 20 ? 'crit' : 'hit',
+          });
           if (pet.health <= 0) {
-            addLog(c, 'system', `${pet.name} cayó. La perdiste.`);
+            addLog(c, 'system', { text: `${pet.name} cayó. La perdiste.` });
             A.Bus.emit('tame:lost', { name: pet.name });
             p.pet = null;
           }
         } else {
           A.State.damagePlayer(dmg);
-          addLog(c, 'enemy',
-            `${roll === 20 ? '¡Crítico! ' : ''}${enemy.displayName} te hiere: D20=${roll}+${enemyAtkBonus}=${total} vs AC ${targetAC} → ${dmg} de daño. (${p.hp}/${p.maxHp})`);
+          addLog(c, 'enemy', {
+            text: `${enemy.displayName} te hiere`,
+            actor: enemy.displayName, target: p.name,
+            roll, bonus: enemyAtkBonus, total, vs: targetAC, vsLabel: 'AC',
+            dmg, hpAfter: p.hp, hpMax: p.maxHp,
+            result: roll === 20 ? 'crit' : 'hit',
+          });
         }
       } else {
-        addLog(c, 'enemy', `${enemy.displayName} ataca a ${targetName}: D20=${roll}+${enemyAtkBonus}=${total} vs AC ${targetAC}, no llegó.`);
+        addLog(c, 'enemy', {
+          text: `${enemy.displayName} ataca a ${targetName}`,
+          actor: enemy.displayName, target: targetName,
+          roll, bonus: enemyAtkBonus, total, vs: targetAC, vsLabel: 'AC',
+          result: 'miss',
+        });
       }
     }
 
@@ -450,9 +497,27 @@
 
   // ---------- Helpers ----------
 
-  function addLog(c, type, text) {
-    c.log.push({ ts: Date.now(), type, text });
-    A.Bus.emit('combat:action', { type, text });
+  /**
+   * Agrega una entrada al log. Soporta dos formatos:
+   *   addLog(c, type, text)              // simple
+   *   addLog(c, type, { text, roll, vs, total, result, dmg, target })
+   *     roll: número del d20 (para animación)
+   *     vs: dificultad o AC contra la que se tiró
+   *     total: roll + bonus (si hay)
+   *     result: 'hit' | 'miss' | 'crit' | 'fumble'
+   *     dmg: daño infligido (si aplica)
+   *     target: nombre del objetivo (display)
+   *     text: línea principal del log
+   */
+  function addLog(c, type, payload) {
+    const entry = { ts: Date.now(), type };
+    if (typeof payload === 'string') {
+      entry.text = payload;
+    } else {
+      Object.assign(entry, payload);
+    }
+    c.log.push(entry);
+    A.Bus.emit('combat:action', entry);
   }
 
   function availableSpells() {

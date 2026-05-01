@@ -16,7 +16,8 @@
     if (A.Data.getById('armors', itemId)) return 'armor';
     const item = A.Data.getById('items', itemId);
     if (!item) return null;
-    if (item.subtype === 'potion' || item.subtype === 'food' || item.subtype === 'scroll') return 'consumable';
+    if (item.subtype === 'potion' || item.subtype === 'food') return 'consumable';
+    if (item.subtype === 'scroll' || item.subtype === 'scroll_spell') return 'scroll';
     if (item.subtype === 'tame') return 'tame';
     if (item.subtype === 'material') return 'material';
     return item.subtype || 'misc';
@@ -100,6 +101,38 @@
     const item = A.Data.getById('items', itemId);
     if (!item) return false;
     if (!p.inventory.find((s) => s.itemId === itemId)) return false;
+
+    // Pergamino que enseña hechizo
+    if (item.subtype === 'scroll_spell') {
+      const spellId = item.teachesSpell;
+      if (!spellId) return false;
+      if (!p.hasMagic) {
+        A.State.addChronicle({
+          type: 'note',
+          text: `Intentaste leer ${item.name} pero las palabras no significan nada. Tu sangre no canaliza maná.`,
+        });
+        return false;
+      }
+      const spell = A.Data.getById('spells', spellId);
+      if (!spell) return false;
+      if ((p.spells || []).includes(spellId)) {
+        A.State.addChronicle({
+          type: 'note',
+          text: `Ya conocías ${spell.name}. El pergamino se quedó intacto.`,
+        });
+        return false;
+      }
+      p.spells = p.spells || [];
+      p.spells.push(spellId);
+      A.State.removeItem(itemId, 1);
+      A.State.addChronicle({
+        type: 'spell',
+        text: `Aprendiste ${spell.name} del pergamino.`,
+      });
+      A.Bus.emit('spell:learned', { spellId, source: 'scroll' });
+      A.State.persist();
+      return true;
+    }
 
     const ef = item.effect;
     if (!ef) return false;

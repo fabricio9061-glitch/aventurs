@@ -1587,3 +1587,277 @@
   flex-direction: column;
   gap: var(--sp-2);
 }
+
+/* ============================================================
+   v1.4.0 — Combate visual mejorado
+   ============================================================ */
+
+/* Stats expandidos en la card de combate */
+.combat-card-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  width: 100%;
+  margin-top: var(--sp-1);
+  padding-top: var(--sp-1);
+  border-top: var(--border-w) solid var(--border);
+}
+.card-stat {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-align: left;
+  padding: 1px 4px;
+  white-space: nowrap;
+}
+.combat-card-loot {
+  font-size: 10px;
+  margin-top: 4px;
+  padding: 2px 6px;
+  background: var(--gold-bg);
+  border-radius: 999px;
+  color: var(--gold-text);
+}
+
+/* Pet card mejorada */
+.combat-pet {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: var(--sp-3);
+  align-items: center;
+  background: var(--gold-bg);
+  border: var(--border-w) solid #ecdfb6;
+  border-radius: var(--r-md);
+  padding: var(--sp-2) var(--sp-3);
+  margin: var(--sp-2) 0;
+}
+.combat-pet-info { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.combat-pet-name { font-size: var(--fs-sm); font-weight: var(--fw-medium); }
+.combat-pet-info .bar { height: 4px; }
+.combat-pet-hp { font-size: var(--fs-xs); }
+
+/* Log con tiradas detalladas */
+.combat-log-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  max-height: 360px;
+  overflow-y: auto;
+  padding: var(--sp-3);
+  background: var(--surface);
+  border: var(--border-w) solid var(--border);
+  border-radius: var(--r-md);
+}
+.combat-log-row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--sp-2);
+  border-radius: var(--r-sm);
+  font-size: var(--fs-sm);
+  border-left: 2px solid var(--border);
+}
+.combat-log-row.is-player { background: rgba(212, 164, 55, 0.06); border-left-color: var(--gold); }
+.combat-log-row.is-enemy { background: rgba(201, 102, 59, 0.06); border-left-color: var(--hp); color: var(--text); }
+.combat-log-row.is-pet { background: rgba(59, 109, 17, 0.06); border-left-color: var(--success); }
+.combat-log-row.is-loot { color: var(--gold-text); border-left-color: var(--gold); font-weight: var(--fw-medium); }
+.combat-log-row.is-system { color: var(--text-muted); font-style: italic; border-left-color: var(--border-strong); }
+
+.log-line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.log-header { font-weight: var(--fw-medium); margin-bottom: 2px; }
+.log-sub { font-size: 12px; padding-left: var(--sp-3); color: var(--text-muted); }
+.log-tree { color: var(--text-faint); font-family: monospace; font-size: 11px; }
+.log-bullet { color: var(--text-faint); width: 14px; text-align: center; }
+.log-icon { width: 16px; text-align: center; }
+
+.result-hit .log-text { color: var(--text); }
+.result-miss .log-text { color: var(--text-faint); font-style: italic; }
+.result-fumble .log-text { color: var(--danger); font-style: italic; }
+.result-crit { color: var(--gold-text); font-weight: var(--fw-medium); }
+.result-crit .log-icon { color: var(--gold); }
+
+/* Animación de dado D20 */
+.die-anim {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  perspective: 200px;
+  vertical-align: middle;
+}
+.die-cube {
+  width: 24px;
+  height: 24px;
+  background: var(--surface-raised);
+  border: var(--border-w) solid var(--border-strong);
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: var(--fw-medium);
+  color: var(--text);
+  transform: rotateX(0deg) rotateY(0deg);
+  box-shadow: 0 1px 3px rgba(42, 38, 32, 0.15);
+}
+.die-anim.is-rolling .die-cube {
+  animation: die-roll 0.6s ease-out;
+}
+@keyframes die-roll {
+  0%   { transform: rotateX(0deg) rotateY(0deg) scale(1); }
+  25%  { transform: rotateX(540deg) rotateY(180deg) scale(1.2); background: var(--gold-bg); }
+  50%  { transform: rotateX(720deg) rotateY(360deg) scale(1.3); background: var(--gold); color: white; }
+  75%  { transform: rotateX(900deg) rotateY(540deg) scale(1.1); }
+  100% { transform: rotateX(1080deg) rotateY(720deg) scale(1); }
+}
+
+/* Resultados especiales del dado */
+.combat-log-row .die-cube {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ============================================================
+   v1.4.0 — NPC modal: tabs + shop + learn + craft + rest
+   ============================================================ */
+
+.npc-tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: var(--border-w) solid var(--border);
+  margin-bottom: var(--sp-3);
+}
+.npc-tab {
+  padding: var(--sp-2) var(--sp-3);
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
+  border-bottom: 2px solid transparent;
+  transition: color 120ms ease, border-color 120ms ease;
+}
+.npc-tab:hover { color: var(--text); }
+.npc-tab.is-active { color: var(--text); border-bottom-color: var(--gold); }
+
+.npc-tab-content { min-height: 200px; }
+
+/* Shop */
+.shop-modal { display: flex; flex-direction: column; gap: var(--sp-4); }
+.shop-wallet { font-size: var(--fs-sm); padding: var(--sp-2) var(--sp-3); background: var(--gold-bg); border-radius: var(--r-md); }
+.shop-section-title { font-size: var(--fs-xs); font-weight: var(--fw-medium); color: var(--text-muted); margin-bottom: var(--sp-2); }
+.shop-list { display: flex; flex-direction: column; gap: 4px; }
+.shop-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto auto;
+  gap: var(--sp-3);
+  align-items: center;
+  padding: var(--sp-2) var(--sp-3);
+  background: var(--surface);
+  border: var(--border-w) solid var(--border);
+  border-radius: var(--r-md);
+}
+.shop-row.is-disabled { opacity: 0.5; }
+.shop-row-icon { font-size: 22px; }
+.shop-row-name { font-size: var(--fs-sm); font-weight: var(--fw-medium); }
+.shop-row-desc { font-size: 11px; line-height: 1.3; }
+.shop-row-price { font-size: var(--fs-sm); }
+
+/* Learn */
+.learn-modal { display: flex; flex-direction: column; gap: var(--sp-3); }
+.learn-list { display: flex; flex-direction: column; gap: var(--sp-2); }
+.learn-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto auto;
+  gap: var(--sp-3);
+  align-items: center;
+  padding: var(--sp-3);
+  background: var(--surface);
+  border: var(--border-w) solid var(--border);
+  border-radius: var(--r-md);
+}
+.learn-row.is-known { opacity: 0.6; }
+.learn-icon { font-size: 24px; }
+.learn-name { font-weight: var(--fw-medium); font-size: var(--fs-sm); }
+.learn-meta { font-size: 11px; }
+.learn-desc { font-size: 11px; margin-top: 4px; line-height: 1.4; }
+.learn-price { font-size: var(--fs-sm); }
+
+/* Rest */
+.rest-modal { text-align: center; padding: var(--sp-4); display: flex; flex-direction: column; gap: var(--sp-4); align-items: center; }
+.rest-modal p { color: var(--text-muted); }
+
+/* Craft */
+.craft-modal { display: flex; flex-direction: column; gap: var(--sp-3); }
+.craft-list { display: flex; flex-direction: column; gap: var(--sp-2); }
+.craft-row {
+  display: grid;
+  grid-template-columns: 1fr 2fr auto;
+  gap: var(--sp-3);
+  align-items: center;
+  padding: var(--sp-3);
+  background: var(--surface);
+  border: var(--border-w) solid var(--border);
+  border-radius: var(--r-md);
+}
+.craft-row.is-disabled { opacity: 0.5; }
+.craft-row-result { display: flex; align-items: center; gap: var(--sp-2); }
+.craft-icon { font-size: 24px; }
+.craft-row-name { font-weight: var(--fw-medium); font-size: var(--fs-sm); }
+.craft-ingredients { display: flex; flex-wrap: wrap; gap: 4px; }
+.ingredient {
+  font-size: 11px;
+  padding: 2px 6px;
+  background: var(--surface-raised);
+  border: var(--border-w) solid var(--border);
+  border-radius: 999px;
+}
+.ingredient.is-ok { color: var(--success); border-color: #c8e2a9; }
+.ingredient.is-missing { color: var(--danger); border-color: #ecc7b8; }
+
+/* ============================================================
+   v1.4.0 — Chronicles con filtros
+   ============================================================ */
+
+.chronicles-filters {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  padding: var(--sp-2);
+  background: var(--surface-raised);
+  border-radius: var(--r-md);
+}
+.chronicle-filter {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  background: transparent;
+  border: var(--border-w) solid var(--border);
+  border-radius: 999px;
+  font-size: var(--fs-xs);
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease;
+}
+.chronicle-filter:hover { background: var(--surface); }
+.chronicle-filter.is-active {
+  background: var(--gold-bg);
+  border-color: var(--gold);
+  color: var(--gold-text);
+}
+.filter-icon { font-size: 14px; }
+.filter-count { font-size: 10px; }
+
+.chronicle-day { display: flex; flex-direction: column; gap: var(--sp-2); }
+.chronicle-day-label {
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-medium);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 4px 0;
+  margin-top: var(--sp-2);
+}
