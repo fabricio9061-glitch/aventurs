@@ -113,6 +113,33 @@
     `;
   }
 
+  function renderItemStatBadge(data, itemId) {
+    if (!data) return '';
+    // Arma: mostrar daño en pill
+    if (A.Data.getById('weapons', itemId)) {
+      return `<span class="item-stat-pill item-stat-pill-dmg" title="Daño">⚔️ ${A.Utils.escapeHtml(data.damage || '?')}</span>`;
+    }
+    // Armadura: mostrar defensa
+    if (A.Data.getById('armors', itemId)) {
+      return `<span class="item-stat-pill item-stat-pill-def" title="Defensa">🛡️ ${data.defense || 0}</span>`;
+    }
+    // Bolsa: slots
+    if (data.subtype === 'bag') {
+      const bagId = data.equipsBag;
+      const bagData = A.Data.getById('bags', bagId);
+      if (bagData) return `<span class="item-stat-pill item-stat-pill-bag" title="Slots">🎒 ${bagData.slots}</span>`;
+    }
+    // Pergamino: hechizo
+    if (data.subtype === 'scroll_spell') {
+      return `<span class="item-stat-pill item-stat-pill-spell" title="Enseña">📖</span>`;
+    }
+    // Comida/poción con efecto
+    if (data.effect) {
+      return `<span class="item-stat-pill" title="Efecto">${A.Utils.escapeHtml(data.effect)}</span>`;
+    }
+    return '';
+  }
+
   function renderNpcShop(npc) {
     const items = (npc.sells || []).map((id) => {
       const data = A.Inventory.resolveData(id);
@@ -140,17 +167,23 @@
           <div class="shop-section-title">A la venta</div>
           ${items.length === 0 ? `<div class="muted small">No tiene nada hoy.</div>` : `
             <div class="shop-list">
-              ${items.map((it) => `
+              ${items.map((it) => {
+                const statBadge = renderItemStatBadge(it.data, it.id);
+                return `
                 <div class="shop-row ${it.canPay ? '' : 'is-disabled'}">
                   <div class="shop-row-icon">${it.data.icon || '📦'}</div>
                   <div class="shop-row-info">
-                    <div class="shop-row-name">${A.Utils.escapeHtml(it.data.name)}</div>
+                    <div class="shop-row-name">
+                      ${A.Utils.escapeHtml(it.data.name)}
+                      ${statBadge}
+                    </div>
                     <div class="shop-row-desc dim">${A.Utils.escapeHtml(it.data.description || '')}</div>
                   </div>
                   <div class="shop-row-price num">${it.price}c</div>
                   <button class="btn-mini" data-shop-buy="${A.Utils.escapeHtml(it.id)}" data-npc-id="${A.Utils.escapeHtml(npc.id)}" ${it.canPay ? '' : 'disabled'}>Comprar</button>
                 </div>
-              `).join('')}
+              `;
+              }).join('')}
             </div>
           `}
         </div>

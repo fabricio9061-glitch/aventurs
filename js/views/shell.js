@@ -149,11 +149,6 @@
           </div>
         </div>
 
-        <div class="coins-row">
-          <span class="dim">Monedas</span>
-          <span class="num">${A.Currency.formatWallet()}</span>
-        </div>
-
         ${p.pet ? `
           <div class="pet-row">
             <span class="pet-icon">${p.pet.icon || '🐾'}</span>
