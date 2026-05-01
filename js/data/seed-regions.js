@@ -23,6 +23,7 @@
       distance: 1,
       icon: '🏘️',
       description: 'Casas de piedra y techos de paja se acomodan junto al camino. La gente trabaja sin levantar la vista. Un buen sitio para empezar.',
+      events: [{ type: 'find', chance: 5, reward: 'pan' }],
     },
     {
       id: 'bosque_sombrio',
@@ -34,7 +35,8 @@
       distance: 1,
       icon: '🌲',
       description: 'El sotobosque crepita aunque no haya viento. Algo se mueve entre los helechos y prefiere no mostrarse.',
-      encounter: { minEnemies: 1, maxEnemies: 2, allowMixed: true, spawnWeights: { weak: 55, normal: 35, strong: 8, boss: 2 } },
+      events: [{ type: 'find', chance: 10, reward: 'mat_madera' }, { type: 'damage', chance: 5, amount: '1d3' }],
+      encounter: { minEnemies: 1, maxEnemies: 3, allowMixed: true, spawnWeights: { weak: 55, normal: 35, strong: 8, boss: 2 } },
     },
     {
       id: 'cementerio',
@@ -46,7 +48,8 @@
       distance: 1,
       icon: '⚰️',
       description: 'Lápidas torcidas asoman entre la niebla. El pasto crece en parches donde no debería. Los lugareños rodean el lugar.',
-      encounter: { minEnemies: 1, maxEnemies: 2, allowMixed: true, spawnWeights: { weak: 55, normal: 35, strong: 8, boss: 2 } },
+      events: [{ type: 'find', chance: 10, reward: 'mat_hueso' }, { type: 'damage', chance: 6, amount: '1d4', effect: 'Algo te tocó en la oscuridad' }],
+      encounter: { minEnemies: 1, maxEnemies: 4, allowMixed: true, spawnWeights: { weak: 55, normal: 35, strong: 8, boss: 2 } },
     },
 
     // --- Tier 3-4 ---
@@ -60,7 +63,8 @@
       distance: 1,
       icon: '🛣️',
       description: 'Una vieja calzada de piedra cruza llanuras desiertas. Antes la patrullaban guardias; ahora la patrullan otros.',
-      encounter: { minEnemies: 1, maxEnemies: 3, allowMixed: true, spawnWeights: { weak: 40, normal: 40, strong: 15, boss: 5 } },
+      events: [{ type: 'treasure', chance: 8, amount: '1d10' }, { type: 'find', chance: 5, reward: 'pan' }],
+      encounter: { minEnemies: 1, maxEnemies: 4, allowMixed: true, spawnWeights: { weak: 40, normal: 40, strong: 15, boss: 5 } },
     },
     {
       id: 'pantano',
@@ -72,7 +76,8 @@
       distance: 1,
       icon: '🦎',
       description: 'Aguas estancadas, vapores dulces, fango que se mueve solo. Cada paso es una decisión.',
-      encounter: { minEnemies: 1, maxEnemies: 3, allowMixed: true, spawnWeights: { weak: 40, normal: 40, strong: 15, boss: 5 } },
+      events: [{ type: 'damage', chance: 12, amount: '1d4', effect: 'Resbalaste en el barro' }, { type: 'find', chance: 8, reward: 'mat_veneno' }],
+      encounter: { minEnemies: 1, maxEnemies: 4, allowMixed: true, spawnWeights: { weak: 40, normal: 40, strong: 15, boss: 5 } },
     },
 
     // --- Tier 5-6 ---
@@ -86,6 +91,7 @@
       distance: 1,
       icon: '⚓',
       description: 'Mástiles, redes, gritos de gaviota. Aquí se compra acero, se contratan barcos y se olvidan deudas.',
+      events: [{ type: 'find', chance: 6, reward: 'pescado_fresco' }],
     },
     {
       id: 'torre_del_mago',
@@ -108,7 +114,8 @@
       distance: 2,
       icon: '⛰️',
       description: 'Picos grises de filo cortante. Aquí el aire se enrarece y el grito de un águila puede escucharse a leguas.',
-      encounter: { minEnemies: 1, maxEnemies: 3, allowMixed: true, spawnWeights: { weak: 25, normal: 45, strong: 25, boss: 5 } },
+      events: [{ type: 'find', chance: 8, reward: 'mat_hierro' }, { type: 'damage', chance: 6, amount: '1d3', effect: 'Resbalaste en una piedra' }],
+      encounter: { minEnemies: 1, maxEnemies: 4, allowMixed: true, spawnWeights: { weak: 25, normal: 45, strong: 25, boss: 5 } },
     },
     {
       id: 'desierto',
@@ -120,6 +127,7 @@
       distance: 2,
       icon: '🏜️',
       description: 'Dunas hasta donde alcanza la vista. El sol no perdona, la arena guarda secretos, y de noche otra cosa los desentierra.',
+      events: [{ type: 'damage', chance: 10, amount: '1d4', effect: 'Calor sofocante' }, { type: 'treasure', chance: 5, amount: '2d10' }],
       encounter: { minEnemies: 1, maxEnemies: 3, allowMixed: true, spawnWeights: { weak: 25, normal: 45, strong: 25, boss: 5 } },
     },
 
@@ -146,6 +154,7 @@
       distance: 2,
       icon: '🦴',
       description: 'Pasillos estrechos forrados de huesos. Cada cráneo parece girar para verte cuando le das la espalda.',
+      events: [{ type: 'damage', chance: 14, amount: '1d6', effect: 'Trampa antigua' }, { type: 'treasure', chance: 18, amount: '3d10' }],
       encounter: { minEnemies: 1, maxEnemies: 2, allowMixed: true, spawnWeights: { weak: 15, normal: 40, strong: 35, boss: 10 } },
     },
     {
@@ -170,6 +179,7 @@
       distance: 2,
       icon: '🌊',
       description: 'Olas oscuras que rompen contra el casco. Aquí no hay tierra firme. Si caes, no vuelves.',
+      events: [{ type: 'find', chance: 12, reward: 'pescado_fresco' }, { type: 'treasure', chance: 10, amount: '2d12' }],
       encounter: { minEnemies: 1, maxEnemies: 2, allowMixed: true, spawnWeights: { weak: 15, normal: 40, strong: 35, boss: 10 } },
     },
 
@@ -178,12 +188,14 @@
       id: 'volcan',
       name: 'Volcán',
       type: 'combat',
+      reqEncounters: 15,
       biome: 'volcano',
       tier: [9, 10],
       connections: ['cuevas_ancestrales', 'infierno', 'nido_de_dragones'],
       distance: 3,
       icon: '🌋',
       description: 'La montaña respira humo y la piedra está caliente al tacto. Pocos vuelven de aquí, y los que vuelven hablan poco.',
+      events: [{ type: 'damage', chance: 18, amount: '2d4', effect: 'Una columna de vapor te quema' }, { type: 'find', chance: 10, reward: 'mat_gema_arcana' }],
       encounter: { minEnemies: 1, maxEnemies: 1, allowMixed: false, spawnWeights: { weak: 5, normal: 25, strong: 45, boss: 25 } },
     },
     {
@@ -202,18 +214,21 @@
       id: 'nido_de_dragones',
       name: 'Nido de Dragones',
       type: 'combat',
+      reqEncounters: 25,
       biome: 'lair',
       tier: [9, 10],
       connections: ['volcan'],
       distance: 3,
       icon: '🐲',
       description: 'Cráteres de roca lisa y cáscaras de huevos del tamaño de un hombre. Algo bate las alas a lo lejos.',
+      events: [{ type: 'treasure', chance: 25, amount: '5d20' }, { type: 'damage', chance: 15, amount: '2d6', effect: 'Una bocanada de fuego' }],
       encounter: { minEnemies: 1, maxEnemies: 1, allowMixed: false, spawnWeights: { weak: 5, normal: 25, strong: 45, boss: 25 } },
     },
     {
       id: 'abismo_marino',
       name: 'Abismo Marino',
       type: 'combat',
+      reqEncounters: 8,
       biome: 'abyss',
       tier: [9, 10],
       connections: ['alta_mar'],

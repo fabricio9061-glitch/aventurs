@@ -16,11 +16,11 @@
 
   const ITEMS = [
     // --- Monedas ---
-    { id:'coin_copper', name:'Moneda de cobre', type:'item', subtype:'coin', icon:'🟤', value:1, weight:0,
+    { id:'coin_copper', name:'Moneda de cobre', type:'item', subtype:'coin', icon:'🥉', value:1, weight:0, stack:9999,
       description:'La moneda más común. Cien valen una de plata.' },
-    { id:'coin_silver', name:'Moneda de plata', type:'item', subtype:'coin', icon:'⚪', value:100, weight:0,
+    { id:'coin_silver', name:'Moneda de plata', type:'item', subtype:'coin', icon:'🥈', value:100, weight:0, stack:9999,
       description:'Cien de cobre, una de plata. Cien de plata, una de oro.' },
-    { id:'coin_gold', name:'Moneda de oro', type:'item', subtype:'coin', icon:'🟡', value:10000, weight:0,
+    { id:'coin_gold', name:'Moneda de oro', type:'item', subtype:'coin', icon:'🥇', value:10000, weight:0, stack:9999,
       description:'Pesada y brillante. La paga de un mes para un guardia, el precio de un buen caballo.' },
 
     // --- Pociones y curativos ---
@@ -94,6 +94,22 @@
     { id:'pergamino_aliento_dragon', name:'Pergamino: Aliento de dragón', type:'item', subtype:'scroll_spell', icon:'📜', value:5000, weight:0, stack:3,
       teachesSpell:'aliento_de_dragon',
       description:'Escrito en sangre dracónica. Solo magos con sangre antigua pueden leerlo sin morir.' },
+
+    // --- Bolsas como items (v1.5.1) ---
+    // Los items con subtype 'bag' se "usan" para equipar la bolsa correspondiente.
+    // Los recibís como drop de enemigos o comprándolos a NPCs.
+    { id:'item_bag_reforzada', name:'Mochila reforzada', type:'item', subtype:'bag', icon:'🎒', value:200, weight:0, stack:1,
+      equipsBag:'bag_reforzada',
+      description:'Cuero curtido sobre lona. 14 espacios. Úsala para reemplazar tu mochila actual.' },
+    { id:'item_bag_large', name:'Mochila grande', type:'item', subtype:'bag', icon:'🎒', value:500, weight:0, stack:1,
+      equipsBag:'bag_large',
+      description:'Una buena bolsa. 16 espacios. Úsala para reemplazar tu mochila actual.' },
+    { id:'item_bag_advanced', name:'Mochila avanzada', type:'item', subtype:'bag', icon:'🎒', value:1500, weight:0, stack:1,
+      equipsBag:'bag_advanced',
+      description:'Cosida con cuero de bestia y broches de hierro. 24 espacios. Úsala para reemplazar tu mochila actual.' },
+    { id:'item_bag_arcane', name:'Mochila arcana', type:'item', subtype:'bag', icon:'🎒', value:5000, weight:0, stack:1,
+      equipsBag:'bag_arcane',
+      description:'Por dentro es más grande que por fuera. 32 espacios. Solo magos saben cómo se hacen.' },
 
     // --- Materiales de crafting ---
     { id:'mat_hierro', name:'Lingote de hierro', type:'item', subtype:'material', icon:'⛓️', value:20, weight:1, stack:99,

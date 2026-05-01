@@ -77,20 +77,24 @@
     // ---- Modo mixto ----
     if (cfg.allowMixed) {
       const result = [];
-      for (let i = 0; i < count; i++) {
+      const counts = {}; // { enemyId: cuántos hay }
+      let attempts = 0;
+      const maxAttempts = count * 5;
+      while (result.length < count && attempts < maxAttempts) {
+        attempts++;
         const cat = A.Utils.weightedPick(catWeights);
         const enemy = pickFromCategory(byCat[cat]);
         if (!enemy) continue;
-        // Si no es agrupable y ya hay uno de él en el grupo, descartar este intento
         const groupable = enemy.spawn && enemy.spawn.groupable !== false;
-        const alreadyHere = result.some((r) => r.id === enemy.id);
-        if (!groupable && alreadyHere) {
-          // intentar otra categoría/enemigo
-          const retry = pickAnyOther(byCat, catWeights, result);
-          if (retry) result.push(spawnInstance(retry));
-          continue;
-        }
+        const enemyMax = (enemy.spawn && enemy.spawn.max) || 1;
+        const here = counts[enemy.id] || 0;
+        // Si no es agrupable y ya hay uno, descartar
+        if (!groupable && here > 0) continue;
+        // Si llegó al max permitido del enemigo, descartar
+        if (here >= enemyMax) continue;
+
         result.push(spawnInstance(enemy));
+        counts[enemy.id] = here + 1;
       }
       return result;
     }

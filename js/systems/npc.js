@@ -60,28 +60,28 @@
     return { ok: true, price };
   }
 
-  function sell(itemId) {
+  function sell(itemId, qty = 1) {
     const data = A.Inventory.resolveData(itemId);
     if (!data) return { ok: false, error: 'Item no encontrado.' };
-    // No vender monedas
     if (data.subtype === 'coin') return { ok: false, error: 'Las monedas no se venden.' };
-    // No vender items equipados
     const p = A.State.player;
     if (p.equipment.weapon === itemId || p.equipment.armor === itemId) {
       return { ok: false, error: 'Quita el item primero.' };
     }
     const slot = p.inventory.find((s) => s.itemId === itemId);
     if (!slot) return { ok: false, error: 'No tenés ese item.' };
+    const actualQty = Math.min(qty, slot.qty);
     const baseValue = data.value || 0;
-    const sellPrice = Math.max(1, Math.floor(baseValue / 2));
-    A.State.removeItem(itemId, 1);
-    A.Currency.add(sellPrice);
+    const sellPriceEach = Math.max(1, Math.floor(baseValue / 2));
+    const totalPrice = sellPriceEach * actualQty;
+    A.State.removeItem(itemId, actualQty);
+    A.Currency.add(totalPrice);
     A.State.addChronicle({
       type: 'shop',
-      text: `Vendiste ${data.name} por ${sellPrice}c.`,
+      text: `Vendiste ${data.name}${actualQty > 1 ? ` ×${actualQty}` : ''} por ${A.Currency.formatPrice(totalPrice)}.`,
     });
-    A.Bus.emit('shop:sold', { itemId, sellPrice });
-    return { ok: true, copperReceived: sellPrice };
+    A.Bus.emit('shop:sold', { itemId, qty: actualQty, copperReceived: totalPrice });
+    return { ok: true, copperReceived: totalPrice, qty: actualQty };
   }
 
   // ---------- Aprender hechizos ----------
@@ -127,12 +127,14 @@
     if (!npc) return { ok: false, error: 'NPC no encontrado.' };
     const cost = (npc.services && npc.services.restCost != null) ? npc.services.restCost : null;
     if (cost == null) return { ok: false, error: 'Este NPC no ofrece descanso.' };
-    if (!A.Currency.canPay(cost)) return { ok: false, error: `Cuesta ${cost}c.` };
+    if (!A.Currency.canPay(cost)) return { ok: false, error: `Cuesta ${A.Currency.formatPrice(cost)}.` };
     A.Currency.pay(cost);
     A.State.fullRest();
+    // Pasar la noche también restaura food (no del todo, solo +10)
+    A.State.modifyFood(10);
     A.State.addChronicle({
       type: 'rest',
-      text: `Pasaste la noche en lo de ${npc.name}. Pagaste ${cost}c.`,
+      text: `Pasaste la noche en lo de ${npc.name}. Pagaste ${A.Currency.formatPrice(cost)}.`,
     });
     A.Bus.emit('rest:done', { npcId, cost });
     return { ok: true };

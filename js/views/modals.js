@@ -161,16 +161,31 @@
             <div class="shop-list">
               ${sellable.map((s) => {
                 const d = A.Inventory.resolveData(s.itemId);
-                const price = Math.max(1, Math.floor((d.value || 0) / 2));
+                const priceEach = Math.max(1, Math.floor((d.value || 0) / 2));
                 const qtyStr = s.qty > 1 ? ` ×${s.qty}` : '';
+                let buttons;
+                if (s.qty > 1) {
+                  const q5 = s.qty >= 5 ? 5 : null;
+                  const q10 = s.qty >= 10 ? 10 : null;
+                  buttons = `
+                    <div class="sell-multi-btns">
+                      <button class="btn-mini" data-shop-sell="${A.Utils.escapeHtml(s.itemId)}" data-sell-qty="1">×1 (+${A.Currency.formatPrice(priceEach)})</button>
+                      ${q5 ? `<button class="btn-mini" data-shop-sell="${A.Utils.escapeHtml(s.itemId)}" data-sell-qty="5">×5 (+${A.Currency.formatPrice(priceEach * 5)})</button>` : ''}
+                      ${q10 ? `<button class="btn-mini" data-shop-sell="${A.Utils.escapeHtml(s.itemId)}" data-sell-qty="10">×10 (+${A.Currency.formatPrice(priceEach * 10)})</button>` : ''}
+                      <button class="btn-mini" data-shop-sell="${A.Utils.escapeHtml(s.itemId)}" data-sell-qty="${s.qty}">Todo (+${A.Currency.formatPrice(priceEach * s.qty)})</button>
+                    </div>
+                  `;
+                } else {
+                  buttons = `<button class="btn-mini" data-shop-sell="${A.Utils.escapeHtml(s.itemId)}" data-sell-qty="1">Vender (+${A.Currency.formatPrice(priceEach)})</button>`;
+                }
                 return `
                   <div class="shop-row">
                     <div class="shop-row-icon">${d.icon || '📦'}</div>
                     <div class="shop-row-info">
                       <div class="shop-row-name">${A.Utils.escapeHtml(d.name)}<span class="dim num">${qtyStr}</span></div>
+                      <div class="shop-row-desc dim">${A.Currency.formatPrice(priceEach)} c/u</div>
                     </div>
-                    <div class="shop-row-price dim num">+${price}c</div>
-                    <button class="btn-mini" data-shop-sell="${A.Utils.escapeHtml(s.itemId)}">Vender 1</button>
+                    ${buttons}
                   </div>
                 `;
               }).join('')}
@@ -224,12 +239,31 @@
   function renderNpcRest(npc) {
     const cost = npc.services.restCost;
     const canPay = A.Currency.canPay(cost);
+    const eatCost = Math.max(2, Math.floor(cost / 2));
+    const canEat = A.Currency.canPay(eatCost);
+    const p = A.State.player;
+    const needsRest = p.hp < p.maxHp || (p.hasMagic && p.mana < p.maxMana);
+    const needsFood = (p.food || 0) < (p.maxFood || 20);
     return `
-      <div class="rest-modal">
-        <p>Una cama firme, un techo, un poco de calma. Cuesta <span class="num">${cost}c</span>.</p>
-        <button class="btn-primary" data-rest="1" data-npc-id="${A.Utils.escapeHtml(npc.id)}" ${canPay ? '' : 'disabled'}>
-          ${canPay ? 'Pasar la noche' : `No te alcanza`}
-        </button>
+      <div class="rest-services">
+        <div class="rest-service-row ${(canPay && needsRest) ? '' : 'is-disabled'}">
+          <div class="rest-service-icon">🛏️</div>
+          <div class="rest-service-info">
+            <div class="rest-service-name">Pasar la noche</div>
+            <div class="rest-service-desc dim">Recupera salud y maná al máximo.</div>
+          </div>
+          <div class="rest-service-price num">${A.Currency.formatPrice(cost)}</div>
+          <button class="btn-mini" data-rest-action="sleep" data-npc-id="${A.Utils.escapeHtml(npc.id)}" ${canPay && needsRest ? '' : 'disabled'}>${needsRest ? 'Dormir' : 'Sano'}</button>
+        </div>
+        <div class="rest-service-row ${(canEat && needsFood) ? '' : 'is-disabled'}">
+          <div class="rest-service-icon">🍖</div>
+          <div class="rest-service-info">
+            <div class="rest-service-name">Comer en la posada</div>
+            <div class="rest-service-desc dim">+5 de comida. Sin colas.</div>
+          </div>
+          <div class="rest-service-price num">${A.Currency.formatPrice(eatCost)}</div>
+          <button class="btn-mini" data-rest-action="eat" data-npc-id="${A.Utils.escapeHtml(npc.id)}" data-cost="${eatCost}" ${canEat && needsFood ? '' : 'disabled'}>${needsFood ? 'Comer' : 'Saciado'}</button>
+        </div>
       </div>
     `;
   }
@@ -325,6 +359,9 @@
     if (kind === 'scroll') {
       const isSpellScroll = data.subtype === 'scroll_spell';
       actions.push(`<button class="btn-primary" data-detail-action="use">${isSpellScroll ? 'Aprender hechizo' : 'Usar'}</button>`);
+    }
+    if (kind === 'bag') {
+      actions.push(`<button class="btn-primary" data-detail-action="use">Equipar mochila</button>`);
     }
     actions.push(`<button class="btn-danger" data-detail-action="drop">Tirar</button>`);
 
@@ -704,7 +741,8 @@
       // Vender
       overlay.querySelectorAll('[data-shop-sell]').forEach((b) => {
         b.addEventListener('click', () => {
-          const r = A.NPC.sell(b.dataset.shopSell);
+          const qty = parseInt(b.dataset.sellQty, 10) || 1;
+          const r = A.NPC.sell(b.dataset.shopSell, qty);
           if (r.ok) {
             const npcId = overlay.querySelector('[data-npc-tab]')?.dataset.npcId;
             if (npcId) A.State.openModal('npc', { npcId, tab: 'shop' });
@@ -722,8 +760,27 @@
         });
       });
       // Descansar
-      overlay.querySelectorAll('[data-rest]').forEach((b) => {
+      overlay.querySelectorAll('[data-rest-action]').forEach((b) => {
         if (b.disabled) return;
+        b.addEventListener('click', () => {
+          const action = b.dataset.restAction;
+          const npcId = b.dataset.npcId;
+          if (action === 'sleep') {
+            const r = A.NPC.restAt(npcId);
+            if (r.ok) A.State.closeModal();
+          } else if (action === 'eat') {
+            const cost = parseInt(b.dataset.cost, 10) || 5;
+            if (!A.Currency.canPay(cost)) return;
+            A.Currency.pay(cost);
+            A.State.modifyFood(5);
+            A.State.addChronicle({ type: 'rest', text: `Comiste en la posada. +5 comida.` });
+            A.State.openModal('npc', { npcId, tab: 'rest' });
+          }
+        });
+      });
+      // Compat con [data-rest="1"] (legacy)
+      overlay.querySelectorAll('[data-rest]').forEach((b) => {
+        if (b.disabled || b.dataset.restAction) return;
         b.addEventListener('click', () => {
           const r = A.NPC.restAt(b.dataset.npcId);
           if (r.ok) A.State.closeModal();

@@ -335,12 +335,13 @@
       row('Distancia', inp('distance', e.distance, 'number')),
       row('Icono', inp('icon', e.icon)),
       row('Descripción', txt('description', e.description, 4)),
+      row('Encuentros requeridos (desbloqueo)', inp('reqEncounters', e.reqEncounters || 0, 'number', 'min="0" max="50"')),
       `<div class="form-row form-row-block">
         <label>Configuración de encuentros (solo combat)</label>
         <div class="encounter-block">
           ${[
-            row('Mín. enemigos', inp('encounter.minEnemies', (e.encounter||{}).minEnemies ?? 1, 'number', 'min="1" max="6"')),
-            row('Máx. enemigos', inp('encounter.maxEnemies', (e.encounter||{}).maxEnemies ?? 2, 'number', 'min="1" max="6"')),
+            row('Mín. enemigos', inp('encounter.minEnemies', (e.encounter||{}).minEnemies ?? 1, 'number', 'min="1" max="8"')),
+            row('Máx. enemigos', inp('encounter.maxEnemies', (e.encounter||{}).maxEnemies ?? 2, 'number', 'min="1" max="8"')),
             row('Permite mezcla', chk('encounter.allowMixed', (e.encounter||{}).allowMixed !== false)),
             row('Peso weak (%)', inp('encounter.spawnWeights.weak', ((e.encounter||{}).spawnWeights||{}).weak ?? 40, 'number', 'min="0" max="100"')),
             row('Peso normal (%)', inp('encounter.spawnWeights.normal', ((e.encounter||{}).spawnWeights||{}).normal ?? 40, 'number', 'min="0" max="100"')),
@@ -477,8 +478,8 @@
       row('Loot mínimo (cobre)', inp('coinLoot.0', (e.coinLoot||[0,0])[0], 'number')),
       row('Loot máximo (cobre)', inp('coinLoot.1', (e.coinLoot||[0,0])[1], 'number')),
       row('Regiones (csv)', arr('regions', e.regions)),
-      row('Spawn min (por encuentro)', inp('spawn.min', (e.spawn||{}).min ?? 1, 'number', 'min="1" max="10"')),
-      row('Spawn max (por encuentro)', inp('spawn.max', (e.spawn||{}).max ?? 1, 'number', 'min="1" max="10"')),
+      row('Spawn min (por encuentro)', inp('spawn.min', (e.spawn||{}).min ?? 1, 'number', 'min="1" max="8"')),
+      row('Spawn max (por encuentro)', inp('spawn.max', (e.spawn||{}).max ?? 1, 'number', 'min="1" max="8"')),
       row('Spawn weight (peso relativo)', inp('spawn.weight', (e.spawn||{}).weight ?? 1.0, 'number', 'min="0" max="5" step="0.1"')),
       row('Agrupable (groupable)', chk('spawn.groupable', (e.spawn||{}).groupable !== false)),
       row('Domable', chk('tameable', e.tameable)),

@@ -231,8 +231,11 @@
     const dangerClass = n.type === 'safe' ? 'pill-safe' : 'pill-combat';
     const enemiesCount = A.Data.enemiesInRegion(n.id).length;
     const dist = n.distance || 1;
+    const travelCheck = A.Travel.canTravelToDetailed(n.id);
+    const locked = !travelCheck.ok && travelCheck.locked;
+    const cls = `travel-card ${locked ? 'is-locked' : ''}`;
     return `
-      <button class="travel-card" data-travel="${n.id}">
+      <button class="${cls}" data-travel="${n.id}" ${locked ? 'data-locked="1"' : ''}>
         <div class="travel-icon">${n.icon || '📍'}</div>
         <div class="travel-info">
           <div class="travel-name">${A.Utils.escapeHtml(n.name)}</div>
@@ -242,8 +245,9 @@
             <span class="dim">${dist === 1 ? 'Cerca' : dist === 2 ? 'Medio camino' : 'Lejos'}</span>
             ${enemiesCount ? `<span class="dim">· ${enemiesCount} criaturas</span>` : ''}
           </div>
+          ${locked ? `<div class="travel-locked-msg">🔒 Necesitas ${travelCheck.required} encuentros completados (llevás ${travelCheck.have}).</div>` : ''}
         </div>
-        <div class="travel-arrow dim">→</div>
+        <div class="travel-arrow dim">${locked ? '🔒' : '→'}</div>
       </button>
     `;
   }
@@ -279,7 +283,13 @@
 
   function bindEvents() {
     mainEl.querySelectorAll('[data-travel]').forEach((btn) => {
-      btn.addEventListener('click', () => onTravel(btn.dataset.travel));
+      btn.addEventListener('click', () => {
+        if (btn.dataset.locked === '1') {
+          onTravelLocked(btn.dataset.travel);
+        } else {
+          onTravel(btn.dataset.travel);
+        }
+      });
     });
     mainEl.querySelectorAll('[data-npc]').forEach((btn) => {
       btn.addEventListener('click', () => A.State.openModal('npc', { npcId: btn.dataset.npc }));
@@ -341,11 +351,40 @@
     }
   }
 
+  function onTravelLocked(targetId) {
+    const check = A.Travel.canTravelToDetailed(targetId);
+    if (check.locked) {
+      // Mostrar mensaje
+      A.State.openModal('confirm', {
+        title: 'Región bloqueada',
+        body: check.error,
+      });
+    }
+  }
+
   function onAction(action) {
     if (action === 'rest') {
-      A.State.fullRest();
-      A.State.addChronicle({ type: 'rest', text: 'Descansaste. Recuperaste salud y maná.' });
+      // Descanso al raso: solo +50% HP, sin maná ni food
+      const p = A.State.player;
+      const heal = Math.floor(p.maxHp / 2);
+      const before = p.hp;
+      A.State.healHp(heal);
+      const recovered = p.hp - before;
+      A.State.addChronicle({
+        type: 'rest',
+        text: `Descansaste un rato. +${recovered} salud. (Para recuperar maná y comida, buscá una posada.)`,
+      });
     } else if (action === 'explore') {
+      const region = A.Data.getById('regions', A.State.world.regionId);
+      // Primero probar eventos custom de la región
+      if (region && Array.isArray(region.events) && region.events.length > 0) {
+        for (const ev of region.events) {
+          if (Math.random() * 100 < (ev.chance || 0)) {
+            executeRegionEventInline(ev);
+            return;
+          }
+        }
+      }
       const r = Math.random();
       if (r < 0.60) {
         // Generar grupo via Encounter (respeta encounter config de la región)
@@ -360,10 +399,34 @@
       } else if (r < 0.85) {
         const coins = 3 + Math.floor(Math.random() * 12);
         A.Currency.add(coins);
-        A.State.addChronicle({ type: 'loot', text: `Encontraste ${coins} monedas de cobre escondidas.` });
+        A.State.addChronicle({ type: 'loot', text: `Encontraste ${A.Currency.formatPrice(coins)} escondidos.` });
       } else {
         A.State.addChronicle({ type: 'note', text: 'No encontraste nada útil esta vez.' });
       }
+    }
+  }
+
+  function executeRegionEventInline(ev) {
+    if (ev.type === 'treasure') {
+      const amount = A.Utils.rollDice(ev.amount || '1d10');
+      A.Currency.add(amount);
+      A.State.addChronicle({ type: 'loot', text: `Encontraste ${A.Currency.formatPrice(amount)} escondidos.` });
+    } else if (ev.type === 'find' && ev.reward) {
+      const item = A.Data.getById('items', ev.reward) ||
+                   A.Data.getById('weapons', ev.reward) ||
+                   A.Data.getById('armors', ev.reward);
+      if (item && A.State.addItem(ev.reward, 1)) {
+        A.State.addChronicle({ type: 'loot', text: `Encontraste: ${item.name}.` });
+      }
+    } else if (ev.type === 'damage') {
+      const dmg = A.Utils.rollDice(ev.amount || '1d4');
+      A.State.damagePlayer(dmg);
+      const flavor = ev.effect || 'Algo te lastimó';
+      A.State.addChronicle({ type: 'note', text: `${flavor}. -${dmg} de salud.` });
+    } else if (ev.type === 'heal') {
+      const amount = A.Utils.rollDice(ev.amount || '1d6');
+      A.State.healHp(amount);
+      A.State.addChronicle({ type: 'rest', text: `Algo te reconfortó. +${amount} de salud.` });
     }
   }
 

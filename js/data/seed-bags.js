@@ -1,25 +1,19 @@
 /* ============================================================
-   Aventurs — Seed: Bags (mochilas)
+   Aventurs — Seed: Bags (mochilas) v1.5.1
    Cada mochila define la capacidad de inventario del jugador.
 
    Modelo:
      id, name, slots, value, rarity, tier, icon, description
+
+   Cambio v1.5.1: eliminada la bolsa de 5 slots.
+   El personaje arranca con bag_basic (10 slots).
+   Las demás se consiguen como drops o compras a NPCs.
    ============================================================ */
 
 (function (A) {
   'use strict';
 
   const BAGS = [
-    {
-      id: 'bag_starter',
-      name: 'Bolsa de tela',
-      slots: 5,
-      value: 0,
-      rarity: 'common',
-      tier: 1,
-      icon: '🎒',
-      description: 'Una bolsa de paño con costuras flojas. Cabe poco pero te saca del apuro.',
-    },
     {
       id: 'bag_basic',
       name: 'Mochila básica',
@@ -28,7 +22,7 @@
       rarity: 'common',
       tier: 1,
       icon: '🎒',
-      description: 'Cuero remendado y correas firmes. El paso siguiente al saco de tela.',
+      description: 'Cuero remendado y correas firmes. La que todos arrancamos teniendo.',
     },
     {
       id: 'bag_reforzada',

@@ -26,10 +26,10 @@
     // TIER 1-2: bestias básicas, no-muertos chicos, humanoides simples
     // ============================================================
     { id:'rata', name:'Rata', icon:'🐀', family:['beast'], category:'weak', tier:1, tags:['small'], biome:['village','forest','crypt'],
-      health:6, damage:2, difficulty:7, armor:0, speed:11, coinLoot:[0,2], drops:[], regions:['bosque_sombrio','cementerio'], spawn:{min:1,max:3,weight:2,groupable:true}, tameable:true, tameItem:'carne_cruda', autoLoot:true },
+      health:6, damage:2, difficulty:7, armor:0, speed:11, coinLoot:[0,2], drops:[], regions:['bosque_sombrio','cementerio'], spawn:{min:1,max:5,weight:2,groupable:true}, tameable:true, tameItem:'carne_cruda', autoLoot:true },
 
     { id:'rata_gigante', name:'Rata gigante', icon:'🐀', family:['beast'], category:'normal', tier:2, tags:['poison'], biome:['forest','crypt','swamp'],
-      health:14, damage:4, difficulty:8, armor:0, speed:10, coinLoot:[1,4], drops:[], regions:['bosque_sombrio','cementerio','pantano'], spawn:{min:1,max:2,weight:1,groupable:true}, tameable:true, tameItem:'carne_cruda', autoLoot:true },
+      health:14, damage:4, difficulty:8, armor:0, speed:10, coinLoot:[1,4], drops:[], regions:['bosque_sombrio','cementerio','pantano'], spawn:{min:1,max:4,weight:1,groupable:true}, tameable:true, tameItem:'carne_cruda', autoLoot:true },
 
     { id:'gato', name:'Gato salvaje', icon:'🐈‍⬛', family:['beast'], category:'weak', tier:1, tags:['small','agile'], biome:['village','forest'],
       health:8, damage:2, difficulty:8, armor:0, speed:13, coinLoot:[0,1], drops:[], regions:['bosque_sombrio'], spawn:{min:1,max:3,weight:2,groupable:true}, tameable:true, tameItem:'carne_cruda', autoLoot:true },
@@ -38,7 +38,7 @@
       health:10, damage:3, difficulty:8, armor:0, speed:11, coinLoot:[0,2], drops:[], regions:['bosque_sombrio','camino_real'], spawn:{min:1,max:3,weight:2,groupable:true}, tameable:true, tameItem:'carne_cruda', autoLoot:true },
 
     { id:'cuervo', name:'Cuervo', icon:'🐦‍⬛', family:['beast','flying'], category:'weak', tier:1, tags:['flying'], biome:['graveyard','plains'],
-      health:5, damage:2, difficulty:9, armor:0, speed:13, coinLoot:[0,1], drops:[], regions:['cementerio'], spawn:{min:1,max:3,weight:2,groupable:true}, tameable:true, tameItem:'carne_cruda', autoLoot:true },
+      health:5, damage:2, difficulty:9, armor:0, speed:13, coinLoot:[0,1], drops:[], regions:['cementerio'], spawn:{min:1,max:5,weight:2,groupable:true}, tameable:true, tameItem:'carne_cruda', autoLoot:true },
 
     { id:'buho', name:'Búho', icon:'🦉', family:['beast','flying'], category:'weak', tier:1, tags:['flying'], biome:['forest'],
       health:7, damage:2, difficulty:9, armor:0, speed:12, coinLoot:[0,1], drops:[], regions:['bosque_sombrio'], spawn:{min:1,max:3,weight:2,groupable:true}, tameable:true, tameItem:'carne_cruda', autoLoot:true },
@@ -53,46 +53,46 @@
       health:8, damage:3, difficulty:9, armor:0, speed:10, coinLoot:[0,2], drops:[], regions:['bosque_sombrio','pantano','desierto'], spawn:{min:1,max:3,weight:2,groupable:true}, tameable:true, tameItem:'carne_cruda', autoLoot:true },
 
     { id:'arana', name:'Araña', icon:'🕷️', family:['insect'], category:'weak', tier:1, tags:['poison','small'], biome:['cave','crypt','forest'],
-      health:7, damage:2, difficulty:9, armor:0, speed:11, coinLoot:[0,1], drops:[], regions:['bosque_sombrio','cuevas_ancestrales','catacumbas'], spawn:{min:1,max:3,weight:2,groupable:true}, tameable:true, tameItem:'carne_cruda', autoLoot:true },
+      health:7, damage:2, difficulty:9, armor:0, speed:11, coinLoot:[0,1], drops:[], regions:['bosque_sombrio','cuevas_ancestrales','catacumbas'], spawn:{min:1,max:4,weight:2,groupable:true}, tameable:true, tameItem:'carne_cruda', autoLoot:true },
 
     { id:'murcielago', name:'Murciélago', icon:'🦇', family:['beast','flying'], category:'weak', tier:1, tags:['flying','small'], biome:['cave','crypt'],
-      health:5, damage:2, difficulty:10, armor:0, speed:13, coinLoot:[0,1], drops:[], regions:['cuevas_ancestrales','catacumbas','cementerio'], spawn:{min:1,max:3,weight:2,groupable:true}, tameable:true, tameItem:'carne_cruda', autoLoot:true },
+      health:5, damage:2, difficulty:10, armor:0, speed:13, coinLoot:[0,1], drops:[], regions:['cuevas_ancestrales','catacumbas','cementerio'], spawn:{min:1,max:6,weight:2,groupable:true}, tameable:true, tameItem:'carne_cruda', autoLoot:true },
 
     { id:'zorro', name:'Zorro', icon:'🦊', family:['beast'], category:'weak', tier:1, tags:['agile'], biome:['forest','plains'],
       health:9, damage:2, difficulty:9, armor:0, speed:12, coinLoot:[0,2], drops:[], regions:['bosque_sombrio'], spawn:{min:1,max:3,weight:2,groupable:true}, tameable:true, tameItem:'carne_cruda', autoLoot:true },
 
     { id:'jabali', name:'Jabalí', icon:'🐗', family:['beast'], category:'normal', tier:2, tags:['charge'], biome:['forest','plains'],
-      health:18, damage:5, difficulty:9, armor:1, speed:9, coinLoot:[1,3], drops:[], regions:['bosque_sombrio','camino_real'], spawn:{min:1,max:2,weight:1,groupable:true}, tameable:true, tameItem:'carne_cruda', autoLoot:true },
+      health:18, damage:5, difficulty:9, armor:1, speed:9, coinLoot:[1,3], drops:[], regions:['bosque_sombrio','camino_real'], spawn:{min:1,max:3,weight:1,groupable:true}, tameable:true, tameItem:'carne_cruda', autoLoot:true },
 
     { id:'tortuga', name:'Tortuga gigante', icon:'🐢', family:['beast'], category:'normal', tier:2, tags:['armor'], biome:['swamp','coast'],
       health:22, damage:3, difficulty:7, armor:3, speed:5, coinLoot:[1,3], drops:[], regions:['pantano'], spawn:{min:1,max:2,weight:1,groupable:true}, tameable:true, tameItem:'carne_cruda', autoLoot:true },
 
     { id:'lobo', name:'Lobo', icon:'🐺', family:['beast'], category:'normal', tier:2, tags:['pack'], biome:['forest','mountain'],
-      health:15, damage:4, difficulty:9, armor:0, speed:11, coinLoot:[1,3], drops:[], regions:['bosque_sombrio','camino_real','montanas'], spawn:{min:1,max:2,weight:1,groupable:true}, tameable:true, tameItem:'carne_cruda', autoLoot:true },
+      health:15, damage:4, difficulty:9, armor:0, speed:11, coinLoot:[1,3], drops:[], regions:['bosque_sombrio','camino_real','montanas'], spawn:{min:1,max:6,weight:1,groupable:true}, tameable:true, tameItem:'carne_cruda', autoLoot:true },
 
     { id:'oso', name:'Oso', icon:'🐻', family:['beast'], category:'strong', tier:4, tags:[], biome:['forest','mountain'],
       health:50, damage:9, difficulty:11, armor:2, speed:8, coinLoot:[3,8], drops:[], regions:['bosque_sombrio','montanas'], spawn:{min:1,max:1,weight:0.6,groupable:false}, tameable:true, tameItem:'carne_cruda', autoLoot:true },
 
     { id:'esqueleto', name:'Esqueleto', icon:'💀', family:['undead'], category:'normal', tier:2, tags:[], biome:['crypt','graveyard'],
-      health:14, damage:4, difficulty:9, armor:1, speed:8, coinLoot:[1,4], drops:[], regions:['cementerio','catacumbas'], spawn:{min:1,max:2,weight:1,groupable:true}, tameable:false, autoLoot:true },
+      health:14, damage:4, difficulty:9, armor:1, speed:8, coinLoot:[1,4], drops:[], regions:['cementerio','catacumbas'], spawn:{min:1,max:4,weight:1,groupable:true}, tameable:false, autoLoot:true },
 
     { id:'zombi', name:'Zombi', icon:'🧟', family:['undead'], category:'normal', tier:2, tags:['slow'], biome:['crypt','graveyard'],
       health:18, damage:4, difficulty:8, armor:0, speed:6, coinLoot:[0,3], drops:[], regions:['cementerio'], spawn:{min:1,max:2,weight:1,groupable:true}, tameable:false, autoLoot:true },
 
     { id:'escorpion', name:'Escorpión', icon:'🦂', family:['insect'], category:'normal', tier:3, tags:['poison'], biome:['desert','cave'],
-      health:18, damage:5, difficulty:10, armor:1, speed:10, coinLoot:[1,4], drops:[], regions:['desierto','cuevas_ancestrales'], spawn:{min:1,max:2,weight:1,groupable:true}, tameable:true, tameItem:'carne_cruda', autoLoot:true },
+      health:18, damage:5, difficulty:10, armor:1, speed:10, coinLoot:[1,4], drops:[], regions:['desierto','cuevas_ancestrales'], spawn:{min:1,max:4,weight:1,groupable:true}, tameable:true, tameItem:'carne_cruda', autoLoot:true },
 
     { id:'slime', name:'Slime', icon:'🟢', family:['elemental'], category:'normal', tier:2, tags:['acid'], biome:['cave','swamp'],
       health:20, damage:3, difficulty:7, armor:0, speed:6, coinLoot:[1,3], drops:[], regions:['pantano','cuevas_ancestrales'], spawn:{min:1,max:2,weight:1,groupable:true}, tameable:true, tameItem:'carne_cruda', autoLoot:true },
 
     { id:'goblin', name:'Goblin', icon:'👺', family:['humanoid'], category:'normal', tier:2, tags:[], biome:['forest','cave'],
-      health:14, damage:4, difficulty:9, armor:1, speed:10, coinLoot:[2,6], drops:[], regions:['bosque_sombrio','cuevas_ancestrales'], spawn:{min:1,max:2,weight:1,groupable:true}, tameable:false, autoLoot:true },
+      health:14, damage:4, difficulty:9, armor:1, speed:10, coinLoot:[2,6], drops:[], regions:['bosque_sombrio','cuevas_ancestrales'], spawn:{min:1,max:5,weight:1,groupable:true}, tameable:false, autoLoot:true },
 
     { id:'kobold', name:'Kobold', icon:'🦎', family:['humanoid'], category:'normal', tier:2, tags:['pack'], biome:['cave','mountain'],
-      health:12, damage:3, difficulty:9, armor:1, speed:11, coinLoot:[2,5], drops:[], regions:['cuevas_ancestrales','montanas'], spawn:{min:1,max:2,weight:1,groupable:true}, tameable:false, autoLoot:true },
+      health:12, damage:3, difficulty:9, armor:1, speed:11, coinLoot:[2,5], drops:[], regions:['cuevas_ancestrales','montanas'], spawn:{min:1,max:5,weight:1,groupable:true}, tameable:false, autoLoot:true },
 
     { id:'bandido', name:'Bandido', icon:'🗡️', family:['humanoid'], category:'normal', tier:3, tags:[], biome:['plains','forest'],
-      health:24, damage:6, difficulty:10, armor:2, speed:10, coinLoot:[5,12], drops:[], regions:['camino_real','bosque_sombrio'], spawn:{min:1,max:2,weight:1,groupable:true}, tameable:false, autoLoot:true },
+      health:24, damage:6, difficulty:10, armor:2, speed:10, coinLoot:[5,12], drops:[{itemId:'item_bag_reforzada',chance:0.18}], regions:['camino_real','bosque_sombrio'], spawn:{min:1,max:4,weight:1,groupable:true}, tameable:false, autoLoot:true },
 
     // ============================================================
     // TIER 3-4: amenaza moderada
@@ -101,7 +101,7 @@
       health:28, damage:7, difficulty:11, armor:1, speed:12, coinLoot:[3,8], drops:[{itemId:'pergamino_llama',chance:0.15}], regions:['ruinas_perdidas'], spawn:{min:1,max:2,weight:1,groupable:true}, tameable:false, autoLoot:true },
 
     { id:'orco', name:'Orco', icon:'👹', family:['humanoid'], category:'strong', tier:4, tags:[], biome:['mountain','plains'],
-      health:42, damage:9, difficulty:11, armor:3, speed:9, coinLoot:[5,12], drops:[], regions:['camino_real','montanas'], spawn:{min:1,max:1,weight:0.6,groupable:false}, tameable:false, autoLoot:true },
+      health:42, damage:9, difficulty:11, armor:3, speed:9, coinLoot:[5,12], drops:[{itemId:'item_bag_reforzada',chance:0.1}], regions:['camino_real','montanas'], spawn:{min:1,max:3,weight:0.6,groupable:true}, tameable:false, autoLoot:true },
 
     { id:'hobgoblin', name:'Hobgoblin', icon:'👺', family:['humanoid'], category:'normal', tier:4, tags:[], biome:['forest','cave'],
       health:32, damage:7, difficulty:11, armor:2, speed:10, coinLoot:[4,10], drops:[], regions:['bosque_sombrio','cuevas_ancestrales'], spawn:{min:1,max:2,weight:1,groupable:true}, tameable:false, autoLoot:true },
@@ -134,13 +134,13 @@
       health:75, damage:14, difficulty:12, armor:2, speed:12, coinLoot:[8,18], drops:[], regions:['bosque_sombrio','montanas'], spawn:{min:1,max:1,weight:0.6,groupable:false}, tameable:false, autoLoot:true },
 
     { id:'ogro', name:'Ogro', icon:'👹', family:['humanoid','giant'], category:'strong', tier:5, tags:['heavy'], biome:['mountain','swamp'],
-      health:80, damage:13, difficulty:10, armor:3, speed:7, coinLoot:[7,15], drops:[], regions:['montanas','pantano'], spawn:{min:1,max:1,weight:0.6,groupable:false}, tameable:false, autoLoot:true },
+      health:80, damage:13, difficulty:10, armor:3, speed:7, coinLoot:[7,15], drops:[{itemId:'item_bag_large',chance:0.18}], regions:['montanas','pantano'], spawn:{min:1,max:1,weight:0.6,groupable:false}, tameable:false, autoLoot:true },
 
     { id:'troll', name:'Troll', icon:'🧌', family:['humanoid','giant'], category:'strong', tier:6, tags:['regen'], biome:['cave','swamp','mountain'],
-      health:90, damage:13, difficulty:11, armor:3, speed:8, coinLoot:[8,18], drops:[], regions:['cuevas_ancestrales','pantano'], spawn:{min:1,max:1,weight:0.6,groupable:false}, tameable:false, autoLoot:true },
+      health:90, damage:13, difficulty:11, armor:3, speed:8, coinLoot:[8,18], drops:[{itemId:'item_bag_large',chance:0.2}], regions:['cuevas_ancestrales','pantano'], spawn:{min:1,max:1,weight:0.6,groupable:false}, tameable:false, autoLoot:true },
 
     { id:'minotauro', name:'Minotauro', icon:'🐂', family:['humanoid'], category:'strong', tier:6, tags:['charge'], biome:['ruins','cave'],
-      health:85, damage:14, difficulty:12, armor:3, speed:10, coinLoot:[8,18], drops:[], regions:['ruinas_perdidas','cuevas_ancestrales'], spawn:{min:1,max:1,weight:0.6,groupable:false}, tameable:false, autoLoot:true },
+      health:85, damage:14, difficulty:12, armor:3, speed:10, coinLoot:[8,18], drops:[{itemId:'item_bag_large',chance:0.25}], regions:['ruinas_perdidas','cuevas_ancestrales'], spawn:{min:1,max:1,weight:0.6,groupable:false}, tameable:false, autoLoot:true },
 
     { id:'sirena', name:'Sirena', icon:'🧜‍♀️', family:['humanoid','aquatic'], category:'normal', tier:5, tags:['aquatic','charm'], biome:['sea','coast'],
       health:50, damage:10, difficulty:13, armor:1, speed:11, coinLoot:[6,14], drops:[], regions:['alta_mar'], spawn:{min:1,max:2,weight:1,groupable:true}, tameable:false, autoLoot:true },
@@ -215,7 +215,7 @@
       health:140, damage:19, difficulty:14, armor:3, speed:14, coinLoot:[18,35], drops:[], regions:['volcan'], spawn:{min:1,max:1,weight:0.6,groupable:false}, tameable:true, tameItem:'carne_cruda', autoLoot:true },
 
     { id:'lich', name:'Lich', icon:'💀', family:['undead','arcane'], category:'boss', tier:9, tags:['magic','undead'], biome:['crypt','arcane'],
-      health:220, damage:25, difficulty:15, armor:4, speed:10, coinLoot:[40,80], drops:[{itemId:'mat_esencia',chance:0.7},{itemId:'mat_gema_arcana',chance:0.5},{itemId:'pergamino_bola_fuego',chance:0.2},{itemId:'pergamino_tormenta',chance:0.1}], regions:['catacumbas'], spawn:{min:1,max:1,weight:0.3,groupable:false}, tameable:false, autoLoot:true },
+      health:220, damage:25, difficulty:15, armor:4, speed:10, coinLoot:[40,80], drops:[{itemId:'mat_esencia',chance:0.7},{itemId:'mat_gema_arcana',chance:0.5},{itemId:'pergamino_bola_fuego',chance:0.2},{itemId:'pergamino_tormenta',chance:0.1},{itemId:'item_bag_advanced',chance:0.3}], regions:['catacumbas'], spawn:{min:1,max:1,weight:0.3,groupable:false}, tameable:false, autoLoot:true },
 
     { id:'espectro', name:'Espectro', icon:'👻', family:['undead','spirit'], category:'strong', tier:7, tags:['ethereal','drain'], biome:['crypt','graveyard'],
       health:95, damage:17, difficulty:14, armor:0, speed:12, coinLoot:[12,24], drops:[], regions:['catacumbas'], spawn:{min:1,max:1,weight:0.6,groupable:false}, tameable:false, autoLoot:true },
@@ -242,10 +242,10 @@
       health:140, damage:18, difficulty:14, armor:4, speed:13, coinLoot:[25,50], drops:[{itemId:'mat_escama_dragon',chance:0.6},{itemId:'mat_sangre_dragon',chance:0.4},{itemId:'pergamino_chispa',chance:0.3}], regions:['torre_del_mago','ruinas_perdidas'], spawn:{min:1,max:1,weight:0.6,groupable:false}, tameable:false, autoLoot:true },
 
     { id:'dragon_anciano', name:'Dragón anciano', icon:'🐉', family:['dragon','flying','legendary'], category:'boss', tier:10, tags:['fire','flying','ancient'], biome:['lair','volcano'],
-      health:380, damage:42, difficulty:16, armor:7, speed:13, coinLoot:[100,200], drops:[{itemId:'mat_escama_dragon',chance:0.9},{itemId:'mat_sangre_dragon',chance:0.85},{itemId:'pergamino_aliento_dragon',chance:0.3}], regions:['nido_de_dragones'], spawn:{min:1,max:1,weight:0.1,groupable:false}, tameable:false, autoLoot:true },
+      health:380, damage:42, difficulty:16, armor:7, speed:13, coinLoot:[100,200], drops:[{itemId:'mat_escama_dragon',chance:0.9},{itemId:'mat_sangre_dragon',chance:0.85},{itemId:'pergamino_aliento_dragon',chance:0.3},{itemId:'item_bag_advanced',chance:0.5}], regions:['nido_de_dragones'], spawn:{min:1,max:1,weight:0.1,groupable:false}, tameable:false, autoLoot:true },
 
     { id:'alamuerte', name:'Alamuerte', icon:'🐲', family:['dragon','flying','legendary'], category:'boss', tier:10, tags:['fire','ancient','flying'], biome:['volcano','lair'],
-      health:400, damage:48, difficulty:16, armor:8, speed:12, coinLoot:[120,250], drops:[{itemId:'mat_escama_dragon',chance:0.95},{itemId:'mat_sangre_dragon',chance:0.95},{itemId:'pergamino_aliento_dragon',chance:0.5}], regions:['volcan','nido_de_dragones'], spawn:{min:1,max:1,weight:0.1,groupable:false}, tameable:false, autoLoot:true },
+      health:400, damage:48, difficulty:16, armor:8, speed:12, coinLoot:[120,250], drops:[{itemId:'mat_escama_dragon',chance:0.95},{itemId:'mat_sangre_dragon',chance:0.95},{itemId:'pergamino_aliento_dragon',chance:0.5},{itemId:'item_bag_advanced',chance:0.4}], regions:['volcan','nido_de_dragones'], spawn:{min:1,max:1,weight:0.1,groupable:false}, tameable:false, autoLoot:true },
 
     { id:'demonio_mayor', name:'Demonio mayor', icon:'👹', family:['demon'], category:'boss', tier:9, tags:['fire'], biome:['hell'],
       health:280, damage:32, difficulty:15, armor:5, speed:10, coinLoot:[60,120], drops:[], regions:['infierno'], spawn:{min:1,max:1,weight:0.3,groupable:false}, tameable:false, autoLoot:true },
@@ -257,7 +257,7 @@
       health:260, damage:30, difficulty:15, armor:5, speed:13, coinLoot:[60,120], drops:[], regions:['catacumbas'], spawn:{min:1,max:1,weight:0.3,groupable:false}, tameable:false, autoLoot:true },
 
     { id:'archimago', name:'Archimago', icon:'🧙', family:['humanoid','arcane','legendary'], category:'boss', tier:9, tags:['magic','ancient'], biome:['arcane'],
-      health:200, damage:35, difficulty:16, armor:3, speed:11, coinLoot:[80,150], drops:[{itemId:'pergamino_tormenta',chance:0.4},{itemId:'pergamino_bola_fuego',chance:0.5},{itemId:'mat_gema_arcana',chance:0.8}], regions:['ruinas_perdidas'], spawn:{min:1,max:1,weight:0.1,groupable:false}, tameable:false, autoLoot:true },
+      health:200, damage:35, difficulty:16, armor:3, speed:11, coinLoot:[80,150], drops:[{itemId:'pergamino_tormenta',chance:0.4},{itemId:'pergamino_bola_fuego',chance:0.5},{itemId:'mat_gema_arcana',chance:0.8},{itemId:'item_bag_arcane',chance:0.6}], regions:['ruinas_perdidas'], spawn:{min:1,max:1,weight:0.1,groupable:false}, tameable:false, autoLoot:true },
 
     { id:'kraken', name:'Kraken', icon:'🐙', family:['marine','aquatic','legendary'], category:'boss', tier:10, tags:['aquatic','ancient'], biome:['abyss','sea'],
       health:380, damage:38, difficulty:15, armor:5, speed:10, coinLoot:[100,200], drops:[], regions:['abismo_marino','alta_mar'], spawn:{min:1,max:1,weight:0.1,groupable:false}, tameable:false, autoLoot:true },

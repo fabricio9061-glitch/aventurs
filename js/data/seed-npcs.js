@@ -28,7 +28,7 @@
         'Las pociones siempre escasean por estos lados.',
         'Si traes pieles o colmillos limpios, te doy buen precio.',
       ],
-      sells:['pocion_curacion_menor', 'pocion_mana_menor', 'antidoto', 'pan', 'queso', 'carne_seca', 'cuerda', 'linterna', 'daga'],
+      sells:['pocion_curacion_menor', 'pocion_mana_menor', 'antidoto', 'pan', 'queso', 'carne_seca', 'cuerda', 'linterna', 'daga', 'item_bag_reforzada'],
       services:{},
     },
     {
@@ -58,7 +58,7 @@
         'El acero del puerto es el mejor del reino, no te lo voy a discutir.',
         'Si vas al volcán, vuelve con escamas. Te interesa lo que puedo hacer con eso.',
       ],
-      sells:['espada_corta', 'hacha_de_mano', 'cuero_reforzado', 'cota_de_malla', 'mat_hierro', 'mat_cuero'],
+      sells:['espada_corta', 'hacha_de_mano', 'cuero_reforzado', 'cota_de_malla', 'mat_hierro', 'mat_cuero', 'item_bag_large'],
       services:{},
     },
     {
@@ -73,7 +73,7 @@
         'Si tu mente es firme y tu maná suficiente, te enseño lo que sé.',
         'La magia no perdona la pereza. Tampoco yo.',
       ],
-      sells:['pocion_mana', 'pergamino_escape', 'mat_gema_arcana'],
+      sells:['pocion_mana', 'pergamino_escape', 'mat_gema_arcana', 'item_bag_arcane'],
       teaches:['chispa', 'llama', 'rayo_helado', 'curacion'],
       services:{},
     },

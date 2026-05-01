@@ -162,7 +162,7 @@
     const target = getTarget();
     if (!target) { onVictory(); return; }
     const p = State().player;
-    const enemyAC = target.difficulty || (10 + (target.armor || 0));
+    const enemyDifficulty = target.difficulty || 10;
     const precBonus = Math.floor((p.stats.precision || 0) / 2);
     const roll = A.Utils.dice(20);
     const total = roll + precBonus;
@@ -171,26 +171,30 @@
       addLog(c, 'player', {
         text: `Atacaste a ${target.displayName}`,
         actor: p.name, target: target.displayName,
-        roll, bonus: precBonus, total, vs: enemyAC, vsLabel: 'AC',
+        roll, bonus: precBonus, total, vs: enemyDifficulty, vsLabel: 'Dif',
         result: 'fumble',
       });
-    } else if (total >= enemyAC || roll === 20) {
+    } else if (total >= enemyDifficulty || roll === 20) {
       const weaponId = p.equipment.weapon;
       const weapon = weaponId ? A.Data.getById('weapons', weaponId) : null;
       const damageDice = weapon ? weapon.damage : '1d3';
-      let dmg = A.Utils.rollDice(damageDice) + (p.stats.damage || 0);
+      const damageRoll = A.Utils.rollDice(damageDice);
+      let rawDmg = damageRoll + (p.stats.damage || 0);
       const isCrit = roll === 20;
-      if (isCrit) dmg *= 2;
-      dmg = Math.max(1, dmg);
-      target.hp = Math.max(0, target.hp - dmg);
+      // CRIT: x2 ANTES de armadura
+      if (isCrit) rawDmg *= 2;
+      // Armadura como REDUCCIÓN
+      const targetArmor = target.armor || 0;
+      const finalDmg = Math.max(0, rawDmg - targetArmor);
+      target.hp = Math.max(0, target.hp - finalDmg);
       addLog(c, 'player', {
         text: `Atacaste a ${target.displayName}`,
         actor: p.name, target: target.displayName,
         weapon: weapon ? weapon.name : 'puños',
         damageDice,
-        roll, bonus: precBonus, total, vs: enemyAC, vsLabel: 'AC',
-        dmg, hpAfter: target.hp, hpMax: target.maxHp,
-        result: isCrit ? 'crit' : 'hit',
+        roll, bonus: precBonus, total, vs: enemyDifficulty, vsLabel: 'Dif',
+        rawDmg, targetArmor, dmg: finalDmg, hpAfter: target.hp, hpMax: target.maxHp,
+        result: isCrit ? 'crit' : (finalDmg === 0 ? 'blocked' : 'hit'),
       });
       if (target.hp <= 0) {
         addLog(c, 'system', { text: `${target.displayName} cayó.`, killed: target.displayName });
@@ -199,7 +203,7 @@
       addLog(c, 'player', {
         text: `Atacaste a ${target.displayName}`,
         actor: p.name, target: target.displayName,
-        roll, bonus: precBonus, total, vs: enemyAC, vsLabel: 'AC',
+        roll, bonus: precBonus, total, vs: enemyDifficulty, vsLabel: 'Dif',
         result: 'miss',
       });
     }
@@ -230,10 +234,20 @@
       // Si el hechizo es de área, daña a todos los enemigos vivos
       const targets = spell.area ? aliveEnemies() : [getTarget()].filter(Boolean);
       for (const t of targets) {
-        const dmg = A.Utils.rollDice(spell.damage);
-        t.hp = Math.max(0, t.hp - dmg);
-        addLog(c, 'player', `${spell.name} hiere a ${t.displayName}: ${dmg} de daño. (${t.hp}/${t.maxHp})`);
-        if (t.hp <= 0) addLog(c, 'system', `${t.displayName} cayó.`);
+        const rawDmg = A.Utils.rollDice(spell.damage);
+        const targetArmor = t.armor || 0;
+        // Hechizos: misma reducción de armadura
+        const finalDmg = Math.max(0, rawDmg - targetArmor);
+        t.hp = Math.max(0, t.hp - finalDmg);
+        addLog(c, 'player', {
+          text: `${spell.name} hiere a ${t.displayName}`,
+          actor: p.name, target: t.displayName,
+          roll: rawDmg, bonus: 0, total: rawDmg, vs: targetArmor, vsLabel: 'Armadura',
+          rawDmg, targetArmor, dmg: finalDmg, hpAfter: t.hp, hpMax: t.maxHp,
+          spell: spell.name,
+          result: finalDmg === 0 ? 'blocked' : 'hit',
+        });
+        if (t.hp <= 0) addLog(c, 'system', { text: `${t.displayName} cayó.` });
       }
     } else {
       addLog(c, 'player', `Lanzaste ${spell.name}.`);
@@ -314,24 +328,28 @@
     const alive = aliveEnemies();
     if (alive.length === 0) return;
     const target = alive[Math.floor(Math.random() * alive.length)];
-    const enemyAC = target.difficulty || (10 + (target.armor || 0));
+    const enemyDifficulty = target.difficulty || 10;
+    const targetArmor = target.armor || 0;
     const roll = A.Utils.dice(20);
-    if (roll >= enemyAC || roll === 20) {
-      const dmg = Math.max(1, pet.damage);
-      target.hp = Math.max(0, target.hp - dmg);
+    if (roll >= enemyDifficulty || roll === 20) {
+      let rawDmg = pet.damage;
+      const isCrit = roll === 20;
+      if (isCrit) rawDmg *= 2;
+      const finalDmg = Math.max(0, rawDmg - targetArmor);
+      target.hp = Math.max(0, target.hp - finalDmg);
       addLog(c, 'pet', {
         text: `${pet.name} ataca a ${target.displayName}`,
         actor: pet.name, target: target.displayName,
-        roll, bonus: 0, total: roll, vs: enemyAC, vsLabel: 'AC',
-        dmg, hpAfter: target.hp, hpMax: target.maxHp,
-        result: roll === 20 ? 'crit' : 'hit',
+        roll, bonus: 0, total: roll, vs: enemyDifficulty, vsLabel: 'Dif',
+        rawDmg, targetArmor, dmg: finalDmg, hpAfter: target.hp, hpMax: target.maxHp,
+        result: isCrit ? 'crit' : (finalDmg === 0 ? 'blocked' : 'hit'),
       });
       if (target.hp <= 0) addLog(c, 'system', { text: `${target.displayName} cayó por la mascota.` });
     } else {
       addLog(c, 'pet', {
         text: `${pet.name} ataca a ${target.displayName}`,
         actor: pet.name, target: target.displayName,
-        roll, bonus: 0, total: roll, vs: enemyAC, vsLabel: 'AC',
+        roll, bonus: 0, total: roll, vs: enemyDifficulty, vsLabel: 'Dif',
         result: 'miss',
       });
     }
@@ -344,14 +362,17 @@
     if (!c || c.result || c.turn !== 'enemy') return;
     const p = State().player;
     const equipArmor = p.equipment.armor ? A.Data.getById('armors', p.equipment.armor) : null;
-    const playerAC = 10 + (p.stats.armor || 0) + (equipArmor ? equipArmor.defense : 0);
+    const playerArmor = (p.stats.armor || 0) + (equipArmor ? equipArmor.defense : 0);
+    // Para esquiva del jugador: dificultad de impacto = 10 + dodge
+    const playerDifficulty = 10 + (p.stats.dodge || 0);
 
     for (const enemy of aliveEnemies()) {
       if (p.hp <= 0) break;
       const enemyAtkBonus = Math.floor((enemy.damage || 0) / 4);
       const pet = p.pet;
       const targetPet = pet && pet.health > 0 && Math.random() < 0.4;
-      const targetAC = targetPet ? (10 + (pet.armor || 0)) : playerAC;
+      const targetDifficulty = targetPet ? (10 + (pet.dodge || 0)) : playerDifficulty;
+      const targetArmor = targetPet ? (pet.armor || 0) : playerArmor;
       const targetName = targetPet ? pet.name : p.name;
 
       const roll = A.Utils.dice(20);
@@ -361,21 +382,23 @@
         addLog(c, 'enemy', {
           text: `${enemy.displayName} ataca a ${targetName}`,
           actor: enemy.displayName, target: targetName,
-          roll, bonus: enemyAtkBonus, total, vs: targetAC, vsLabel: 'AC',
+          roll, bonus: enemyAtkBonus, total, vs: targetDifficulty, vsLabel: 'Dif',
           result: 'fumble',
         });
-      } else if (total >= targetAC || roll === 20) {
-        let dmg = enemy.damage;
-        if (roll === 20) dmg *= 2;
-        dmg = Math.max(1, dmg);
+      } else if (total >= targetDifficulty || roll === 20) {
+        // Daño base, crit x2 antes de armadura
+        let rawDmg = enemy.damage;
+        const isCrit = roll === 20;
+        if (isCrit) rawDmg *= 2;
+        const finalDmg = Math.max(0, rawDmg - targetArmor);
         if (targetPet) {
-          pet.health = Math.max(0, pet.health - dmg);
+          pet.health = Math.max(0, pet.health - finalDmg);
           addLog(c, 'enemy', {
             text: `${enemy.displayName} hiere a ${pet.name}`,
             actor: enemy.displayName, target: pet.name,
-            roll, bonus: enemyAtkBonus, total, vs: targetAC, vsLabel: 'AC',
-            dmg, hpAfter: pet.health, hpMax: pet.maxHealth,
-            result: roll === 20 ? 'crit' : 'hit',
+            roll, bonus: enemyAtkBonus, total, vs: targetDifficulty, vsLabel: 'Dif',
+            rawDmg, targetArmor, dmg: finalDmg, hpAfter: pet.health, hpMax: pet.maxHealth,
+            result: isCrit ? 'crit' : (finalDmg === 0 ? 'blocked' : 'hit'),
           });
           if (pet.health <= 0) {
             addLog(c, 'system', { text: `${pet.name} cayó. La perdiste.` });
@@ -383,20 +406,20 @@
             p.pet = null;
           }
         } else {
-          A.State.damagePlayer(dmg);
+          if (finalDmg > 0) A.State.damagePlayer(finalDmg);
           addLog(c, 'enemy', {
             text: `${enemy.displayName} te hiere`,
             actor: enemy.displayName, target: p.name,
-            roll, bonus: enemyAtkBonus, total, vs: targetAC, vsLabel: 'AC',
-            dmg, hpAfter: p.hp, hpMax: p.maxHp,
-            result: roll === 20 ? 'crit' : 'hit',
+            roll, bonus: enemyAtkBonus, total, vs: targetDifficulty, vsLabel: 'Dif',
+            rawDmg, targetArmor, dmg: finalDmg, hpAfter: p.hp, hpMax: p.maxHp,
+            result: isCrit ? 'crit' : (finalDmg === 0 ? 'blocked' : 'hit'),
           });
         }
       } else {
         addLog(c, 'enemy', {
           text: `${enemy.displayName} ataca a ${targetName}`,
           actor: enemy.displayName, target: targetName,
-          roll, bonus: enemyAtkBonus, total, vs: targetAC, vsLabel: 'AC',
+          roll, bonus: enemyAtkBonus, total, vs: targetDifficulty, vsLabel: 'Dif',
           result: 'miss',
         });
       }
@@ -424,7 +447,7 @@
       totalXp += (e.tier || 1) * 5 + (e.tier || 1) * catBonus;
     }
     A.State.player.xp = (A.State.player.xp || 0) + totalXp;
-    addLog(c, 'system', `Ganaste ${totalXp} XP.`);
+    addLog(c, 'system', { text: `Ganaste ${totalXp} XP.` });
     A.Bus.emit('player:xp-changed', { current: A.State.player.xp });
 
     // Level up
@@ -437,12 +460,14 @@
         A.State.player.maxMana += 3;
         A.State.player.mana = A.State.player.maxMana;
       }
-      addLog(c, 'system', `¡Subiste al nivel ${A.State.player.level}! Te recuperas por completo.`);
+      addLog(c, 'system', { text: `¡Subiste al nivel ${A.State.player.level}! Te recuperas por completo.` });
       A.Bus.emit('player:leveled', { newLevel: A.State.player.level });
     }
 
-    // Loot: monedas y drops por cada enemigo
+    // Loot: monedas (acumular total) y drops (agrupar por itemId)
     let totalCoins = 0;
+    const aggregatedDrops = {}; // { itemId: { item, qty } }
+
     for (const inst of c.enemies) {
       const enemyData = A.Data.getById('enemies', inst.id);
       if (!enemyData) continue;
@@ -454,15 +479,36 @@
       for (const d of enemyData.drops || []) {
         if (Math.random() < (d.chance || 0)) {
           const ok = A.State.addItem(d.itemId, 1);
-          const item = A.Data.getById('items', d.itemId);
-          if (ok && item) addLog(c, 'loot', `Conseguiste: ${item.name} (de ${inst.displayName}).`);
-          else if (!ok) addLog(c, 'loot', `Hubo botín pero no entró en la mochila.`);
+          const item = A.Data.getById('items', d.itemId)
+                    || A.Data.getById('weapons', d.itemId)
+                    || A.Data.getById('armors', d.itemId);
+          if (ok && item) {
+            if (!aggregatedDrops[d.itemId]) aggregatedDrops[d.itemId] = { item, qty: 0 };
+            aggregatedDrops[d.itemId].qty += 1;
+          } else if (!ok) {
+            addLog(c, 'loot', { text: `Hubo botín pero no entró en la mochila.` });
+          }
         }
       }
     }
     if (totalCoins > 0) {
       A.Currency.add(totalCoins);
-      addLog(c, 'loot', `Recogiste ${totalCoins} monedas en total.`);
+      addLog(c, 'loot', { text: `Recogiste ${A.Currency.formatPrice(totalCoins)}.` });
+    }
+    // Mostrar drops agregados como una sola línea
+    const dropList = Object.values(aggregatedDrops);
+    if (dropList.length > 0) {
+      const dropStr = dropList.map((d) =>
+        d.qty > 1 ? `${d.item.icon} ${d.item.name} ×${d.qty}` : `${d.item.icon} ${d.item.name}`
+      ).join(', ');
+      addLog(c, 'loot', { text: `Botín: ${dropStr}` });
+    }
+
+    // Incrementar contador de región
+    if (A.State.world && A.State.world.regionId) {
+      A.State.incrementRegionEncounters(A.State.world.regionId);
+      const total = A.State.encountersInRegion(A.State.world.regionId);
+      addLog(c, 'system', { text: `Encuentros completados aquí: ${total}.` });
     }
 
     A.State.addChronicle({

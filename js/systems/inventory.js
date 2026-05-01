@@ -20,6 +20,7 @@
     if (item.subtype === 'scroll' || item.subtype === 'scroll_spell') return 'scroll';
     if (item.subtype === 'tame') return 'tame';
     if (item.subtype === 'material') return 'material';
+    if (item.subtype === 'bag') return 'bag';
     return item.subtype || 'misc';
   }
 
@@ -130,6 +131,63 @@
         text: `Aprendiste ${spell.name} del pergamino.`,
       });
       A.Bus.emit('spell:learned', { spellId, source: 'scroll' });
+      A.State.persist();
+      return true;
+    }
+
+    // Bolsa: la equipa y consume el item
+    if (item.subtype === 'bag') {
+      const newBagId = item.equipsBag;
+      if (!newBagId) return false;
+      const newBag = A.Data.getById('bags', newBagId);
+      if (!newBag) return false;
+      // Si ya tiene esa misma bolsa, no hace nada
+      if (p.bagId === newBagId) {
+        A.State.addChronicle({
+          type: 'note',
+          text: `Ya tenías equipada una ${newBag.name}.`,
+        });
+        return false;
+      }
+      // Verificar que los items actuales caben en la nueva
+      const used = A.State.inventoryUsedSlots();
+      if (used > newBag.slots) {
+        A.State.addChronicle({
+          type: 'note',
+          text: `La ${newBag.name} (${newBag.slots} slots) no alcanza para tus ${used} cosas. Vacía algo primero.`,
+        });
+        return false;
+      }
+      // Equipar la nueva
+      const oldBag = A.Data.getById('bags', p.bagId);
+      const oldBagId = p.bagId;
+      // Consumir el item ANTES de cambiar la bolsa
+      A.State.removeItem(itemId, 1);
+      // Setear directamente (evitar setBag que valida)
+      p.bagId = newBagId;
+      // Si la bolsa vieja era diferente y "merece" devolverse como item, lo agregamos
+      // (solo si la vieja es upgrade-able, o sea no la basic).
+      // Para la basic NO devolvemos item (regalo del comienzo).
+      // Para las otras, sí: devolvemos un item con equipsBag = oldBagId.
+      if (oldBagId && oldBagId !== 'bag_basic' && oldBag) {
+        // Buscar qué item-proxy tiene equipsBag === oldBagId
+        const oldItemProxy = A.Data.items.find((it) => it.subtype === 'bag' && it.equipsBag === oldBagId);
+        if (oldItemProxy) {
+          // Tratar de meterlo. Si no entra, se pierde con aviso.
+          const ok = A.State.addItem(oldItemProxy.id, 1);
+          if (!ok) {
+            A.State.addChronicle({
+              type: 'note',
+              text: `Tu ${oldBag.name} anterior se perdió (mochila nueva sin espacio).`,
+            });
+          }
+        }
+      }
+      A.State.addChronicle({
+        type: 'item',
+        text: `Cambiaste a ${newBag.name} (${newBag.slots} espacios).`,
+      });
+      A.Bus.emit('bag:equipped', { bagId: newBagId });
       A.State.persist();
       return true;
     }

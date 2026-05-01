@@ -32,15 +32,40 @@
 
   /**
    * ¿Puede el jugador viajar a targetId desde la actual?
-   * Solo si están conectadas y no hay viaje en curso.
+   * Verifica conexión, viaje en curso, y reqEncounters de la región destino.
+   * Devuelve { ok, error?, locked? }
    */
-  function canTravelTo(targetId) {
-    if (State().traveling && !State().traveling.completed) return false;
+  function canTravelToDetailed(targetId) {
+    if (State().traveling && !State().traveling.completed) {
+      return { ok: false, error: 'Ya estás viajando.' };
+    }
     const w = State().world;
-    if (!w) return false;
+    if (!w) return { ok: false, error: 'Sin región actual.' };
     const region = A.Data.getById('regions', w.regionId);
-    if (!region) return false;
-    return (region.connections || []).includes(targetId);
+    if (!region) return { ok: false, error: 'Región actual inválida.' };
+    if (!(region.connections || []).includes(targetId)) {
+      return { ok: false, error: 'No hay camino directo a esa región.' };
+    }
+    const target = A.Data.getById('regions', targetId);
+    if (!target) return { ok: false, error: 'Región destino inválida.' };
+    // Verificar reqEncounters
+    if (target.reqEncounters && target.reqEncounters > 0) {
+      const totalEncounters = State().totalEncounters();
+      if (totalEncounters < target.reqEncounters) {
+        return {
+          ok: false,
+          locked: true,
+          error: `Necesitas ${target.reqEncounters} encuentros completados para ir allí. Llevás ${totalEncounters}.`,
+          required: target.reqEncounters,
+          have: totalEncounters,
+        };
+      }
+    }
+    return { ok: true };
+  }
+
+  function canTravelTo(targetId) {
+    return canTravelToDetailed(targetId).ok;
   }
 
   function neighbors() {
@@ -95,6 +120,19 @@
 
     t.currentStep += 1;
 
+    // Consumir food por paso
+    A.State.consumeFoodForStep();
+
+    // Si murió de hambre/HP=0 mientras viajaba
+    if (State().player.hp <= 0) {
+      // Volver al pueblo, no perder progreso
+      State().traveling = null;
+      State().player.hp = 1;
+      State().setRegion('pueblo_inicial');
+      A.State.addChronicle({ type: 'note', text: 'Te encontraron desmayado en el camino. Te llevaron al pueblo.' });
+      return { ok: false, error: 'Caíste en el camino.' };
+    }
+
     // Si es el último paso, no resolvemos evento (paso final = llegar)
     let event = null;
     if (t.currentStep < t.totalSteps) {
@@ -148,9 +186,15 @@
     const region = target || fromRegion;
     const isCombat = target && target.type === 'combat';
 
+    // Primero probar eventos custom de la región (treasure/find/damage/heal)
+    if (target && Array.isArray(target.events) && target.events.length > 0) {
+      const customEvent = resolveRegionEvent(target);
+      if (customEvent) return customEvent;
+    }
+
     // Pesos según si la región destino es safe o combat
     const weights = isCombat
-      ? { nothing: 0.40, minor_loot: 0.15, creature: 0.35, narrative: 0.10 }
+      ? { nothing: 0.40, minor_loot: 0.10, creature: 0.40, narrative: 0.10 }
       : { nothing: 0.55, minor_loot: 0.15, creature: 0.10, narrative: 0.20 };
 
     const kind = A.Utils.weightedPick(weights);
@@ -223,6 +267,55 @@
     return { kind: 'narrative', text };
   }
 
+  /**
+   * Resuelve un evento específico de la región (definido en region.events).
+   * Devuelve { kind, text, ... } o null si no aplica.
+   */
+  function resolveRegionEvent(region) {
+    if (!region || !Array.isArray(region.events) || region.events.length === 0) return null;
+    // Cada evento tiene su chance. Probar cada uno; si pega, ejecutar.
+    for (const ev of region.events) {
+      if (Math.random() * 100 < (ev.chance || 0)) {
+        return executeRegionEvent(ev);
+      }
+    }
+    return null;
+  }
+
+  function executeRegionEvent(ev) {
+    const type = ev.type;
+    if (type === 'treasure') {
+      const amount = A.Utils.rollDice(ev.amount || '1d10');
+      A.Currency.add(amount);
+      return {
+        kind: 'minor_loot',
+        amount,
+        text: `Encontraste ${A.Currency.formatPrice(amount)} escondidos.`,
+      };
+    }
+    if (type === 'find' && ev.reward) {
+      const item = A.Data.getById('items', ev.reward) ||
+                   A.Data.getById('weapons', ev.reward) ||
+                   A.Data.getById('armors', ev.reward);
+      if (!item) return null;
+      const ok = A.State.addItem(ev.reward, 1);
+      if (ok) return { kind: 'find', text: `Encontraste: ${item.name}.`, reward: ev.reward };
+      return { kind: 'narrative', text: `Encontraste algo (${item.name}) pero no entró en la mochila.` };
+    }
+    if (type === 'damage') {
+      const dmg = A.Utils.rollDice(ev.amount || '1d4');
+      A.State.damagePlayer(dmg);
+      const flavor = ev.effect || 'Algo te lastimó';
+      return { kind: 'event_damage', text: `${flavor}. -${dmg} de salud.`, dmg };
+    }
+    if (type === 'heal') {
+      const amount = A.Utils.rollDice(ev.amount || '1d6');
+      A.State.healHp(amount);
+      return { kind: 'event_heal', text: `Algo te reconfortó. +${amount} de salud.`, amount };
+    }
+    return null;
+  }
+
   // ---------- Helpers ----------
 
   function clamp(n, min, max) { return Math.max(min, Math.min(max, n)); }
@@ -239,6 +332,7 @@
 
   A.Travel = {
     canTravelTo,
+    canTravelToDetailed,
     neighbors,
     start,
     step,

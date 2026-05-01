@@ -120,6 +120,12 @@
             <span class="bar-val num">${p.xp}/${xpToNext}</span>
           </div>
           <div class="bar bar-xp"><span style="width:${pct(p.xp, xpToNext)}%"></span></div>
+
+          <div class="bar-row">
+            <span class="bar-label">Comida</span>
+            <span class="bar-val num">${p.food || 0}/${p.maxFood || 20}</span>
+          </div>
+          <div class="bar bar-food"><span style="width:${pct(p.food || 0, p.maxFood || 20)}%"></span></div>
         </div>
 
         <div class="stat-grid">

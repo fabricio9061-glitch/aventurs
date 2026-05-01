@@ -21,7 +21,7 @@
   'use strict';
 
   const STORAGE_KEY = 'aventurs:save';
-  const DEFAULT_BAG_ID = 'bag_starter';
+  const DEFAULT_BAG_ID = 'bag_basic';
 
   const State = {
     player: null,
@@ -38,7 +38,16 @@
         const raw = localStorage.getItem(STORAGE_KEY);
         if (!raw) return false;
         const data = JSON.parse(raw);
-        State.player = data.player || null;
+        const player = data.player || null;
+        // v1.5.0: cambio mayor en estructura (monedas, food, armadura). Si el save
+        // es anterior, forzamos reset y avisamos.
+        if (player && (!player.schemaVersion || player.schemaVersion < 15)) {
+          console.log('[State] Save pre-v1.5.0 detectado. Reseteando para evitar incompatibilidades.');
+          State._pendingMigrationNotice = true;
+          try { localStorage.removeItem(STORAGE_KEY); } catch (e) {}
+          return false;
+        }
+        State.player = player;
         State.world = data.world || null;
         State.combat = null;
         State.traveling = data.traveling || null;
@@ -55,31 +64,62 @@
 
     /**
      * Migración silenciosa de saves anteriores a la estructura nueva.
-     * Si el player no tiene hasMagic / bagId / pet, los completa.
      */
     _migrate() {
       const p = State.player;
       if (!p) return;
       let dirty = false;
+      const fromVersion = p.schemaVersion || 0;
+
       if (p.hasMagic === undefined) {
         p.hasMagic = A.Seed.rollMagicForRace(p.raceId);
-        if (!p.hasMagic) {
-          p.mana = 0;
-          p.maxMana = 0;
-        }
+        if (!p.hasMagic) { p.mana = 0; p.maxMana = 0; }
         dirty = true;
       }
       if (!p.bagId) { p.bagId = 'bag_basic'; dirty = true; }
+      // v1.5.1: bag_starter eliminada, se reemplaza por bag_basic
+      if (p.bagId === 'bag_starter') { p.bagId = 'bag_basic'; dirty = true; }
       if (p.pet === undefined) { p.pet = null; dirty = true; }
       if (!p.spells) { p.spells = []; dirty = true; }
-      // v1.4.0: marcamos schemaVersion para futuras migraciones
-      if (!p.schemaVersion || p.schemaVersion < 14) {
-        p.schemaVersion = 14;
+
+      // v15: monedas pasan a items en inventario
+      if (fromVersion < 15) {
+        if (p.coins && (p.coins.copper || p.coins.silver || p.coins.gold)) {
+          // Convertir player.coins a items
+          const totalCopper = (p.coins.copper || 0)
+                            + (p.coins.silver || 0) * 100
+                            + (p.coins.gold || 0) * 10000;
+          // Limpiar monedas previas en inventario por si las hay
+          p.inventory = (p.inventory || []).filter((s) =>
+            !['coin_copper', 'coin_silver', 'coin_gold'].includes(s.itemId)
+          );
+          // Distribuir el total como items
+          if (totalCopper > 0) {
+            const gold = Math.floor(totalCopper / 10000);
+            let rest = totalCopper - gold * 10000;
+            const silver = Math.floor(rest / 100);
+            const copper = rest - silver * 100;
+            if (gold > 0) p.inventory.push({ itemId: 'coin_gold', qty: gold });
+            if (silver > 0) p.inventory.push({ itemId: 'coin_silver', qty: silver });
+            if (copper > 0) p.inventory.push({ itemId: 'coin_copper', qty: copper });
+          }
+          delete p.coins;
+        }
+        // food / maxFood
+        if (p.food === undefined) p.food = 20;
+        if (p.maxFood === undefined) p.maxFood = 20;
+        // contador de encuentros por región
+        if (!p.regionEncounters) p.regionEncounters = {};
+        dirty = true;
+      }
+
+      if (!p.schemaVersion || p.schemaVersion < 15) {
+        p.schemaVersion = 15;
         dirty = true;
       }
       if (dirty) {
         State.persist();
-        console.log('[State] Save migrado a estructura v1.4.0');
+        console.log('[State] Save migrado a estructura v1.5.0');
       }
     },
 
@@ -134,9 +174,12 @@
         maxHp: stats.maxHp,
         mana: hasMagic ? stats.maxMana : 0,
         maxMana: hasMagic ? stats.maxMana : 0,
+        food: 20,
+        maxFood: 20,
         hasMagic,
         bagId: DEFAULT_BAG_ID,
         pet: null,
+        regionEncounters: {}, // { regionId: count }
         stats: {
           speed: stats.speed,
           precision: stats.precision,
@@ -149,9 +192,10 @@
           { itemId: 'pocion_curacion_menor', qty: 2 },
           { itemId: 'pan', qty: 2 },
           { itemId: 'carne_cruda', qty: 2 },
+          { itemId: 'coin_copper', qty: 50 }, // 50 cobre inicial
         ],
-        coins: { copper: 50, silver: 0, gold: 0 },
         spells: [],
+        schemaVersion: 15,
       };
 
       State.world = {
@@ -280,9 +324,11 @@
                 || A.Data.getById('armors', itemId);
       if (!item) return false;
 
-      // Las monedas se manejan aparte
+      // Las monedas se manejan aparte vía Currency
       if (item.subtype === 'coin') {
-        State.addCoinsByItemId(itemId, qty);
+        // Convertir a cobre y delegar a Currency.add (auto-distribuye)
+        const valueInCopper = (item.value || 1) * qty;
+        A.Currency.add(valueInCopper);
         return true;
       }
 
@@ -327,16 +373,55 @@
       State.persist();
     },
 
-    // ---------- Monedas ----------
+    // ---------- Comida (food) ----------
 
-    addCoinsByItemId(itemId, qty) {
+    /**
+     * Modifica food por delta (positivo o negativo). Cap en 0..maxFood.
+     */
+    modifyFood(delta) {
       if (!State.player) return;
-      if (itemId === 'coin_copper') State.player.coins.copper += qty;
-      else if (itemId === 'coin_silver') State.player.coins.silver += qty;
-      else if (itemId === 'coin_gold') State.player.coins.gold += qty;
-      A.Currency.normalize();
-      A.Bus.emit('currency:changed', { ...State.player.coins });
+      State.player.food = Math.max(0, Math.min(State.player.maxFood, State.player.food + delta));
+      A.Bus.emit('player:food-changed', { food: State.player.food });
       State.persist();
+    },
+
+    /**
+     * Aplica el desgaste de food por viaje. Si llegó a 0, perder HP.
+     */
+    consumeFoodForStep() {
+      if (!State.player) return;
+      if (State.player.food > 0) {
+        State.player.food -= 1;
+        A.Bus.emit('player:food-changed', { food: State.player.food });
+      } else {
+        // Hambriento: pierde 1 HP por paso
+        const hpLost = 1;
+        State.player.hp = Math.max(0, State.player.hp - hpLost);
+        A.Bus.emit('player:hp-changed', { current: State.player.hp });
+        State.addChronicle({ type: 'note', text: 'Tenías hambre. Perdiste 1 de salud.' });
+      }
+      State.persist();
+    },
+
+    /**
+     * Incrementa el contador de encuentros para una región.
+     * Usado para el sistema de progresión por logros (reqEncounters).
+     */
+    incrementRegionEncounters(regionId) {
+      if (!State.player) return;
+      if (!State.player.regionEncounters) State.player.regionEncounters = {};
+      State.player.regionEncounters[regionId] = (State.player.regionEncounters[regionId] || 0) + 1;
+      State.persist();
+    },
+
+    encountersInRegion(regionId) {
+      if (!State.player || !State.player.regionEncounters) return 0;
+      return State.player.regionEncounters[regionId] || 0;
+    },
+
+    totalEncounters() {
+      if (!State.player || !State.player.regionEncounters) return 0;
+      return Object.values(State.player.regionEncounters).reduce((a, b) => a + b, 0);
     },
 
     // ---------- Crónicas ----------
