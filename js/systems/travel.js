@@ -175,46 +175,25 @@
   }
 
   function resolveCreature(region) {
-    // Buscar entre los enemigos de las dos regiones (origen y destino).
-    // Limitamos a tier <= maxTier de la región destino para no spawnar ogros
-    // entre pueblo y bosque.
     const targetId = State().traveling.toId;
-    const candidates = A.Data.enemiesInRegion(targetId);
-    if (!candidates.length) return null;
+    // Generar grupo de enemigos via Encounter (respeta encounter config de la región)
+    const group = A.Encounter.generate(targetId);
+    if (!group || group.length === 0) return null;
 
-    // Pesos por categoría: weak 50, normal 35, strong 12, boss 3
-    const byCat = { weak: [], normal: [], strong: [], boss: [] };
-    for (const e of candidates) {
-      const c = e.category || 'normal';
-      if (byCat[c]) byCat[c].push(e);
-    }
-    const catWeights = {};
-    if (byCat.weak.length) catWeights.weak = 0.50;
-    if (byCat.normal.length) catWeights.normal = 0.35;
-    if (byCat.strong.length) catWeights.strong = 0.12;
-    if (byCat.boss.length) catWeights.boss = 0.03;
-    if (Object.keys(catWeights).length === 0) return null;
-
-    const cat = A.Utils.weightedPick(catWeights);
-    // Dentro de la categoría, weighted pick por spawnWeight (más alto = más probable)
-    const pool = byCat[cat];
-    const weighted = {};
-    pool.forEach((e, i) => {
-      weighted[i] = (typeof e.spawnWeight === 'number' ? e.spawnWeight : 1.0);
-    });
-    const idx = parseInt(A.Utils.weightedPick(weighted), 10);
-    const enemy = pool[idx] || A.Utils.randomOf(pool);
-    if (!enemy) return null;
+    // El primer enemigo del grupo determina el ícono y nombre principales
+    const main = group[0];
+    const groupDesc = A.Encounter.describeGroup(group);
 
     return {
       kind: 'creature',
-      enemyId: enemy.id,
-      enemyName: enemy.name,
-      icon: enemy.icon,
-      tameable: !!enemy.tameable,
-      category: enemy.category,
-      tier: enemy.tier,
-      text: `Apareció ${enemy.name} en el camino.`,
+      enemies: group,            // array de instancias listas para combate
+      enemyId: main.id,          // legacy: id del primer enemigo (para domar etc.)
+      enemyName: groupDesc,
+      icon: main.icon,
+      tameable: !!A.Data.getById('enemies', main.id)?.tameable,
+      category: main.category,
+      tier: main.tier,
+      text: `Aparecieron en el camino: ${groupDesc}.`,
     };
   }
 

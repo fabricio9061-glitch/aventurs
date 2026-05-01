@@ -168,22 +168,28 @@
 
   function renderEncounter(ev) {
     const enemy = A.Data.getById('enemies', ev.enemyId);
+    const isGroup = (ev.enemies || []).length > 1;
+    const groupSize = (ev.enemies || []).length;
     return `
       <div class="travel-encounter">
         <div class="encounter-icon">${ev.icon || '👹'}</div>
         <div class="encounter-body">
-          <div class="encounter-title">Apareció ${A.Utils.escapeHtml(ev.enemyName)}</div>
+          <div class="encounter-title">${isGroup ? `Aparecieron ${groupSize} enemigos` : `Apareció ${A.Utils.escapeHtml(ev.enemyName)}`}</div>
           <div class="encounter-meta dim">
-            <span class="pill pill-tier">Tier ${ev.tier}</span>
-            <span class="pill">${categoryLabel(ev.category)}</span>
-            ${ev.tameable ? `<span class="pill pill-tameable">Domable</span>` : ''}
+            ${isGroup ? `<span>${A.Utils.escapeHtml(ev.enemyName)}</span>` : `
+              <span class="pill pill-tier">Tier ${ev.tier}</span>
+              <span class="pill">${categoryLabel(ev.category)}</span>
+              ${ev.tameable ? `<span class="pill pill-tameable">Domable</span>` : ''}
+            `}
           </div>
-          <p class="encounter-desc">${enemy && enemy.tameable
-            ? 'Te observa con curiosidad. Quizás puedas acercarte sin pelear.'
-            : 'No parece dispuesto a parlamentar.'}</p>
+          <p class="encounter-desc">${isGroup
+            ? 'Vienen juntos por el camino. Mejor decidir rápido.'
+            : (enemy && enemy.tameable
+              ? 'Te observa con curiosidad. Quizás puedas acercarte sin pelear.'
+              : 'No parece dispuesto a parlamentar.')}</p>
           <div class="encounter-actions">
             <button class="btn-primary" data-travel-action="fight" data-enemy-id="${A.Utils.escapeHtml(ev.enemyId)}">Pelear</button>
-            ${enemy && enemy.tameable && !A.State.player.pet ? `
+            ${!isGroup && enemy && enemy.tameable && !A.State.player.pet ? `
               <button class="btn-secondary" data-travel-action="tame" data-enemy-id="${A.Utils.escapeHtml(ev.enemyId)}">Intentar domar</button>
             ` : ''}
             <button class="btn-ghost" data-travel-action="avoid">Evitar</button>
@@ -310,7 +316,6 @@
         } else if (action === 'tame') {
           A.State.openModal('tame', { enemyId: btn.dataset.enemyId, fromTravel: true });
         } else if (action === 'fight') {
-          // Marcar evento como resuelto e iniciar combate
           const t = A.State.traveling;
           const last = t.events[t.events.length - 1];
           if (last && last.kind === 'creature') {
@@ -318,7 +323,12 @@
             last.text = `Peleaste contra ${last.enemyName}.`;
           }
           A.State.persist();
-          A.Combat.start({ enemyId: btn.dataset.enemyId, fromTravel: true });
+          // Si el evento trae enemies[] (grupo), usar esos; si no, fallback a enemyId individual
+          if (last && Array.isArray(last.enemies) && last.enemies.length > 0) {
+            A.Combat.start({ enemies: last.enemies, fromTravel: true });
+          } else {
+            A.Combat.start({ enemyId: btn.dataset.enemyId, fromTravel: true });
+          }
         }
       });
     });
@@ -336,14 +346,14 @@
       A.State.fullRest();
       A.State.addChronicle({ type: 'rest', text: 'Descansaste. Recuperaste salud y maná.' });
     } else if (action === 'explore') {
-      // Roll: 60% encuentro, 25% loot menor, 15% nada
       const r = Math.random();
       if (r < 0.60) {
-        // Spawn enemigo según pesos de la región
-        const enemy = pickEnemyByWeight(A.State.world.regionId);
-        if (enemy) {
-          A.State.addChronicle({ type: 'note', text: `Te encontraste con ${enemy.name} mientras explorabas.` });
-          A.Combat.start({ enemyId: enemy.id, fromTravel: false });
+        // Generar grupo via Encounter (respeta encounter config de la región)
+        const group = A.Encounter.generate(A.State.world.regionId);
+        if (group && group.length > 0) {
+          const desc = A.Encounter.describeGroup(group);
+          A.State.addChronicle({ type: 'note', text: `Te encontraste con ${desc} mientras explorabas.` });
+          A.Combat.start({ enemies: group, fromTravel: false });
           return;
         }
         A.State.addChronicle({ type: 'note', text: 'Recorriste la zona pero no encontraste nada.' });
@@ -355,29 +365,6 @@
         A.State.addChronicle({ type: 'note', text: 'No encontraste nada útil esta vez.' });
       }
     }
-  }
-
-  function pickEnemyByWeight(regionId) {
-    const enemies = A.Data.enemiesInRegion(regionId);
-    if (!enemies.length) return null;
-    // Weighted pick por categoría (mismo balance que travel)
-    const byCat = { weak: [], normal: [], strong: [], boss: [] };
-    for (const e of enemies) {
-      const c = e.category || 'normal';
-      if (byCat[c]) byCat[c].push(e);
-    }
-    const catWeights = {};
-    if (byCat.weak.length) catWeights.weak = 0.40;
-    if (byCat.normal.length) catWeights.normal = 0.40;
-    if (byCat.strong.length) catWeights.strong = 0.15;
-    if (byCat.boss.length) catWeights.boss = 0.05;
-    if (Object.keys(catWeights).length === 0) return null;
-    const cat = A.Utils.weightedPick(catWeights);
-    const pool = byCat[cat];
-    const weighted = {};
-    pool.forEach((e, i) => { weighted[i] = e.spawnWeight || 1.0; });
-    const idx = parseInt(A.Utils.weightedPick(weighted), 10);
-    return pool[idx] || pool[0];
   }
 
   const WorldView = {

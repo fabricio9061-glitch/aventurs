@@ -219,7 +219,8 @@
     const base = { id, name: 'Nuevo' };
     switch (type) {
       case 'regions':
-        return { ...base, type: 'safe', biome: 'plains', tier: [1, 2], connections: [], distance: 1, icon: '📍', description: '' };
+        return { ...base, type: 'safe', biome: 'plains', tier: [1, 2], connections: [], distance: 1, icon: '📍', description: '',
+                 encounter: { minEnemies: 1, maxEnemies: 2, allowMixed: true, spawnWeights: { weak: 40, normal: 40, strong: 15, boss: 5 } } };
       case 'races':
         return { ...base, icon: '👤', combatType: 'hybrid', bonuses: { hp: 0, mana: 0, speed: 0, precision: 0, armor: 0, damage: 0, dodge: 0 }, description: '' };
       case 'weapons':
@@ -231,7 +232,8 @@
       case 'enemies':
         return { ...base, icon: '👹', family: ['humanoid'], category: 'normal', tier: 1, tags: [], biome: ['plains'],
                  health: 10, damage: 2, difficulty: 8, armor: 0, speed: 8, coinLoot: [0, 5], drops: [], regions: [],
-                 spawnWeight: 1.0, tameable: false, tameItem: '', autoLoot: true };
+                 spawn: { min: 1, max: 1, weight: 1.0, groupable: true },
+                 tameable: false, tameItem: '', autoLoot: true };
       case 'npcs':
         return { ...base, role: 'merchant', region: 'pueblo_inicial', icon: '🧑', dialog: [''], sells: [], teaches: [], services: {} };
       case 'spells':
@@ -333,6 +335,20 @@
       row('Distancia', inp('distance', e.distance, 'number')),
       row('Icono', inp('icon', e.icon)),
       row('Descripción', txt('description', e.description, 4)),
+      `<div class="form-row form-row-block">
+        <label>Configuración de encuentros (solo combat)</label>
+        <div class="encounter-block">
+          ${[
+            row('Mín. enemigos', inp('encounter.minEnemies', (e.encounter||{}).minEnemies ?? 1, 'number', 'min="1" max="6"')),
+            row('Máx. enemigos', inp('encounter.maxEnemies', (e.encounter||{}).maxEnemies ?? 2, 'number', 'min="1" max="6"')),
+            row('Permite mezcla', chk('encounter.allowMixed', (e.encounter||{}).allowMixed !== false)),
+            row('Peso weak (%)', inp('encounter.spawnWeights.weak', ((e.encounter||{}).spawnWeights||{}).weak ?? 40, 'number', 'min="0" max="100"')),
+            row('Peso normal (%)', inp('encounter.spawnWeights.normal', ((e.encounter||{}).spawnWeights||{}).normal ?? 40, 'number', 'min="0" max="100"')),
+            row('Peso strong (%)', inp('encounter.spawnWeights.strong', ((e.encounter||{}).spawnWeights||{}).strong ?? 15, 'number', 'min="0" max="100"')),
+            row('Peso boss (%)', inp('encounter.spawnWeights.boss', ((e.encounter||{}).spawnWeights||{}).boss ?? 5, 'number', 'min="0" max="100"')),
+          ].join('')}
+        </div>
+      </div>`,
     ].join('');
   }
 
@@ -461,7 +477,10 @@
       row('Loot mínimo (cobre)', inp('coinLoot.0', (e.coinLoot||[0,0])[0], 'number')),
       row('Loot máximo (cobre)', inp('coinLoot.1', (e.coinLoot||[0,0])[1], 'number')),
       row('Regiones (csv)', arr('regions', e.regions)),
-      row('Peso de spawn (0-3)', inp('spawnWeight', e.spawnWeight ?? 1.0, 'number', 'min="0" max="3" step="0.1"')),
+      row('Spawn min (por encuentro)', inp('spawn.min', (e.spawn||{}).min ?? 1, 'number', 'min="1" max="10"')),
+      row('Spawn max (por encuentro)', inp('spawn.max', (e.spawn||{}).max ?? 1, 'number', 'min="1" max="10"')),
+      row('Spawn weight (peso relativo)', inp('spawn.weight', (e.spawn||{}).weight ?? 1.0, 'number', 'min="0" max="5" step="0.1"')),
+      row('Agrupable (groupable)', chk('spawn.groupable', (e.spawn||{}).groupable !== false)),
       row('Domable', chk('tameable', e.tameable)),
       row('Item para domar (id)', inp('tameItem', e.tameItem || '', 'text')),
       row('AutoLoot habilitado', chk('autoLoot', e.autoLoot)),
