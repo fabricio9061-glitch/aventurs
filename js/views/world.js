@@ -33,29 +33,67 @@
     const npcs = region.type === 'safe' ? A.Data.npcsInRegion(region.id) : [];
     const enemies = A.Data.enemiesInRegion(region.id);
     const neighbors = A.Travel.neighbors();
+    const isCombatRegion = region.type === 'combat';
+    const isSafeRegion = region.type === 'safe';
 
-    const VISIBLE_CHIPS = 7;
-    const visibleEnemies = enemies.slice(0, VISIBLE_CHIPS);
-    const overflowCount = Math.max(0, enemies.length - VISIBLE_CHIPS);
+    // Total de encuentros aquí
+    const encountersHere = A.State.encountersInRegion ? A.State.encountersInRegion(region.id) : 0;
 
     mainEl.innerHTML = `
       <section class="world-view">
 
-        <header class="region-banner ${region.type === 'safe' ? 'is-safe' : 'is-combat'}">
-          <div class="region-icon-big">${region.icon || '📍'}</div>
-          <div class="region-id">
-            <div class="region-name">${A.Utils.escapeHtml(region.name)}</div>
-            <div class="region-meta">
-              <span class="pill ${region.type === 'safe' ? 'pill-safe' : 'pill-combat'}">
-                ${region.type === 'safe' ? 'Zona segura' : 'Zona de combate'}
+        <header class="region-hero ${isSafeRegion ? 'is-safe' : 'is-combat'}">
+          <div class="region-hero-icon">${region.icon || '📍'}</div>
+          <div class="region-hero-info">
+            <div class="region-hero-name">${A.Utils.escapeHtml(region.name)}</div>
+            <div class="region-hero-meta">
+              <span class="pill ${isSafeRegion ? 'pill-safe' : 'pill-combat'}">
+                ${isSafeRegion ? 'Zona segura' : 'Zona de combate'}
               </span>
               <span class="pill pill-tier">Tier ${region.tier[0]}–${region.tier[1]}</span>
               <span class="dim">${biomeLabel(region.biome)}</span>
+              ${encountersHere > 0 ? `<span class="dim">· ${encountersHere} encuentros aquí</span>` : ''}
             </div>
+            <p class="region-hero-desc">${A.Utils.escapeHtml(region.description)}</p>
           </div>
         </header>
 
-        <p class="region-desc">${A.Utils.escapeHtml(region.description)}</p>
+        <section class="action-grid-main">
+          ${isCombatRegion ? `
+            <button class="action-card-main" data-action="explore">
+              <div class="action-card-icon">🔎</div>
+              <div class="action-card-text">
+                <div class="action-card-label">Explorar</div>
+                <div class="action-card-desc">Buscar criaturas, tesoros y eventos.</div>
+              </div>
+            </button>
+          ` : ''}
+          <button class="action-card-main" data-action="rest">
+            <div class="action-card-icon">🌙</div>
+            <div class="action-card-text">
+              <div class="action-card-label">Descansar</div>
+              <div class="action-card-desc">${isSafeRegion ? 'Recupera salud completa.' : 'Recupera 50% de salud al raso.'}</div>
+            </div>
+          </button>
+          ${neighbors.length > 0 ? `
+            <button class="action-card-main" data-action="open-travel">
+              <div class="action-card-icon">🗺️</div>
+              <div class="action-card-text">
+                <div class="action-card-label">Viajar</div>
+                <div class="action-card-desc">${neighbors.length} ${neighbors.length === 1 ? 'destino disponible' : 'destinos disponibles'}.</div>
+              </div>
+            </button>
+          ` : ''}
+          ${isSafeRegion ? `
+            <button class="action-card-main" data-action="open-craft">
+              <div class="action-card-icon">⚒️</div>
+              <div class="action-card-text">
+                <div class="action-card-label">Crafteo</div>
+                <div class="action-card-desc">Crear objetos con materiales.</div>
+              </div>
+            </button>
+          ` : ''}
+        </section>
 
         ${npcs.length ? `
           <section class="region-block">
@@ -66,53 +104,33 @@
           </section>
         ` : ''}
 
-        <section class="region-block">
-          <div class="block-title">Acciones</div>
-          <div class="action-row">
-            ${region.type === 'combat' ? `
-              <button class="action-card" data-action="explore">
-                <span class="action-icon">🔎</span>
-                <span class="action-label">Explorar</span>
-                <span class="action-desc dim">Buscar criaturas, tesoro o pistas.</span>
-              </button>
-            ` : ''}
-            <button class="action-card" data-action="rest">
-              <span class="action-icon">🌙</span>
-              <span class="action-label">Descansar</span>
-              <span class="action-desc dim">Recupera salud y maná.</span>
-            </button>
-          </div>
-        </section>
-
-        ${region.type === 'combat' && enemies.length ? `
+        ${isCombatRegion && enemies.length ? `
           <section class="region-block">
             <div class="block-title">Criaturas que merodean</div>
             <div class="creature-strip">
-              ${visibleEnemies.map((e) => `
+              ${enemies.slice(0, 8).map((e) => `
                 <button class="creature-chip" data-creature="${A.Utils.escapeHtml(e.id)}" title="${A.Utils.escapeHtml(e.name)} · Tier ${e.tier} · ${e.category}">
                   <span class="creature-icon">${e.icon || '👹'}</span>
                   <span>${A.Utils.escapeHtml(e.name)}</span>
                 </button>
               `).join('')}
-              ${overflowCount > 0 ? `
+              ${enemies.length > 8 ? `
                 <button class="creature-chip is-overflow" data-show-all="${A.Utils.escapeHtml(region.id)}">
-                  <span>+${overflowCount}</span>
+                  <span>+${enemies.length - 8}</span>
                 </button>
               ` : ''}
             </div>
           </section>
         ` : ''}
 
-        <section class="region-block">
-          <div class="block-title">Viajar</div>
-          ${neighbors.length === 0 ? `
-            <div class="muted">No hay caminos desde aquí.</div>
-          ` : `
+        ${neighbors.length ? `
+          <section class="region-block">
+            <div class="block-title">Caminos desde aquí</div>
             <div class="travel-list">
               ${neighbors.map((n) => travelCard(n)).join('')}
             </div>
-          `}
-        </section>
+          </section>
+        ` : ''}
 
       </section>
     `;
@@ -363,6 +381,24 @@
   }
 
   function onAction(action) {
+    if (action === 'open-travel') {
+      // Scrollear suavemente a la sección de "Caminos desde aquí"
+      const list = mainEl.querySelector('.travel-list');
+      if (list) list.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
+    if (action === 'open-craft') {
+      // Si hay un herrero en la región, abrir su craft. Si no, mostrar info.
+      const region = A.Data.getById('regions', A.State.world.regionId);
+      const npcs = A.Data.npcsInRegion(region.id);
+      const blacksmith = npcs.find((n) => n.role === 'blacksmith');
+      if (blacksmith) {
+        A.State.openModal('npc', { npcId: blacksmith.id, tab: 'craft' });
+      } else {
+        A.State.addChronicle({ type: 'note', text: 'Acá no hay herrero. Buscá uno en otro pueblo.' });
+      }
+      return;
+    }
     if (action === 'rest') {
       // Descanso al raso: solo +50% HP, sin maná ni food
       const p = A.State.player;

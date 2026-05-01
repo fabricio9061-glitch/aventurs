@@ -22,7 +22,6 @@
   function tabConfig() {
     return [
       { id: 'world', label: 'Mundo', view: 'World' },
-      { id: 'chronicles', label: 'Crónicas', view: 'Chronicles' },
     ];
   }
 
@@ -43,13 +42,15 @@
             <span class="brand-icon">⚔️</span>
             <span class="brand-name">Aventurs</span>
           </div>
-          <nav class="shell-nav">
-            ${tabs.map((t) => `
-              <button class="nav-tab ${t.id === validTab ? 'is-active' : ''}" data-tab="${t.id}">
-                ${A.Utils.escapeHtml(t.label)}
-              </button>
-            `).join('')}
-          </nav>
+          ${tabs.length > 1 ? `
+            <nav class="shell-nav">
+              ${tabs.map((t) => `
+                <button class="nav-tab ${t.id === validTab ? 'is-active' : ''}" data-tab="${t.id}">
+                  ${A.Utils.escapeHtml(t.label)}
+                </button>
+              `).join('')}
+            </nav>
+          ` : `<div class="shell-nav-spacer"></div>`}
           <div class="shell-actions">
             <button class="btn-ghost" data-action="rules">Reglas</button>
             <button class="btn-ghost" data-action="editor">Editor</button>
@@ -245,7 +246,7 @@
       return;
     }
     const tab = A.State.ui.activeTab || 'world';
-    const map = { world: 'World', chronicles: 'Chronicles' };
+    const map = { world: 'World' };
     const viewName = map[tab];
     const view = A.Views[viewName];
     if (view && view.mount) {
@@ -266,21 +267,28 @@
 
   function renderChroniclesPanel() {
     if (!chroniclesEl) return;
-    const all = (A.State.chronicles || []).slice().reverse(); // más reciente primero
-    const recent = all.slice(0, 30);
+    // Crónicas vienen en state.chronicles con unshift (más nuevo PRIMERO).
+    // Para el panel queremos: cronológico, más nuevo abajo. Tomamos las últimas 50.
+    const all = A.State.chronicles || [];
+    const recent = all.slice(0, 50).slice().reverse(); // más viejo primero, nuevo al final
     chroniclesEl.innerHTML = `
       <div class="chronicles-side-card">
         <div class="chronicles-side-header">
           <span class="dim">📜 Crónicas</span>
           <span class="dim small">${all.length}</span>
         </div>
-        <div class="chronicles-side-list">
+        <div class="chronicles-side-list" id="chronicles-side-list">
           ${recent.length === 0
             ? `<div class="muted small">Aún no hay historia.</div>`
             : recent.map(chronicleRow).join('')}
         </div>
       </div>
     `;
+    // Auto-scroll al fondo (donde está la entrada más reciente)
+    const list = chroniclesEl.querySelector('#chronicles-side-list');
+    if (list) {
+      requestAnimationFrame(() => { list.scrollTop = list.scrollHeight; });
+    }
   }
 
   function chronicleRow(e) {
