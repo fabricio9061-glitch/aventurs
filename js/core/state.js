@@ -21,7 +21,7 @@
   'use strict';
 
   const STORAGE_KEY = 'aventurs:save';
-  const DEFAULT_BAG_ID = 'bag_basic';
+  const DEFAULT_BAG_ID = 'bag_starter';
 
   const State = {
     player: null,
@@ -69,7 +69,7 @@
         }
         dirty = true;
       }
-      if (!p.bagId) { p.bagId = DEFAULT_BAG_ID; dirty = true; }
+      if (!p.bagId) { p.bagId = 'bag_basic'; dirty = true; }
       if (p.pet === undefined) { p.pet = null; dirty = true; }
       if (!p.spells) { p.spells = []; dirty = true; }
       if (dirty) {
@@ -142,7 +142,8 @@
         equipment: { weapon: null, armor: null },
         inventory: [
           { itemId: 'pocion_curacion_menor', qty: 2 },
-          { itemId: 'pan', qty: 3 },
+          { itemId: 'pan', qty: 2 },
+          { itemId: 'carne_cruda', qty: 2 },
         ],
         coins: { copper: 50, silver: 0, gold: 0 },
         spells: [],

@@ -11,14 +11,24 @@
 
   const BAGS = [
     {
-      id: 'bag_basic',
-      name: 'Mochila básica',
-      slots: 10,
+      id: 'bag_starter',
+      name: 'Bolsa de tela',
+      slots: 5,
       value: 0,
       rarity: 'common',
       tier: 1,
       icon: '🎒',
-      description: 'Una bolsa de tela cosida sin pretensiones. Cumple.',
+      description: 'Una bolsa de paño con costuras flojas. Cabe poco pero te saca del apuro.',
+    },
+    {
+      id: 'bag_basic',
+      name: 'Mochila básica',
+      slots: 10,
+      value: 50,
+      rarity: 'common',
+      tier: 1,
+      icon: '🎒',
+      description: 'Cuero remendado y correas firmes. El paso siguiente al saco de tela.',
     },
     {
       id: 'bag_reforzada',

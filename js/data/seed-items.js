@@ -63,6 +63,14 @@
     { id:'cuerda', name:'Cuerda', type:'item', subtype:'misc', icon:'🪢', value:10, weight:1,
       description:'Diez metros de cáñamo trenzado. Más útil de lo que parece.' },
 
+    // --- Items de doma (Fase 2) ---
+    { id:'carne_cruda', name:'Carne cruda', type:'item', subtype:'tame', icon:'🥩', value:5, weight:0, stack:99,
+      description:'Trozo sangrante. Las bestias la huelen a una legua.' },
+    { id:'pescado_fresco', name:'Pescado fresco', type:'item', subtype:'tame', icon:'🐟', value:8, weight:0, stack:99,
+      description:'Recién sacado del agua. Útil con bestias marinas.' },
+    { id:'semillas', name:'Semillas', type:'item', subtype:'tame', icon:'🌾', value:3, weight:0, stack:99,
+      description:'Granos secos. Atraen aves y criaturas pequeñas.' },
+
     // --- Materiales de crafting ---
     { id:'mat_hierro', name:'Lingote de hierro', type:'item', subtype:'material', icon:'⛓️', value:20, weight:1, stack:99,
       description:'Metal común, base de toda forja honesta.' },

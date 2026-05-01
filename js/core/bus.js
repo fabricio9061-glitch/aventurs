@@ -33,9 +33,16 @@
    travel:completed           - { fromId, toId }
    travel:cancelled           - { fromId }
 
-   tame:attempt               - { enemyId, success, roll, target }
+   tame:attempt               - { enemyId, success, chance, roll }
    tame:success               - { petId, name }
-   tame:failed                - { enemyId, roll, target }
+   tame:failed                - { enemyId, reason?, chance?, roll? }
+   tame:released              - { name }
+   tame:lost                  - { name }     Mascota cayó en combate
+
+   combat:started             - { enemyId }
+   combat:turn                - { actor, turnNumber }
+   combat:action              - { type, text }
+   combat:ended               - { result, xp? }    result = 'victory'|'defeat'|'flee'
 
    combat:started             - { enemies }
    combat:turn                - { actor, turnNumber }

@@ -64,7 +64,7 @@
     const target = A.Data.getById('regions', targetId);
     if (!target) return { ok: false, error: 'Región inválida.' };
 
-    const totalSteps = clamp(target.distance || 1, 1, 4) + 1; // 2..4 pasos
+    const totalSteps = clamp(target.distance || 1, 1, 3) * 2 + 2; // 4..8 pasos según distancia
     const fromId = State().world.regionId;
 
     State().traveling = {
@@ -196,7 +196,14 @@
     if (Object.keys(catWeights).length === 0) return null;
 
     const cat = A.Utils.weightedPick(catWeights);
-    const enemy = A.Utils.randomOf(byCat[cat]);
+    // Dentro de la categoría, weighted pick por spawnWeight (más alto = más probable)
+    const pool = byCat[cat];
+    const weighted = {};
+    pool.forEach((e, i) => {
+      weighted[i] = (typeof e.spawnWeight === 'number' ? e.spawnWeight : 1.0);
+    });
+    const idx = parseInt(A.Utils.weightedPick(weighted), 10);
+    const enemy = pool[idx] || A.Utils.randomOf(pool);
     if (!enemy) return null;
 
     return {

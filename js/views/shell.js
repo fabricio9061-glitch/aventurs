@@ -1,13 +1,13 @@
 /* ============================================================
-   Aventurs — View: Shell
-   Header + main + sidebar + footer.
+   Aventurs — View: Shell (v1.2.0)
 
-   Cambios v1.1.0:
-     - Quitada la tab "Magia" del nav.
-     - Agregado botón "Magia" en el sidebar al lado del nombre, solo si
-       player.hasMagic === true.
-     - Sidebar agrega mini-grid 2x5 del inventario debajo de los stats.
-     - Header indicador de viaje en curso.
+   Cambios v1.2.0:
+     - Tab "Inventario" eliminada del nav. La mochila vive completamente
+       en el sidebar derecho (todos los slots según capacidad).
+     - Si State.combat está activo, el main muestra Combat view en vez de
+       lo que diga la tab activa.
+     - Sidebar ya no tiene mini-grid de 10; ahora muestra el grid completo
+       de la mochila (5..32 slots).
    ============================================================ */
 
 (function (A) {
@@ -19,20 +19,16 @@
   let unsubscribers = [];
 
   function tabConfig() {
-    // Magia ya NO es una tab; queda accesible solo desde botón en sidebar.
     return [
       { id: 'world', label: 'Mundo', view: 'World' },
-      { id: 'inventory', label: 'Inventario', view: 'Inventory' },
       { id: 'chronicles', label: 'Crónicas', view: 'Chronicles' },
     ];
   }
 
   function render() {
     if (!rootEl) return;
-    const player = A.State.player;
     const tabs = tabConfig();
     const activeTab = A.State.ui.activeTab || 'world';
-    // Si viene de save anterior con activeTab='magic' y ahora no es tab, lo redirigimos.
     let validTab = activeTab;
     if (!tabs.find((t) => t.id === activeTab)) {
       validTab = 'world';
@@ -66,7 +62,7 @@
         </div>
 
         <footer class="shell-footer">
-          <span class="version-pill">v1.1.0 · Fase 1</span>
+          <span class="version-pill">v1.2.0 · Fase 2</span>
         </footer>
       </div>
     `;
@@ -76,7 +72,7 @@
 
     bindEvents();
     renderSidebar();
-    renderActiveTab();
+    renderActiveView();
   }
 
   function renderSidebar() {
@@ -89,7 +85,7 @@
     const armor = p.equipment.armor ? A.Data.getById('armors', p.equipment.armor) : null;
     const xpToNext = xpForLevel(p.level + 1);
     const region = A.State.world ? A.Data.getById('regions', A.State.world.regionId) : null;
-    const bag = A.Data.getById('bags', p.bagId) || A.Data.getById('bags', A.State.DEFAULT_BAG_ID);
+    const bag = A.Data.getById('bags', p.bagId) || A.Data.getById('bags', 'bag_starter');
 
     sidebarEl.innerHTML = `
       <div class="sidebar-card">
@@ -134,13 +130,10 @@
         </div>
 
         <div class="equip-block">
-          <div class="equip-row">
-            <span class="dim">Arma</span>
-            <span>${weapon ? A.Utils.escapeHtml(weapon.name) : '<span class="faint">—</span>'}</span>
-          </div>
-          <div class="equip-row">
-            <span class="dim">Armadura</span>
-            <span>${armor ? A.Utils.escapeHtml(armor.name) : '<span class="faint">—</span>'}</span>
+          <div class="block-subtitle dim">Equipado</div>
+          <div class="equip-grid-side">
+            ${equipMini('Arma', weapon, 'weapon')}
+            ${equipMini('Armadura', armor, 'armor')}
           </div>
         </div>
 
@@ -157,7 +150,7 @@
           </div>
         ` : ''}
 
-        ${renderMiniInventory(bag)}
+        ${renderBag(bag)}
 
         ${region ? `<div class="loc-pill"><span>${region.icon || '📍'}</span> <span>${A.Utils.escapeHtml(region.name)}</span></div>` : ''}
       </div>
@@ -166,56 +159,76 @@
     bindSidebarEvents();
   }
 
-  function renderMiniInventory(bag) {
-    const p = A.State.player;
-    const cap = bag ? bag.slots : 10;
-    const used = A.State.inventoryUsedSlots();
-    const visibleSlots = 10; // 2x5 grid
-
-    // No-coin inventory items
-    const items = (p.inventory || []).filter((s) => {
-      const it = A.Data.getById('items', s.itemId);
-      return !it || it.subtype !== 'coin';
-    });
-    const visible = items.slice(0, visibleSlots);
-    const overflow = Math.max(0, items.length - visibleSlots);
-
-    const cells = [];
-    for (let i = 0; i < visibleSlots; i++) {
-      const slot = visible[i];
-      if (slot) {
-        const data = A.Inventory.resolveData(slot.itemId);
-        const icon = data ? (data.icon || '📦') : '📦';
-        const qty = slot.qty > 1 ? `<span class="mini-qty num">${slot.qty}</span>` : '';
-        cells.push(`
-          <button class="mini-slot is-filled" data-mini-item="${A.Utils.escapeHtml(slot.itemId)}" title="${A.Utils.escapeHtml(data ? data.name : slot.itemId)}">
-            <span class="mini-icon">${icon}</span>
-            ${qty}
-          </button>
-        `);
-      } else {
-        cells.push(`<div class="mini-slot is-empty"></div>`);
-      }
+  function equipMini(label, equipped, slotName) {
+    if (!equipped) {
+      return `<div class="equip-mini is-empty"><div class="dim">${label}</div><div class="faint">—</div></div>`;
     }
-
+    const stat = slotName === 'weapon' ? `${equipped.damage}` : `+${equipped.defense}`;
     return `
-      <div class="mini-inv-block">
-        <div class="mini-inv-header">
-          <span class="dim">Mochila</span>
-          <span class="num">${used} / ${cap}</span>
+      <div class="equip-mini">
+        <div class="dim">${label}</div>
+        <div class="equip-mini-content">
+          <span class="equip-mini-icon">${equipped.icon || '⚔️'}</span>
+          <span class="equip-mini-name">${A.Utils.escapeHtml(equipped.name)}</span>
         </div>
-        <div class="mini-grid">
-          ${cells.join('')}
-        </div>
-        ${overflow > 0 ? `<button class="mini-overflow" data-action="open-inventory">+${overflow} más en inventario</button>` : ''}
+        <div class="equip-mini-stat num">${stat}</div>
       </div>
     `;
   }
 
-  function renderActiveTab() {
+  function renderBag(bag) {
+    const p = A.State.player;
+    const cap = bag ? bag.slots : 5;
+    const used = A.State.inventoryUsedSlots();
+
+    const items = (p.inventory || []).filter((s) => {
+      const it = A.Data.getById('items', s.itemId);
+      return !it || it.subtype !== 'coin';
+    });
+
+    const cells = [];
+    for (let i = 0; i < cap; i++) {
+      const slot = items[i];
+      if (slot) {
+        const data = A.Inventory.resolveData(slot.itemId);
+        const icon = data ? (data.icon || '📦') : '📦';
+        const qty = slot.qty > 1 ? `<span class="bag-side-qty num">${slot.qty}</span>` : '';
+        cells.push(`
+          <button class="bag-side-slot is-filled" data-mini-item="${A.Utils.escapeHtml(slot.itemId)}" title="${A.Utils.escapeHtml(data ? data.name : slot.itemId)}">
+            <span class="bag-side-icon">${icon}</span>
+            ${qty}
+          </button>
+        `);
+      } else {
+        cells.push(`<div class="bag-side-slot is-empty"></div>`);
+      }
+    }
+
+    return `
+      <div class="bag-side-block">
+        <div class="bag-side-header">
+          <div>
+            <span class="dim">Mochila</span>
+            <span class="num"> ${used} / ${cap}</span>
+          </div>
+          <button class="btn-mini" data-action="change-bag">Cambiar</button>
+        </div>
+        <div class="bag-side-grid" style="grid-template-columns: repeat(${cap <= 5 ? 5 : cap <= 16 ? 4 : 5}, 1fr)">
+          ${cells.join('')}
+        </div>
+      </div>
+    `;
+  }
+
+  function renderActiveView() {
     if (!mainEl) return;
+    // Si hay combate activo, renderizar Combat
+    if (A.State.combat) {
+      A.Views.Combat.mount(mainEl);
+      return;
+    }
     const tab = A.State.ui.activeTab || 'world';
-    const map = { world: 'World', inventory: 'Inventory', chronicles: 'Chronicles' };
+    const map = { world: 'World', chronicles: 'Chronicles' };
     const viewName = map[tab];
     const view = A.Views[viewName];
     if (view && view.mount) {
@@ -246,17 +259,11 @@
   }
 
   function handleAction(action) {
-    if (action === 'editor') {
-      A.Views.Editor.mount(rootEl);
-    } else if (action === 'rules') {
-      A.State.openModal('rules');
-    } else if (action === 'menu') {
-      A.State.openModal('menu');
-    } else if (action === 'open-magic') {
-      A.State.openModal('magic');
-    } else if (action === 'open-inventory') {
-      A.State.setTab('inventory');
-    }
+    if (action === 'editor') A.Views.Editor.mount(rootEl);
+    else if (action === 'rules') A.State.openModal('rules');
+    else if (action === 'menu') A.State.openModal('menu');
+    else if (action === 'open-magic') A.State.openModal('magic');
+    else if (action === 'change-bag') A.State.openModal('change-bag');
   }
 
   function pct(cur, max) {
@@ -269,7 +276,7 @@
   }
 
   function subscribe() {
-    unsubscribers.push(A.Bus.on('view:changed', renderActiveTab));
+    unsubscribers.push(A.Bus.on('view:changed', renderActiveView));
     unsubscribers.push(A.Bus.on('player:hp-changed', renderSidebar));
     unsubscribers.push(A.Bus.on('player:mana-changed', renderSidebar));
     unsubscribers.push(A.Bus.on('player:xp-changed', renderSidebar));
@@ -279,14 +286,17 @@
     unsubscribers.push(A.Bus.on('inventory:unequipped', renderSidebar));
     unsubscribers.push(A.Bus.on('bag:equipped', renderSidebar));
     unsubscribers.push(A.Bus.on('currency:changed', renderSidebar));
-    unsubscribers.push(A.Bus.on('region:changed', () => { renderSidebar(); renderActiveTab(); }));
-    unsubscribers.push(A.Bus.on('travel:started', () => renderActiveTab()));
-    unsubscribers.push(A.Bus.on('travel:step', () => renderActiveTab()));
-    unsubscribers.push(A.Bus.on('travel:completed', () => { renderSidebar(); renderActiveTab(); }));
-    unsubscribers.push(A.Bus.on('travel:cancelled', renderActiveTab));
+    unsubscribers.push(A.Bus.on('region:changed', () => { renderSidebar(); renderActiveView(); }));
+    unsubscribers.push(A.Bus.on('travel:started', renderActiveView));
+    unsubscribers.push(A.Bus.on('travel:step', renderActiveView));
+    unsubscribers.push(A.Bus.on('travel:completed', () => { renderSidebar(); renderActiveView(); }));
+    unsubscribers.push(A.Bus.on('travel:cancelled', renderActiveView));
+    unsubscribers.push(A.Bus.on('combat:started', renderActiveView));
+    unsubscribers.push(A.Bus.on('combat:ended', () => { renderSidebar(); renderActiveView(); }));
     unsubscribers.push(A.Bus.on('tame:success', renderSidebar));
+    unsubscribers.push(A.Bus.on('tame:lost', renderSidebar));
     unsubscribers.push(A.Bus.on('chronicle:added', () => {
-      if (A.State.ui.activeTab === 'chronicles') renderActiveTab();
+      if (A.State.ui.activeTab === 'chronicles') renderActiveView();
     }));
     unsubscribers.push(A.Bus.on('modal:open', renderModals));
     unsubscribers.push(A.Bus.on('modal:close', renderModals));

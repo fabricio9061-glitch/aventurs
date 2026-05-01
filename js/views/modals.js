@@ -44,6 +44,8 @@
       case 'tame': html = renderTame(payload); break;
       case 'change-bag': html = renderChangeBag(); break;
       case 'magic': html = renderMagic(); break;
+      case 'combat-spell': html = renderCombatSpell(); break;
+      case 'combat-item': html = renderCombatItem(); break;
       default: html = `<div class="modal"><div class="modal-body">Modal "${id}" desconocido.</div></div>`;
     }
 
@@ -254,16 +256,14 @@
         ${families ? `<div class="creature-chips">${families}</div>` : ''}
         ${tags ? `<div class="creature-chips">${tags}</div>` : ''}
         <div class="creature-actions">
+          <button class="btn-primary" data-creature-action="fight" data-enemy-id="${A.Utils.escapeHtml(e.id)}">Pelear</button>
           ${canTame && !havePet ? `
-            <button class="btn-primary" data-creature-action="tame" data-enemy-id="${A.Utils.escapeHtml(e.id)}">
+            <button class="btn-secondary" data-creature-action="tame" data-enemy-id="${A.Utils.escapeHtml(e.id)}">
               Intentar domar
             </button>
           ` : ''}
           ${canTame && havePet ? `
             <span class="muted small">Ya tienes una mascota. Liberá a ${A.Utils.escapeHtml(A.State.player.pet.name)} antes de domar otra.</span>
-          ` : ''}
-          ${!canTame ? `
-            <span class="muted small">Esta criatura no puede ser domada.</span>
           ` : ''}
         </div>
       </div>
@@ -314,19 +314,34 @@
   function renderTame({ enemyId, fromTravel }) {
     const e = A.Data.getById('enemies', enemyId);
     if (!e) return modalShell('Domar', `<p class="muted">Criatura no encontrada.</p>`);
-    const target = A.Tame.TARGET_BY_CAT[e.category] || 13;
+    const itemId = A.Tame.requiredItem(e);
+    const item = A.Data.getById('items', itemId);
+    const have = (A.State.player.inventory || []).find((s) => s.itemId === itemId);
+    const haveQty = have ? have.qty : 0;
+    const canDo = haveQty > 0;
+    const chancePct = Math.round(A.Tame.chanceFor(e) * 100);
+
     const body = `
       <div class="tame-modal">
         <div class="tame-icon">${e.icon || '🐾'}</div>
         <p class="tame-text">
-          Te acercas con cautela a ${A.Utils.escapeHtml(e.name)}. Una sola tirada decide si te acepta.
+          ${canDo
+            ? `Te acercas a ${A.Utils.escapeHtml(e.name)} con ${A.Utils.escapeHtml(item ? item.name : itemId)} en la mano.`
+            : `Para domar a ${A.Utils.escapeHtml(e.name)} necesitás ${A.Utils.escapeHtml(item ? item.name : itemId)}, y no llevás nada.`}
         </p>
         <div class="tame-info">
-          <div class="dim">Dificultad de doma:</div>
-          <div class="num">${target} (en d20 + nivel)</div>
+          <div class="tame-info-row">
+            <span class="dim">Necesitas:</span>
+            <span>${item ? item.icon : '📦'} ${A.Utils.escapeHtml(item ? item.name : itemId)} ${haveQty > 0 ? `<span class="num dim">(tenés ${haveQty})</span>` : '<span class="num danger">(no tenés)</span>'}</span>
+          </div>
+          <div class="tame-info-row">
+            <span class="dim">Probabilidad:</span>
+            <span class="num">${chancePct}%</span>
+          </div>
+          <div class="muted small">El item se consume al intentar, hayas tenido suerte o no.</div>
         </div>
         <div class="tame-actions">
-          <button class="btn-primary" data-tame-action="attempt" data-enemy-id="${A.Utils.escapeHtml(e.id)}" data-from-travel="${fromTravel ? '1' : '0'}">Tirar</button>
+          <button class="btn-primary" data-tame-action="attempt" data-enemy-id="${A.Utils.escapeHtml(e.id)}" data-from-travel="${fromTravel ? '1' : '0'}" ${canDo ? '' : 'disabled'}>Intentar (consume 1 ${A.Utils.escapeHtml(item ? item.name : itemId)})</button>
           <button class="btn-ghost" data-tame-action="cancel">Cancelar</button>
         </div>
       </div>
@@ -370,6 +385,68 @@
 
   function renderMagic() {
     return modalShell('Grimorio', A.Views.Magic.renderHtml());
+  }
+
+  // ---------- Combat: elegir hechizo ----------
+
+  function renderCombatSpell() {
+    const spells = A.Combat.availableSpells();
+    const p = A.State.player;
+    if (spells.length === 0) {
+      return modalShell('Hechizos', `<p class="muted">No conoces hechizos todavía.</p>`);
+    }
+    const body = `
+      <div class="combat-spell-modal">
+        <div class="mana-readout">
+          <span class="dim">Maná disponible</span>
+          <span class="num">${p.mana} / ${p.maxMana}</span>
+        </div>
+        <div class="combat-spell-list">
+          ${spells.map((s) => {
+            const can = p.mana >= s.manaCost;
+            return `
+              <button class="combat-spell-row ${can ? '' : 'is-disabled'}" data-cast-spell="${A.Utils.escapeHtml(s.id)}" ${can ? '' : 'disabled'}>
+                <span class="combat-spell-icon">${s.icon || '✨'}</span>
+                <span class="combat-spell-info">
+                  <span class="combat-spell-name">${A.Utils.escapeHtml(s.name)}</span>
+                  <span class="combat-spell-meta dim">${s.damage ? `${s.damage} daño` : s.heal ? `${s.heal} cura` : ''} · Maná ${s.manaCost}</span>
+                </span>
+              </button>
+            `;
+          }).join('')}
+        </div>
+      </div>
+    `;
+    return modalShell('Lanzar hechizo', body);
+  }
+
+  // ---------- Combat: elegir item ----------
+
+  function renderCombatItem() {
+    const items = A.Combat.availableItems();
+    if (items.length === 0) {
+      return modalShell('Usar item', `<p class="muted">No tienes consumibles a mano.</p>`);
+    }
+    const body = `
+      <div class="combat-item-modal">
+        <div class="combat-item-list">
+          ${items.map((s) => {
+            const data = A.Data.getById('items', s.itemId);
+            if (!data) return '';
+            return `
+              <button class="combat-item-row" data-use-item="${A.Utils.escapeHtml(s.itemId)}">
+                <span class="combat-item-icon">${data.icon || '🧪'}</span>
+                <span class="combat-item-info">
+                  <span class="combat-item-name">${A.Utils.escapeHtml(data.name)} <span class="dim">×${s.qty}</span></span>
+                  <span class="combat-item-meta dim">${A.Utils.escapeHtml(data.description || '')}</span>
+                </span>
+              </button>
+            `;
+          }).join('')}
+        </div>
+      </div>
+    `;
+    return modalShell('Usar item', body);
   }
 
   function rarityLabel(r) {
@@ -426,8 +503,12 @@
     if (id === 'creature') {
       overlay.querySelectorAll('[data-creature-action]').forEach((b) => {
         b.addEventListener('click', () => {
-          if (b.dataset.creatureAction === 'tame') {
+          const action = b.dataset.creatureAction;
+          if (action === 'tame') {
             A.State.openModal('tame', { enemyId: b.dataset.enemyId });
+          } else if (action === 'fight') {
+            A.State.closeModal();
+            A.Combat.start({ enemyId: b.dataset.enemyId, fromTravel: false });
           }
         });
       });
@@ -456,9 +537,13 @@
               const last = t.events[t.events.length - 1];
               if (last && last.kind === 'creature') {
                 last.resolved = true;
-                last.text = result.success
-                  ? `Domaste a ${last.enemyName} en el camino.`
-                  : `${last.enemyName} no se dejó acercar (tirada ${result.roll} contra ${result.target}). Lograste evitarlo.`;
+                if (result.success) {
+                  last.text = `Domaste a ${last.enemyName} en el camino.`;
+                } else if (result.reason === 'missing-item') {
+                  last.text = `No tenías el item necesario para domar a ${last.enemyName}. Lo evitaste.`;
+                } else {
+                  last.text = `${last.enemyName} no se dejó acercar. Tuviste que evitarlo.`;
+                }
                 A.State.persist();
               }
             }
@@ -487,6 +572,25 @@
               onConfirm: () => {},
             });
           }
+        });
+      });
+    }
+
+    if (id === 'combat-spell') {
+      overlay.querySelectorAll('[data-cast-spell]').forEach((b) => {
+        if (b.disabled) return;
+        b.addEventListener('click', () => {
+          A.State.closeModal();
+          A.Combat.playerSpell(b.dataset.castSpell);
+        });
+      });
+    }
+
+    if (id === 'combat-item') {
+      overlay.querySelectorAll('[data-use-item]').forEach((b) => {
+        b.addEventListener('click', () => {
+          A.State.closeModal();
+          A.Combat.playerUseItem(b.dataset.useItem);
         });
       });
     }

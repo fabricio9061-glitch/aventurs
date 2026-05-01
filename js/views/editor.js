@@ -230,7 +230,8 @@
         return { ...base, type: 'item', subtype: 'misc', icon: '📦', value: 5, weight: 0, description: '' };
       case 'enemies':
         return { ...base, icon: '👹', family: ['humanoid'], category: 'normal', tier: 1, tags: [], biome: ['plains'],
-                 health: 10, damage: 2, difficulty: 8, armor: 0, speed: 8, coinLoot: [0, 5], drops: [], regions: [], autoLoot: true };
+                 health: 10, damage: 2, difficulty: 8, armor: 0, speed: 8, coinLoot: [0, 5], drops: [], regions: [],
+                 spawnWeight: 1.0, tameable: false, tameItem: '', autoLoot: true };
       case 'npcs':
         return { ...base, role: 'merchant', region: 'pueblo_inicial', icon: '🧑', dialog: [''], sells: [], teaches: [], services: {} };
       case 'spells':
@@ -460,7 +461,9 @@
       row('Loot mínimo (cobre)', inp('coinLoot.0', (e.coinLoot||[0,0])[0], 'number')),
       row('Loot máximo (cobre)', inp('coinLoot.1', (e.coinLoot||[0,0])[1], 'number')),
       row('Regiones (csv)', arr('regions', e.regions)),
+      row('Peso de spawn (0-3)', inp('spawnWeight', e.spawnWeight ?? 1.0, 'number', 'min="0" max="3" step="0.1"')),
       row('Domable', chk('tameable', e.tameable)),
+      row('Item para domar (id)', inp('tameItem', e.tameItem || '', 'text')),
       row('AutoLoot habilitado', chk('autoLoot', e.autoLoot)),
       `<div class="form-row form-row-block">
         <label>Drops manuales</label>

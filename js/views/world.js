@@ -180,12 +180,13 @@
           </div>
           <p class="encounter-desc">${enemy && enemy.tameable
             ? 'Te observa con curiosidad. Quizás puedas acercarte sin pelear.'
-            : 'No parece dispuesto a parlamentar. Mejor evitarlo por ahora.'}</p>
+            : 'No parece dispuesto a parlamentar.'}</p>
           <div class="encounter-actions">
+            <button class="btn-primary" data-travel-action="fight" data-enemy-id="${A.Utils.escapeHtml(ev.enemyId)}">Pelear</button>
             ${enemy && enemy.tameable && !A.State.player.pet ? `
-              <button class="btn-primary" data-travel-action="tame" data-enemy-id="${A.Utils.escapeHtml(ev.enemyId)}">Intentar domar</button>
+              <button class="btn-secondary" data-travel-action="tame" data-enemy-id="${A.Utils.escapeHtml(ev.enemyId)}">Intentar domar</button>
             ` : ''}
-            <button class="btn-secondary" data-travel-action="avoid">Evitar y seguir</button>
+            <button class="btn-ghost" data-travel-action="avoid">Evitar</button>
           </div>
         </div>
       </div>
@@ -308,6 +309,16 @@
           A.Travel.step();
         } else if (action === 'tame') {
           A.State.openModal('tame', { enemyId: btn.dataset.enemyId, fromTravel: true });
+        } else if (action === 'fight') {
+          // Marcar evento como resuelto e iniciar combate
+          const t = A.State.traveling;
+          const last = t.events[t.events.length - 1];
+          if (last && last.kind === 'creature') {
+            last.resolved = true;
+            last.text = `Peleaste contra ${last.enemyName}.`;
+          }
+          A.State.persist();
+          A.Combat.start({ enemyId: btn.dataset.enemyId, fromTravel: true });
         }
       });
     });
@@ -325,11 +336,48 @@
       A.State.fullRest();
       A.State.addChronicle({ type: 'rest', text: 'Descansaste. Recuperaste salud y maná.' });
     } else if (action === 'explore') {
-      A.State.addChronicle({
-        type: 'note',
-        text: 'Recorriste la zona pero no encontraste nada nuevo. (Combate llega en Fase 2.)',
-      });
+      // Roll: 60% encuentro, 25% loot menor, 15% nada
+      const r = Math.random();
+      if (r < 0.60) {
+        // Spawn enemigo según pesos de la región
+        const enemy = pickEnemyByWeight(A.State.world.regionId);
+        if (enemy) {
+          A.State.addChronicle({ type: 'note', text: `Te encontraste con ${enemy.name} mientras explorabas.` });
+          A.Combat.start({ enemyId: enemy.id, fromTravel: false });
+          return;
+        }
+        A.State.addChronicle({ type: 'note', text: 'Recorriste la zona pero no encontraste nada.' });
+      } else if (r < 0.85) {
+        const coins = 3 + Math.floor(Math.random() * 12);
+        A.Currency.add(coins);
+        A.State.addChronicle({ type: 'loot', text: `Encontraste ${coins} monedas de cobre escondidas.` });
+      } else {
+        A.State.addChronicle({ type: 'note', text: 'No encontraste nada útil esta vez.' });
+      }
     }
+  }
+
+  function pickEnemyByWeight(regionId) {
+    const enemies = A.Data.enemiesInRegion(regionId);
+    if (!enemies.length) return null;
+    // Weighted pick por categoría (mismo balance que travel)
+    const byCat = { weak: [], normal: [], strong: [], boss: [] };
+    for (const e of enemies) {
+      const c = e.category || 'normal';
+      if (byCat[c]) byCat[c].push(e);
+    }
+    const catWeights = {};
+    if (byCat.weak.length) catWeights.weak = 0.40;
+    if (byCat.normal.length) catWeights.normal = 0.40;
+    if (byCat.strong.length) catWeights.strong = 0.15;
+    if (byCat.boss.length) catWeights.boss = 0.05;
+    if (Object.keys(catWeights).length === 0) return null;
+    const cat = A.Utils.weightedPick(catWeights);
+    const pool = byCat[cat];
+    const weighted = {};
+    pool.forEach((e, i) => { weighted[i] = e.spawnWeight || 1.0; });
+    const idx = parseInt(A.Utils.weightedPick(weighted), 10);
+    return pool[idx] || pool[0];
   }
 
   const WorldView = {

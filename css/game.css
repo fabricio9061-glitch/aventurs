@@ -1153,3 +1153,271 @@
   border-radius: var(--r-md);
   font-size: var(--fs-sm);
 }
+
+/* ============================================================
+   v1.2.0 — Sidebar bag completo
+   ============================================================ */
+
+.bag-side-block {
+  padding-top: var(--sp-3);
+  border-top: var(--border-w) solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+.bag-side-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: var(--fs-xs);
+}
+
+.bag-side-grid {
+  display: grid;
+  gap: var(--sp-1);
+}
+.bag-side-slot {
+  position: relative;
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface);
+  border: var(--border-w) solid var(--border);
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  font-size: 18px;
+  transition: border-color 120ms ease, transform 120ms ease;
+}
+.bag-side-slot.is-empty {
+  cursor: default;
+  background: transparent;
+  border-style: dashed;
+  opacity: 0.45;
+}
+.bag-side-slot.is-filled:hover { border-color: var(--gold); transform: translateY(-1px); }
+.bag-side-icon { line-height: 1; }
+.bag-side-qty {
+  position: absolute;
+  bottom: 2px;
+  right: 4px;
+  font-size: 9px;
+  color: var(--text-muted);
+  background: var(--surface-raised);
+  padding: 0 3px;
+  border-radius: 2px;
+  border: var(--border-w) solid var(--border);
+}
+
+/* Equipamiento mini en sidebar */
+.block-subtitle {
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-medium);
+  margin-bottom: var(--sp-2);
+}
+.equip-grid-side { display: flex; flex-direction: column; gap: var(--sp-2); }
+.equip-mini {
+  display: grid;
+  grid-template-columns: 80px 1fr auto;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-1) var(--sp-2);
+  background: var(--surface);
+  border: var(--border-w) solid var(--border);
+  border-radius: var(--r-sm);
+  font-size: var(--fs-xs);
+}
+.equip-mini.is-empty { opacity: 0.5; }
+.equip-mini-content { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.equip-mini-icon { font-size: 14px; }
+.equip-mini-name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.equip-mini-stat { font-weight: var(--fw-medium); color: var(--gold-text); }
+
+/* ============================================================
+   v1.2.0 — Tame info en modal
+   ============================================================ */
+.tame-info-row { display: flex; justify-content: space-between; align-items: center; gap: var(--sp-3); }
+.tame-info { gap: var(--sp-2); }
+.danger { color: var(--danger); }
+
+/* ============================================================
+   v1.2.0 — Combat view
+   ============================================================ */
+
+.combat-view {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+  background: var(--surface-raised);
+  border: var(--border-w) solid var(--border);
+  border-radius: var(--r-lg);
+  padding: var(--sp-5);
+}
+
+.combat-enemy-banner {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--sp-4);
+  align-items: center;
+  background: var(--surface);
+  border: var(--border-w) solid var(--border);
+  border-left: 3px solid var(--hp);
+  border-radius: var(--r-md);
+  padding: var(--sp-4);
+}
+.combat-enemy-icon { font-size: 56px; line-height: 1; }
+.combat-enemy-name { font-size: var(--fs-xl); font-weight: var(--fw-medium); }
+.combat-enemy-meta { display: flex; gap: var(--sp-2); align-items: center; flex-wrap: wrap; margin: 4px 0 var(--sp-2) 0; }
+.combat-hp-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: var(--fs-sm);
+  margin-bottom: 4px;
+}
+.bar-enemy-hp {
+  height: 8px;
+  background: var(--surface-raised);
+  border-radius: 4px;
+  overflow: hidden;
+  border: var(--border-w) solid var(--border);
+}
+.bar-enemy-hp > span {
+  display: block;
+  height: 100%;
+  background: var(--hp);
+  transition: width 350ms ease;
+}
+
+.combat-pet {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: var(--sp-2);
+  align-items: center;
+  background: var(--gold-bg);
+  border: var(--border-w) solid #ecdfb6;
+  border-radius: var(--r-md);
+  padding: var(--sp-2) var(--sp-3);
+}
+.combat-pet-icon { font-size: 22px; }
+.combat-pet-name { font-weight: var(--fw-medium); font-size: var(--fs-sm); }
+.combat-pet-hp { font-size: var(--fs-xs); }
+.combat-pet .bar { grid-column: 1 / -1; height: 4px; }
+.bar-pet-hp > span { background: var(--success); }
+
+.combat-log {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+.combat-log-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 280px;
+  overflow-y: auto;
+  padding: var(--sp-2);
+  background: var(--surface);
+  border: var(--border-w) solid var(--border);
+  border-radius: var(--r-md);
+}
+.combat-log-row {
+  display: flex;
+  padding: 4px var(--sp-2);
+  font-size: var(--fs-sm);
+  border-radius: var(--r-sm);
+}
+.combat-log-row.is-player { background: rgba(212, 164, 55, 0.08); }
+.combat-log-row.is-enemy { background: rgba(201, 102, 59, 0.08); color: var(--text-muted); }
+.combat-log-row.is-pet { background: rgba(59, 109, 17, 0.08); }
+.combat-log-row.is-loot { color: var(--gold-text); font-weight: var(--fw-medium); }
+.combat-log-row.is-system { color: var(--text-muted); font-style: italic; }
+
+.combat-actions { display: flex; flex-direction: column; gap: var(--sp-2); }
+
+.combat-action-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--sp-2);
+}
+.combat-action {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  background: var(--surface);
+  border: var(--border-w) solid var(--border-strong);
+  border-radius: var(--r-md);
+  padding: var(--sp-3) var(--sp-4);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 120ms ease, background 120ms ease;
+}
+.combat-action:hover:not(:disabled) { border-color: var(--gold); background: var(--gold-bg); }
+.combat-action:disabled { opacity: 0.5; cursor: not-allowed; }
+.combat-action-icon { font-size: 22px; }
+.combat-action-label { font-weight: var(--fw-medium); }
+
+.combat-waiting {
+  text-align: center;
+  padding: var(--sp-4);
+  font-style: italic;
+}
+
+/* Combat result */
+.combat-result {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: var(--sp-3);
+  background: var(--surface-raised);
+  border: var(--border-w) solid var(--border);
+  border-radius: var(--r-lg);
+  padding: var(--sp-8);
+}
+.combat-result-icon { font-size: 64px; line-height: 1; }
+.combat-result-title { font-size: var(--fs-2xl); font-weight: var(--fw-medium); }
+.combat-result-sub { max-width: 420px; line-height: var(--lh-loose); }
+.combat-result-log {
+  width: 100%;
+  max-width: 500px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  background: var(--surface);
+  border: var(--border-w) solid var(--border);
+  border-radius: var(--r-md);
+  padding: var(--sp-3);
+  max-height: 200px;
+  overflow-y: auto;
+  margin: var(--sp-3) 0;
+}
+
+/* Combat spell/item modals */
+.combat-spell-list, .combat-item-list { display: flex; flex-direction: column; gap: var(--sp-2); }
+.combat-spell-row, .combat-item-row {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: var(--sp-3);
+  background: var(--surface);
+  border: var(--border-w) solid var(--border);
+  border-radius: var(--r-md);
+  padding: var(--sp-3);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 120ms ease;
+}
+.combat-spell-row:hover:not(:disabled), .combat-item-row:hover { border-color: var(--gold); }
+.combat-spell-row.is-disabled { opacity: 0.5; cursor: not-allowed; }
+.combat-spell-icon, .combat-item-icon { font-size: 28px; }
+.combat-spell-name, .combat-item-name { font-weight: var(--fw-medium); }
+.combat-spell-meta, .combat-item-meta { font-size: var(--fs-xs); margin-top: 2px; }
+
+/* Wider sidebar for v1.2.0 (más slots de bag) */
+@media (min-width: 981px) {
+  .shell-body { grid-template-columns: 1fr 360px; }
+}

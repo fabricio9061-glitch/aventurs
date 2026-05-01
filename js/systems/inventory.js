@@ -17,6 +17,7 @@
     const item = A.Data.getById('items', itemId);
     if (!item) return null;
     if (item.subtype === 'potion' || item.subtype === 'food' || item.subtype === 'scroll') return 'consumable';
+    if (item.subtype === 'tame') return 'tame';
     if (item.subtype === 'material') return 'material';
     return item.subtype || 'misc';
   }
