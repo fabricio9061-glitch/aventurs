@@ -98,10 +98,6 @@
     const armor = p.equipment.armor ? A.Data.getById('armors', p.equipment.armor) : null;
     const totalArmor = (p.stats.armor || 0) + (armor ? armor.defense : 0);
     const dmgStr = weapon ? weapon.damage : '1d3';
-    const baseSpeed = p.stats.speed || 10;
-    const effSpeed = A.Combat.effectivePlayerSpeed ? A.Combat.effectivePlayerSpeed(p) : baseSpeed;
-    const speedDelta = effSpeed - baseSpeed;
-    const speedLabel = speedDelta < 0 ? `${effSpeed} <span class="log-faint">(${baseSpeed}${speedDelta})</span>` : `${effSpeed}`;
 
     return `
       <div class="combat-card combat-card-player ${isActive ? 'is-active' : ''}">
@@ -120,12 +116,10 @@
           </div>
         ` : ''}
 
-        ${renderEffectsBadges(p.effects)}
-
         <div class="combat-card-stats">
-          <div class="card-stat" title="Daño del arma">⚔️ ${dmgStr}${p.stats.damage ? `+${p.stats.damage}` : ''}</div>
+          <div class="card-stat" title="Daño">⚔️ ${dmgStr}${p.stats.damage ? `+${p.stats.damage}` : ''}</div>
           <div class="card-stat" title="Armadura (reduce daño)">🛡️ ${totalArmor}</div>
-          <div class="card-stat" title="Velocidad efectiva (con peso del equipo)">⚡ ${speedLabel}</div>
+          <div class="card-stat" title="Velocidad">⚡ ${p.stats.speed || 10}</div>
           <div class="card-stat" title="Esquiva">💨 ${p.stats.dodge || 0}</div>
         </div>
       </div>
@@ -135,53 +129,30 @@
   function renderEnemyCard(e, isTarget, isActive) {
     const dead = e.hp <= 0;
     const cls = `combat-card combat-card-enemy ${isTarget && !dead ? 'is-target' : ''} ${isActive ? 'is-active' : ''} ${dead ? 'is-dead' : ''}`;
-    // Usar el damage de la instancia (con arma equipada si la tiene), no del seed
-    const damageStr = `${e.damage}`;
-    const weapon = e.equippedWeapon ? A.Data.getById('weapons', e.equippedWeapon) : null;
+    const enemyData = A.Data.getById('enemies', e.id);
+    const damageStr = enemyData ? `${enemyData.damage}` : `${e.damage}`;
 
     return `
       <button class="${cls}" data-target="${A.Utils.escapeHtml(e.instanceId)}" ${dead ? 'disabled' : ''}>
         <div class="combat-card-icon">${e.icon || '👹'}</div>
         <div class="combat-card-name">${A.Utils.escapeHtml(e.displayName)}</div>
-        <div class="combat-card-meta dim">T${e.tier} · ${categoryLabel(e.category)}${weapon ? ` · ${weapon.icon || '⚔️'}` : ''}</div>
+        <div class="combat-card-meta dim">T${e.tier} · ${categoryLabel(e.category)}</div>
 
         <div class="combat-card-hp">
           <div class="bar bar-enemy-hp"><span style="width:${pct(e.hp, e.maxHp)}%"></span></div>
           <div class="combat-card-hp-text num">❤ ${e.hp}/${e.maxHp}</div>
         </div>
 
-        ${renderEffectsBadges(e.effects)}
-
         <div class="combat-card-stats">
           <div class="card-stat" title="Daño">⚔️ ${damageStr}</div>
           <div class="card-stat" title="Armadura (reduce daño)">🛡️ ${e.armor || 0}</div>
           <div class="card-stat" title="Velocidad">⚡ ${e.speed || 0}</div>
-          <div class="card-stat" title="Esquiva">💨 ${e.dodge || 0}</div>
+          <div class="card-stat" title="Dificultad de impacto">🎯 ${e.difficulty || 10}</div>
         </div>
 
         ${dead ? `<div class="combat-card-dead-tag">caído</div>` : ''}
       </button>
     `;
-  }
-
-  function renderEffectsBadges(effects) {
-    if (!effects || effects.length === 0) return '';
-    return `
-      <div class="combat-effects-row">
-        ${effects.map((ef) => `
-          <span class="effect-badge effect-${ef.type}" title="${A.Utils.escapeHtml(A.Combat.effectLabel(ef.type))} (${ef.turns} turnos)">
-            ${effectIcon(ef.type)}<span class="effect-turns">${ef.turns}</span>
-          </span>
-        `).join('')}
-      </div>
-    `;
-  }
-
-  function effectIcon(type) {
-    return ({
-      bleed: '🩸', poison: '☠️', fire: '🔥',
-      cold: '❄️', shock: '⚡', blind: '🌫️', silence: '🤐',
-    })[type] || '·';
   }
 
   function renderPetMini(pet, isActive) {
@@ -277,103 +248,74 @@
 
   function logRow(entry) {
     const cls = `combat-log-row is-${entry.type}`;
-    if (!entry.roll && !entry.dmg && !entry.dodgeRoll) {
+    if (!entry.roll) {
       return `<div class="${cls}"><span class="log-bullet">·</span><span class="combat-log-text">${A.Utils.escapeHtml(entry.text || '')}</span></div>`;
     }
 
     const headerLine = `
-      <div class="log-line log-header result-${entry.result || ''}">
+      <div class="log-line log-header result-${entry.result}">
         <span class="log-bullet">${actorIcon(entry.type)}</span>
         <span class="log-text">${A.Utils.escapeHtml(entry.text)}</span>
       </div>
     `;
 
-    let parts = [headerLine];
+    // Dado estable: mostramos el roll en formato numérico al lado del cube
+    const rollLine = `
+      <div class="log-line log-sub">
+        <span class="log-tree">├─</span>
+        <span class="die-pill" title="Dado de impacto">${entry.roll}</span>
+        <span class="log-text">D20=<strong>${entry.roll}</strong>${entry.bonus ? ` +${entry.bonus} = <strong>${entry.total}</strong>` : ''} vs ${entry.vsLabel || 'objetivo'} <strong>${entry.vs}</strong></span>
+      </div>
+    `;
 
-    // 1) Tirada de impacto
-    if (entry.roll) {
-      parts.push(`
-        <div class="log-line log-sub">
-          <span class="log-tree">├─</span>
-          <span class="die-pill" title="Dado de impacto">${entry.roll}</span>
-          <span class="log-text">Impacto: D20=<strong>${entry.roll}</strong>${entry.bonus ? ` +${entry.bonus} = <strong>${entry.total}</strong>` : ''} vs ${entry.vsLabel || 'objetivo'} <strong>${entry.vs}</strong></span>
-        </div>
-      `);
-    }
-
-    // 2) Tirada de esquiva del defensor (si la hubo)
-    if (entry.dodgeRoll != null) {
-      const evadedClass = entry.result === 'evaded' ? 'result-evaded' : '';
-      parts.push(`
-        <div class="log-line log-sub ${evadedClass}">
-          <span class="log-tree">├─</span>
-          <span class="die-pill die-pill-dodge" title="Dado de esquiva">${entry.dodgeRoll}</span>
-          <span class="log-text">Esquiva: D20=<strong>${entry.dodgeRoll}</strong>${entry.dodgeBonus ? ` +${entry.dodgeBonus} = <strong>${entry.dodgeTotal}</strong>` : ''} vs DC <strong>${entry.dodgeVs || 12}</strong></span>
-        </div>
-      `);
-    }
-
-    // 3) Resultado especial
+    let resultLine = '';
     if (entry.result === 'crit') {
-      parts.push(`
+      resultLine = `
         <div class="log-line log-sub result-crit">
           <span class="log-tree">├─</span>
           <span class="log-icon">★</span>
-          <span class="log-text">¡Crítico! Daño x2 (no se puede esquivar)</span>
+          <span class="log-text">¡Crítico!</span>
         </div>
-      `);
+      `;
     } else if (entry.result === 'fumble') {
-      parts.push(`
+      resultLine = `
         <div class="log-line log-sub result-fumble">
           <span class="log-tree">└─</span>
           <span class="log-icon">💥</span>
           <span class="log-text">Pifia natural (1).</span>
         </div>
-      `);
+      `;
     } else if (entry.result === 'miss') {
-      parts.push(`
+      resultLine = `
         <div class="log-line log-sub result-miss">
           <span class="log-tree">└─</span>
           <span class="log-icon">✕</span>
-          <span class="log-text">No llegó al objetivo.</span>
+          <span class="log-text">No llegó.</span>
         </div>
-      `);
-    } else if (entry.result === 'evaded') {
-      parts.push(`
-        <div class="log-line log-sub result-evaded">
-          <span class="log-tree">└─</span>
-          <span class="log-icon">💨</span>
-          <span class="log-text">¡Esquivó!</span>
-        </div>
-      `);
+      `;
     } else if (entry.result === 'blocked') {
-      parts.push(`
+      resultLine = `
         <div class="log-line log-sub result-blocked">
           <span class="log-tree">└─</span>
           <span class="log-icon">🛡</span>
-          <span class="log-text">Armadura ${entry.targetArmor || 0} ≥ daño ${entry.rawDmg || 0}. Bloqueado.</span>
+          <span class="log-text">Armadura bloqueó todo el daño.</span>
         </div>
-      `);
+      `;
     }
 
-    // 4) Línea de daño aplicado
+    let dmgLine = '';
     if (entry.dmg != null && entry.dmg > 0 && (entry.result === 'hit' || entry.result === 'crit')) {
-      const reduction = entry.targetArmor && entry.rawDmg
-        ? ` <span class="log-faint">(daño ${entry.rawDmg} − armadura ${entry.targetArmor})</span>`
-        : '';
-      const diceTag = entry.damageDice
-        ? `<span class="dice-pill" title="Dado de daño">${A.Utils.escapeHtml(entry.damageDice)}</span>`
-        : '';
-      parts.push(`
+      const reduction = entry.targetArmor && entry.rawDmg ? ` (${entry.rawDmg}-${entry.targetArmor})` : '';
+      dmgLine = `
         <div class="log-line log-sub result-hit">
           <span class="log-tree">└─</span>
           <span class="log-icon">⚔️</span>
-          <span class="log-text">${diceTag}<strong>${entry.dmg}</strong> de daño${reduction}. <span class="log-faint">HP: ${entry.hpAfter}/${entry.hpMax}</span></span>
+          <span class="log-text"><strong>${entry.dmg}</strong> de daño${reduction}. (HP: ${entry.hpAfter}/${entry.hpMax})</span>
         </div>
-      `);
+      `;
     }
 
-    return `<div class="${cls}">${parts.join('')}</div>`;
+    return `<div class="${cls}">${headerLine}${rollLine}${resultLine}${dmgLine}</div>`;
   }
 
   function actorIcon(type) {

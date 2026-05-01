@@ -149,6 +149,11 @@
           </div>
         </div>
 
+        <div class="coins-row">
+          <span class="dim">Monedas</span>
+          <span class="num">${A.Currency.formatWallet()}</span>
+        </div>
+
         ${p.pet ? `
           <div class="pet-row">
             <span class="pet-icon">${p.pet.icon || '🐾'}</span>
@@ -262,28 +267,42 @@
 
   function renderChroniclesPanel() {
     if (!chroniclesEl) return;
-    // Crónicas vienen en state.chronicles con unshift (más nuevo PRIMERO).
-    // Para el panel queremos: cronológico, más nuevo abajo. Tomamos las últimas 50.
     const all = A.State.chronicles || [];
-    const recent = all.slice(0, 50).slice().reverse(); // más viejo primero, nuevo al final
+    // Las 4 más recientes (state.chronicles tiene el más nuevo primero)
+    const recent = all.slice(0, 4);
     chroniclesEl.innerHTML = `
-      <div class="chronicles-side-card">
-        <div class="chronicles-side-header">
-          <span class="dim">📜 Crónicas</span>
-          <span class="dim small">${all.length}</span>
-        </div>
-        <div class="chronicles-side-list" id="chronicles-side-list">
+      <div class="chronicles-bar">
+        <span class="chronicles-bar-label">📜 Crónicas</span>
+        <div class="chronicles-bar-list">
           ${recent.length === 0
-            ? `<div class="muted small">Aún no hay historia.</div>`
-            : recent.map(chronicleRow).join('')}
+            ? `<span class="chronicles-bar-empty muted">Sin entradas aún.</span>`
+            : recent.map(chronicleBarRow).join('')}
         </div>
+        <button class="chronicles-bar-more" data-action="open-chronicles" title="Ver historial completo">
+          <span>Ver todo</span>
+          <span class="chronicles-bar-count">${all.length}</span>
+        </button>
       </div>
     `;
-    // Auto-scroll al fondo (donde está la entrada más reciente)
-    const list = chroniclesEl.querySelector('#chronicles-side-list');
-    if (list) {
-      requestAnimationFrame(() => { list.scrollTop = list.scrollHeight; });
-    }
+    // Rebind del botón (se re-renderiza)
+    chroniclesEl.querySelectorAll('[data-action]').forEach((btn) => {
+      btn.addEventListener('click', () => handleAction(btn.dataset.action));
+    });
+  }
+
+  function chronicleBarRow(e) {
+    const icons = {
+      combat: '⚔️', loot: '💰', heal: '💚', shop: '🏪',
+      travel: '🗺️', craft: '⚒️', spell: '📖', rest: '🌙',
+      item: '🎒', note: '📝', system: '·', region: '📍',
+    };
+    const icon = icons[e.type] || '·';
+    return `
+      <span class="chronicle-bar-entry" title="${A.Utils.escapeHtml(e.text)}">
+        <span class="chronicle-bar-icon">${icon}</span>
+        <span class="chronicle-bar-text">${A.Utils.escapeHtml(e.text)}</span>
+      </span>
+    `;
   }
 
   function chronicleRow(e) {
@@ -331,6 +350,7 @@
     else if (action === 'rules') A.State.openModal('rules');
     else if (action === 'menu') A.State.openModal('menu');
     else if (action === 'open-magic') A.State.openModal('magic');
+    else if (action === 'open-chronicles') A.State.openModal('chronicles-full');
   }
 
   function pct(cur, max) {

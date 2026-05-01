@@ -43,6 +43,7 @@
       case 'all-creatures': html = renderAllCreatures(payload); break;
       case 'tame': html = renderTame(payload); break;
       case 'magic': html = renderMagic(); break;
+      case 'chronicles-full': html = renderChroniclesFull(); break;
       case 'equipped-bag': html = renderEquippedBag(payload); break;
       case 'combat-spell': html = renderCombatSpell(); break;
       case 'combat-item': html = renderCombatItem(); break;
@@ -113,33 +114,6 @@
     `;
   }
 
-  function renderItemStatBadge(data, itemId) {
-    if (!data) return '';
-    // Arma: mostrar daño en pill
-    if (A.Data.getById('weapons', itemId)) {
-      return `<span class="item-stat-pill item-stat-pill-dmg" title="Daño">⚔️ ${A.Utils.escapeHtml(data.damage || '?')}</span>`;
-    }
-    // Armadura: mostrar defensa
-    if (A.Data.getById('armors', itemId)) {
-      return `<span class="item-stat-pill item-stat-pill-def" title="Defensa">🛡️ ${data.defense || 0}</span>`;
-    }
-    // Bolsa: slots
-    if (data.subtype === 'bag') {
-      const bagId = data.equipsBag;
-      const bagData = A.Data.getById('bags', bagId);
-      if (bagData) return `<span class="item-stat-pill item-stat-pill-bag" title="Slots">🎒 ${bagData.slots}</span>`;
-    }
-    // Pergamino: hechizo
-    if (data.subtype === 'scroll_spell') {
-      return `<span class="item-stat-pill item-stat-pill-spell" title="Enseña">📖</span>`;
-    }
-    // Comida/poción con efecto
-    if (data.effect) {
-      return `<span class="item-stat-pill" title="Efecto">${A.Utils.escapeHtml(data.effect)}</span>`;
-    }
-    return '';
-  }
-
   function renderNpcShop(npc) {
     const items = (npc.sells || []).map((id) => {
       const data = A.Inventory.resolveData(id);
@@ -167,23 +141,17 @@
           <div class="shop-section-title">A la venta</div>
           ${items.length === 0 ? `<div class="muted small">No tiene nada hoy.</div>` : `
             <div class="shop-list">
-              ${items.map((it) => {
-                const statBadge = renderItemStatBadge(it.data, it.id);
-                return `
+              ${items.map((it) => `
                 <div class="shop-row ${it.canPay ? '' : 'is-disabled'}">
                   <div class="shop-row-icon">${it.data.icon || '📦'}</div>
                   <div class="shop-row-info">
-                    <div class="shop-row-name">
-                      ${A.Utils.escapeHtml(it.data.name)}
-                      ${statBadge}
-                    </div>
+                    <div class="shop-row-name">${A.Utils.escapeHtml(it.data.name)}</div>
                     <div class="shop-row-desc dim">${A.Utils.escapeHtml(it.data.description || '')}</div>
                   </div>
                   <div class="shop-row-price num">${it.price}c</div>
                   <button class="btn-mini" data-shop-buy="${A.Utils.escapeHtml(it.id)}" data-npc-id="${A.Utils.escapeHtml(npc.id)}" ${it.canPay ? '' : 'disabled'}>Comprar</button>
                 </div>
-              `;
-              }).join('')}
+              `).join('')}
             </div>
           `}
         </div>
@@ -639,6 +607,53 @@
       </div>
     `;
     return modalShell(bag.name, body);
+  }
+
+  // ---------- Magic ----------
+
+  // ---------- Chronicles full (modal con historial completo) ----------
+
+  function renderChroniclesFull() {
+    const all = A.State.chronicles || [];
+    const ICONS = {
+      combat: '⚔️', loot: '💰', heal: '💚', shop: '🏪',
+      travel: '🗺️', craft: '⚒️', spell: '📖', rest: '🌙',
+      item: '🎒', note: '📝', system: '✨', region: '📍',
+    };
+    const body = `
+      <div class="chronicles-full-modal">
+        <p class="muted">Tu historia hasta ahora. ${all.length} ${all.length === 1 ? 'entrada' : 'entradas'}.</p>
+        <div class="chronicles-full-list">
+          ${all.length === 0 ? `
+            <div class="empty-card">
+              <div class="empty-icon">📜</div>
+              <div class="empty-title">Sin historia aún</div>
+              <div class="empty-text muted">Tus aventuras se irán registrando acá.</div>
+            </div>
+          ` : all.map((e) => `
+            <div class="chronicle-full-row">
+              <span class="chronicle-full-icon">${ICONS[e.type] || '·'}</span>
+              <div class="chronicle-full-body">
+                <div class="chronicle-full-text">${A.Utils.escapeHtml(e.text)}</div>
+                <div class="chronicle-full-meta dim">${formatTimestamp(e.ts)}</div>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `;
+    return modalShell('Crónicas', body);
+  }
+
+  function formatTimestamp(ts) {
+    if (!ts) return '';
+    const d = new Date(ts);
+    const today = new Date();
+    const isToday = d.toDateString() === today.toDateString();
+    if (isToday) {
+      return d.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
+    }
+    return d.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
   }
 
   // ---------- Magic ----------

@@ -40,6 +40,7 @@
     { key: 'npcs', label: 'NPCs', icon: '🧑' },
     { key: 'spells', label: 'Hechizos', icon: '✨' },
     { key: 'recipes', label: 'Recetas', icon: '⚒️' },
+    { key: 'pets', label: 'Mascotas', icon: '🐺' },
   ];
 
   function mount(container) {

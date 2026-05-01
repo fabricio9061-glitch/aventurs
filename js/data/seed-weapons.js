@@ -14,7 +14,7 @@
   'use strict';
 
   const WEAPONS = [
-    { id:'daga', name:'Daga', type:'weapon', icon:'🗡️', damage:'1d4', value:25, rarity:'common', tier:1, weight:1, statusEffect:{type:'bleed',chance:0.20,turns:3,value:1}, magic:false,
+    { id:'daga', name:'Daga', type:'weapon', icon:'🗡️', damage:'1d4', value:25, rarity:'common', tier:1, weight:1, magic:false,
       description:'Hoja corta y ligera. Buena para empezar.' },
 
     { id:'espada_corta', name:'Espada corta', type:'weapon', icon:'⚔️', damage:'1d6', value:50, rarity:'common', tier:1, weight:2, magic:false,
@@ -44,7 +44,7 @@
     { id:'hacha_de_guerra', name:'Hacha de guerra', type:'weapon', icon:'🪓', damage:'2d6+1', value:240, rarity:'rare', tier:6, weight:5, magic:false,
       description:'Forjada para reyes y para enemigos de reyes.' },
 
-    { id:'baston_arcano', name:'Bastón arcano', type:'weapon', icon:'🪄', damage:'2d6', value:280, rarity:'rare', tier:6, weight:2, statusEffect:{type:'fire',chance:0.20,turns:3,value:2}, magic:true,
+    { id:'baston_arcano', name:'Bastón arcano', type:'weapon', icon:'🪄', damage:'2d6', value:280, rarity:'rare', tier:6, weight:2, magic:true,
       description:'Madera de fresno teñida en sangre de dragón. Dobla el poder de los hechizos.' },
 
     { id:'matamuertos', name:'Matamuertos', type:'weapon', icon:'⚔️', damage:'2d8', value:500, rarity:'epic', tier:8, weight:4, magic:true,

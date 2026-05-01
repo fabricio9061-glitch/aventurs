@@ -113,10 +113,6 @@
         dirty = true;
       }
 
-      // v1.5.5b: effects y failedTames
-      if (!p.effects) { p.effects = []; dirty = true; }
-      if (!p.failedTames) { p.failedTames = []; dirty = true; }
-
       if (!p.schemaVersion || p.schemaVersion < 15) {
         p.schemaVersion = 15;
         dirty = true;
@@ -184,8 +180,6 @@
         bagId: DEFAULT_BAG_ID,
         pet: null,
         regionEncounters: {}, // { regionId: count }
-        effects: [],            // efectos de estado activos en combate
-        failedTames: [],        // ids de enemigos cuya domesticación ya falló
         stats: {
           speed: stats.speed,
           precision: stats.precision,

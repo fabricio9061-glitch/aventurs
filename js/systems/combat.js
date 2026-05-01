@@ -77,14 +77,13 @@
     // ---- Calcular iniciativa: cada combatiente tira d20 + speed ----
     const p = State().player;
     const initiative = [];
-    const playerEffSpeed = effectivePlayerSpeed(p);
-    const playerInit = A.Utils.dice(20) + playerEffSpeed;
+    const playerInit = A.Utils.dice(20) + (p.stats.speed || 10);
     initiative.push({
       kind: 'player',
       id: 'player',
       name: p.name,
       init: playerInit,
-      speed: playerEffSpeed,
+      speed: p.stats.speed || 10,
     });
     if (p.pet && p.pet.health > 0) {
       const petInit = A.Utils.dice(20) + (p.pet.speed || 10);
@@ -149,189 +148,6 @@
     if (!combat || !combat.initiative) return false;
     const cur = combat.initiative[combat.currentActorIdx];
     return cur && cur.kind === 'player';
-  }
-
-  /**
-   * Calcula la velocidad efectiva del jugador, descontando el peso del equipo.
-   *   speed_efectiva = stats.speed - sum(weight de equipos)
-   * Mínimo 1.
-   */
-  function effectivePlayerSpeed(player) {
-    if (!player) return 10;
-    let speed = player.stats.speed || 10;
-    let totalWeight = 0;
-    if (player.equipment.weapon) {
-      const w = A.Data.getById('weapons', player.equipment.weapon);
-      if (w && w.weight) totalWeight += w.weight;
-    }
-    if (player.equipment.armor) {
-      const a = A.Data.getById('armors', player.equipment.armor);
-      if (a && a.weight) totalWeight += a.weight;
-    }
-    return Math.max(1, speed - totalWeight);
-  }
-
-  // ============================================================
-  // Status effects (sangrado, veneno, fuego, frío, eléctrico)
-  // ============================================================
-  // Modelo: cada combatiente tiene .effects = [{type, turns, value, source}]
-  //   - bleed: daño por turno, ACUMULA stacks (cada stack añade su value)
-  //   - poison: daño por turno, ACUMULA stacks
-  //   - fire: daño por turno, NO acumula (refresh el efecto)
-  //   - cold: reduce dodge en `value` puntos mientras dure
-  //   - shock: probabilidad de aturdir (perder turno)
-
-  function applyStatus(target, type, opts = {}) {
-    if (!target) return;
-    if (!target.effects) target.effects = [];
-    const turns = opts.turns || 3;
-    const value = opts.value || 1;
-    const source = opts.source || 'unknown';
-
-    if (type === 'fire') {
-      // Refresh, no stack
-      const existing = target.effects.find((e) => e.type === 'fire');
-      if (existing) {
-        existing.turns = Math.max(existing.turns, turns);
-        existing.value = Math.max(existing.value, value);
-        return;
-      }
-    }
-
-    if (type === 'cold' || type === 'shock' || type === 'blind' || type === 'silence') {
-      // Refresh, no stack
-      const existing = target.effects.find((e) => e.type === type);
-      if (existing) {
-        existing.turns = Math.max(existing.turns, turns);
-        existing.value = Math.max(existing.value, value);
-        return;
-      }
-    }
-
-    // bleed y poison: stack
-    target.effects.push({ type, turns, value, source });
-  }
-
-  function removeStatus(target, type) {
-    if (!target || !target.effects) return;
-    target.effects = target.effects.filter((e) => e.type !== type);
-  }
-
-  /**
-   * Aplica efectos de tick por turno. Llamado al final del turno del enemigo
-   * (afecta al jugador) y al final del turno del jugador (afecta a enemigos).
-   */
-  function processStatusTickOnPlayer(c) {
-    const p = State().player;
-    if (!p || p.hp <= 0) return;
-    if (!p.effects) p.effects = [];
-    let totalDamage = 0;
-    const effectLogs = [];
-
-    for (const ef of p.effects) {
-      ef.turns -= 1;
-      if (ef.type === 'bleed' || ef.type === 'poison' || ef.type === 'fire') {
-        totalDamage += ef.value;
-        effectLogs.push({ type: ef.type, value: ef.value });
-      }
-    }
-    p.effects = p.effects.filter((e) => e.turns > 0);
-
-    if (totalDamage > 0) {
-      A.State.damagePlayer(totalDamage);
-      const summary = effectLogs
-        .map((e) => `${effectLabel(e.type)} ${e.value}`)
-        .join(', ');
-      addLog(c, 'system', {
-        text: `Efectos: ${summary}. -${totalDamage} salud (HP ${p.hp}/${p.maxHp})`,
-      });
-    }
-  }
-
-  function processStatusTickOnEnemy(c, enemy) {
-    if (!enemy || enemy.hp <= 0) return;
-    if (!enemy.effects) enemy.effects = [];
-    let totalDamage = 0;
-    const effectLogs = [];
-
-    for (const ef of enemy.effects) {
-      ef.turns -= 1;
-      if (ef.type === 'bleed' || ef.type === 'poison' || ef.type === 'fire') {
-        totalDamage += ef.value;
-        effectLogs.push({ type: ef.type, value: ef.value });
-      }
-    }
-    enemy.effects = enemy.effects.filter((e) => e.turns > 0);
-
-    if (totalDamage > 0) {
-      enemy.hp = Math.max(0, enemy.hp - totalDamage);
-      const summary = effectLogs
-        .map((e) => `${effectLabel(e.type)} ${e.value}`)
-        .join(', ');
-      addLog(c, 'system', {
-        text: `${enemy.displayName} sufre ${summary} (-${totalDamage}, HP ${enemy.hp}/${enemy.maxHp})`,
-      });
-      if (enemy.hp <= 0) {
-        addLog(c, 'system', { text: `${enemy.displayName} cayó por los efectos.` });
-      }
-    }
-  }
-
-  function effectLabel(type) {
-    return ({
-      bleed: '🩸 sangrado',
-      poison: '☠️ veneno',
-      fire: '🔥 fuego',
-      cold: '❄️ frío',
-      shock: '⚡ choque',
-      blind: '🌫️ ceguera',
-      silence: '🤐 silencio',
-    })[type] || type;
-  }
-
-  /**
-   * Aplica un efecto al impactar (probabilístico) según el arma o hechizo.
-   * Se llama desde playerAttack o spell cast.
-   */
-  function maybeInflictStatusOnHit(weapon, target) {
-    if (!weapon || !target) return;
-    // weapon.statusEffect = { type, chance, turns, value }
-    const eff = weapon.statusEffect;
-    if (!eff) return;
-    if (Math.random() > (eff.chance || 0)) return;
-    applyStatus(target, eff.type, {
-      turns: eff.turns || 3,
-      value: eff.value || 1,
-      source: weapon.id,
-    });
-  }
-
-  /**
-   * Tira el daño de un enemigo. Acepta:
-   *  - notación de dados ('1d6', '2d4+1')
-   *  - número (legacy fallback)
-   */
-  function rollDamage(notationOrNumber) {
-    if (typeof notationOrNumber === 'number') return notationOrNumber;
-    if (typeof notationOrNumber !== 'string') return 1;
-    return A.Utils.rollDice(notationOrNumber);
-  }
-
-  /**
-   * Calcula el bonus de ataque del enemigo a partir de su daño.
-   * Para dados, usamos el "máximo posible" / 4 como bonus.
-   */
-  function computeAtkBonus(damageNotation) {
-    if (typeof damageNotation === 'number') return Math.floor(damageNotation / 4);
-    if (typeof damageNotation !== 'string') return 0;
-    // Parse "NdM+K"
-    const match = damageNotation.match(/^(\d+)d(\d+)(?:\+(\d+))?$/);
-    if (!match) return 0;
-    const dice = parseInt(match[1], 10);
-    const sides = parseInt(match[2], 10);
-    const bonus = parseInt(match[3] || '0', 10);
-    const maxDmg = dice * sides + bonus;
-    return Math.floor(maxDmg / 4);
   }
 
   function addTurnHeader(c, n) {
@@ -482,80 +298,37 @@
       const weaponId = p.equipment.weapon;
       const weapon = weaponId ? A.Data.getById('weapons', weaponId) : null;
       const damageDice = weapon ? weapon.damage : '1d3';
+      const damageRoll = A.Utils.rollDice(damageDice);
+      let rawDmg = damageRoll + (p.stats.damage || 0);
       const isCrit = roll === 20;
-
-      // El enemigo intenta esquivar (excepto en críticos)
-      const enemyDodgeStat = target.dodge || 0;
-      const dodgeRoll = A.Utils.dice(20);
-      const dodgeTotal = dodgeRoll + Math.floor(enemyDodgeStat / 2);
-      const dodgeDifficulty = 12;
-      const enemyEvades = !isCrit && dodgeTotal >= dodgeDifficulty;
-
-      if (enemyEvades) {
-        addLog(c, 'player', {
-          text: `${target.displayName} esquivó tu ataque`,
-          actor: p.name, target: target.displayName,
-          weapon: weapon ? weapon.name : 'puños',
-          roll, bonus: precBonus, total, vs: enemyDifficulty, vsLabel: 'Dif',
-          dodgeRoll, dodgeBonus: Math.floor(enemyDodgeStat / 2), dodgeTotal, dodgeVs: dodgeDifficulty,
-          result: 'evaded',
-        });
-      } else {
-        const damageRoll = A.Utils.rollDice(damageDice);
-        let rawDmg = damageRoll + (p.stats.damage || 0);
-        if (isCrit) rawDmg *= 2;
-        const targetArmor = target.armor || 0;
-        const finalDmg = Math.max(0, rawDmg - targetArmor);
-        target.hp = Math.max(0, target.hp - finalDmg);
-        addLog(c, 'player', {
-          text: isCrit ? `Golpeaste CRÍTICO a ${target.displayName}` : `Atacaste a ${target.displayName}`,
-          actor: p.name, target: target.displayName,
-          weapon: weapon ? weapon.name : 'puños',
-          damageDice,
-          roll, bonus: precBonus, total, vs: enemyDifficulty, vsLabel: 'Dif',
-          dodgeRoll: isCrit ? null : dodgeRoll, dodgeTotal: isCrit ? null : dodgeTotal, dodgeVs: dodgeDifficulty,
-          rawDmg, targetArmor, dmg: finalDmg, hpAfter: target.hp, hpMax: target.maxHp,
-          result: isCrit ? 'crit' : (finalDmg === 0 ? 'blocked' : 'hit'),
-        });
-
-        // Si impactó (no bloqueado), aplicar statusEffect del arma si tiene
-        if (finalDmg > 0 && weapon) {
-          maybeInflictStatusOnHit(weapon, target);
-        }
-
-        if (target.hp <= 0) {
-          addLog(c, 'system', { text: `${target.displayName} cayó.`, killed: target.displayName });
-          // Drop probabilístico de arma equipada de humanoide
-          maybeDropEquippedWeapon(c, target);
-        }
+      // CRIT: x2 ANTES de armadura
+      if (isCrit) rawDmg *= 2;
+      // Armadura como REDUCCIÓN
+      const targetArmor = target.armor || 0;
+      const finalDmg = Math.max(0, rawDmg - targetArmor);
+      target.hp = Math.max(0, target.hp - finalDmg);
+      addLog(c, 'player', {
+        text: `Atacaste a ${target.displayName}`,
+        actor: p.name, target: target.displayName,
+        weapon: weapon ? weapon.name : 'puños',
+        damageDice,
+        roll, bonus: precBonus, total, vs: enemyDifficulty, vsLabel: 'Dif',
+        rawDmg, targetArmor, dmg: finalDmg, hpAfter: target.hp, hpMax: target.maxHp,
+        result: isCrit ? 'crit' : (finalDmg === 0 ? 'blocked' : 'hit'),
+      });
+      if (target.hp <= 0) {
+        addLog(c, 'system', { text: `${target.displayName} cayó.`, killed: target.displayName });
       }
     } else {
       addLog(c, 'player', {
-        text: `Atacaste a ${target.displayName} pero fallaste`,
+        text: `Atacaste a ${target.displayName}`,
         actor: p.name, target: target.displayName,
         roll, bonus: precBonus, total, vs: enemyDifficulty, vsLabel: 'Dif',
         result: 'miss',
       });
     }
 
-    // Procesar efectos de estado en el target (sangrado/veneno/fuego)
-    if (target && target.hp > 0) processStatusTickOnEnemy(c, target);
-
     afterPlayerAction();
-  }
-
-  /**
-   * Si el enemigo es humanoide y tenía un arma equipada (equippedWeapon),
-   * tirar probabilidad de drop. Lo llamamos al matarlo.
-   */
-  function maybeDropEquippedWeapon(c, enemy) {
-    if (!enemy.equippedWeapon) return;
-    if (Math.random() > 0.20) return; // 20% de drop
-    const ok = A.State.addItem(enemy.equippedWeapon, 1);
-    if (ok) {
-      const w = A.Data.getById('weapons', enemy.equippedWeapon);
-      if (w) addLog(c, 'loot', { text: `Recogiste ${w.name} de ${enemy.displayName}.` });
-    }
   }
 
   function playerSpell(spellId) {
@@ -629,76 +402,22 @@
   function playerFlee() {
     const c = State().combat;
     if (!c || c.result || !isPlayerTurn(c)) return;
-
-    // Inicializar contador de intentos en el combate si no está
-    if (c.fleeAttempts === undefined) c.fleeAttempts = 0;
-
-    if (c.fleeAttempts >= 2) {
-      addLog(c, 'system', { text: 'Ya intentaste huir 2 veces. No podés volver a intentarlo.' });
-      return;
-    }
-
-    c.fleeAttempts += 1;
     const p = State().player;
     const fastest = Math.max(...aliveEnemies().map((e) => e.speed || 10));
-    // Dificultad de huida: 10 + (speed enemigo más rápido - speed jugador efectiva), capeado 8-18
-    const playerSpeed = effectivePlayerSpeed(p);
-    const fleeDC = Math.max(8, Math.min(18, 10 + (fastest - playerSpeed)));
-    const fleeRoll = A.Utils.dice(20);
-    const fleeBonus = Math.floor(playerSpeed / 4);
-    const fleeTotal = fleeRoll + fleeBonus;
-
-    if (fleeTotal >= fleeDC) {
-      addLog(c, 'system', {
-        text: `Lograste escapar (intento ${c.fleeAttempts}/2).`,
-        roll: fleeRoll, bonus: fleeBonus, total: fleeTotal, vs: fleeDC, vsLabel: 'DC huida',
-        result: 'hit',
-      });
+    const speedDiff = (p.stats.speed || 10) - fastest;
+    const chance = Math.max(0.25, Math.min(0.90, 0.50 + speedDiff * 0.05));
+    const roll = Math.random();
+    if (roll < chance) {
+      addLog(c, 'system', 'Lograste escapar.');
       c.result = 'flee';
       A.Bus.emit('combat:ended', { result: 'flee' });
       State().persist();
     } else {
-      // Fallaste: log + el enemigo más rápido te pega gratis
-      const remaining = 2 - c.fleeAttempts;
-      addLog(c, 'system', {
-        text: `Intento de huida fallido (${c.fleeAttempts}/2). ${remaining > 0 ? 'Te queda 1 intento.' : 'No podés volver a intentar.'}`,
-        roll: fleeRoll, bonus: fleeBonus, total: fleeTotal, vs: fleeDC, vsLabel: 'DC huida',
-        result: 'miss',
-      });
-      // Enemigo más rápido pega
-      const fastestEnemy = aliveEnemies().reduce((a, b) => ((b.speed || 0) > (a.speed || 0) ? b : a));
-      if (fastestEnemy) {
-        addLog(c, 'system', { text: `${fastestEnemy.displayName} aprovecha tu fallo y te ataca.` });
-        executeFreeAttack(fastestEnemy);
-      }
-      // Avanzar al siguiente actor (perdés turno)
-      if (p.hp <= 0) { onDefeat(); A.Bus.emit('combat:ended', { result: 'defeat' }); return; }
-      afterPlayerAction();
+      addLog(c, 'system', 'No pudiste escapar. Los enemigos te alcanzan.');
+      c.turn = 'enemy';
+      State().persist();
+      setTimeout(enemyTurn, 600);
     }
-  }
-
-  /**
-   * Ataque "gratis" de un enemigo, sin pasar por la cola de iniciativa.
-   * Usado cuando el jugador falla huir.
-   */
-  function executeFreeAttack(enemy) {
-    const c = State().combat;
-    if (!c || c.result) return;
-    const p = State().player;
-    const equipArmor = p.equipment.armor ? A.Data.getById('armors', p.equipment.armor) : null;
-    const playerArmor = (p.stats.armor || 0) + (equipArmor ? equipArmor.defense : 0);
-    const damageNotation = enemy.damage;
-    const rawDmg = rollDamage(damageNotation);
-    const finalDmg = Math.max(0, rawDmg - playerArmor);
-    if (finalDmg > 0) A.State.damagePlayer(finalDmg);
-    addLog(c, 'enemy', {
-      text: `${enemy.displayName} te golpea por la huida fallida`,
-      actor: enemy.displayName, target: p.name,
-      rawDmg, targetArmor: playerArmor, dmg: finalDmg,
-      hpAfter: p.hp, hpMax: p.maxHp,
-      damageDice: damageNotation,
-      result: finalDmg === 0 ? 'blocked' : 'hit',
-    });
   }
 
   // ---------- Después de la acción del jugador ----------
@@ -725,7 +444,7 @@
     const targetArmor = target.armor || 0;
     const roll = A.Utils.dice(20);
     if (roll >= enemyDifficulty || roll === 20) {
-      let rawDmg = rollDamage(pet.damage);
+      let rawDmg = pet.damage;
       const isCrit = roll === 20;
       if (isCrit) rawDmg *= 2;
       const finalDmg = Math.max(0, rawDmg - targetArmor);
@@ -762,17 +481,14 @@
     const p = State().player;
     const equipArmor = p.equipment.armor ? A.Data.getById('armors', p.equipment.armor) : null;
     const playerArmor = (p.stats.armor || 0) + (equipArmor ? equipArmor.defense : 0);
-    // Para impacto: 10 + (dodge/2) hace que enemigos torpes igual peguen a veces
-    const playerDifficulty = 10 + Math.floor((p.stats.dodge || 0) / 2);
+    const playerDifficulty = 10 + (p.stats.dodge || 0);
 
-    const damageNotation = enemy.damage;
-    const enemyAtkBonus = computeAtkBonus(damageNotation);
+    const enemyAtkBonus = Math.floor((enemy.damage || 0) / 4);
     const pet = p.pet;
     const targetPet = pet && pet.health > 0 && Math.random() < 0.4;
-    const targetDifficulty = targetPet ? (10 + Math.floor((pet.dodge || 0) / 2)) : playerDifficulty;
+    const targetDifficulty = targetPet ? (10 + (pet.dodge || 0)) : playerDifficulty;
     const targetArmor = targetPet ? (pet.armor || 0) : playerArmor;
     const targetName = targetPet ? pet.name : p.name;
-    const targetDodge = targetPet ? (pet.dodge || 0) : (p.stats.dodge || 0);
 
     const roll = A.Utils.dice(20);
     const total = roll + enemyAtkBonus;
@@ -785,69 +501,42 @@
         result: 'fumble',
       });
     } else if (total >= targetDifficulty || roll === 20) {
-      // El ataque conecta: ahora el defensor intenta esquivar
+      let rawDmg = enemy.damage;
       const isCrit = roll === 20;
-      // Tirada de esquiva: d20 + dodge >= 12 (más dodge, más fácil esquivar)
-      // Críticos NO se pueden esquivar
-      const dodgeRoll = A.Utils.dice(20);
-      const dodgeTotal = dodgeRoll + Math.floor(targetDodge / 2);
-      const dodgeDifficulty = 12;
-      const evaded = !isCrit && dodgeTotal >= dodgeDifficulty;
-
-      if (evaded) {
-        // Esquiva exitosa: 0 daño
+      if (isCrit) rawDmg *= 2;
+      const finalDmg = Math.max(0, rawDmg - targetArmor);
+      if (targetPet) {
+        pet.health = Math.max(0, pet.health - finalDmg);
         addLog(c, 'enemy', {
-          text: `${enemy.displayName} ataca pero ${targetName} esquiva`,
-          actor: enemy.displayName, target: targetName,
+          text: `${enemy.displayName} hiere a ${pet.name}`,
+          actor: enemy.displayName, target: pet.name,
           roll, bonus: enemyAtkBonus, total, vs: targetDifficulty, vsLabel: 'Dif',
-          dodgeRoll, dodgeBonus: Math.floor(targetDodge / 2), dodgeTotal, dodgeVs: dodgeDifficulty,
-          result: 'evaded',
+          rawDmg, targetArmor, dmg: finalDmg, hpAfter: pet.health, hpMax: pet.maxHealth,
+          result: isCrit ? 'crit' : (finalDmg === 0 ? 'blocked' : 'hit'),
         });
-      } else {
-        // Daño con armadura
-        let rawDmg = rollDamage(damageNotation);
-        if (isCrit) rawDmg *= 2;
-        const finalDmg = Math.max(0, rawDmg - targetArmor);
-        if (targetPet) {
-          pet.health = Math.max(0, pet.health - finalDmg);
-          addLog(c, 'enemy', {
-            text: isCrit ? `${enemy.displayName} golpea CRÍTICO a ${pet.name}` : `${enemy.displayName} hiere a ${pet.name}`,
-            actor: enemy.displayName, target: pet.name,
-            roll, bonus: enemyAtkBonus, total, vs: targetDifficulty, vsLabel: 'Dif',
-            dodgeRoll: isCrit ? null : dodgeRoll, dodgeTotal: isCrit ? null : dodgeTotal, dodgeVs: dodgeDifficulty,
-            rawDmg, targetArmor, dmg: finalDmg, hpAfter: pet.health, hpMax: pet.maxHealth,
-            damageDice: damageNotation,
-            result: isCrit ? 'crit' : (finalDmg === 0 ? 'blocked' : 'hit'),
-          });
-          if (pet.health <= 0) {
-            addLog(c, 'system', { text: `${pet.name} cayó. La perdiste.` });
-            A.Bus.emit('tame:lost', { name: pet.name });
-            p.pet = null;
-          }
-        } else {
-          if (finalDmg > 0) A.State.damagePlayer(finalDmg);
-          addLog(c, 'enemy', {
-            text: isCrit ? `${enemy.displayName} golpea CRÍTICO a ${p.name}` : `${enemy.displayName} te hiere`,
-            actor: enemy.displayName, target: p.name,
-            roll, bonus: enemyAtkBonus, total, vs: targetDifficulty, vsLabel: 'Dif',
-            dodgeRoll: isCrit ? null : dodgeRoll, dodgeTotal: isCrit ? null : dodgeTotal, dodgeVs: dodgeDifficulty,
-            rawDmg, targetArmor, dmg: finalDmg, hpAfter: p.hp, hpMax: p.maxHp,
-            damageDice: damageNotation,
-            result: isCrit ? 'crit' : (finalDmg === 0 ? 'blocked' : 'hit'),
-          });
+        if (pet.health <= 0) {
+          addLog(c, 'system', { text: `${pet.name} cayó. La perdiste.` });
+          A.Bus.emit('tame:lost', { name: pet.name });
+          p.pet = null;
         }
+      } else {
+        if (finalDmg > 0) A.State.damagePlayer(finalDmg);
+        addLog(c, 'enemy', {
+          text: `${enemy.displayName} te hiere`,
+          actor: enemy.displayName, target: p.name,
+          roll, bonus: enemyAtkBonus, total, vs: targetDifficulty, vsLabel: 'Dif',
+          rawDmg, targetArmor, dmg: finalDmg, hpAfter: p.hp, hpMax: p.maxHp,
+          result: isCrit ? 'crit' : (finalDmg === 0 ? 'blocked' : 'hit'),
+        });
       }
     } else {
       addLog(c, 'enemy', {
-        text: `${enemy.displayName} ataca a ${targetName} pero falla`,
+        text: `${enemy.displayName} ataca a ${targetName}`,
         actor: enemy.displayName, target: targetName,
         roll, bonus: enemyAtkBonus, total, vs: targetDifficulty, vsLabel: 'Dif',
         result: 'miss',
       });
     }
-
-    // Procesar efectos de estado al final del turno del enemigo (ej: sangrado en player)
-    processStatusTickOnPlayer(c);
 
     if (p.hp <= 0) { onDefeat(); A.Bus.emit('combat:ended', { result: 'defeat' }); return; }
     nextActor();
@@ -1023,9 +712,5 @@
     playerFlee,
     availableSpells,
     availableItems,
-    effectivePlayerSpeed,
-    applyStatus,
-    removeStatus,
-    effectLabel,
   };
 })(window.Aventurs);

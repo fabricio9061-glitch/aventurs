@@ -23,77 +23,43 @@
 (function (A) {
   'use strict';
 
-  // Sistema de dados por rareza:
-  //   common   -> D24 (baja dificultad: cualquier resultado >=10 da bien)
-  //   uncommon -> D24 también
-  //   rare     -> D30
-  //   epic     -> D60
-  //   legendary-> D100
-  //
-  // El éxito requiere que el roll caiga dentro del rango "favorable" del dado:
-  //   D24: success si roll <= 12 (50%)
-  //   D30: success si roll <= 12 (40%)
-  //   D60: success si roll <= 18 (30%)
-  //   D100: success si roll <= 20 (20%)
-  // Bonus por nivel: +5% por nivel sobre 1 (cap +25%)
-  //
-  // Si la criatura no tiene rarity, fallback usa category (boss=legendary, etc).
-
-  const RARITY_DICE = {
-    common: { sides: 24, threshold: 12 },     // ~50%
-    uncommon: { sides: 24, threshold: 10 },   // ~42%
-    rare: { sides: 30, threshold: 12 },       // ~40%
-    epic: { sides: 60, threshold: 18 },       // ~30%
-    legendary: { sides: 100, threshold: 20 }, // ~20%
+  const BASE_CHANCE = {
+    weak: 0.70,
+    normal: 0.50,
+    strong: 0.25,
+    boss: 0.10,
   };
-
-  const CATEGORY_TO_RARITY = {
-    weak: 'common',
-    normal: 'common',
-    strong: 'rare',
-    boss: 'epic',
-  };
-
-  function diceConfigFor(enemy) {
-    const rarity = enemy.rarity || CATEGORY_TO_RARITY[enemy.category] || 'common';
-    return RARITY_DICE[rarity] || RARITY_DICE.common;
-  }
 
   const DEFAULT_TAME_ITEM = 'carne_cruda';
 
+  /**
+   * Devuelve el item necesario para domar la criatura (o default).
+   */
   function requiredItem(enemy) {
     if (!enemy) return DEFAULT_TAME_ITEM;
     return enemy.tameItem || DEFAULT_TAME_ITEM;
   }
 
-  function isInstinctive(enemy) {
-    if (!enemy || !enemy.family) return false;
-    // No domesticables: humanoides, magos, demonios, no-muertos, dragones (inteligentes)
-    const intelligent = ['humanoid', 'demon', 'undead', 'arcane', 'dragon'];
-    return !enemy.family.some((f) => intelligent.includes(f));
+  /**
+   * Calcula la probabilidad final de éxito (0..1) para un enemigo dado el
+   * nivel actual del jugador.
+   */
+  function chanceFor(enemy) {
+    const base = BASE_CHANCE[enemy.category] || 0.40;
+    const lvl = (A.State.player && A.State.player.level) || 1;
+    const bonus = Math.min(0.25, Math.max(0, (lvl - 1) * 0.05));
+    return Math.min(0.95, base + bonus);
   }
 
   /**
-   * Probabilidad estimada (informativa para UI).
+   * Verifica si se puede intentar domar.
+   * Devuelve { ok, reason?, requiredItemId?, missingItem? }
    */
-  function chanceFor(enemy) {
-    const dc = diceConfigFor(enemy);
-    let chance = dc.threshold / dc.sides;
-    const lvl = (A.State.player && A.State.player.level) || 1;
-    const bonus = Math.min(0.25, Math.max(0, (lvl - 1) * 0.05));
-    return Math.min(0.95, chance + bonus);
-  }
-
   function canTame(enemyId) {
     const enemy = A.Data.getById('enemies', enemyId);
     if (!enemy) return { ok: false, reason: 'enemy-not-found' };
     if (!enemy.tameable) return { ok: false, reason: 'not-tameable' };
-    if (!isInstinctive(enemy)) return { ok: false, reason: 'not-instinctive' };
     if (A.State.player.pet) return { ok: false, reason: 'already-have-pet' };
-    // No re-intentar si ya falló antes con esta especie
-    if (A.State.player.failedTames && A.State.player.failedTames.includes(enemy.id)) {
-      return { ok: false, reason: 'already-failed' };
-    }
     const itemId = requiredItem(enemy);
     const haveIt = (A.State.player.inventory || []).some(
       (s) => s.itemId === itemId && s.qty > 0
@@ -102,6 +68,10 @@
     return { ok: true, requiredItemId: itemId };
   }
 
+  /**
+   * Intenta domar. Consume el item necesario. Devuelve:
+   *   { success, chance, roll, itemConsumed, pet?, reason? }
+   */
   function attempt(enemyId) {
     const check = canTame(enemyId);
     if (!check.ok) {
@@ -117,28 +87,19 @@
     // Consumir el item
     A.State.removeItem(itemId, 1);
 
-    const dc = diceConfigFor(enemy);
-    const lvl = (A.State.player.level || 1);
-    const lvlBonus = Math.min(5, Math.max(0, (lvl - 1)));
-    const roll = 1 + Math.floor(Math.random() * dc.sides);
-    const effectiveThreshold = dc.threshold + lvlBonus;
-    const success = roll <= effectiveThreshold;
+    const chance = chanceFor(enemy);
+    const roll = Math.random();
+    const success = roll < chance;
 
-    A.Bus.emit('tame:attempt', { enemyId, success, roll, dice: `D${dc.sides}`, threshold: effectiveThreshold });
+    A.Bus.emit('tame:attempt', { enemyId, success, chance, roll });
 
     if (!success) {
-      // Marcar este enemyId como ya fallido (no se puede reintentar)
-      if (!A.State.player.failedTames) A.State.player.failedTames = [];
-      if (!A.State.player.failedTames.includes(enemy.id)) {
-        A.State.player.failedTames.push(enemy.id);
-      }
       A.State.addChronicle({
         type: 'note',
-        text: `Le ofreciste ${itemName} a ${enemy.name}. Tirada D${dc.sides}: ${roll} (necesitabas ≤${effectiveThreshold}). No se dejó acercar y huyó. No vas a poder domesticar a otro de esta especie.`,
+        text: `Le ofreciste ${itemName} a ${enemy.name} pero no se dejó acercar. (${Math.round(chance * 100)}% de éxito)`,
       });
-      A.State.persist();
-      A.Bus.emit('tame:failed', { enemyId, roll });
-      return { success: false, roll, dice: `D${dc.sides}`, itemConsumed: itemId };
+      A.Bus.emit('tame:failed', { enemyId, chance, roll });
+      return { success: false, chance, roll, itemConsumed: itemId };
     }
 
     // Éxito
@@ -155,7 +116,6 @@
       damage: enemy.damage,
       armor: enemy.armor,
       speed: enemy.speed,
-      dodge: enemy.dodge || Math.max(0, Math.floor((enemy.speed || 10) / 4)),
       since: Date.now(),
     };
 
@@ -163,10 +123,10 @@
     A.State.persist();
     A.State.addChronicle({
       type: 'system',
-      text: `Tirada D${dc.sides}: ${roll}. ¡Domaste a ${enemy.name}! Ahora te acompaña.`,
+      text: `Aceptó ${itemName}. Domaste a ${enemy.name}. Ahora te acompaña.`,
     });
     A.Bus.emit('tame:success', { petId: pet.id, name: pet.name });
-    return { success: true, roll, dice: `D${dc.sides}`, itemConsumed: itemId, pet };
+    return { success: true, chance, roll, itemConsumed: itemId, pet };
   }
 
   function release() {
@@ -180,15 +140,18 @@
     return true;
   }
 
+  // Lo dejamos por compat con código anterior que puede usar TARGET_BY_CAT.
+  // Ya no se usa internamente (ahora chance%).
+  const TARGET_BY_CAT = { weak: 10, normal: 13, strong: 17, boss: 20 };
+
   A.Tame = {
     canTame,
     attempt,
     release,
     requiredItem,
     chanceFor,
-    diceConfigFor,
-    isInstinctive,
+    BASE_CHANCE,
+    TARGET_BY_CAT,
     DEFAULT_TAME_ITEM,
-    RARITY_DICE,
   };
 })(window.Aventurs);

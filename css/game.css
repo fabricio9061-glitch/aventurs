@@ -335,12 +335,14 @@
 .shell-body {
   flex: 1;
   display: grid;
-  grid-template-columns: var(--chronicles-w) 1fr var(--sidebar-w);
-  grid-template-areas: "chronicles main sidebar";
+  grid-template-columns: 1fr var(--sidebar-w);
+  grid-template-areas:
+    "chronicles sidebar"
+    "main sidebar";
   max-width: var(--container-max);
   margin: 0 auto;
   width: 100%;
-  gap: var(--sp-4);
+  gap: var(--sp-3) var(--sp-4);
   padding: var(--sp-5);
   align-items: start;
 }
@@ -348,31 +350,17 @@
 .shell-main { grid-area: main; min-width: 0; }
 .shell-sidebar { grid-area: sidebar; min-width: 0; }
 
-@media (max-width: 1280px) {
-  /* Pantallas medias-grandes: 2 columnas. Crónicas baja a una "tira" arriba */
-  .shell-body {
-    grid-template-columns: 1fr var(--sidebar-w);
-    grid-template-areas:
-      "chronicles chronicles"
-      "main sidebar";
-  }
-  .chronicles-side-card {
-    position: static !important;
-    max-height: 200px !important;
-  }
-}
 @media (max-width: 900px) {
-  /* Tablet: 1 columna apilada (sidebar arriba para que veas tu HP, después main, después crónicas abajo) */
+  /* Tablet/móvil: 1 columna, sidebar arriba (HP visible), después main */
   .shell-body {
     grid-template-columns: 1fr;
     grid-template-areas:
       "sidebar"
-      "main"
-      "chronicles";
+      "chronicles"
+      "main";
     padding: var(--sp-3);
   }
   .sidebar-card { position: static !important; }
-  .chronicles-side-card { max-height: 200px !important; position: static !important; }
 }
 
 .shell-nav-spacer { flex: 1; }
@@ -738,7 +726,7 @@
 
 .world-view { display: flex; flex-direction: column; gap: var(--sp-4); }
 
-/* ---------- Region hero (la "tarjeta" grande arriba con icono + nombre) ---------- */
+/* ---------- Region hero (protagonista del centro) ---------- */
 .region-hero {
   display: grid;
   grid-template-columns: auto 1fr;
@@ -748,7 +736,7 @@
   border: var(--border-w) solid var(--border);
   border-radius: var(--r-xl);
   padding: var(--sp-5) var(--sp-6);
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--shadow-lg);
   position: relative;
   overflow: hidden;
 }
@@ -756,38 +744,38 @@
   content: '';
   position: absolute;
   inset: 0;
-  background: radial-gradient(ellipse at top right, rgba(212, 164, 55, 0.08) 0%, transparent 50%);
+  background: radial-gradient(ellipse at top right, rgba(212, 164, 55, 0.10) 0%, transparent 50%);
   pointer-events: none;
 }
 .region-hero.is-combat::before {
-  background: radial-gradient(ellipse at top right, rgba(196, 89, 43, 0.08) 0%, transparent 50%);
+  background: radial-gradient(ellipse at top right, rgba(196, 89, 43, 0.10) 0%, transparent 50%);
 }
-.region-hero.is-safe { border-left: 4px solid var(--success); }
-.region-hero.is-combat { border-left: 4px solid var(--hp); }
+.region-hero.is-safe { border-left: 5px solid var(--success); }
+.region-hero.is-combat { border-left: 5px solid var(--hp); }
 
 .region-hero-icon {
-  font-size: 56px;
+  font-size: 64px;
   line-height: 1;
-  width: 88px;
-  height: 88px;
+  width: 104px;
+  height: 104px;
   display: flex;
   align-items: center;
   justify-content: center;
   background: var(--gold-bg-soft);
-  border: 1.5px solid var(--gold-deep);
+  border: 2px solid var(--gold-deep);
   border-radius: 50%;
-  box-shadow: var(--shadow-md), inset 0 0 0 4px var(--surface-raised);
+  box-shadow: var(--shadow-md), inset 0 0 0 5px var(--surface-raised);
   position: relative;
   z-index: 1;
 }
 .region-hero-info { min-width: 0; position: relative; z-index: 1; }
 .region-hero-name {
-  font-size: var(--fs-2xl);
+  font-size: var(--fs-display);
   font-weight: var(--fw-semi);
   color: var(--text);
-  letter-spacing: -0.02em;
-  line-height: 1.1;
-  margin-bottom: var(--sp-2);
+  letter-spacing: -0.025em;
+  line-height: 1.05;
+  margin-bottom: var(--sp-3);
 }
 .region-hero-meta {
   display: flex;
@@ -799,27 +787,29 @@
 }
 .region-hero-desc {
   color: var(--text-muted);
-  line-height: var(--lh-base);
-  font-size: var(--fs-sm);
+  line-height: var(--lh-loose);
+  font-size: var(--fs-md);
   margin-top: var(--sp-3);
   font-style: italic;
+  max-width: 600px;
 }
 
-/* ---------- Action grid main (4 botones grandes) ---------- */
+/* ---------- Action grid main (botones horizontales, siempre en fila) ---------- */
 .action-grid-main {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: var(--sp-3);
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: var(--sp-2);
 }
 .action-card-main {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: var(--sp-3);
-  text-align: left;
+  gap: var(--sp-2);
+  text-align: center;
   background: var(--surface-raised);
   border: var(--border-w) solid var(--border);
-  border-radius: var(--r-lg);
-  padding: var(--sp-4);
+  border-radius: var(--r-md);
+  padding: var(--sp-3) var(--sp-2);
   cursor: pointer;
   font: inherit;
   color: inherit;
@@ -834,9 +824,9 @@
 }
 .action-card-main:active { transform: translateY(0); }
 .action-card-icon {
-  font-size: 32px;
-  width: 52px;
-  height: 52px;
+  font-size: 24px;
+  width: 42px;
+  height: 42px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -845,17 +835,23 @@
   border-radius: 50%;
   flex-shrink: 0;
 }
-.action-card-text { min-width: 0; flex: 1; }
+.action-card-text { width: 100%; }
 .action-card-label {
-  font-size: var(--fs-md);
+  font-size: var(--fs-sm);
   font-weight: var(--fw-semi);
   color: var(--text);
   margin-bottom: 2px;
+  white-space: nowrap;
 }
 .action-card-desc {
-  font-size: var(--fs-xs);
+  font-size: 10px;
   color: var(--text-muted);
-  line-height: 1.35;
+  line-height: 1.3;
+}
+
+@media (max-width: 600px) {
+  /* En móvil: 2 columnas */
+  .action-grid-main { grid-template-columns: repeat(2, 1fr); }
 }
 
 .region-block {
@@ -2440,85 +2436,134 @@
    v1.5.2 — Crónicas en columna izquierda, combate refactor
    ============================================================ */
 
-/* Panel de crónicas lateral */
-.chronicles-side-card {
+/* ============================================================
+   v1.5.4-fix — Crónicas como bar horizontal compacto
+   ============================================================ */
+
+.chronicles-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: 6px 12px;
   background: var(--surface-raised);
   border: var(--border-w) solid var(--border);
-  border-radius: var(--r-lg);
-  padding: var(--sp-3);
-  position: sticky;
-  top: 76px;
-  max-height: calc(100vh - 120px);
-  display: flex;
-  flex-direction: column;
+  border-radius: var(--r-md);
   box-shadow: var(--shadow-sm);
+  min-height: 36px;
 }
-.chronicles-side-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  padding: 0 var(--sp-2) var(--sp-2);
-  border-bottom: var(--border-w) solid var(--border-soft);
-  margin-bottom: var(--sp-2);
-}
-.chronicles-side-header > .dim {
+.chronicles-bar-label {
+  flex-shrink: 0;
   font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   font-weight: var(--fw-semi);
   color: var(--gold-text);
+  padding-right: var(--sp-2);
+  border-right: var(--border-w) solid var(--border);
 }
-.chronicles-side-header > .dim.small {
-  background: var(--gold-bg);
-  border-radius: var(--r-full);
-  padding: 1px 7px;
-  font-size: 9px;
+.chronicles-bar-list {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  overflow: hidden;
+  min-width: 0;
+}
+.chronicles-bar-empty {
+  font-size: 11px;
+  font-style: italic;
+}
+.chronicle-bar-entry {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 250px;
+}
+.chronicle-bar-entry:not(:first-child)::before {
+  content: '·';
+  color: var(--text-faint);
+  margin-right: var(--sp-2);
+}
+.chronicle-bar-icon {
+  font-size: 12px;
+  flex-shrink: 0;
+}
+.chronicle-bar-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.chronicles-bar-more {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  background: var(--gold-bg-soft);
   border: var(--border-w) solid var(--gold-deep);
+  border-radius: var(--r-sm);
+  font-size: 11px;
+  font-weight: var(--fw-medium);
   color: var(--gold-text);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background var(--t-fast);
+  font-family: inherit;
 }
-.chronicles-side-list {
+.chronicles-bar-more:hover {
+  background: var(--gold-bg);
+}
+.chronicles-bar-count {
+  background: var(--gold);
+  color: white;
+  font-size: 9px;
+  padding: 1px 6px;
+  border-radius: var(--r-full);
+  font-weight: var(--fw-semi);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Modal de historial completo */
+.chronicles-full-modal {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  max-height: 60vh;
+}
+.chronicles-full-list {
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  flex: 1;
-  min-height: 0;
-  margin: 0 -2px;
-  padding: 0 2px;
+  gap: var(--sp-1);
+  padding-right: var(--sp-2);
 }
-/* Scrollbar sutil */
-.chronicles-side-list::-webkit-scrollbar { width: 6px; }
-.chronicles-side-list::-webkit-scrollbar-track { background: transparent; }
-.chronicles-side-list::-webkit-scrollbar-thumb {
-  background: var(--border-strong);
-  border-radius: 3px;
-}
-.chronicle-side-row {
+.chronicle-full-row {
   display: grid;
-  grid-template-columns: 18px 1fr;
-  gap: var(--sp-2);
+  grid-template-columns: 28px 1fr;
+  gap: var(--sp-3);
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  border: var(--border-w) solid var(--border-soft);
   align-items: start;
-  padding: 6px 8px;
-  font-size: 11px;
-  line-height: 1.4;
-  border-radius: var(--r-sm);
-  border-left: 2px solid transparent;
-  transition: background var(--t-fast), border-color var(--t-fast);
 }
-.chronicle-side-row:hover {
-  background: var(--gold-bg-soft);
-  border-left-color: var(--gold);
-}
-.chronicle-side-icon {
-  font-size: 13px;
+.chronicle-full-icon {
+  font-size: 16px;
   text-align: center;
-  line-height: 1.3;
-  flex-shrink: 0;
+  padding-top: 2px;
 }
-.chronicle-side-text {
-  color: var(--text-muted);
-  word-wrap: break-word;
-  overflow-wrap: break-word;
+.chronicle-full-body { min-width: 0; }
+.chronicle-full-text {
+  font-size: var(--fs-sm);
+  color: var(--text);
+  line-height: 1.45;
+}
+.chronicle-full-meta {
+  font-size: 10px;
+  margin-top: 2px;
 }
 
 /* Combate: barra de acciones horizontal con botones chicos */
@@ -2674,109 +2719,4 @@
 .combat-turn-badge {
   font-size: 11px;
   color: var(--text-muted);
-}
-
-/* ============================================================
-   v1.5.5 — pills de stat en tienda
-   ============================================================ */
-
-.item-stat-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  padding: 1px 6px;
-  margin-left: 6px;
-  font-size: 10px;
-  font-weight: var(--fw-semi);
-  background: var(--gold-bg);
-  border: var(--border-w) solid var(--gold-deep);
-  border-radius: var(--r-sm);
-  color: var(--gold-text);
-  font-variant-numeric: tabular-nums;
-  vertical-align: middle;
-}
-.item-stat-pill-dmg {
-  background: var(--hp-bg);
-  border-color: #d4a89a;
-  color: var(--hp);
-}
-.item-stat-pill-def {
-  background: var(--mana-bg);
-  border-color: #a8bfd9;
-  color: var(--mana);
-}
-.item-stat-pill-bag {
-  background: var(--food-bg);
-  border-color: #d4b18a;
-  color: var(--food);
-}
-
-/* ============================================================
-   v1.5.5b — Status effects, esquiva, dado de daño en log
-   ============================================================ */
-
-/* Badges de efectos en cards de combatiente */
-.combat-effects-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  margin: 6px 0;
-  justify-content: center;
-}
-.effect-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-  padding: 2px 6px;
-  font-size: 10px;
-  font-weight: var(--fw-semi);
-  border-radius: var(--r-full);
-  border: var(--border-w) solid;
-  font-variant-numeric: tabular-nums;
-  line-height: 1;
-}
-.effect-bleed { background: #fce8e0; border-color: #d4684f; color: #8a3220; }
-.effect-poison { background: #e9eed5; border-color: #7a8c2c; color: #4d5a18; }
-.effect-fire { background: #fce0d0; border-color: #c4592b; color: #7d3014; }
-.effect-cold { background: #d8e7f0; border-color: #4a7fa1; color: #25516e; }
-.effect-shock { background: #f4ebca; border-color: #b08818; color: #6d530d; }
-.effect-blind { background: #e5e2dc; border-color: #8a7c63; color: #463d2e; }
-.effect-silence { background: #e6dde9; border-color: #7d4d8c; color: #4a2858; }
-.effect-turns { font-size: 9px; opacity: 0.85; }
-
-/* Pill del dado de esquiva (se diferencia del de impacto) */
-.die-pill-dodge {
-  background: var(--mana-bg);
-  border-color: #a8bfd9;
-  color: var(--mana);
-}
-
-/* Pill del dado de daño (con notación tipo 1d6) */
-.dice-pill {
-  display: inline-flex;
-  align-items: center;
-  padding: 1px 6px;
-  margin-right: 6px;
-  background: var(--hp-bg);
-  border: var(--border-w) solid #d4a89a;
-  border-radius: var(--r-sm);
-  font-size: 10px;
-  font-weight: var(--fw-semi);
-  color: var(--hp);
-  font-variant-numeric: tabular-nums;
-}
-
-/* Resultado evaded en log */
-.combat-log-row .result-evaded {
-  color: var(--mana);
-}
-.combat-log-row .result-evaded .log-icon {
-  color: var(--mana);
-}
-
-/* Texto faint dentro del log */
-.log-faint {
-  color: var(--text-faint);
-  font-size: 10px;
-  font-weight: var(--fw-normal);
 }
