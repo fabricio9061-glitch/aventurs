@@ -1,56 +1,76 @@
 /* ============================================================
-   Aventurs — Design Tokens
+   Aventurs — Design Tokens (v1.5.3)
    Identidad visual: light parchment cálido, Inter sans-serif
    ============================================================ */
 
 :root {
   /* ---------- Superficies ---------- */
-  --bg: #faf9f5;
-  --surface: #fdfcf8;
+  --bg: #f5efe0;
+  --bg-deep: #ede5d0;
+  --surface: #fdfaf1;
   --surface-raised: #ffffff;
+  --surface-sunken: #efe7d3;
 
-  /* ---------- Bordes (siempre 0.5px, nunca 1px) ---------- */
-  --border: #e8e2d2;
-  --border-strong: #d4cdb8;
+  /* ---------- Bordes ---------- */
+  --border: #e3dac4;
+  --border-strong: #cdc1a3;
+  --border-soft: #efe9d8;
   --border-w: 0.5px;
 
   /* ---------- Texto ---------- */
-  --text: #2a2620;
-  --text-muted: #6e6253;
-  --text-dim: #8a7e6a;
-  --text-faint: #b3a890;
+  --text: #2a2418;
+  --text-muted: #6b5e48;
+  --text-dim: #8a7c63;
+  --text-faint: #b3a78a;
 
   /* ---------- Acentos dorados ---------- */
-  --gold: #d4a437;
-  --gold-bg: #faf2dc;
-  --gold-text: #a07a1f;
+  --gold: #c89432;
+  --gold-deep: #a37418;
+  --gold-bg: #f7ebcc;
+  --gold-bg-soft: #fbf3df;
+  --gold-text: #8c6912;
 
   /* ---------- Estados ---------- */
-  --hp: #c9663b;          /* terracota */
-  --mana: #4a85c4;        /* azul empolvado */
-  --danger: #a32d2d;
-  --success: #3b6d11;
-  --warning: #854f0b;
+  --hp: #c4592b;
+  --hp-bg: #f7e4d4;
+  --mana: #3d70a8;
+  --mana-bg: #e2eaf3;
+  --xp: #d4a437;
+  --xp-bg: #faecc8;
+  --food: #b87a3a;
+  --food-bg: #f3dfc1;
+  --danger: #9c2828;
+  --success: #466f1e;
+  --warning: #855314;
+
+  /* ---------- Sombras ---------- */
+  --shadow-sm: 0 1px 2px rgba(74, 60, 40, 0.06);
+  --shadow-md: 0 2px 6px rgba(74, 60, 40, 0.08), 0 1px 2px rgba(74, 60, 40, 0.04);
+  --shadow-lg: 0 4px 14px rgba(74, 60, 40, 0.12), 0 2px 6px rgba(74, 60, 40, 0.06);
+  --shadow-inset: inset 0 1px 2px rgba(74, 60, 40, 0.04);
 
   /* ---------- Tipografía ---------- */
   --font: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
 
-  --fs-xs: 12px;
+  --fs-xs: 11px;
   --fs-sm: 13px;
   --fs-base: 14px;
   --fs-md: 15px;
   --fs-lg: 17px;
   --fs-xl: 22px;
   --fs-2xl: 28px;
+  --fs-display: 34px;
 
   --fw-normal: 400;
   --fw-medium: 500;
+  --fw-semi: 600;
 
-  --lh-tight: 1.3;
+  --lh-tight: 1.25;
   --lh-base: 1.5;
   --lh-loose: 1.65;
 
-  /* ---------- Espaciado (escala de 4px) ---------- */
+  /* ---------- Espaciado ---------- */
+  --sp-0: 0;
   --sp-1: 4px;
   --sp-2: 8px;
   --sp-3: 12px;
@@ -65,8 +85,16 @@
   --r-sm: 4px;
   --r-md: 6px;
   --r-lg: 10px;
+  --r-xl: 14px;
+  --r-full: 999px;
 
   /* ---------- Layout ---------- */
-  --container-max: 1280px;
-  --sidebar-w: 320px;
+  --container-max: 1320px;
+  --sidebar-w: 290px;
+  --chronicles-w: 270px;
+
+  /* ---------- Transitions ---------- */
+  --t-fast: 100ms ease;
+  --t-base: 160ms ease;
+  --t-slow: 240ms ease;
 }

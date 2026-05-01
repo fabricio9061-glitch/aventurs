@@ -70,3 +70,21 @@ h1, h2, h3, h4 {
 }
 
 
+
+.small { font-size: var(--fs-xs); }
+
+/* Selección de texto con color dorado */
+::selection {
+  background: var(--gold-bg);
+  color: var(--gold-text);
+}
+
+/* Scrollbar global sutil */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: var(--surface-sunken); }
+::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 5px;
+  border: 2px solid var(--surface-sunken);
+}
+::-webkit-scrollbar-thumb:hover { background: var(--text-faint); }
