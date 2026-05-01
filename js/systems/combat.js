@@ -74,31 +74,151 @@
     // Asignar letras (A, B, C...) si hay múltiples del mismo id
     assignLabels(instances);
 
+    // ---- Calcular iniciativa: cada combatiente tira d20 + speed ----
+    const p = State().player;
+    const initiative = [];
+    const playerInit = A.Utils.dice(20) + (p.stats.speed || 10);
+    initiative.push({
+      kind: 'player',
+      id: 'player',
+      name: p.name,
+      init: playerInit,
+      speed: p.stats.speed || 10,
+    });
+    if (p.pet && p.pet.health > 0) {
+      const petInit = A.Utils.dice(20) + (p.pet.speed || 10);
+      initiative.push({
+        kind: 'pet',
+        id: 'pet',
+        name: p.pet.name,
+        init: petInit,
+        speed: p.pet.speed || 10,
+      });
+    }
+    for (const inst of instances) {
+      const enInit = A.Utils.dice(20) + (inst.speed || 10);
+      initiative.push({
+        kind: 'enemy',
+        id: inst.instanceId,
+        name: inst.displayName,
+        init: enInit,
+        speed: inst.speed || 10,
+      });
+    }
+    // Ordenar de mayor a menor; en empate, otro d20 desempata
+    initiative.sort((a, b) => {
+      if (b.init !== a.init) return b.init - a.init;
+      return A.Utils.dice(20) - A.Utils.dice(20);
+    });
+
     const combat = {
       enemies: instances,
       targetInstanceId: instances[0].instanceId,
-      turn: null,
       round: 1,
+      initiative,
+      currentActorIdx: 0,
       log: [],
       result: null,
       fromTravel: !!opts.fromTravel,
     };
 
+    // Para compatibilidad con código que mira c.turn, derivamos
+    combat.turn = currentTurnKind(combat);
+
     State().combat = combat;
 
-    // Iniciativa: el jugador arranca si su velocidad >= mayor velocidad enemiga
-    const playerSpeed = State().player.stats.speed || 10;
-    const maxEnemySpeed = Math.max(...instances.map((e) => e.speed || 10));
-    combat.turn = playerSpeed >= maxEnemySpeed ? 'player' : 'enemy';
+    addLog(combat, 'system', { text: `Comienza el combate contra ${A.Encounter.describeGroup(instances)}.` });
+    addLog(combat, 'system', { text: `Orden de iniciativa: ${initiative.map((i) => `${i.name} (${i.init})`).join(' → ')}` });
+    addTurnHeader(combat, 1);
 
-    addLog(combat, 'system', `Comienza el combate contra ${A.Encounter.describeGroup(instances)}.`);
     A.Bus.emit('combat:started', { count: instances.length });
     State().persist();
 
-    if (combat.turn === 'enemy') {
-      setTimeout(enemyTurn, 600);
-    }
+    // Si el primer turno NO es del jugador, ejecutar automaticamente
+    setTimeout(() => advanceIfNotPlayer(), 600);
     return true;
+  }
+
+  function currentTurnKind(combat) {
+    const cur = combat.initiative[combat.currentActorIdx];
+    return cur ? cur.kind : 'player';
+  }
+
+  function isPlayerTurn(combat) {
+    if (!combat || !combat.initiative) return false;
+    const cur = combat.initiative[combat.currentActorIdx];
+    return cur && cur.kind === 'player';
+  }
+
+  function addTurnHeader(c, n) {
+    addLog(c, 'turn-header', { text: `── Turno ${n} ──`, turnNumber: n });
+  }
+
+  /**
+   * Avanza al siguiente actor vivo. Si no es el jugador, ejecuta su turno.
+   * Si es el jugador, queda esperando input.
+   */
+  function advanceIfNotPlayer() {
+    const c = State().combat;
+    if (!c || c.result) return;
+    // Verificar fin de combate
+    if (aliveEnemies().length === 0) { onVictory(); A.Bus.emit('combat:ended', { result: 'victory' }); return; }
+    if (State().player.hp <= 0) { onDefeat(); A.Bus.emit('combat:ended', { result: 'defeat' }); return; }
+
+    const cur = c.initiative[c.currentActorIdx];
+    if (!cur) {
+      // Ronda terminada: nueva ronda
+      c.round += 1;
+      c.currentActorIdx = 0;
+      addTurnHeader(c, c.round);
+      State().persist();
+      A.Bus.emit('combat:turn', { round: c.round });
+      setTimeout(() => advanceIfNotPlayer(), 600);
+      return;
+    }
+
+    // Saltear actores muertos
+    if (cur.kind === 'enemy') {
+      const inst = c.enemies.find((e) => e.instanceId === cur.id);
+      if (!inst || inst.hp <= 0) {
+        c.currentActorIdx += 1;
+        return advanceIfNotPlayer();
+      }
+    } else if (cur.kind === 'pet') {
+      if (!State().player.pet || State().player.pet.health <= 0) {
+        c.currentActorIdx += 1;
+        return advanceIfNotPlayer();
+      }
+    } else if (cur.kind === 'player') {
+      if (State().player.hp <= 0) {
+        c.currentActorIdx += 1;
+        return advanceIfNotPlayer();
+      }
+    }
+
+    c.turn = cur.kind;
+    State().persist();
+    A.Bus.emit('combat:turn', { actor: cur.kind, round: c.round });
+
+    if (cur.kind === 'enemy') {
+      const inst = c.enemies.find((e) => e.instanceId === cur.id);
+      setTimeout(() => executeEnemyAction(inst), 700);
+    } else if (cur.kind === 'pet') {
+      setTimeout(() => executePetAction(), 600);
+    }
+    // Si es player, queda esperando input. Las funciones playerAttack/spell/etc llaman
+    // a afterPlayerAction() que avanza el índice.
+  }
+
+  function nextActor() {
+    const c = State().combat;
+    if (!c) return;
+    c.currentActorIdx += 1;
+    // Si superó el array, advanceIfNotPlayer va a iniciar nueva ronda
+    if (c.currentActorIdx >= c.initiative.length) {
+      c.currentActorIdx = c.initiative.length; // (queda fuera del array para que advance arranque ronda)
+    }
+    setTimeout(() => advanceIfNotPlayer(), 400);
   }
 
   /**
@@ -158,7 +278,7 @@
 
   function playerAttack() {
     const c = State().combat;
-    if (!c || c.result || c.turn !== 'player') return;
+    if (!c || c.result || !isPlayerTurn(c)) return;
     const target = getTarget();
     if (!target) { onVictory(); return; }
     const p = State().player;
@@ -213,7 +333,7 @@
 
   function playerSpell(spellId) {
     const c = State().combat;
-    if (!c || c.result || c.turn !== 'player') return;
+    if (!c || c.result || !isPlayerTurn(c)) return;
     const p = State().player;
     if (!p.hasMagic) return;
 
@@ -258,7 +378,7 @@
 
   function playerUseItem(itemId) {
     const c = State().combat;
-    if (!c || c.result || c.turn !== 'player') return;
+    if (!c || c.result || !isPlayerTurn(c)) return;
     const item = A.Data.getById('items', itemId);
     if (!item) return;
     const slot = State().player.inventory.find((s) => s.itemId === itemId);
@@ -281,7 +401,7 @@
 
   function playerFlee() {
     const c = State().combat;
-    if (!c || c.result || c.turn !== 'player') return;
+    if (!c || c.result || !isPlayerTurn(c)) return;
     const p = State().player;
     const fastest = Math.max(...aliveEnemies().map((e) => e.speed || 10));
     const speedDiff = (p.stats.speed || 10) - fastest;
@@ -302,31 +422,23 @@
 
   // ---------- Después de la acción del jugador ----------
 
-  function afterPlayerAction({ skipPet = false } = {}) {
+  function afterPlayerAction() {
     const c = State().combat;
     if (!c) return;
-
-    if (aliveEnemies().length === 0) { onVictory(); return; }
-
-    // Mascota ataca a un enemigo vivo
-    if (!skipPet && State().player.pet) {
-      petTurn();
-      if (aliveEnemies().length === 0) { onVictory(); return; }
-    }
-
-    c.turn = 'enemy';
-    State().persist();
-    A.Bus.emit('combat:turn', { actor: 'enemy', turnNumber: c.round });
-    setTimeout(enemyTurn, 600);
+    if (aliveEnemies().length === 0) { onVictory(); A.Bus.emit('combat:ended', { result: 'victory' }); return; }
+    nextActor();
   }
 
-  function petTurn() {
+  /**
+   * Acción de la mascota. La invoca advanceIfNotPlayer cuando el actor actual es 'pet'.
+   */
+  function executePetAction() {
     const c = State().combat;
     if (!c || c.result) return;
     const pet = State().player.pet;
-    if (!pet || pet.health <= 0) return;
+    if (!pet || pet.health <= 0) { nextActor(); return; }
     const alive = aliveEnemies();
-    if (alive.length === 0) return;
+    if (alive.length === 0) { nextActor(); return; }
     const target = alive[Math.floor(Math.random() * alive.length)];
     const enemyDifficulty = target.difficulty || 10;
     const targetArmor = target.armor || 0;
@@ -353,84 +465,92 @@
         result: 'miss',
       });
     }
+    nextActor();
   }
 
-  // ---------- Turno del enemigo ----------
+  // alias legacy
+  function petTurn() { executePetAction(); }
 
-  function enemyTurn() {
+  // ---------- Turno del enemigo (un enemigo individual) ----------
+
+  function executeEnemyAction(enemy) {
     const c = State().combat;
-    if (!c || c.result || c.turn !== 'enemy') return;
+    if (!c || c.result) return;
+    if (!enemy || enemy.hp <= 0) { nextActor(); return; }
+
     const p = State().player;
     const equipArmor = p.equipment.armor ? A.Data.getById('armors', p.equipment.armor) : null;
     const playerArmor = (p.stats.armor || 0) + (equipArmor ? equipArmor.defense : 0);
-    // Para esquiva del jugador: dificultad de impacto = 10 + dodge
     const playerDifficulty = 10 + (p.stats.dodge || 0);
 
-    for (const enemy of aliveEnemies()) {
-      if (p.hp <= 0) break;
-      const enemyAtkBonus = Math.floor((enemy.damage || 0) / 4);
-      const pet = p.pet;
-      const targetPet = pet && pet.health > 0 && Math.random() < 0.4;
-      const targetDifficulty = targetPet ? (10 + (pet.dodge || 0)) : playerDifficulty;
-      const targetArmor = targetPet ? (pet.armor || 0) : playerArmor;
-      const targetName = targetPet ? pet.name : p.name;
+    const enemyAtkBonus = Math.floor((enemy.damage || 0) / 4);
+    const pet = p.pet;
+    const targetPet = pet && pet.health > 0 && Math.random() < 0.4;
+    const targetDifficulty = targetPet ? (10 + (pet.dodge || 0)) : playerDifficulty;
+    const targetArmor = targetPet ? (pet.armor || 0) : playerArmor;
+    const targetName = targetPet ? pet.name : p.name;
 
-      const roll = A.Utils.dice(20);
-      const total = roll + enemyAtkBonus;
+    const roll = A.Utils.dice(20);
+    const total = roll + enemyAtkBonus;
 
-      if (roll === 1) {
+    if (roll === 1) {
+      addLog(c, 'enemy', {
+        text: `${enemy.displayName} ataca a ${targetName}`,
+        actor: enemy.displayName, target: targetName,
+        roll, bonus: enemyAtkBonus, total, vs: targetDifficulty, vsLabel: 'Dif',
+        result: 'fumble',
+      });
+    } else if (total >= targetDifficulty || roll === 20) {
+      let rawDmg = enemy.damage;
+      const isCrit = roll === 20;
+      if (isCrit) rawDmg *= 2;
+      const finalDmg = Math.max(0, rawDmg - targetArmor);
+      if (targetPet) {
+        pet.health = Math.max(0, pet.health - finalDmg);
         addLog(c, 'enemy', {
-          text: `${enemy.displayName} ataca a ${targetName}`,
-          actor: enemy.displayName, target: targetName,
+          text: `${enemy.displayName} hiere a ${pet.name}`,
+          actor: enemy.displayName, target: pet.name,
           roll, bonus: enemyAtkBonus, total, vs: targetDifficulty, vsLabel: 'Dif',
-          result: 'fumble',
+          rawDmg, targetArmor, dmg: finalDmg, hpAfter: pet.health, hpMax: pet.maxHealth,
+          result: isCrit ? 'crit' : (finalDmg === 0 ? 'blocked' : 'hit'),
         });
-      } else if (total >= targetDifficulty || roll === 20) {
-        // Daño base, crit x2 antes de armadura
-        let rawDmg = enemy.damage;
-        const isCrit = roll === 20;
-        if (isCrit) rawDmg *= 2;
-        const finalDmg = Math.max(0, rawDmg - targetArmor);
-        if (targetPet) {
-          pet.health = Math.max(0, pet.health - finalDmg);
-          addLog(c, 'enemy', {
-            text: `${enemy.displayName} hiere a ${pet.name}`,
-            actor: enemy.displayName, target: pet.name,
-            roll, bonus: enemyAtkBonus, total, vs: targetDifficulty, vsLabel: 'Dif',
-            rawDmg, targetArmor, dmg: finalDmg, hpAfter: pet.health, hpMax: pet.maxHealth,
-            result: isCrit ? 'crit' : (finalDmg === 0 ? 'blocked' : 'hit'),
-          });
-          if (pet.health <= 0) {
-            addLog(c, 'system', { text: `${pet.name} cayó. La perdiste.` });
-            A.Bus.emit('tame:lost', { name: pet.name });
-            p.pet = null;
-          }
-        } else {
-          if (finalDmg > 0) A.State.damagePlayer(finalDmg);
-          addLog(c, 'enemy', {
-            text: `${enemy.displayName} te hiere`,
-            actor: enemy.displayName, target: p.name,
-            roll, bonus: enemyAtkBonus, total, vs: targetDifficulty, vsLabel: 'Dif',
-            rawDmg, targetArmor, dmg: finalDmg, hpAfter: p.hp, hpMax: p.maxHp,
-            result: isCrit ? 'crit' : (finalDmg === 0 ? 'blocked' : 'hit'),
-          });
+        if (pet.health <= 0) {
+          addLog(c, 'system', { text: `${pet.name} cayó. La perdiste.` });
+          A.Bus.emit('tame:lost', { name: pet.name });
+          p.pet = null;
         }
       } else {
+        if (finalDmg > 0) A.State.damagePlayer(finalDmg);
         addLog(c, 'enemy', {
-          text: `${enemy.displayName} ataca a ${targetName}`,
-          actor: enemy.displayName, target: targetName,
+          text: `${enemy.displayName} te hiere`,
+          actor: enemy.displayName, target: p.name,
           roll, bonus: enemyAtkBonus, total, vs: targetDifficulty, vsLabel: 'Dif',
-          result: 'miss',
+          rawDmg, targetArmor, dmg: finalDmg, hpAfter: p.hp, hpMax: p.maxHp,
+          result: isCrit ? 'crit' : (finalDmg === 0 ? 'blocked' : 'hit'),
         });
       }
+    } else {
+      addLog(c, 'enemy', {
+        text: `${enemy.displayName} ataca a ${targetName}`,
+        actor: enemy.displayName, target: targetName,
+        roll, bonus: enemyAtkBonus, total, vs: targetDifficulty, vsLabel: 'Dif',
+        result: 'miss',
+      });
     }
 
-    if (p.hp <= 0) { onDefeat(); return; }
+    if (p.hp <= 0) { onDefeat(); A.Bus.emit('combat:ended', { result: 'defeat' }); return; }
+    nextActor();
+  }
 
-    c.turn = 'player';
-    c.round += 1;
-    State().persist();
-    A.Bus.emit('combat:turn', { actor: 'player', turnNumber: c.round });
+  // alias legacy
+  function enemyTurn() {
+    const c = State().combat;
+    if (!c) return;
+    const cur = c.initiative[c.currentActorIdx];
+    if (cur && cur.kind === 'enemy') {
+      const inst = c.enemies.find((e) => e.instanceId === cur.id);
+      if (inst) executeEnemyAction(inst);
+    }
   }
 
   // ---------- Resultado ----------

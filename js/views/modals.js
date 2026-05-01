@@ -42,8 +42,8 @@
       case 'creature': html = renderCreature(payload); break;
       case 'all-creatures': html = renderAllCreatures(payload); break;
       case 'tame': html = renderTame(payload); break;
-      case 'change-bag': html = renderChangeBag(); break;
       case 'magic': html = renderMagic(); break;
+      case 'equipped-bag': html = renderEquippedBag(payload); break;
       case 'combat-spell': html = renderCombatSpell(); break;
       case 'combat-item': html = renderCombatItem(); break;
       default: html = `<div class="modal"><div class="modal-body">Modal "${id}" desconocido.</div></div>`;
@@ -567,36 +567,45 @@
     return modalShell(`Domar a ${e.name}`, body);
   }
 
-  // ---------- Change bag ----------
+  // ---------- Equipped bag (modal con info y botón Quitar) ----------
 
-  function renderChangeBag() {
+  function renderEquippedBag(payload) {
     const p = A.State.player;
+    const bag = A.Data.getById('bags', (payload || {}).bagId || p.bagId);
+    if (!bag) return modalShell('Mochila', `<p class="muted">Mochila no encontrada.</p>`);
     const used = A.State.inventoryUsedSlots();
-    const bags = A.Data.bags || [];
+    const isBasic = bag.id === 'bag_basic';
+    const canRemove = !isBasic;
+    // Si la quito, vuelvo a bag_basic. Verifico si los items entran
+    const basic = A.Data.getById('bags', 'bag_basic');
+    const fitsAfterRemove = basic ? used <= basic.slots : false;
     const body = `
-      <div class="change-bag-modal">
-        <p class="muted">Elige una mochila. Si tiene menos slots que tus items actuales, no podrás equiparla.</p>
-        <div class="bag-list">
-          ${bags.map((b) => {
-            const isCurrent = b.id === p.bagId;
-            const tooSmall = b.slots < used;
-            const cls = `bag-option ${isCurrent ? 'is-current' : ''} ${tooSmall ? 'is-disabled' : ''}`;
-            return `
-              <button class="${cls}" data-bag="${A.Utils.escapeHtml(b.id)}" ${tooSmall ? 'disabled' : ''}>
-                <span class="bag-option-icon">${b.icon || '🎒'}</span>
-                <span class="bag-option-info">
-                  <span class="bag-option-name">${A.Utils.escapeHtml(b.name)}</span>
-                  <span class="bag-option-meta dim">${b.slots} slots · ${A.Utils.escapeHtml(rarityLabel(b.rarity))}</span>
-                  ${tooSmall ? `<span class="bag-option-warn">No alcanza para ${used} items</span>` : ''}
-                </span>
-                ${isCurrent ? `<span class="pill">Actual</span>` : ''}
-              </button>
-            `;
-          }).join('')}
+      <div class="item-modal">
+        <div class="item-modal-header">
+          <div class="item-modal-icon">${bag.icon || '🎒'}</div>
+          <div>
+            <div class="item-modal-name">${A.Utils.escapeHtml(bag.name)}</div>
+            <div class="item-modal-meta dim">Mochila · ${bag.slots} espacios</div>
+          </div>
+        </div>
+        <p class="item-modal-desc">${A.Utils.escapeHtml(bag.description || '')}</p>
+        <div class="detail-stats">
+          <div class="detail-stat"><span class="dim">Capacidad</span> <span class="num">${used}/${bag.slots}</span></div>
+          <div class="detail-stat"><span class="dim">Rareza</span> <span>${rarityLabel(bag.rarity)}</span></div>
+        </div>
+        <div class="item-modal-actions">
+          ${isBasic ? `
+            <button class="btn-secondary" disabled>Mochila inicial (no se puede quitar)</button>
+          ` : `
+            <button class="btn-primary" data-bag-remove="1" ${fitsAfterRemove ? '' : 'disabled'}>
+              ${fitsAfterRemove ? 'Quitar (volver a mochila básica)' : `No entra: tenés ${used} items, la básica solo aguanta ${basic.slots}`}
+            </button>
+          `}
+          <button class="btn" data-modal-close="1">Cerrar</button>
         </div>
       </div>
     `;
-    return modalShell('Cambiar mochila', body);
+    return modalShell(bag.name, body);
   }
 
   // ---------- Magic ----------
@@ -695,6 +704,37 @@
     if (id === 'item-detail') {
       overlay.querySelectorAll('[data-detail-action]').forEach((b) => {
         b.addEventListener('click', () => onItemAction(b.dataset.detailAction, payload.itemId));
+      });
+    }
+    if (id === 'equipped-bag') {
+      overlay.querySelectorAll('[data-bag-remove]').forEach((b) => {
+        if (b.disabled) return;
+        b.addEventListener('click', () => {
+          // Crear el item-proxy de la bolsa actual y agregarlo al inventario, equipar bag_basic
+          const p = A.State.player;
+          const currentBagId = p.bagId;
+          const proxy = A.Data.items.find((it) => it.subtype === 'bag' && it.equipsBag === currentBagId);
+          if (!proxy) {
+            A.State.closeModal();
+            return;
+          }
+          // Equipar bag_basic primero
+          p.bagId = 'bag_basic';
+          // Agregar el proxy al inventario
+          const ok = A.State.addItem(proxy.id, 1);
+          if (!ok) {
+            // Revertir
+            p.bagId = currentBagId;
+            return;
+          }
+          A.State.addChronicle({
+            type: 'item',
+            text: `Quitaste tu mochila. Volviste a la básica.`,
+          });
+          A.Bus.emit('bag:equipped', { bagId: 'bag_basic' });
+          A.State.persist();
+          A.State.closeModal();
+        });
       });
     }
     if (id === 'menu') {
@@ -849,27 +889,6 @@
             A.State.closeModal();
             // Si el viaje seguía activo, avanzar un paso
             if (fromTravel && A.State.traveling) A.Travel.step();
-          }
-        });
-      });
-    }
-
-    if (id === 'change-bag') {
-      overlay.querySelectorAll('[data-bag]').forEach((b) => {
-        if (b.disabled) return;
-        b.addEventListener('click', () => {
-          const result = A.State.setBag(b.dataset.bag);
-          if (result.ok) {
-            A.State.closeModal();
-          } else {
-            // Reusar el modal de confirm para mostrar error
-            A.State.closeModal();
-            Modals.confirm({
-              title: 'No se puede cambiar',
-              body: result.error,
-              danger: false,
-              onConfirm: () => {},
-            });
           }
         });
       });

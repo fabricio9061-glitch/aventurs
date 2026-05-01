@@ -16,6 +16,7 @@
   let rootEl = null;
   let mainEl = null;
   let sidebarEl = null;
+  let chroniclesEl = null;
   let unsubscribers = [];
 
   function tabConfig() {
@@ -57,21 +58,24 @@
         </header>
 
         <div class="shell-body">
+          <aside class="shell-chronicles" id="shell-chronicles"></aside>
           <main class="shell-main" id="shell-main"></main>
           <aside class="shell-sidebar" id="shell-sidebar"></aside>
         </div>
 
         <footer class="shell-footer">
-          <span class="version-pill">v1.2.0 · Fase 2</span>
+          <span class="version-pill">v1.5.2</span>
         </footer>
       </div>
     `;
 
     mainEl = rootEl.querySelector('#shell-main');
     sidebarEl = rootEl.querySelector('#shell-sidebar');
+    chroniclesEl = rootEl.querySelector('#shell-chronicles');
 
     bindEvents();
     renderSidebar();
+    renderChroniclesPanel();
     renderActiveView();
   }
 
@@ -140,6 +144,7 @@
           <div class="equip-grid-side">
             ${equipMini('Arma', weapon, 'weapon')}
             ${equipMini('Armadura', armor, 'armor')}
+            ${equipMini('Mochila', bag, 'bag')}
           </div>
         </div>
 
@@ -169,16 +174,22 @@
     if (!equipped) {
       return `<div class="equip-mini is-empty"><div class="dim">${label}</div><div class="faint">—</div></div>`;
     }
-    const stat = slotName === 'weapon' ? `${equipped.damage}` : `+${equipped.defense}`;
+    let stat = '';
+    if (slotName === 'weapon') stat = `${equipped.damage}`;
+    else if (slotName === 'armor') stat = `+${equipped.defense}`;
+    else if (slotName === 'bag') stat = `${equipped.slots} sl`;
+    const dataAttr = slotName === 'bag'
+      ? `data-equipped-bag="${A.Utils.escapeHtml(equipped.id)}"`
+      : `data-equipped-slot="${slotName}"`;
     return `
-      <div class="equip-mini">
+      <button class="equip-mini equip-mini-clickable" ${dataAttr}>
         <div class="dim">${label}</div>
         <div class="equip-mini-content">
           <span class="equip-mini-icon">${equipped.icon || '⚔️'}</span>
           <span class="equip-mini-name">${A.Utils.escapeHtml(equipped.name)}</span>
         </div>
         <div class="equip-mini-stat num">${stat}</div>
-      </div>
+      </button>
     `;
   }
 
@@ -217,7 +228,7 @@
             <span class="dim">Mochila</span>
             <span class="num"> ${used} / ${cap}</span>
           </div>
-          <button class="btn-mini" data-action="change-bag">Cambiar</button>
+          <span class="dim small">${bag ? A.Utils.escapeHtml(bag.name) : ''}</span>
         </div>
         <div class="bag-side-grid" style="grid-template-columns: repeat(${cap <= 5 ? 5 : cap <= 16 ? 4 : 5}, 1fr)">
           ${cells.join('')}
@@ -253,6 +264,40 @@
     });
   }
 
+  function renderChroniclesPanel() {
+    if (!chroniclesEl) return;
+    const all = (A.State.chronicles || []).slice().reverse(); // más reciente primero
+    const recent = all.slice(0, 30);
+    chroniclesEl.innerHTML = `
+      <div class="chronicles-side-card">
+        <div class="chronicles-side-header">
+          <span class="dim">📜 Crónicas</span>
+          <span class="dim small">${all.length}</span>
+        </div>
+        <div class="chronicles-side-list">
+          ${recent.length === 0
+            ? `<div class="muted small">Aún no hay historia.</div>`
+            : recent.map(chronicleRow).join('')}
+        </div>
+      </div>
+    `;
+  }
+
+  function chronicleRow(e) {
+    const icons = {
+      combat: '⚔️', loot: '💰', heal: '💚', shop: '🏪',
+      travel: '🗺️', craft: '⚒️', spell: '📖', rest: '🌙',
+      item: '🎒', note: '📝', system: '·', region: '📍',
+    };
+    const icon = icons[e.type] || '·';
+    return `
+      <div class="chronicle-side-row">
+        <span class="chronicle-side-icon">${icon}</span>
+        <span class="chronicle-side-text">${A.Utils.escapeHtml(e.text)}</span>
+      </div>
+    `;
+  }
+
   function bindSidebarEvents() {
     sidebarEl.querySelectorAll('[data-action]').forEach((btn) => {
       btn.addEventListener('click', () => handleAction(btn.dataset.action));
@@ -262,6 +307,20 @@
         A.State.openModal('item-detail', { itemId: btn.dataset.miniItem });
       });
     });
+    // Click en una pieza equipada (arma/armadura) → modal con opción Quitar
+    sidebarEl.querySelectorAll('[data-equipped-slot]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const slot = btn.dataset.equippedSlot;
+        const itemId = slot === 'weapon' ? A.State.player.equipment.weapon : A.State.player.equipment.armor;
+        if (itemId) A.State.openModal('item-detail', { itemId, equipped: true });
+      });
+    });
+    // Click en mochila equipada → modal especial de mochila
+    sidebarEl.querySelectorAll('[data-equipped-bag]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        A.State.openModal('equipped-bag', { bagId: btn.dataset.equippedBag });
+      });
+    });
   }
 
   function handleAction(action) {
@@ -269,7 +328,6 @@
     else if (action === 'rules') A.State.openModal('rules');
     else if (action === 'menu') A.State.openModal('menu');
     else if (action === 'open-magic') A.State.openModal('magic');
-    else if (action === 'change-bag') A.State.openModal('change-bag');
   }
 
   function pct(cur, max) {
@@ -300,6 +358,8 @@
     unsubscribers.push(A.Bus.on('combat:started', renderActiveView));
     unsubscribers.push(A.Bus.on('combat:ended', () => { renderSidebar(); renderActiveView(); }));
     unsubscribers.push(A.Bus.on('tame:success', renderSidebar));
+    // Crónicas: refresh panel izquierdo cada vez que se agrega entrada
+    unsubscribers.push(A.Bus.on('chronicle:added', renderChroniclesPanel));
     unsubscribers.push(A.Bus.on('tame:lost', renderSidebar));
     unsubscribers.push(A.Bus.on('chronicle:added', () => {
       if (A.State.ui.activeTab === 'chronicles') renderActiveView();

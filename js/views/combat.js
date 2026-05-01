@@ -1,6 +1,10 @@
 /* ============================================================
-   Aventurs — View: Combat (v1.4.0)
-   Cards expandidas con stats, animación de dado, log detallado.
+   Aventurs — View: Combat (v1.5.2)
+   - Cards de combatiente con stats
+   - Log agrupado por turno con header "── Turno N ──"
+   - Dados estables (roll snapshoteado en entry.roll, no se re-randomiza)
+   - Barra de acciones horizontal con botones chicos
+   - Colores diferenciados: jugador (dorado), enemigo (rojo), mascota (verde)
    ============================================================ */
 
 (function (A) {
@@ -8,24 +12,23 @@
 
   let mainEl = null;
   let unsubs = [];
-  let lastLogLength = 0;
-  let pendingDieAnims = [];
 
   function render() {
     if (!mainEl) return;
     const c = A.State.combat;
     if (!c) {
       mainEl.innerHTML = `<div class="empty-tab">Sin combate activo.</div>`;
-      lastLogLength = 0;
       return;
     }
     if (c.result) { renderResult(); return; }
 
-    const isPlayerTurn = c.turn === 'player';
+    const isPlayerTurnNow = isPlayerTurnLocal(c);
     const p = A.State.player;
     const alive = A.Combat.aliveEnemies();
     const target = A.Combat.getTarget();
     const targetId = target ? target.instanceId : null;
+    const currentActor = c.initiative ? c.initiative[c.currentActorIdx] : null;
+    const currentActorName = currentActor ? currentActor.name : '—';
 
     mainEl.innerHTML = `
       <section class="combat-view">
@@ -33,18 +36,18 @@
         <header class="combat-header-bar">
           <div class="combat-title">
             <span class="combat-icon">⚔️</span>
-            <span>Combate</span>
+            <span>Combate · Turno ${c.round}</span>
           </div>
           <div class="combat-turn-badge">
-            ${alive.length} enemigo${alive.length !== 1 ? 's' : ''} · Turno ${c.round}
+            ${alive.length} enemigo${alive.length !== 1 ? 's' : ''} · Activo: <strong>${A.Utils.escapeHtml(currentActorName)}</strong>
           </div>
         </header>
 
         <div class="combat-arena">
-          ${renderPlayerCard(p)}
+          ${renderPlayerCard(p, currentActor && currentActor.kind === 'player')}
           <div class="combat-vs">⚔</div>
           <div class="combat-enemies-strip">
-            ${c.enemies.map((e) => renderEnemyCard(e, e.instanceId === targetId)).join('')}
+            ${c.enemies.map((e) => renderEnemyCard(e, e.instanceId === targetId, currentActor && currentActor.kind === 'enemy' && currentActor.id === e.instanceId)).join('')}
           </div>
         </div>
 
@@ -60,40 +63,44 @@
           </div>
         ` : ''}
 
-        ${p.pet ? renderPetMini(p.pet) : ''}
+        ${p.pet ? renderPetMini(p.pet, currentActor && currentActor.kind === 'pet') : ''}
 
-        <section class="combat-log">
-          <div class="combat-log-divider">— Turno ${c.round} —</div>
-          <div class="combat-log-list" id="combat-log-list">
-            ${c.log.slice().reverse().map(logRow).join('')}
-          </div>
+        <section class="combat-actions-bar ${isPlayerTurnNow ? '' : 'is-disabled'}">
+          ${renderActions(isPlayerTurnNow)}
         </section>
 
-        <section class="combat-actions">
-          ${isPlayerTurn ? renderActions() : `
-            <div class="combat-waiting muted">⏳ El enemigo está actuando...</div>
-          `}
+        <section class="combat-log">
+          <div class="combat-log-list" id="combat-log-list">
+            ${renderLogGroupedByTurn(c.log)}
+          </div>
         </section>
 
       </section>
     `;
 
     bindEvents();
-
-    // Si hubo entradas nuevas con tirada, animar el dado
-    flushDieAnimations();
+    // Auto-scroll al fondo del log
+    const list = mainEl.querySelector('#combat-log-list');
+    if (list) list.scrollTop = list.scrollHeight;
   }
 
-  function renderPlayerCard(p) {
+  function isPlayerTurnLocal(c) {
+    if (!c || !c.initiative) return false;
+    const cur = c.initiative[c.currentActorIdx];
+    return cur && cur.kind === 'player';
+  }
+
+  // ---------- Cards ----------
+
+  function renderPlayerCard(p, isActive) {
     const race = A.Data.getById('races', p.raceId);
     const weapon = p.equipment.weapon ? A.Data.getById('weapons', p.equipment.weapon) : null;
     const armor = p.equipment.armor ? A.Data.getById('armors', p.equipment.armor) : null;
     const totalArmor = (p.stats.armor || 0) + (armor ? armor.defense : 0);
     const dmgStr = weapon ? weapon.damage : '1d3';
-    const playerAC = 10 + totalArmor;
 
     return `
-      <div class="combat-card combat-card-player">
+      <div class="combat-card combat-card-player ${isActive ? 'is-active' : ''}">
         <div class="combat-card-icon">${race ? race.icon : '👤'}</div>
         <div class="combat-card-name">${A.Utils.escapeHtml(p.name)}</div>
         <div class="combat-card-meta dim">${race ? race.name : ''} · Nv ${p.level}</div>
@@ -111,21 +118,19 @@
 
         <div class="combat-card-stats">
           <div class="card-stat" title="Daño">⚔️ ${dmgStr}${p.stats.damage ? `+${p.stats.damage}` : ''}</div>
-          <div class="card-stat" title="AC (defensa)">🛡️ ${playerAC}</div>
+          <div class="card-stat" title="Armadura (reduce daño)">🛡️ ${totalArmor}</div>
           <div class="card-stat" title="Velocidad">⚡ ${p.stats.speed || 10}</div>
-          <div class="card-stat" title="Precisión">🎯 ${p.stats.precision || 0}</div>
+          <div class="card-stat" title="Esquiva">💨 ${p.stats.dodge || 0}</div>
         </div>
       </div>
     `;
   }
 
-  function renderEnemyCard(e, isTarget) {
+  function renderEnemyCard(e, isTarget, isActive) {
     const dead = e.hp <= 0;
-    const cls = `combat-card combat-card-enemy ${isTarget && !dead ? 'is-target' : ''} ${dead ? 'is-dead' : ''}`;
+    const cls = `combat-card combat-card-enemy ${isTarget && !dead ? 'is-target' : ''} ${isActive ? 'is-active' : ''} ${dead ? 'is-dead' : ''}`;
     const enemyData = A.Data.getById('enemies', e.id);
     const damageStr = enemyData ? `${enemyData.damage}` : `${e.damage}`;
-    const enemyAC = e.difficulty || (10 + (e.armor || 0));
-    const coinRange = enemyData && enemyData.coinLoot ? `${enemyData.coinLoot[0]}-${enemyData.coinLoot[1]}` : '?';
 
     return `
       <button class="${cls}" data-target="${A.Utils.escapeHtml(e.instanceId)}" ${dead ? 'disabled' : ''}>
@@ -140,21 +145,19 @@
 
         <div class="combat-card-stats">
           <div class="card-stat" title="Daño">⚔️ ${damageStr}</div>
-          <div class="card-stat" title="Defensa">🛡️ ${e.armor || 0}</div>
+          <div class="card-stat" title="Armadura (reduce daño)">🛡️ ${e.armor || 0}</div>
           <div class="card-stat" title="Velocidad">⚡ ${e.speed || 0}</div>
-          <div class="card-stat" title="Dificultad de impacto">🎯 ${e.difficulty || enemyAC}</div>
+          <div class="card-stat" title="Dificultad de impacto">🎯 ${e.difficulty || 10}</div>
         </div>
-
-        <div class="combat-card-loot dim">💰 ${coinRange}c</div>
 
         ${dead ? `<div class="combat-card-dead-tag">caído</div>` : ''}
       </button>
     `;
   }
 
-  function renderPetMini(pet) {
+  function renderPetMini(pet, isActive) {
     return `
-      <div class="combat-pet">
+      <div class="combat-pet ${isActive ? 'is-active' : ''}">
         <span class="combat-pet-icon">${pet.icon || '🐾'}</span>
         <div class="combat-pet-info">
           <div class="combat-pet-name">${A.Utils.escapeHtml(pet.name)} <span class="dim">mascota</span></div>
@@ -165,33 +168,39 @@
     `;
   }
 
-  function renderActions() {
+  // ---------- Action bar (horizontal) ----------
+
+  function renderActions(isPlayerTurnNow) {
     const p = A.State.player;
     const spells = A.Combat.availableSpells();
     const items = A.Combat.availableItems();
+    const disabled = !isPlayerTurnNow;
     return `
-      <div class="combat-action-grid">
-        <button class="combat-action" data-combat-action="attack">
+      <div class="combat-action-row">
+        <button class="combat-action-btn" data-combat-action="attack" ${disabled ? 'disabled' : ''} title="Atacar">
           <span class="combat-action-icon">⚔️</span>
           <span class="combat-action-label">Atacar</span>
         </button>
         ${p.hasMagic ? `
-          <button class="combat-action" data-combat-action="spell" ${spells.length === 0 ? 'disabled' : ''}>
+          <button class="combat-action-btn" data-combat-action="spell" ${disabled || spells.length === 0 ? 'disabled' : ''} title="Hechizo">
             <span class="combat-action-icon">✨</span>
-            <span class="combat-action-label">Hechizo${spells.length === 0 ? ' (sin hechizos)' : ''}</span>
+            <span class="combat-action-label">Hechizo</span>
           </button>
         ` : ''}
-        <button class="combat-action" data-combat-action="item" ${items.length === 0 ? 'disabled' : ''}>
+        <button class="combat-action-btn" data-combat-action="item" ${disabled || items.length === 0 ? 'disabled' : ''} title="Usar item">
           <span class="combat-action-icon">🧪</span>
-          <span class="combat-action-label">Usar item${items.length === 0 ? ' (sin items)' : ''}</span>
+          <span class="combat-action-label">Item</span>
         </button>
-        <button class="combat-action" data-combat-action="flee">
+        <button class="combat-action-btn" data-combat-action="flee" ${disabled ? 'disabled' : ''} title="Huir">
           <span class="combat-action-icon">🏃</span>
           <span class="combat-action-label">Huir</span>
         </button>
       </div>
+      ${disabled ? `<div class="combat-waiting muted">Esperando turno...</div>` : ''}
     `;
   }
+
+  // ---------- Result ----------
 
   function renderResult() {
     const c = A.State.combat;
@@ -210,7 +219,7 @@
         <p class="combat-result-sub muted">${A.Utils.escapeHtml(subtitle)}</p>
 
         <div class="combat-result-log">
-          ${c.log.slice().reverse().map(logRow).join('')}
+          ${renderLogGroupedByTurn(c.log)}
         </div>
 
         <button class="btn-primary" data-combat-action="finish">Continuar</button>
@@ -219,38 +228,43 @@
     bindEvents();
   }
 
-  // ---------- Log row con tiradas detalladas ----------
+  // ---------- Log: agrupar por turn-header ----------
+
+  function renderLogGroupedByTurn(entries) {
+    if (!entries || entries.length === 0) return '';
+    // Recorremos el log y emitimos:
+    //  - entry con type==='turn-header' como divider visible
+    //  - resto como filas
+    const out = [];
+    for (const e of entries) {
+      if (e.type === 'turn-header') {
+        out.push(`<div class="combat-log-divider">${A.Utils.escapeHtml(e.text)}</div>`);
+      } else {
+        out.push(logRow(e));
+      }
+    }
+    return out.join('');
+  }
 
   function logRow(entry) {
     const cls = `combat-log-row is-${entry.type}`;
-    // Sistema simple: solo texto
     if (!entry.roll) {
       return `<div class="${cls}"><span class="log-bullet">·</span><span class="combat-log-text">${A.Utils.escapeHtml(entry.text || '')}</span></div>`;
     }
 
-    // Estructurada: header + sub-líneas indentadas tipo árbol
-    const resultIcon = ({ hit: '✓', crit: '★', miss: '✕', fumble: '💥' })[entry.result] || '·';
-    const resultClass = `result-${entry.result}`;
-
     const headerLine = `
-      <div class="log-line log-header ${resultClass}">
-        <span class="log-bullet">⚔️</span>
+      <div class="log-line log-header result-${entry.result}">
+        <span class="log-bullet">${actorIcon(entry.type)}</span>
         <span class="log-text">${A.Utils.escapeHtml(entry.text)}</span>
       </div>
     `;
 
-    const dieAnimId = `die_${entry.ts}_${Math.floor(Math.random() * 1000)}`;
-    pendingDieAnims.push({ id: dieAnimId, value: entry.roll });
-
+    // Dado estable: mostramos el roll en formato numérico al lado del cube
     const rollLine = `
       <div class="log-line log-sub">
         <span class="log-tree">├─</span>
-        <span class="die-anim" id="${dieAnimId}" data-final="${entry.roll}">
-          <span class="die-cube">
-            <span class="die-face die-face-final">${entry.roll}</span>
-          </span>
-        </span>
-        <span class="log-text">D20 = <strong>${entry.roll}</strong>${entry.bonus ? ` + ${entry.bonus} bono = <strong>${entry.total}</strong>` : ''} vs ${entry.vsLabel || 'objetivo'} <strong>${entry.vs}</strong></span>
+        <span class="die-pill" title="Dado de impacto">${entry.roll}</span>
+        <span class="log-text">D20=<strong>${entry.roll}</strong>${entry.bonus ? ` +${entry.bonus} = <strong>${entry.total}</strong>` : ''} vs ${entry.vsLabel || 'objetivo'} <strong>${entry.vs}</strong></span>
       </div>
     `;
 
@@ -260,7 +274,7 @@
         <div class="log-line log-sub result-crit">
           <span class="log-tree">├─</span>
           <span class="log-icon">★</span>
-          <span class="log-text">¡Crítico! Daño doblado.</span>
+          <span class="log-text">¡Crítico!</span>
         </div>
       `;
     } else if (entry.result === 'fumble') {
@@ -279,16 +293,24 @@
           <span class="log-text">No llegó.</span>
         </div>
       `;
+    } else if (entry.result === 'blocked') {
+      resultLine = `
+        <div class="log-line log-sub result-blocked">
+          <span class="log-tree">└─</span>
+          <span class="log-icon">🛡</span>
+          <span class="log-text">Armadura bloqueó todo el daño.</span>
+        </div>
+      `;
     }
 
     let dmgLine = '';
-    if (entry.dmg != null && (entry.result === 'hit' || entry.result === 'crit')) {
-      const dmgInfo = entry.damageDice ? ` (${entry.damageDice})` : '';
+    if (entry.dmg != null && entry.dmg > 0 && (entry.result === 'hit' || entry.result === 'crit')) {
+      const reduction = entry.targetArmor && entry.rawDmg ? ` (${entry.rawDmg}-${entry.targetArmor})` : '';
       dmgLine = `
         <div class="log-line log-sub result-hit">
           <span class="log-tree">└─</span>
           <span class="log-icon">⚔️</span>
-          <span class="log-text">${entry.dmg} de daño${dmgInfo}. (HP: ${entry.hpAfter}/${entry.hpMax})</span>
+          <span class="log-text"><strong>${entry.dmg}</strong> de daño${reduction}. (HP: ${entry.hpAfter}/${entry.hpMax})</span>
         </div>
       `;
     }
@@ -296,18 +318,16 @@
     return `<div class="${cls}">${headerLine}${rollLine}${resultLine}${dmgLine}</div>`;
   }
 
-  function flushDieAnimations() {
-    if (!pendingDieAnims.length) return;
-    requestAnimationFrame(() => {
-      pendingDieAnims.forEach(({ id, value }) => {
-        const el = mainEl.querySelector('#' + id);
-        if (!el) return;
-        // Ya viene marcado con cube, solo le agregamos clase para que dispare la animación
-        el.classList.add('is-rolling');
-      });
-      pendingDieAnims = [];
-    });
+  function actorIcon(type) {
+    if (type === 'player') return '🗡️';
+    if (type === 'enemy') return '👹';
+    if (type === 'pet') return '🐾';
+    if (type === 'loot') return '💰';
+    if (type === 'system') return '·';
+    return '·';
   }
+
+  // ---------- Helpers ----------
 
   function pct(cur, max) {
     if (!max) return 0;
@@ -324,6 +344,7 @@
       b.addEventListener('click', () => A.Combat.setTarget(b.dataset.target));
     });
     mainEl.querySelectorAll('[data-combat-action]').forEach((b) => {
+      if (b.disabled) return;
       b.addEventListener('click', () => {
         const action = b.dataset.combatAction;
         if (action === 'attack') A.Combat.playerAttack();
@@ -356,7 +377,6 @@
   const CombatView = {
     mount(container) {
       mainEl = container;
-      lastLogLength = 0;
       render();
       unsubscribe();
       subscribe();
