@@ -185,11 +185,41 @@
     // Click en nodos clickables (vecinos)
     mainEl.querySelectorAll('[data-clickable="1"][data-map-region]').forEach((g) => {
       g.style.cursor = 'pointer';
-      g.addEventListener('click', (e) => {
-        // Si fue un drag, no viajar
-        if (didDragRecently) return;
-        const ok = A.Travel.start(g.dataset.mapRegion);
-        if (ok) closeMap();
+      // Usamos mousedown/mouseup en el propio nodo para detectar click "puro"
+      // (sin movimiento significativo) y dispara el viaje.
+      let nodeMouseDownX = 0, nodeMouseDownY = 0, nodeMouseDownTime = 0;
+      g.addEventListener('mousedown', (e) => {
+        e.stopPropagation(); // Importante: no propagar al canvas para que no inicie un drag
+        nodeMouseDownX = e.clientX;
+        nodeMouseDownY = e.clientY;
+        nodeMouseDownTime = Date.now();
+      });
+      g.addEventListener('mouseup', (e) => {
+        e.stopPropagation();
+        const dx = Math.abs(e.clientX - nodeMouseDownX);
+        const dy = Math.abs(e.clientY - nodeMouseDownY);
+        const dt = Date.now() - nodeMouseDownTime;
+        // Si no movió mucho y fue rápido, es click → viajar
+        if (dx < 6 && dy < 6 && dt < 600) {
+          const regionId = g.dataset.mapRegion;
+          if (!regionId) return;
+          const result = A.Travel.start(regionId);
+          // Travel.start devuelve {ok: bool, error?, traveling?}
+          if (result && result.ok) {
+            closeMap();
+          } else if (result && result.error) {
+            // Mostrar error como crónica
+            A.State.addChronicle({ type: 'note', text: result.error });
+          }
+        }
+      });
+      // Touch: tap directo
+      g.addEventListener('touchend', (e) => {
+        e.stopPropagation();
+        const regionId = g.dataset.mapRegion;
+        if (!regionId) return;
+        const result = A.Travel.start(regionId);
+        if (result && result.ok) closeMap();
       });
     });
     // Zoom & Pan

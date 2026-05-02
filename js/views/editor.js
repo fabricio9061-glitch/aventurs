@@ -112,6 +112,11 @@
                      value="${A.Utils.escapeHtml(filterText)}">
               <button class="btn-secondary" data-editor-action="new">+ Nuevo</button>
             </div>
+            ${activeType === 'enemies' ? `
+              <div class="list-toolbar-secondary">
+                <button class="btn-mini btn-audit-all" data-editor-action="audit-all-enemies">🔍 Auditar todos los enemigos</button>
+              </div>
+            ` : ''}
             <div class="list-items">
               ${filtered.map((e) => `
                 <button class="list-item ${e.id === activeId ? 'is-active' : ''} ${e._source === 'editor' ? 'is-edited' : ''}"
@@ -683,6 +688,8 @@
           duplicateEntity();
         } else if (a === 'show-validation') {
           alert(A.Validate.run().map((v) => `[${v.level}] ${v.collection}/${v.entityId}: ${v.msg}`).join('\n') || 'Sin avisos.');
+        } else if (a === 'audit-all-enemies') {
+          openAuditWizard();
         }
       });
     });
@@ -804,6 +811,254 @@
         toggleFull.textContent = isOpen ? '📊 Generar reporte completo' : '📊 Ocultar reporte';
       });
     }
+  }
+
+  // ============================================================
+  // v1.5.7e — AUDIT WIZARD: recorre todos los enemigos con desbalance
+  // ============================================================
+  let auditWizardState = {
+    open: false,
+    items: [],     // [{enemy, audit: [...]}]
+    cursor: 0,     // índice actual en items
+    appliedCount: 0,
+    skippedCount: 0,
+  };
+
+  function openAuditWizard() {
+    // Generar lista de TODOS los enemigos con al menos un campo desbalanceado (warning o critical)
+    const all = A.Data.enemies || [];
+    const items = [];
+    for (const enemy of all) {
+      const audit = A.AutoBalance.auditEnemyFull(enemy);
+      const issues = audit.filter((a) => a.status !== 'ok');
+      if (issues.length > 0) {
+        items.push({ enemy, audit, issues });
+      }
+    }
+    auditWizardState = {
+      open: true,
+      items,
+      cursor: 0,
+      appliedCount: 0,
+      skippedCount: 0,
+    };
+    renderAuditWizard();
+  }
+
+  function closeAuditWizard() {
+    auditWizardState.open = false;
+    const overlay = document.getElementById('audit-wizard-overlay');
+    if (overlay) overlay.remove();
+    // Re-render del editor por si cambiamos un enemigo activo
+    render();
+  }
+
+  function renderAuditWizard() {
+    let overlay = document.getElementById('audit-wizard-overlay');
+    if (!overlay) {
+      overlay = document.createElement('div');
+      overlay.id = 'audit-wizard-overlay';
+      overlay.className = 'audit-wizard-overlay';
+      document.body.appendChild(overlay);
+    }
+
+    const { items, cursor, appliedCount, skippedCount } = auditWizardState;
+
+    if (items.length === 0) {
+      overlay.innerHTML = `
+        <div class="audit-wizard-modal">
+          <header class="audit-wizard-header">
+            <h2>🔍 Auditoría de enemigos</h2>
+            <button class="modal-close" data-audit-close>✕</button>
+          </header>
+          <div class="audit-wizard-body audit-empty">
+            <div style="font-size: 48px; margin-bottom: 16px;">✅</div>
+            <h3>Todo bien balanceado</h3>
+            <p class="muted">No hay enemigos con desvíos significativos respecto a la sugerencia de AutoBalance.</p>
+          </div>
+          <footer class="audit-wizard-footer">
+            <button class="btn-primary" data-audit-close>Cerrar</button>
+          </footer>
+        </div>
+      `;
+      bindAuditWizardEvents(overlay);
+      return;
+    }
+
+    if (cursor >= items.length) {
+      // Final del wizard
+      overlay.innerHTML = `
+        <div class="audit-wizard-modal">
+          <header class="audit-wizard-header">
+            <h2>🔍 Auditoría completa</h2>
+            <button class="modal-close" data-audit-close>✕</button>
+          </header>
+          <div class="audit-wizard-body audit-empty">
+            <div style="font-size: 48px; margin-bottom: 16px;">🎉</div>
+            <h3>Auditoría completada</h3>
+            <p>Revisaste <strong>${items.length}</strong> enemigos con desvíos.</p>
+            <p>Aplicaste cambios en <strong>${appliedCount}</strong> · Salteaste <strong>${skippedCount}</strong>.</p>
+          </div>
+          <footer class="audit-wizard-footer">
+            <button class="btn-primary" data-audit-close>Cerrar</button>
+          </footer>
+        </div>
+      `;
+      bindAuditWizardEvents(overlay);
+      return;
+    }
+
+    const current = items[cursor];
+    const enemy = current.enemy;
+    const audit = current.audit;
+
+    overlay.innerHTML = `
+      <div class="audit-wizard-modal">
+        <header class="audit-wizard-header">
+          <div>
+            <h2>🔍 Auditoría de enemigos</h2>
+            <div class="audit-wizard-progress">
+              <span class="dim">Enemigo</span>
+              <strong>${cursor + 1}</strong>
+              <span class="dim">de</span>
+              <strong>${items.length}</strong>
+              <span class="dim">·</span>
+              <span class="dim">${appliedCount} aplicados, ${skippedCount} salteados</span>
+            </div>
+          </div>
+          <button class="modal-close" data-audit-close>✕</button>
+        </header>
+
+        <div class="audit-wizard-body">
+          <aside class="audit-wizard-sidebar">
+            <div class="audit-wizard-sidebar-title dim">Cola de revisión</div>
+            <div class="audit-wizard-list">
+              ${items.map((it, i) => {
+                const numIssues = it.issues.length;
+                const hasCritical = it.issues.some((iss) => iss.status === 'critical');
+                const cls = `audit-wizard-list-item ${i === cursor ? 'is-active' : ''} ${i < cursor ? 'is-done' : ''} ${hasCritical ? 'has-critical' : ''}`;
+                return `
+                  <button class="${cls}" data-audit-jump="${i}">
+                    <span class="audit-wizard-list-icon">${it.enemy.icon || '👹'}</span>
+                    <span class="audit-wizard-list-name">${A.Utils.escapeHtml(it.enemy.name || it.enemy.id)}</span>
+                    <span class="audit-wizard-list-badge ab-${hasCritical ? 'critical' : 'warning'}">${numIssues}</span>
+                  </button>
+                `;
+              }).join('')}
+            </div>
+          </aside>
+
+          <main class="audit-wizard-main">
+            <div class="audit-wizard-enemy-header">
+              <span class="audit-wizard-enemy-icon">${enemy.icon || '👹'}</span>
+              <div>
+                <h3 class="audit-wizard-enemy-name">${A.Utils.escapeHtml(enemy.name || enemy.id)}</h3>
+                <div class="audit-wizard-enemy-meta dim">
+                  Tier ${enemy.tier} ·
+                  ${enemy.category} ·
+                  ${(enemy.family || []).join(', ')}
+                </div>
+              </div>
+            </div>
+
+            <div class="audit-wizard-stats">
+              ${audit.map((a) => `
+                <div class="audit-wizard-stat-row ab-${a.status}">
+                  <div class="audit-wizard-stat-field">
+                    <span class="ab-badge ab-${a.status}">${a.status === 'ok' ? 'OK' : a.status === 'warning' ? 'LEVE' : 'CRÍTICO'}</span>
+                    <strong>${A.Utils.escapeHtml(a.label)}</strong>
+                  </div>
+                  <div class="audit-wizard-stat-values">
+                    <span class="audit-wizard-stat-current"><span class="dim">actual</span> <strong>${A.Utils.escapeHtml(String(a.current ?? '—'))}</strong>${a.isDamageDice ? ` <span class="dim">(~${a.currentNum.toFixed(1)})</span>` : ''}</span>
+                    <span class="audit-wizard-stat-arrow dim">→</span>
+                    <span class="audit-wizard-stat-suggested"><span class="dim">sugerido</span> <strong>${a.suggested}</strong></span>
+                    <span class="audit-wizard-stat-delta dim">(${a.delta}% desvío)</span>
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+
+            <div class="audit-wizard-actions-info dim">
+              💡 "Aplicar todos" usará la sugerencia de AutoBalance para los campos desbalanceados.
+              "Saltar" deja el enemigo sin cambios y pasa al siguiente.
+            </div>
+          </main>
+        </div>
+
+        <footer class="audit-wizard-footer">
+          <button class="btn-secondary" data-audit-action="prev" ${cursor === 0 ? 'disabled' : ''}>← Anterior</button>
+          <button class="btn-secondary" data-audit-action="skip">Saltar</button>
+          <button class="btn-primary" data-audit-action="apply">✓ Aplicar todos los sugeridos</button>
+          <button class="btn-ghost" data-audit-close>Cerrar</button>
+        </footer>
+      </div>
+    `;
+
+    bindAuditWizardEvents(overlay);
+  }
+
+  function bindAuditWizardEvents(overlay) {
+    overlay.querySelectorAll('[data-audit-close]').forEach((b) => {
+      b.addEventListener('click', closeAuditWizard);
+    });
+    overlay.querySelectorAll('[data-audit-action]').forEach((b) => {
+      b.addEventListener('click', () => {
+        const a = b.dataset.auditAction;
+        if (a === 'skip') {
+          auditWizardState.skippedCount++;
+          auditWizardState.cursor++;
+          renderAuditWizard();
+        } else if (a === 'prev') {
+          if (auditWizardState.cursor > 0) {
+            auditWizardState.cursor--;
+            renderAuditWizard();
+          }
+        } else if (a === 'apply') {
+          applyCurrentAudit();
+        }
+      });
+    });
+    overlay.querySelectorAll('[data-audit-jump]').forEach((b) => {
+      b.addEventListener('click', () => {
+        const idx = Number(b.dataset.auditJump);
+        if (idx >= 0 && idx < auditWizardState.items.length) {
+          auditWizardState.cursor = idx;
+          renderAuditWizard();
+        }
+      });
+    });
+    // Click fuera del modal cierra
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) closeAuditWizard();
+    });
+  }
+
+  function applyCurrentAudit() {
+    const current = auditWizardState.items[auditWizardState.cursor];
+    if (!current) return;
+    const enemy = current.enemy;
+    const sug = A.AutoBalance.suggestEnemyStats(enemy);
+    // Tomamos los campos desbalanceados (warning/critical) y los aplicamos
+    const overrides = A.Data.getOverrides();
+    overrides.enemies = overrides.enemies || [];
+    // Hacer una copia limpia del enemigo actual y aplicarle los cambios
+    const idx = overrides.enemies.findIndex((e) => e.id === enemy.id);
+    let target = idx >= 0 ? overrides.enemies[idx] : JSON.parse(JSON.stringify(enemy));
+    delete target._source;
+    for (const a of current.audit) {
+      if (a.status === 'ok') continue;
+      const newVal = sug[a.field];
+      if (newVal == null) continue;
+      target[a.field] = newVal;
+    }
+    if (idx >= 0) overrides.enemies[idx] = target;
+    else overrides.enemies.push(target);
+    A.Data.saveOverrides(overrides);
+    A.Data.init();
+    auditWizardState.appliedCount++;
+    auditWizardState.cursor++;
+    dirty = true;
+    renderAuditWizard();
   }
 
   const Editor = { mount, unmount };

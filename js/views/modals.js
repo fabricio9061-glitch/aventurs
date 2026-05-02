@@ -1161,16 +1161,16 @@
       overlay.querySelectorAll('[data-travel]').forEach((b) => {
         if (b.disabled) return;
         b.addEventListener('click', () => {
-          const ok = A.Travel.start(b.dataset.travel);
-          if (ok) A.State.closeModal();
+          const result = A.Travel.start(b.dataset.travel);
+          if (result && result.ok) A.State.closeModal();
         });
       });
       // Click en nodos del mapa (solo neighbors clickables)
       overlay.querySelectorAll('[data-clickable="1"][data-map-region]').forEach((g) => {
         g.style.cursor = 'pointer';
         g.addEventListener('click', () => {
-          const ok = A.Travel.start(g.dataset.mapRegion);
-          if (ok) A.State.closeModal();
+          const result = A.Travel.start(g.dataset.mapRegion);
+          if (result && result.ok) A.State.closeModal();
         });
       });
     }
