@@ -28,7 +28,7 @@
     world: null,
     combat: null,
     traveling: null,
-    ui: { activeTab: 'world', openModal: null, modalPayload: null },
+    ui: { activeTab: 'world', openModal: null, modalPayload: null, showMap: false },
     chronicles: [],
 
     // ---------- Lifecycle ----------
@@ -148,7 +148,7 @@
       State.world = null;
       State.combat = null;
       State.traveling = null;
-      State.ui = { activeTab: 'world', openModal: null, modalPayload: null };
+      State.ui = { activeTab: 'world', openModal: null, modalPayload: null, showMap: false };
       State.chronicles = [];
       try { localStorage.removeItem(STORAGE_KEY); } catch (e) {}
       A.Bus.emit('state:reset');
@@ -211,7 +211,7 @@
       };
 
       State.traveling = null;
-      State.ui = { activeTab: 'world', openModal: null, modalPayload: null };
+      State.ui = { activeTab: 'world', openModal: null, modalPayload: null, showMap: false };
       State.chronicles = [];
       const magicNote = hasMagic ? ' Sentís el zumbido del maná en las venas.' : '';
       State.addChronicle({ type: 'system', text: `${State.player.name} comienza su aventura en el Pueblo Inicial.${magicNote}` });

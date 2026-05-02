@@ -116,11 +116,17 @@
    */
   function renderCurrentTurnLog(c) {
     if (!c.log || c.log.length === 0) return '<div class="muted small">Sin acciones aún en este turno.</div>';
-    // Encontrar índice del último turn-header
-    let startIdx = 0;
+    // Encontrar los ÚLTIMOS DOS turn-headers (para que veas el turno actual + el anterior)
+    // Esto evita el bug donde la última acción del jugador en un turno N
+    // no se muestra porque ya empezó el turno N+1.
+    const turnHeaderIdx = [];
     for (let i = c.log.length - 1; i >= 0; i--) {
-      if (c.log[i].type === 'turn-header') { startIdx = i; break; }
+      if (c.log[i].type === 'turn-header') {
+        turnHeaderIdx.unshift(i);
+        if (turnHeaderIdx.length >= 2) break;
+      }
     }
+    let startIdx = turnHeaderIdx.length > 0 ? turnHeaderIdx[0] : 0;
     const slice = c.log.slice(startIdx);
     return renderLogGroupedByTurn(slice);
   }
@@ -468,9 +474,78 @@
 
   function subscribe() {
     unsubs.push(A.Bus.on('combat:turn', render));
-    unsubs.push(A.Bus.on('combat:action', render));
+    unsubs.push(A.Bus.on('combat:action', (entry) => {
+      render();
+      // Después del render, lanzar feedback visual sobre la card recién pintada
+      requestAnimationFrame(() => {
+        try { spawnFeedback(entry); } catch (e) { /* silencioso */ }
+      });
+    }));
     unsubs.push(A.Bus.on('combat:ended', render));
     unsubs.push(A.Bus.on('combat:target-changed', render));
+  }
+
+  /**
+   * Genera feedback visual (números flotantes, shake) sobre la card del target
+   * según el resultado de la acción.
+   */
+  function spawnFeedback(entry) {
+    if (!entry || !mainEl) return;
+    if (!entry.target) return;
+
+    // Encontrar la card del target en el DOM
+    let targetCardEl = null;
+    if (entry.target === A.State.player.name) {
+      targetCardEl = mainEl.querySelector('.combat-card-player');
+    } else {
+      // Buscar enemigo por displayName
+      const enemyCards = mainEl.querySelectorAll('.combat-card-enemy');
+      enemyCards.forEach((card) => {
+        const nameEl = card.querySelector('.combat-card-name');
+        if (nameEl && nameEl.textContent.trim() === entry.target) {
+          targetCardEl = card;
+        }
+      });
+    }
+    if (!targetCardEl) return;
+
+    if (entry.result === 'hit' || entry.result === 'crit') {
+      const dmg = entry.dmg || 0;
+      if (dmg > 0) {
+        spawnFloatingNumber(targetCardEl, `-${dmg}`, entry.result === 'crit' ? 'crit' : 'damage');
+        shakeElement(targetCardEl);
+      }
+    } else if (entry.result === 'evaded') {
+      spawnFloatingText(targetCardEl, '¡Esquivó!', 'evaded');
+    } else if (entry.result === 'blocked') {
+      spawnFloatingText(targetCardEl, 'Bloqueado', 'blocked');
+    } else if (entry.result === 'miss') {
+      spawnFloatingText(targetCardEl, 'Falló', 'miss');
+    }
+  }
+
+  function spawnFloatingNumber(el, text, kind) {
+    const num = document.createElement('div');
+    num.className = `combat-floating-num is-${kind}`;
+    num.textContent = text;
+    el.appendChild(num);
+    setTimeout(() => { try { num.remove(); } catch (e) {} }, 1200);
+  }
+
+  function spawnFloatingText(el, text, kind) {
+    const t = document.createElement('div');
+    t.className = `combat-floating-text is-${kind}`;
+    t.textContent = text;
+    el.appendChild(t);
+    setTimeout(() => { try { t.remove(); } catch (e) {} }, 1200);
+  }
+
+  function shakeElement(el) {
+    el.classList.remove('is-shaking');
+    // Forzar reflow para que la animación reinicie aunque ya estaba activa
+    void el.offsetWidth;
+    el.classList.add('is-shaking');
+    setTimeout(() => { try { el.classList.remove('is-shaking'); } catch (e) {} }, 400);
   }
 
   function unsubscribe() {

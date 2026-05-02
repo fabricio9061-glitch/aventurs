@@ -722,6 +722,11 @@
   function afterPlayerAction() {
     const c = State().combat;
     if (!c) return;
+    State().persist();
+    // Forzar re-render del view para que se vea la acción del jugador ANTES
+    // de avanzar al siguiente actor (especialmente importante si era el último turno
+    // y se va a agregar un turn-header nueva ronda)
+    A.Bus.emit('combat:action', { actor: 'player' });
     if (aliveEnemies().length === 0) { onVictory(); A.Bus.emit('combat:ended', { result: 'victory' }); return; }
     nextActor();
   }

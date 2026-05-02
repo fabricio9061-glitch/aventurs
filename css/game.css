@@ -3215,3 +3215,244 @@
   color: var(--food);
   font-weight: var(--fw-semi);
 }
+
+/* ============================================================
+   v1.5.7b — Mapa pantalla completa + feedback visual combate
+   ============================================================ */
+
+/* Shell con mapa: ocultar sidebar y crónicas (igual que combat) */
+.shell-body.is-map {
+  grid-template-columns: 1fr;
+  grid-template-areas: "main";
+}
+.shell-body.is-map .shell-sidebar,
+.shell-body.is-map .shell-chronicles {
+  display: none;
+}
+
+/* Vista del mapa */
+.map-view {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  height: calc(100vh - 130px);
+  min-height: 500px;
+}
+.map-view-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
+  background: var(--surface-raised);
+  border: var(--border-w) solid var(--border);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-sm);
+}
+.map-view-title {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-weight: var(--fw-semi);
+  font-size: var(--fs-md);
+  color: var(--gold-text);
+}
+.map-view-icon { font-size: 22px; }
+.map-view-current {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-size: var(--fs-sm);
+}
+.map-view-region {
+  font-weight: var(--fw-semi);
+  color: var(--text);
+}
+.btn-back-map {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.map-view-legend {
+  display: flex;
+  gap: var(--sp-4);
+  justify-content: center;
+  padding: var(--sp-2);
+  font-size: 11px;
+  color: var(--text-muted);
+  background: var(--surface);
+  border-radius: var(--r-md);
+  border: var(--border-w) solid var(--border-soft);
+}
+
+.map-view-canvas {
+  flex: 1;
+  background:
+    radial-gradient(ellipse at center, var(--gold-bg-soft) 0%, var(--surface) 60%),
+    var(--surface);
+  border: var(--border-w) solid var(--border);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-inset), var(--shadow-md);
+  overflow: hidden;
+  position: relative;
+  min-height: 0;
+}
+
+.map-fullscreen-svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  user-select: none;
+}
+
+/* Estilos de nodos en pantalla completa: más grandes y con efectos */
+.map-fullscreen-svg .map-node circle {
+  fill: var(--surface-sunken);
+  stroke: var(--border-strong);
+  stroke-width: 1.5;
+  transition: all var(--t-base);
+}
+.map-fullscreen-svg .map-node.is-far circle {
+  opacity: 0.4;
+}
+.map-fullscreen-svg .map-node.is-far .map-node-icon,
+.map-fullscreen-svg .map-node.is-far .map-node-label {
+  opacity: 0.5;
+}
+.map-fullscreen-svg .map-node.is-neighbor circle {
+  fill: var(--gold-bg);
+  stroke: var(--gold-deep);
+  stroke-width: 2;
+  filter: drop-shadow(0 2px 4px rgba(212, 164, 55, 0.25));
+}
+.map-fullscreen-svg .map-node.is-current circle {
+  fill: var(--gold);
+  stroke: var(--gold-deep);
+  stroke-width: 3;
+  filter: drop-shadow(0 4px 8px rgba(212, 164, 55, 0.5));
+}
+.map-fullscreen-svg .map-node[data-clickable="1"] circle {
+  cursor: pointer;
+}
+.map-fullscreen-svg .map-node[data-clickable="1"]:hover circle {
+  fill: var(--gold);
+  stroke-width: 3;
+  filter: drop-shadow(0 4px 10px rgba(212, 164, 55, 0.6));
+}
+.map-fullscreen-svg .map-node[data-clickable="1"]:hover .map-node-icon {
+  filter: drop-shadow(0 1px 2px rgba(0,0,0,0.25));
+}
+.map-fullscreen-svg .map-node-icon { pointer-events: none; }
+.map-fullscreen-svg .map-node-label {
+  fill: var(--text);
+  font-weight: 600;
+  pointer-events: none;
+}
+.map-fullscreen-svg .map-node.is-current .map-node-label {
+  fill: var(--gold-text);
+  font-weight: 700;
+}
+
+/* Pulso suave en el nodo actual */
+@keyframes mapNodePulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.85; }
+}
+.map-fullscreen-svg .map-node.is-current circle {
+  animation: mapNodePulse 2s ease-in-out infinite;
+}
+
+.map-view-hint {
+  text-align: center;
+  font-size: var(--fs-xs);
+  font-style: italic;
+  padding: var(--sp-1);
+}
+
+/* ============================================================
+   Combat: feedback visual
+   ============================================================ */
+
+/* Cards del combatiente en posición relativa para que los floating se posicionen */
+.combat-card {
+  position: relative;
+}
+
+/* Números flotantes de daño */
+.combat-floating-num {
+  position: absolute;
+  top: 18%;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 28px;
+  font-weight: 800;
+  pointer-events: none;
+  z-index: 10;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.4), 0 0 4px white;
+  animation: floatUp 1100ms cubic-bezier(0.2, 0.8, 0.4, 1) forwards;
+}
+.combat-floating-num.is-damage {
+  color: #d63b2a;
+}
+.combat-floating-num.is-crit {
+  color: #f39c20;
+  font-size: 36px;
+  text-shadow: 0 0 10px rgba(243, 156, 32, 0.6), 0 2px 4px rgba(0,0,0,0.4), 0 0 4px white;
+}
+
+@keyframes floatUp {
+  0%   { transform: translate(-50%, 10px) scale(0.7); opacity: 0; }
+  15%  { transform: translate(-50%, 0) scale(1.2); opacity: 1; }
+  30%  { transform: translate(-50%, -10px) scale(1); opacity: 1; }
+  100% { transform: translate(-50%, -50px) scale(0.85); opacity: 0; }
+}
+
+/* Texto flotante para "Esquivó" / "Bloqueado" / "Falló" */
+.combat-floating-text {
+  position: absolute;
+  top: 22%;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 3px 10px;
+  border-radius: var(--r-full);
+  font-size: 12px;
+  font-weight: 700;
+  pointer-events: none;
+  z-index: 10;
+  white-space: nowrap;
+  animation: floatUp 1100ms cubic-bezier(0.2, 0.8, 0.4, 1) forwards;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+}
+.combat-floating-text.is-evaded {
+  background: var(--mana-bg);
+  color: var(--mana);
+  border: var(--border-w) solid var(--mana);
+}
+.combat-floating-text.is-blocked {
+  background: var(--surface);
+  color: var(--text-muted);
+  border: var(--border-w) solid var(--border-strong);
+}
+.combat-floating-text.is-miss {
+  background: var(--surface);
+  color: var(--text-faint);
+  border: var(--border-w) solid var(--border);
+}
+
+/* Shake al recibir daño */
+@keyframes combatShake {
+  0%, 100% { transform: translateX(0); }
+  10% { transform: translateX(-3px); }
+  20% { transform: translateX(3px); }
+  30% { transform: translateX(-3px); }
+  40% { transform: translateX(3px); }
+  50% { transform: translateX(-2px); }
+  60% { transform: translateX(2px); }
+  70% { transform: translateX(-1px); }
+  80% { transform: translateX(1px); }
+}
+.combat-card.is-shaking {
+  animation: combatShake 350ms cubic-bezier(0.36, 0.07, 0.19, 0.97);
+}
+

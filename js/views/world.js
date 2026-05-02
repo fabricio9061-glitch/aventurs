@@ -373,7 +373,8 @@
 
   function onAction(action) {
     if (action === 'open-travel') {
-      A.State.openModal('travel');
+      A.State.ui.showMap = true;
+      A.Bus.emit('view:changed');
       return;
     }
     if (action === 'open-craft') {

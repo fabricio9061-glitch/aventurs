@@ -65,7 +65,7 @@
         </div>
 
         <footer class="shell-footer">
-          <span class="version-pill">v1.5.7</span>
+          <span class="version-pill">v1.5.7b</span>
         </footer>
       </div>
     `;
@@ -253,11 +253,28 @@
     const shellBody = rootEl.querySelector('.shell-body');
     // Si hay combate activo, renderizar Combat y ocultar paneles laterales
     if (A.State.combat) {
-      if (shellBody) shellBody.classList.add('is-combat');
+      if (shellBody) {
+        shellBody.classList.add('is-combat');
+        shellBody.classList.remove('is-map');
+      }
       A.Views.Combat.mount(mainEl);
       return;
     }
-    if (shellBody) shellBody.classList.remove('is-combat');
+    // Mapa pantalla completa
+    if (A.State.ui.showMap) {
+      if (shellBody) {
+        shellBody.classList.add('is-map');
+        shellBody.classList.remove('is-combat');
+      }
+      if (A.Views.Map && A.Views.Map.mount) {
+        A.Views.Map.mount(mainEl);
+        return;
+      }
+    }
+    if (shellBody) {
+      shellBody.classList.remove('is-combat');
+      shellBody.classList.remove('is-map');
+    }
     const tab = A.State.ui.activeTab || 'world';
     const map = { world: 'World' };
     const viewName = map[tab];
@@ -387,7 +404,10 @@
     unsubscribers.push(A.Bus.on('bag:equipped', renderSidebar));
     unsubscribers.push(A.Bus.on('currency:changed', renderSidebar));
     unsubscribers.push(A.Bus.on('region:changed', () => { renderSidebar(); renderActiveView(); }));
-    unsubscribers.push(A.Bus.on('travel:started', renderActiveView));
+    unsubscribers.push(A.Bus.on('travel:started', () => {
+      A.State.ui.showMap = false;
+      renderActiveView();
+    }));
     unsubscribers.push(A.Bus.on('travel:step', renderActiveView));
     unsubscribers.push(A.Bus.on('travel:completed', () => { renderSidebar(); renderActiveView(); }));
     unsubscribers.push(A.Bus.on('travel:cancelled', renderActiveView));
