@@ -118,29 +118,33 @@
 
   function renderItemStatBadge(data, itemId) {
     if (!data) return '';
+    const slotsBadge = (data.slots && data.slots > 1)
+      ? `<span class="item-stat-pill item-stat-pill-large" title="Ocupa ${data.slots} slots">×${data.slots}</span>`
+      : '';
+    let mainBadge = '';
     // Arma: mostrar daño en pill
     if (A.Data.getById('weapons', itemId)) {
-      return `<span class="item-stat-pill item-stat-pill-dmg" title="Daño">⚔️ ${A.Utils.escapeHtml(data.damage || '?')}</span>`;
+      mainBadge = `<span class="item-stat-pill item-stat-pill-dmg" title="Daño">⚔️ ${A.Utils.escapeHtml(data.damage || '?')}</span>`;
     }
     // Armadura: mostrar defensa
-    if (A.Data.getById('armors', itemId)) {
-      return `<span class="item-stat-pill item-stat-pill-def" title="Defensa">🛡️ ${data.defense || 0}</span>`;
+    else if (A.Data.getById('armors', itemId)) {
+      mainBadge = `<span class="item-stat-pill item-stat-pill-def" title="Defensa">🛡️ ${data.defense || 0}</span>`;
     }
     // Bolsa: slots
-    if (data.subtype === 'bag') {
+    else if (data.subtype === 'bag') {
       const bagId = data.equipsBag;
       const bagData = A.Data.getById('bags', bagId);
-      if (bagData) return `<span class="item-stat-pill item-stat-pill-bag" title="Slots">🎒 ${bagData.slots}</span>`;
+      if (bagData) mainBadge = `<span class="item-stat-pill item-stat-pill-bag" title="Slots">🎒 ${bagData.slots}</span>`;
     }
     // Pergamino: hechizo
-    if (data.subtype === 'scroll_spell') {
-      return `<span class="item-stat-pill item-stat-pill-spell" title="Enseña">📖</span>`;
+    else if (data.subtype === 'scroll_spell') {
+      mainBadge = `<span class="item-stat-pill item-stat-pill-spell" title="Enseña">📖</span>`;
     }
     // Comida/poción con efecto
-    if (data.effect) {
-      return `<span class="item-stat-pill" title="Efecto">${A.Utils.escapeHtml(data.effect)}</span>`;
+    else if (data.effect) {
+      mainBadge = `<span class="item-stat-pill" title="Efecto">${A.Utils.escapeHtml(data.effect)}</span>`;
     }
-    return '';
+    return mainBadge + slotsBadge;
   }
 
   function renderNpcShop(npc) {
@@ -361,18 +365,23 @@
     const qty = slot ? slot.qty : 0;
 
     let stats = '';
+    const slotsLine = data.slots && data.slots > 1
+      ? `<div class="detail-stat"><span class="dim">Slots</span><span class="num">${data.slots} (voluminoso)</span></div>`
+      : '';
     if (kind === 'weapon') {
       stats = `
         <div class="detail-stat"><span class="dim">Daño</span><span class="num">${data.damage}</span></div>
         <div class="detail-stat"><span class="dim">Tier</span><span class="num">${data.tier}</span></div>
         <div class="detail-stat"><span class="dim">Rareza</span><span>${rarityLabel(data.rarity)}</span></div>
         ${data.magic ? `<div class="detail-stat"><span class="dim">Mágica</span><span>Sí</span></div>` : ''}
+        ${slotsLine}
       `;
     } else if (kind === 'armor') {
       stats = `
         <div class="detail-stat"><span class="dim">Defensa</span><span class="num">+${data.defense}</span></div>
         <div class="detail-stat"><span class="dim">Tier</span><span class="num">${data.tier}</span></div>
         <div class="detail-stat"><span class="dim">Rareza</span><span>${rarityLabel(data.rarity)}</span></div>
+        ${slotsLine}
       `;
     } else if (kind === 'consumable' && data.effect) {
       const ef = data.effect;

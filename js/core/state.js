@@ -283,19 +283,40 @@
 
     // ---------- Inventario ----------
 
+    /**
+     * Devuelve cuántos slots ocupa un item dado (1 por default, 2 para items voluminosos).
+     * Las monedas no ocupan slots (se manejan aparte).
+     */
+    itemSlots(itemId) {
+      const item = A.Data.getById('items', itemId)
+                || A.Data.getById('weapons', itemId)
+                || A.Data.getById('armors', itemId);
+      if (!item) return 0;
+      if (item.subtype === 'coin') return 0;
+      return item.slots || 1;
+    },
+
     inventoryUsedSlots() {
       if (!State.player) return 0;
-      // Las monedas no cuentan slots
-      return State.player.inventory.filter((s) => {
-        const item = A.Data.getById('items', s.itemId);
-        return !item || item.subtype !== 'coin';
-      }).length;
+      // Sumar slots de cada item (no cantidad). Monedas = 0 slots.
+      return State.player.inventory.reduce((acc, s) => {
+        return acc + State.itemSlots(s.itemId);
+      }, 0);
     },
 
     inventoryCapacity() {
       if (!State.player) return 0;
       const bag = A.Data.getById('bags', State.player.bagId || DEFAULT_BAG_ID);
       return bag ? bag.slots : 10;
+    },
+
+    /**
+     * ¿Hay espacio para un item de N slots?
+     */
+    inventoryHasSpaceFor(itemId) {
+      const need = State.itemSlots(itemId);
+      if (need === 0) return true; // monedas
+      return State.inventoryUsedSlots() + need <= State.inventoryCapacity();
     },
 
     inventoryHasSpace() {
@@ -313,7 +334,7 @@
       if (!bag) return { ok: false, error: 'Mochila inexistente.' };
       const used = State.inventoryUsedSlots();
       if (used > bag.slots) {
-        return { ok: false, error: `La mochila tiene ${bag.slots} slots y llevas ${used} items. Tira o guarda algo primero.` };
+        return { ok: false, error: `La mochila tiene ${bag.slots} slots y tu inventario ocupa ${used}. Tirá o guardá algo primero.` };
       }
       State.player.bagId = bagId;
       A.Bus.emit('bag:equipped', { bagId });
@@ -348,7 +369,7 @@
         return true;
       }
 
-      if (!State.inventoryHasSpace()) {
+      if (!State.inventoryHasSpaceFor(itemId)) {
         A.Bus.emit('inventory:full');
         return false;
       }

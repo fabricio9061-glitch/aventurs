@@ -65,7 +65,7 @@
         </div>
 
         <footer class="shell-footer">
-          <span class="version-pill">v1.5.6b</span>
+          <span class="version-pill">v1.5.7</span>
         </footer>
       </div>
     `;
@@ -199,28 +199,38 @@
     const cap = bag ? bag.slots : 5;
     const used = A.State.inventoryUsedSlots();
 
+    // Excluir monedas (no ocupan slots)
     const items = (p.inventory || []).filter((s) => {
       const it = A.Data.getById('items', s.itemId);
       return !it || it.subtype !== 'coin';
     });
 
+    // Construir las celdas: items con slots:2 ocupan 2 celdas (grid-column: span 2)
     const cells = [];
-    for (let i = 0; i < cap; i++) {
-      const slot = items[i];
-      if (slot) {
-        const data = A.Inventory.resolveData(slot.itemId);
-        const icon = data ? (data.icon || '📦') : '📦';
-        const qty = slot.qty > 1 ? `<span class="bag-side-qty num">${slot.qty}</span>` : '';
-        cells.push(`
-          <button class="bag-side-slot is-filled" data-mini-item="${A.Utils.escapeHtml(slot.itemId)}" title="${A.Utils.escapeHtml(data ? data.name : slot.itemId)}">
-            <span class="bag-side-icon">${icon}</span>
-            ${qty}
-          </button>
-        `);
-      } else {
-        cells.push(`<div class="bag-side-slot is-empty"></div>`);
-      }
+    let occupied = 0;
+    for (const slot of items) {
+      const data = A.Inventory.resolveData(slot.itemId);
+      const icon = data ? (data.icon || '📦') : '📦';
+      const qty = slot.qty > 1 ? `<span class="bag-side-qty num">${slot.qty}</span>` : '';
+      const itemSlots = A.State.itemSlots(slot.itemId);
+      const spanClass = itemSlots > 1 ? 'is-large' : '';
+      const sizeBadge = itemSlots > 1 ? '<span class="bag-side-size-badge" title="Ocupa 2 slots">×2</span>' : '';
+      cells.push(`
+        <button class="bag-side-slot is-filled ${spanClass}" data-mini-item="${A.Utils.escapeHtml(slot.itemId)}" title="${A.Utils.escapeHtml(data ? data.name : slot.itemId)}${itemSlots > 1 ? ' (ocupa 2 slots)' : ''}">
+          <span class="bag-side-icon">${icon}</span>
+          ${qty}
+          ${sizeBadge}
+        </button>
+      `);
+      occupied += itemSlots;
     }
+    // Slots vacíos restantes
+    for (let i = occupied; i < cap; i++) {
+      cells.push(`<div class="bag-side-slot is-empty"></div>`);
+    }
+
+    // Calcular columnas: para mochila básica de 10 va bien con 5 cols
+    const cols = cap <= 5 ? 5 : cap <= 16 ? 4 : 5;
 
     return `
       <div class="bag-side-block">
@@ -231,7 +241,7 @@
           </div>
           <span class="dim small">${bag ? A.Utils.escapeHtml(bag.name) : ''}</span>
         </div>
-        <div class="bag-side-grid" style="grid-template-columns: repeat(${cap <= 5 ? 5 : cap <= 16 ? 4 : 5}, 1fr)">
+        <div class="bag-side-grid" style="grid-template-columns: repeat(${cols}, 1fr)">
           ${cells.join('')}
         </div>
       </div>

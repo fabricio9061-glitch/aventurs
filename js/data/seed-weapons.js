@@ -38,16 +38,16 @@
     { id:'cetro_arcano', name:'Cetro arcano', type:'weapon', icon:'🪄', damage:'1d6+2', value:150, rarity:'uncommon', tier:4, weight:1, magic:true,
       description:'Una piedra azul late en el extremo. Alimenta hechizos con cada golpe.' },
 
-    { id:'mandoble', name:'Mandoble', type:'weapon', icon:'🗡️', damage:'2d6', value:200, rarity:'rare', tier:5, weight:5, magic:false,
+    { id:'mandoble', name:'Mandoble', type:'weapon', icon:'🗡️', damage:'2d6', value:200, rarity:'rare', tier:5, weight:5, slots:2,magic:false,
       description:'Espada a dos manos. Tremenda. Lenta. Devastadora.' },
 
-    { id:'hacha_de_guerra', name:'Hacha de guerra', type:'weapon', icon:'🪓', damage:'2d6+1', value:240, rarity:'rare', tier:6, weight:5, magic:false,
+    { id:'hacha_de_guerra', name:'Hacha de guerra', type:'weapon', icon:'🪓', damage:'2d6+1', value:240, rarity:'rare', tier:6, weight:5, slots:2,magic:false,
       description:'Forjada para reyes y para enemigos de reyes.' },
 
     { id:'baston_arcano', name:'Bastón arcano', type:'weapon', icon:'🪄', damage:'2d6', value:280, rarity:'rare', tier:6, weight:2, statusEffect:{type:'fire',chance:0.20,turns:3,value:2}, magic:true,
       description:'Madera de fresno teñida en sangre de dragón. Dobla el poder de los hechizos.' },
 
-    { id:'matamuertos', name:'Matamuertos', type:'weapon', icon:'⚔️', damage:'2d8', value:500, rarity:'epic', tier:8, weight:4, magic:true,
+    { id:'matamuertos', name:'Matamuertos', type:'weapon', icon:'⚔️', damage:'2d8', value:500, rarity:'epic', tier:8, weight:4, slots:2,magic:true,
       description:'Una espada que hiere a los muertos como a los vivos. Brilla cerca de las tumbas.' },
 
     { id:'colmillo_de_dragon', name:'Colmillo de dragón', type:'weapon', icon:'🦷', damage:'3d6+2', value:1200, rarity:'legendary', tier:10, weight:3, magic:true,

@@ -3178,3 +3178,40 @@
   white-space: nowrap;
 }
 
+
+/* ============================================================
+   v1.5.7 — Items con slots:2 (voluminosos)
+   ============================================================ */
+
+/* Items que ocupan 2 slots: la celda toma el ancho de 2 */
+.bag-side-slot.is-large {
+  grid-column: span 2;
+  background: var(--gold-bg-soft);
+  border-color: var(--gold-deep);
+}
+.bag-side-slot.is-large:hover {
+  background: var(--gold-bg);
+  border-color: var(--gold);
+}
+
+/* Badge ×2 en items voluminosos */
+.bag-side-size-badge {
+  position: absolute;
+  top: 2px;
+  right: 3px;
+  font-size: 8px;
+  font-weight: var(--fw-semi);
+  color: var(--gold-deep);
+  background: var(--surface-raised);
+  padding: 1px 4px;
+  border-radius: var(--r-sm);
+  border: var(--border-w) solid var(--gold-deep);
+  line-height: 1.2;
+}
+
+.item-stat-pill-large {
+  background: var(--food-bg);
+  border-color: #d4b18a;
+  color: var(--food);
+  font-weight: var(--fw-semi);
+}
