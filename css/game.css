@@ -4393,3 +4393,45 @@
 }
 .btn-graph-editor:hover { background: var(--gold-bg); }
 
+
+/* ============================================================
+   v1.5.7i — Drops sugeridos en wizard de auditoría
+   ============================================================ */
+.audit-wizard-drops {
+  margin-top: var(--sp-3);
+  padding: var(--sp-3);
+  background: var(--surface);
+  border: var(--border-w) solid var(--border);
+  border-radius: var(--r-md);
+  border-left: 3px solid var(--gold-deep);
+}
+.audit-wizard-drops-title {
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-semi);
+  color: var(--gold-text);
+  margin-bottom: 8px;
+}
+.audit-wizard-drops-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.audit-wizard-drop-row {
+  display: grid;
+  grid-template-columns: 24px 1fr 60px auto;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: 4px 8px;
+  font-size: var(--fs-xs);
+  border-radius: var(--r-sm);
+  background: var(--surface-sunken);
+}
+.audit-wizard-drop-icon { text-align: center; font-size: 16px; }
+.audit-wizard-drop-name { font-weight: var(--fw-medium); }
+.audit-wizard-drop-chance {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--gold-text);
+  font-weight: var(--fw-semi);
+}
+.audit-wizard-drop-reason { font-size: 10px; }

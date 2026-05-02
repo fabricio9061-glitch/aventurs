@@ -196,6 +196,14 @@
       let status = 'ok';
       if (delta > 0.5) status = 'critical';
       else if (delta > 0.25) status = 'warning';
+
+      // FIX v1.5.7i: si la notación textual coincide exactamente, considerar OK
+      // aunque los promedios internos difieran (los presets de damageToNotation
+      // mapean rangos a la misma cadena, lo cual es esperado).
+      if (isDamage && String(cur) === String(suggestedDisplay)) {
+        status = 'ok';
+      }
+
       out.push({
         field: f.key,
         label: f.label,

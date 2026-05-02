@@ -67,7 +67,7 @@
         </div>
 
         <footer class="shell-footer">
-          <span class="version-pill">v1.5.7h</span>
+          <span class="version-pill">v1.5.7i</span>
         </footer>
       </div>
     `;

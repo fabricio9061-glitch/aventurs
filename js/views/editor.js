@@ -59,6 +59,7 @@
     if (!host) return;
     A.Data.init();
     A.Bus.emit('editor:content-changed');
+    host._editorActionDelegated = false;
     host.innerHTML = prevHostHtml || '';
     host = null;
     prevHostHtml = null;
@@ -675,33 +676,45 @@
     host.querySelectorAll('.list-item').forEach((b) => {
       b.addEventListener('click', () => selectEntity(b.dataset.id));
     });
-    host.querySelectorAll('[data-editor-action]').forEach((b) => {
-      b.addEventListener('click', () => {
-        const a = b.dataset.editorAction;
+
+    // === EVENT DELEGATION para todos los data-editor-action ===
+    // Más robusto que listeners individuales: un solo listener en host
+    // captura clicks de cualquier botón, presente o futuro, dentro del editor.
+    if (!host._editorActionDelegated) {
+      host._editorActionDelegated = true;
+      host.addEventListener('click', (ev) => {
+        const btn = ev.target.closest('[data-editor-action]');
+        if (!btn || !host.contains(btn)) return;
+        const a = btn.dataset.editorAction;
         console.log('[Editor] click action:', a);
-        if (a === 'back') {
-          if (dirty && !confirm('Tienes cambios sin guardar. ¿Salir igual?')) return;
-          unmount();
-          // Re-mount Shell o Character
-          if (A.State.hasGame()) A.Views.Shell.mount(host);
-          else A.Views.Character.mount(host);
-        } else if (a === 'new') {
-          newEntity();
-        } else if (a === 'save') {
-          saveDraft();
-        } else if (a === 'delete') {
-          if (confirm('¿Eliminar este elemento? Si era del seed original, queda oculto.')) deleteEntity();
-        } else if (a === 'duplicate') {
-          duplicateEntity();
-        } else if (a === 'show-validation') {
-          alert(A.Validate.run().map((v) => `[${v.level}] ${v.collection}/${v.entityId}: ${v.msg}`).join('\n') || 'Sin avisos.');
-        } else if (a === 'audit-all-enemies') {
-          openAuditWizard();
-        } else if (a === 'open-graph-editor') {
-          openGraphEditor();
+        try {
+          if (a === 'back') {
+            if (dirty && !confirm('Tienes cambios sin guardar. ¿Salir igual?')) return;
+            unmount();
+            if (A.State.hasGame()) A.Views.Shell.mount(host);
+            else A.Views.Character.mount(host);
+          } else if (a === 'new') {
+            newEntity();
+          } else if (a === 'save') {
+            saveDraft();
+          } else if (a === 'delete') {
+            if (confirm('¿Eliminar este elemento? Si era del seed original, queda oculto.')) deleteEntity();
+          } else if (a === 'duplicate') {
+            duplicateEntity();
+          } else if (a === 'show-validation') {
+            alert(A.Validate.run().map((v) => `[${v.level}] ${v.collection}/${v.entityId}: ${v.msg}`).join('\n') || 'Sin avisos.');
+          } else if (a === 'audit-all-enemies') {
+            openAuditWizard();
+          } else if (a === 'open-graph-editor') {
+            console.log('[Editor] llamando openGraphEditor()...');
+            openGraphEditor();
+          }
+        } catch (err) {
+          console.error('[Editor] Error en handler:', a, err);
+          alert(`Error en acción "${a}": ${err.message}\n\nVer consola.`);
         }
       });
-    });
+    }
 
     // Inputs de campos
     host.querySelectorAll('[data-field]').forEach((el) => {
@@ -986,6 +999,31 @@
                 </div>
               `).join('')}
             </div>
+
+            ${(() => {
+              const drops = A.LootIntelligence ? A.LootIntelligence.suggestDrops(enemy) : [];
+              if (!drops.length) return '';
+              return `
+                <div class="audit-wizard-drops">
+                  <div class="audit-wizard-drops-title">📦 Drops sugeridos por LootIntelligence</div>
+                  <div class="audit-wizard-drops-list">
+                    ${drops.map((d) => {
+                      const item = A.Data.getById('items', d.itemId);
+                      const name = item ? item.name : d.itemId;
+                      const icon = item ? (item.icon || '📦') : '📦';
+                      return `
+                        <div class="audit-wizard-drop-row">
+                          <span class="audit-wizard-drop-icon">${icon}</span>
+                          <span class="audit-wizard-drop-name">${A.Utils.escapeHtml(name)}</span>
+                          <span class="audit-wizard-drop-chance num">${Math.round(d.chance * 100)}%</span>
+                          <span class="audit-wizard-drop-reason dim">${A.Utils.escapeHtml(d.reason)}</span>
+                        </div>
+                      `;
+                    }).join('')}
+                  </div>
+                </div>
+              `;
+            })()}
 
             <div class="audit-wizard-actions-info dim">
               💡 "Aplicar todos" usará la sugerencia de AutoBalance para los campos desbalanceados.
