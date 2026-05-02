@@ -498,7 +498,6 @@
     if (entry.target === A.State.player.name) {
       targetCardEl = mainEl.querySelector('.combat-card-player');
     } else {
-      // Buscar enemigo por displayName
       const enemyCards = mainEl.querySelectorAll('.combat-card-enemy');
       enemyCards.forEach((card) => {
         const nameEl = card.querySelector('.combat-card-name');
@@ -509,18 +508,40 @@
     }
     if (!targetCardEl) return;
 
-    if (entry.result === 'hit' || entry.result === 'crit') {
+    if (entry.result === 'hit') {
       const dmg = entry.dmg || 0;
       if (dmg > 0) {
-        spawnFloatingNumber(targetCardEl, `-${dmg}`, entry.result === 'crit' ? 'crit' : 'damage');
+        spawnFloatingNumber(targetCardEl, `-${dmg}`, 'damage');
         shakeElement(targetCardEl);
+        flashCard(targetCardEl, 'damage');
+        spawnSlash(targetCardEl, 'damage');
+        spawnParticles(targetCardEl, 'damage', 8);
+      }
+    } else if (entry.result === 'crit') {
+      const dmg = entry.dmg || 0;
+      if (dmg > 0) {
+        spawnFloatingNumber(targetCardEl, `-${dmg}`, 'crit');
+        shakeElement(targetCardEl, 'strong');
+        flashCard(targetCardEl, 'crit');
+        spawnSlash(targetCardEl, 'crit');
+        spawnParticles(targetCardEl, 'crit', 14);
+        // Pequeño zoom rebote
+        zoomCard(targetCardEl);
       }
     } else if (entry.result === 'evaded') {
       spawnFloatingText(targetCardEl, '¡Esquivó!', 'evaded');
+      flashCard(targetCardEl, 'evaded');
+      spawnDodgePuff(targetCardEl);
     } else if (entry.result === 'blocked') {
       spawnFloatingText(targetCardEl, 'Bloqueado', 'blocked');
+      flashCard(targetCardEl, 'blocked');
+      shakeElement(targetCardEl, 'soft');
     } else if (entry.result === 'miss') {
       spawnFloatingText(targetCardEl, 'Falló', 'miss');
+    } else if (entry.result === 'fumble') {
+      // El atacante mismo se ve afectado: buscamos su card si es enemigo
+      // (si es player, es el log que muestra el fumble)
+      spawnFloatingText(targetCardEl, 'Falló feo', 'miss');
     }
   }
 
@@ -540,12 +561,96 @@
     setTimeout(() => { try { t.remove(); } catch (e) {} }, 1200);
   }
 
-  function shakeElement(el) {
-    el.classList.remove('is-shaking');
-    // Forzar reflow para que la animación reinicie aunque ya estaba activa
+  function shakeElement(el, intensity = 'normal') {
+    el.classList.remove('is-shaking', 'is-shaking-strong', 'is-shaking-soft');
     void el.offsetWidth;
-    el.classList.add('is-shaking');
-    setTimeout(() => { try { el.classList.remove('is-shaking'); } catch (e) {} }, 400);
+    if (intensity === 'strong') el.classList.add('is-shaking-strong');
+    else if (intensity === 'soft') el.classList.add('is-shaking-soft');
+    else el.classList.add('is-shaking');
+    setTimeout(() => {
+      try { el.classList.remove('is-shaking', 'is-shaking-strong', 'is-shaking-soft'); }
+      catch (e) {}
+    }, intensity === 'strong' ? 500 : 350);
+  }
+
+  /**
+   * Aplica un "flash" de color al borde y fondo de la card (rojo daño, naranja crit, etc).
+   */
+  function flashCard(el, kind) {
+    const cls = `is-flash-${kind}`;
+    el.classList.remove('is-flash-damage', 'is-flash-crit', 'is-flash-evaded', 'is-flash-blocked');
+    void el.offsetWidth;
+    el.classList.add(cls);
+    setTimeout(() => { try { el.classList.remove(cls); } catch (e) {} }, 600);
+  }
+
+  /**
+   * Slash diagonal que cruza la card brevemente (efecto de tajo).
+   */
+  function spawnSlash(el, kind) {
+    const slash = document.createElement('div');
+    slash.className = `combat-slash is-${kind}`;
+    // Ángulo aleatorio para variar (-60 a -30)
+    const angle = -45 + (Math.random() * 30 - 15);
+    slash.style.setProperty('--slash-angle', `${angle}deg`);
+    el.appendChild(slash);
+    setTimeout(() => { try { slash.remove(); } catch (e) {} }, 500);
+  }
+
+  /**
+   * Partículas que salen desde el centro de la card al recibir golpe.
+   * count: cantidad de partículas
+   */
+  function spawnParticles(el, kind, count) {
+    for (let i = 0; i < count; i++) {
+      const p = document.createElement('div');
+      p.className = `combat-particle is-${kind}`;
+      // Dirección aleatoria
+      const angle = Math.random() * Math.PI * 2;
+      const speed = 35 + Math.random() * 40; // px de distancia final
+      const dx = Math.cos(angle) * speed;
+      const dy = Math.sin(angle) * speed;
+      p.style.setProperty('--dx', `${dx.toFixed(0)}px`);
+      p.style.setProperty('--dy', `${dy.toFixed(0)}px`);
+      // Tamaño y delay aleatorio
+      const size = 4 + Math.random() * 4;
+      p.style.width = `${size}px`;
+      p.style.height = `${size}px`;
+      const delay = Math.random() * 80;
+      p.style.animationDelay = `${delay}ms`;
+      el.appendChild(p);
+      setTimeout(() => { try { p.remove(); } catch (e) {} }, 800 + delay);
+    }
+  }
+
+  /**
+   * "Puff" de esquiva: pequeñas líneas en arco que indican que el ataque pasó de largo.
+   */
+  function spawnDodgePuff(el) {
+    for (let i = 0; i < 5; i++) {
+      const p = document.createElement('div');
+      p.className = 'combat-dodge-puff';
+      const angle = -120 + i * 60; // arco de 60° de spread
+      const speed = 25 + Math.random() * 15;
+      const rad = angle * Math.PI / 180;
+      const dx = Math.cos(rad) * speed;
+      const dy = Math.sin(rad) * speed;
+      p.style.setProperty('--dx', `${dx.toFixed(0)}px`);
+      p.style.setProperty('--dy', `${dy.toFixed(0)}px`);
+      p.style.animationDelay = `${i * 30}ms`;
+      el.appendChild(p);
+      setTimeout(() => { try { p.remove(); } catch (e) {} }, 700);
+    }
+  }
+
+  /**
+   * Pequeño zoom rebote en críticos (escala 1.0 → 1.08 → 1.0).
+   */
+  function zoomCard(el) {
+    el.classList.remove('is-zooming');
+    void el.offsetWidth;
+    el.classList.add('is-zooming');
+    setTimeout(() => { try { el.classList.remove('is-zooming'); } catch (e) {} }, 400);
   }
 
   function unsubscribe() {

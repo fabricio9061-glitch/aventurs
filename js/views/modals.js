@@ -1000,8 +1000,10 @@
     overlay.addEventListener('click', (e) => {
       if (e.target === overlay) A.State.closeModal();
     });
-    const closeBtn = overlay.querySelector('[data-modal-close]');
-    if (closeBtn) closeBtn.addEventListener('click', () => A.State.closeModal());
+    // Bindear TODOS los data-modal-close (X arriba + cualquier botón "Cerrar" en el body)
+    overlay.querySelectorAll('[data-modal-close]').forEach((btn) => {
+      btn.addEventListener('click', () => A.State.closeModal());
+    });
 
     if (id === 'item-detail') {
       overlay.querySelectorAll('[data-detail-action]').forEach((b) => {

@@ -65,7 +65,7 @@
         </div>
 
         <footer class="shell-footer">
-          <span class="version-pill">v1.5.7b</span>
+          <span class="version-pill">v1.5.7c</span>
         </footer>
       </div>
     `;
@@ -134,8 +134,8 @@
         </div>
 
         <div class="stat-grid">
-          <div class="stat"><div class="stat-label dim">Daño</div><div class="stat-val num">${p.stats.damage}</div></div>
-          <div class="stat"><div class="stat-label dim">Armadura</div><div class="stat-val num">${p.stats.armor}</div></div>
+          <div class="stat" title="Daño del arma + bonus de fuerza"><div class="stat-label dim">Daño</div><div class="stat-val num">${formatDamageDisplay(weapon, p.stats.damage)}</div></div>
+          <div class="stat"><div class="stat-label dim">Armadura</div><div class="stat-val num">${(p.stats.armor || 0) + (armor ? armor.defense : 0)}</div></div>
           <div class="stat"><div class="stat-label dim">Esquiva</div><div class="stat-val num">${p.stats.dodge}</div></div>
           <div class="stat"><div class="stat-label dim">Velocidad</div><div class="stat-val num">${p.stats.speed}</div></div>
         </div>
@@ -235,11 +235,13 @@
     return `
       <div class="bag-side-block">
         <div class="bag-side-header">
-          <div>
-            <span class="dim">Mochila</span>
-            <span class="num"> ${used} / ${cap}</span>
+          <div class="bag-side-header-main">
+            <div class="bag-side-name">${bag ? A.Utils.escapeHtml(bag.name) : 'Mochila'}</div>
+            <div class="bag-side-cap">
+              <span class="num">${used} / ${cap}</span>
+              <span class="dim small">slots</span>
+            </div>
           </div>
-          <span class="dim small">${bag ? A.Utils.escapeHtml(bag.name) : ''}</span>
         </div>
         <div class="bag-side-grid" style="grid-template-columns: repeat(${cols}, 1fr)">
           ${cells.join('')}
@@ -386,6 +388,19 @@
   function pct(cur, max) {
     if (!max) return 0;
     return Math.max(0, Math.min(100, Math.round((cur / max) * 100)));
+  }
+
+  /**
+   * Devuelve el daño que se debe mostrar en la UI:
+   * - Si tiene arma equipada: notación del arma + bonus de stats
+   * - Si no tiene arma: '1d3' (puños base) + bonus
+   * Nunca devuelve 0.
+   */
+  function formatDamageDisplay(weapon, statsDamage) {
+    const dice = weapon ? weapon.damage : '1d3';
+    const bonus = statsDamage || 0;
+    if (bonus > 0) return `${dice}+${bonus}`;
+    return dice;
   }
 
   function xpForLevel(lvl) {
