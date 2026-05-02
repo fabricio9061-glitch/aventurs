@@ -54,6 +54,62 @@
    * Sugiere stats para un enemigo dado tier, category y family.
    * Devuelve { health, damage, difficulty, armor, speed }.
    */
+  /**
+   * Convierte un promedio numérico de daño en notación de dados realista.
+   * Ej: 2 → '1d3' (avg=2), 4 → '1d6+1' (avg=4.5), 7 → '2d6' (avg=7), etc.
+   * Estrategia: tabla con dados conocidos y elige el más cercano.
+   */
+  function damageToNotation(avgTarget) {
+    if (avgTarget <= 0) return '1';
+    // Dados conocidos con su promedio (n*sides+1)/2 + bonus
+    // Usamos progresión natural de daño en RPG
+    const presets = [
+      { dice: '1d2',     avg: 1.5 },
+      { dice: '1d3',     avg: 2.0 },
+      { dice: '1d4',     avg: 2.5 },
+      { dice: '1d4+1',   avg: 3.5 },
+      { dice: '1d6',     avg: 3.5 },
+      { dice: '1d6+1',   avg: 4.5 },
+      { dice: '1d8',     avg: 4.5 },
+      { dice: '1d8+1',   avg: 5.5 },
+      { dice: '2d4',     avg: 5.0 },
+      { dice: '1d10',    avg: 5.5 },
+      { dice: '1d12',    avg: 6.5 },
+      { dice: '2d6',     avg: 7.0 },
+      { dice: '2d6+1',   avg: 8.0 },
+      { dice: '2d8',     avg: 9.0 },
+      { dice: '2d8+1',   avg: 10.0 },
+      { dice: '3d6',     avg: 10.5 },
+      { dice: '3d6+2',   avg: 12.5 },
+      { dice: '3d8',     avg: 13.5 },
+      { dice: '4d6',     avg: 14.0 },
+      { dice: '4d8',     avg: 18.0 },
+      { dice: '5d8',     avg: 22.5 },
+      { dice: '6d8',     avg: 27.0 },
+    ];
+    let best = presets[0], bestDiff = Math.abs(avgTarget - best.avg);
+    for (const p of presets) {
+      const d = Math.abs(avgTarget - p.avg);
+      if (d < bestDiff) { best = p; bestDiff = d; }
+    }
+    return best.dice;
+  }
+
+  /**
+   * Calcula el promedio numérico de una notación de dados.
+   * Ej: '1d6+1' → 4.5
+   */
+  function notationToAvg(notation) {
+    if (notation == null) return 0;
+    if (typeof notation === 'number') return notation;
+    const m = String(notation).match(/^(\d+)d(\d+)([+-]\d+)?$/);
+    if (m) {
+      const n = +m[1], sides = +m[2], bonus = m[3] ? +m[3] : 0;
+      return n * (sides + 1) / 2 + bonus;
+    }
+    return Number(notation) || 0;
+  }
+
   function suggestEnemyStats({ tier = 1, category = 'normal', family = [] } = {}) {
     const t = Math.max(1, Math.min(10, tier));
     const baseHp = 8 * t;
@@ -65,9 +121,11 @@
     const mult = CATEGORY_MULT[category] || 1;
     const fm = familyMods(family);
 
+    const dmgAvg = baseDmg * mult * fm.dmg;
     return {
       health: Math.round(baseHp * mult * fm.hp),
-      damage: Math.round(baseDmg * mult * fm.dmg),
+      damage: damageToNotation(dmgAvg), // notación de dados, no número plano
+      damageAvg: dmgAvg,                // por si lo necesitan internamente
       difficulty: Math.max(6, Math.min(20, baseDiff + fm.diff)),
       armor: baseArmor + fm.armor,
       speed: baseSpeed + fm.speed,
@@ -84,14 +142,22 @@
     const fields = ['health', 'damage', 'difficulty', 'armor', 'speed'];
     for (const f of fields) {
       const cur = enemy[f] ?? 0;
-      const ideal = sug[f] ?? 0;
-      if (ideal === 0) continue;
-      const delta = Math.abs(cur - ideal) / ideal;
+      // Para damage comparamos promedios de la notación
+      let curN, idealN;
+      if (f === 'damage') {
+        curN = notationToAvg(cur);
+        idealN = sug.damageAvg;
+      } else {
+        curN = Number(cur) || 0;
+        idealN = Number(sug[f]) || 0;
+      }
+      if (idealN === 0) continue;
+      const delta = Math.abs(curN - idealN) / idealN;
       if (delta > 0.5) {
         out.push({
           field: f,
           current: cur,
-          suggested: ideal,
+          suggested: sug[f],
           delta: Math.round(delta * 100) + '%',
         });
       }
@@ -115,21 +181,18 @@
     ];
     for (const f of fields) {
       const cur = enemy[f.key];
-      const ideal = sug[f.key] ?? 0;
-      const isDamageDice = f.key === 'damage' && typeof cur === 'string';
-      // Para daño en notación dados, parseamos el promedio
-      let curNum = cur;
-      if (isDamageDice) {
-        // 1d6+1 → promedio = (1+6)/2 + 1 = 4.5
-        const m = String(cur).match(/^(\d+)d(\d+)([+-]\d+)?$/);
-        if (m) {
-          const n = +m[1], sides = +m[2], bonus = m[3] ? +m[3] : 0;
-          curNum = n * (sides + 1) / 2 + bonus;
-        } else { curNum = Number(cur) || 0; }
+      const isDamage = f.key === 'damage';
+      let curNum, idealNum, suggestedDisplay;
+      if (isDamage) {
+        curNum = notationToAvg(cur);
+        idealNum = sug.damageAvg || 0;
+        suggestedDisplay = sug.damage; // notación dados
       } else {
         curNum = Number(cur) || 0;
+        idealNum = Number(sug[f.key]) || 0;
+        suggestedDisplay = sug[f.key];
       }
-      const delta = ideal === 0 ? 0 : Math.abs(curNum - ideal) / ideal;
+      const delta = idealNum === 0 ? 0 : Math.abs(curNum - idealNum) / idealNum;
       let status = 'ok';
       if (delta > 0.5) status = 'critical';
       else if (delta > 0.25) status = 'warning';
@@ -138,10 +201,11 @@
         label: f.label,
         current: cur,
         currentNum: curNum,
-        suggested: ideal,
+        suggested: suggestedDisplay,
+        suggestedNum: idealNum,
         delta: Math.round(delta * 100),
         status,
-        isDamageDice,
+        isDamageDice: isDamage && typeof cur === 'string',
       });
     }
     return out;
@@ -161,6 +225,8 @@
     auditEnemy,
     auditEnemyFull,
     suggestItemValue,
+    damageToNotation,
+    notationToAvg,
     CATEGORY_MULT,
   };
 })(window.Aventurs);

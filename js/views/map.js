@@ -150,7 +150,8 @@
       const isNeighbor = (currentRegion.connections || []).includes(r.id);
       const reachable = isCurrent || isNeighbor;
       const isCombat = r.type === 'combat';
-      const cls = `map-node ${isCurrent ? 'is-current' : ''} ${isNeighbor ? 'is-neighbor' : ''} ${!reachable ? 'is-far' : ''} is-${r.type}`;
+      const biomeCls = r.biome ? `biome-${r.biome}` : '';
+      const cls = `map-node ${isCurrent ? 'is-current' : ''} ${isNeighbor ? 'is-neighbor' : ''} ${!reachable ? 'is-far' : ''} is-${r.type} ${biomeCls}`;
       const nodeRadius = isCurrent ? 38 : isNeighbor ? 32 : 24;
       const iconSize = isCurrent ? 32 : isNeighbor ? 26 : 20;
       const labelY = p.y + nodeRadius + 18;

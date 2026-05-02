@@ -335,7 +335,13 @@
         {value:'lair',label:'Guarida'},{value:'abyss',label:'Abismo'},
       ])),
       row('Tier (rango)', tier2('tier', e.tier)),
-      row('Conexiones (ids)', arr('connections', e.connections)),
+      `<div class="form-row form-row-block">
+        <label>Conexiones</label>
+        <div class="connections-editor-block">
+          <input class="form-input" data-field="connections" data-array="csv" type="text" value="${A.Utils.escapeHtml((e.connections || []).join(', '))}" placeholder="separadas por coma">
+          <button class="btn-mini btn-graph-editor" data-editor-action="open-graph-editor">🗺️ Abrir editor visual de conexiones</button>
+        </div>
+      </div>`,
       row('Distancia', inp('distance', e.distance, 'number')),
       row('Icono', inp('icon', e.icon)),
       row('Descripción', txt('description', e.description, 4)),
@@ -690,6 +696,8 @@
           alert(A.Validate.run().map((v) => `[${v.level}] ${v.collection}/${v.entityId}: ${v.msg}`).join('\n') || 'Sin avisos.');
         } else if (a === 'audit-all-enemies') {
           openAuditWizard();
+        } else if (a === 'open-graph-editor') {
+          openGraphEditor();
         }
       });
     });
@@ -1059,6 +1067,472 @@
     auditWizardState.cursor++;
     dirty = true;
     renderAuditWizard();
+  }
+
+  // ============================================================
+  // v1.5.7f — GRAPH EDITOR: editor visual de conexiones de regiones
+  // ============================================================
+  let graphState = {
+    open: false,
+    nodes: {},      // id → {x, y}
+    selected: null, // nodeId seleccionado para conectar
+    drag: null,     // {nodeId, offsetX, offsetY}
+    pan: { x: 0, y: 0 },
+    zoom: 1.0,
+    panDrag: null,
+  };
+
+  const GRAPH_STORAGE_KEY = 'aventurs:graph_positions';
+
+  function loadGraphPositions() {
+    try {
+      const raw = localStorage.getItem(GRAPH_STORAGE_KEY);
+      return raw ? JSON.parse(raw) : {};
+    } catch (e) { return {}; }
+  }
+  function saveGraphPositions() {
+    try {
+      localStorage.setItem(GRAPH_STORAGE_KEY, JSON.stringify(graphState.nodes));
+    } catch (e) {}
+  }
+
+  /**
+   * Layout inicial automático: si las regiones no tienen posición guardada,
+   * BFS desde la actualmente abierta y poner en anillos concéntricos.
+   */
+  function autoLayout() {
+    const allRegions = A.Data.regions || [];
+    const startId = editingDraft && editingDraft.id ? editingDraft.id : (allRegions[0] && allRegions[0].id);
+    if (!startId) return;
+
+    const dist = {};
+    dist[startId] = 0;
+    const queue = [startId];
+    while (queue.length > 0) {
+      const id = queue.shift();
+      const reg = allRegions.find((r) => r.id === id);
+      if (!reg) continue;
+      for (const cid of (reg.connections || [])) {
+        if (dist[cid] === undefined) {
+          dist[cid] = dist[id] + 1;
+          queue.push(cid);
+        }
+      }
+    }
+    // Las que no quedaron conectadas, las pongo a una distancia "extrema"
+    for (const r of allRegions) {
+      if (dist[r.id] === undefined) dist[r.id] = 99;
+    }
+
+    const rings = {};
+    for (const r of allRegions) {
+      const d = dist[r.id];
+      if (!rings[d]) rings[d] = [];
+      rings[d].push(r);
+    }
+
+    const cx = 500, cy = 350;
+    const radii = [0, 130, 240, 340, 430, 520];
+
+    for (const dStr of Object.keys(rings)) {
+      const d = parseInt(dStr, 10);
+      const ring = rings[d];
+      const radius = d === 99 ? 600 : (radii[d] != null ? radii[d] : radii[radii.length - 1] + (d - radii.length + 1) * 80);
+      if (d === 0) {
+        graphState.nodes[ring[0].id] = graphState.nodes[ring[0].id] || { x: cx, y: cy };
+      } else {
+        const n = ring.length;
+        const angleOffset = -Math.PI / 2 + (d * 0.3);
+        for (let i = 0; i < n; i++) {
+          const angle = angleOffset + (2 * Math.PI * i) / n;
+          const targetX = cx + Math.cos(angle) * radius;
+          const targetY = cy + Math.sin(angle) * radius;
+          if (!graphState.nodes[ring[i].id]) {
+            graphState.nodes[ring[i].id] = { x: targetX, y: targetY };
+          }
+        }
+      }
+    }
+  }
+
+  function openGraphEditor() {
+    // Cargar posiciones persistidas
+    const saved = loadGraphPositions();
+    graphState.nodes = { ...saved };
+    graphState.selected = null;
+    graphState.drag = null;
+    graphState.panDrag = null;
+    graphState.pan = { x: 0, y: 0 };
+    graphState.zoom = 1.0;
+
+    // Layout automático para nodos sin posición previa
+    autoLayout();
+
+    graphState.open = true;
+    renderGraphEditor();
+  }
+
+  function closeGraphEditor() {
+    saveGraphPositions();
+    graphState.open = false;
+    const overlay = document.getElementById('graph-editor-overlay');
+    if (overlay) overlay.remove();
+    // Re-render por si cambió algo
+    render();
+  }
+
+  function renderGraphEditor() {
+    let overlay = document.getElementById('graph-editor-overlay');
+    if (!overlay) {
+      overlay = document.createElement('div');
+      overlay.id = 'graph-editor-overlay';
+      overlay.className = 'graph-editor-overlay';
+      document.body.appendChild(overlay);
+    }
+
+    const allRegions = A.Data.regions || [];
+    const editingId = editingDraft && editingDraft.id;
+
+    // Calcular bounds del viewBox (todos los nodos + padding)
+    const xs = allRegions.map((r) => (graphState.nodes[r.id] || { x: 0 }).x);
+    const ys = allRegions.map((r) => (graphState.nodes[r.id] || { y: 0 }).y);
+    const padding = 100;
+    const minX = Math.min(...xs) - padding;
+    const maxX = Math.max(...xs) + padding;
+    const minY = Math.min(...ys) - padding;
+    const maxY = Math.max(...ys) + padding;
+    const w = maxX - minX, h = maxY - minY;
+
+    // Líneas (conexiones únicas) - leemos directamente de Data
+    const drawnEdges = new Set();
+    const lines = [];
+    for (const r of allRegions) {
+      const pos = graphState.nodes[r.id];
+      if (!pos) continue;
+      for (const cid of (r.connections || [])) {
+        const other = graphState.nodes[cid];
+        if (!other) continue;
+        const edgeKey = [r.id, cid].sort().join('::');
+        if (drawnEdges.has(edgeKey)) continue;
+        drawnEdges.add(edgeKey);
+        // Línea destacada si toca el nodo editado o seleccionado
+        const touchesEditing = r.id === editingId || cid === editingId;
+        const touchesSelected = graphState.selected && (r.id === graphState.selected || cid === graphState.selected);
+        const cls = `graph-edge ${touchesEditing ? 'is-editing' : ''} ${touchesSelected ? 'is-selected' : ''}`;
+        lines.push(`<line x1="${pos.x.toFixed(1)}" y1="${pos.y.toFixed(1)}" x2="${other.x.toFixed(1)}" y2="${other.y.toFixed(1)}" class="${cls}" />`);
+      }
+    }
+
+    // Nodos
+    const nodes = allRegions.map((r) => {
+      const pos = graphState.nodes[r.id];
+      if (!pos) return '';
+      const isEditing = r.id === editingId;
+      const isSelected = r.id === graphState.selected;
+      const radius = isEditing ? 32 : 26;
+      const biomeCls = r.biome ? `biome-${r.biome}` : '';
+      const cls = `graph-node ${isEditing ? 'is-editing' : ''} ${isSelected ? 'is-selected' : ''} is-${r.type} ${biomeCls}`;
+      return `
+        <g class="${cls}" data-graph-region="${A.Utils.escapeHtml(r.id)}" transform="translate(${pos.x.toFixed(1)} ${pos.y.toFixed(1)})">
+          <circle cx="0" cy="0" r="${radius}" />
+          <text x="0" y="2" text-anchor="middle" dominant-baseline="middle" font-size="${isEditing ? 24 : 20}">${r.icon || '📍'}</text>
+          <text x="0" y="${(radius + 14)}" text-anchor="middle" font-size="11" class="graph-node-label">${A.Utils.escapeHtml(r.name)}</text>
+        </g>
+      `;
+    }).join('');
+
+    overlay.innerHTML = `
+      <div class="graph-editor-modal">
+        <header class="graph-editor-header">
+          <div>
+            <h2>🗺️ Editor visual de conexiones</h2>
+            <div class="graph-editor-status dim">
+              ${graphState.selected
+                ? `Seleccionado: <strong>${A.Utils.escapeHtml(getRegionName(graphState.selected))}</strong> · click en otro nodo para conectar/desconectar · Esc cancela`
+                : `Click en un nodo para seleccionar · arrastrá para mover · arrastrá vacío para pan`
+              }
+            </div>
+          </div>
+          <button class="modal-close" data-graph-close>✕</button>
+        </header>
+
+        <div class="graph-editor-canvas" data-graph-canvas>
+          <svg class="graph-svg" viewBox="${minX} ${minY} ${w} ${h}" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet">
+            <g class="graph-transform-g" transform="translate(${graphState.pan.x} ${graphState.pan.y}) scale(${graphState.zoom})">
+              <g class="graph-edges">${lines.join('')}</g>
+              <g class="graph-nodes">${nodes}</g>
+            </g>
+          </svg>
+          <div class="graph-zoom-controls">
+            <button class="map-zoom-btn" data-graph-zoom="in" title="Zoom in">+</button>
+            <button class="map-zoom-btn" data-graph-zoom="out" title="Zoom out">−</button>
+            <button class="map-zoom-btn" data-graph-zoom="reset" title="Reset">⊙</button>
+          </div>
+        </div>
+
+        <footer class="graph-editor-footer">
+          <div class="graph-editor-legend">
+            <span class="dim">Leyenda:</span>
+            <span class="graph-legend-item"><span class="dot" style="background:var(--gold)"></span>región editada</span>
+            <span class="graph-legend-item"><span class="dot" style="background:#5a9233"></span>seleccionada</span>
+            <span class="dim">·</span>
+            <span class="dim">Las conexiones son bidireccionales</span>
+          </div>
+          <div class="graph-editor-actions">
+            <button class="btn-secondary" data-graph-action="auto-layout">↻ Re-acomodar</button>
+            <button class="btn-primary" data-graph-close>Cerrar</button>
+          </div>
+        </footer>
+      </div>
+    `;
+
+    bindGraphEditorEvents(overlay);
+  }
+
+  function getRegionName(id) {
+    const r = (A.Data.regions || []).find((x) => x.id === id);
+    return r ? r.name : id;
+  }
+
+  function bindGraphEditorEvents(overlay) {
+    // Close button
+    overlay.querySelectorAll('[data-graph-close]').forEach((b) => {
+      b.addEventListener('click', closeGraphEditor);
+    });
+
+    // Click fuera del modal cierra
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) closeGraphEditor();
+    });
+
+    // Esc cancela selección, segundo Esc cierra
+    const escHandler = (e) => {
+      if (e.key === 'Escape') {
+        if (graphState.selected) {
+          graphState.selected = null;
+          renderGraphEditor();
+        } else {
+          closeGraphEditor();
+        }
+      }
+    };
+    document.addEventListener('keydown', escHandler);
+    overlay._escHandler = escHandler;
+
+    // Zoom buttons
+    overlay.querySelectorAll('[data-graph-zoom]').forEach((b) => {
+      b.addEventListener('click', () => {
+        const action = b.dataset.graphZoom;
+        if (action === 'in') graphState.zoom = Math.min(3, graphState.zoom * 1.25);
+        else if (action === 'out') graphState.zoom = Math.max(0.4, graphState.zoom / 1.25);
+        else if (action === 'reset') { graphState.zoom = 1; graphState.pan = { x: 0, y: 0 }; }
+        applyGraphTransform(overlay);
+      });
+    });
+
+    // Wheel zoom
+    const canvas = overlay.querySelector('[data-graph-canvas]');
+    canvas.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      const delta = e.deltaY > 0 ? 0.9 : 1.111;
+      graphState.zoom = Math.max(0.4, Math.min(3, graphState.zoom * delta));
+      applyGraphTransform(overlay);
+    }, { passive: false });
+
+    // Auto-layout button
+    overlay.querySelectorAll('[data-graph-action="auto-layout"]').forEach((b) => {
+      b.addEventListener('click', () => {
+        // Forzar re-layout: borrar posiciones actuales
+        graphState.nodes = {};
+        autoLayout();
+        renderGraphEditor();
+      });
+    });
+
+    // Node interactions: drag o click para conectar
+    overlay.querySelectorAll('[data-graph-region]').forEach((g) => {
+      let mouseDownX = 0, mouseDownY = 0, mouseDownTime = 0;
+      let didMove = false;
+
+      g.addEventListener('mousedown', (e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        mouseDownX = e.clientX;
+        mouseDownY = e.clientY;
+        mouseDownTime = Date.now();
+        didMove = false;
+        graphState.drag = {
+          nodeId: g.dataset.graphRegion,
+          startMouseX: e.clientX,
+          startMouseY: e.clientY,
+          startNodeX: graphState.nodes[g.dataset.graphRegion].x,
+          startNodeY: graphState.nodes[g.dataset.graphRegion].y,
+        };
+        document.addEventListener('mousemove', onNodeMove);
+        document.addEventListener('mouseup', onNodeUp);
+      });
+
+      function onNodeMove(e) {
+        if (!graphState.drag) return;
+        const dx = e.clientX - graphState.drag.startMouseX;
+        const dy = e.clientY - graphState.drag.startMouseY;
+        if (Math.abs(dx) > 4 || Math.abs(dy) > 4) didMove = true;
+        if (didMove) {
+          // Convertir delta de pantalla a delta del SVG (considerando zoom)
+          const svg = overlay.querySelector('.graph-svg');
+          const rect = svg.getBoundingClientRect();
+          const vb = svg.viewBox.baseVal;
+          const scaleX = vb.width / rect.width;
+          const scaleY = vb.height / rect.height;
+          graphState.nodes[graphState.drag.nodeId] = {
+            x: graphState.drag.startNodeX + dx * scaleX / graphState.zoom,
+            y: graphState.drag.startNodeY + dy * scaleY / graphState.zoom,
+          };
+          // Update solo el transform del nodo y las líneas conectadas (eficiente)
+          updateNodePosition(overlay, graphState.drag.nodeId);
+        }
+      }
+
+      function onNodeUp(e) {
+        document.removeEventListener('mousemove', onNodeMove);
+        document.removeEventListener('mouseup', onNodeUp);
+        if (!graphState.drag) return;
+        const dt = Date.now() - mouseDownTime;
+        const draggedId = graphState.drag.nodeId;
+        graphState.drag = null;
+
+        if (!didMove && dt < 600) {
+          // Click puro → seleccionar / conectar
+          handleNodeClick(draggedId);
+        } else {
+          // Fue drag: persistir posiciones
+          saveGraphPositions();
+        }
+      }
+    });
+
+    // Pan canvas (al hacer mousedown en zona vacía)
+    const canvasEl = overlay.querySelector('[data-graph-canvas]');
+    canvasEl.addEventListener('mousedown', (e) => {
+      // Solo si el target ES el canvas o el svg (no un nodo)
+      if (e.target.closest('[data-graph-region]')) return;
+      if (e.button !== 0) return;
+      graphState.panDrag = {
+        startX: e.clientX, startY: e.clientY,
+        startPanX: graphState.pan.x, startPanY: graphState.pan.y,
+      };
+      canvasEl.style.cursor = 'grabbing';
+      document.addEventListener('mousemove', onPanMove);
+      document.addEventListener('mouseup', onPanUp);
+    });
+
+    function onPanMove(e) {
+      if (!graphState.panDrag) return;
+      const dx = e.clientX - graphState.panDrag.startX;
+      const dy = e.clientY - graphState.panDrag.startY;
+      graphState.pan.x = graphState.panDrag.startPanX + dx;
+      graphState.pan.y = graphState.panDrag.startPanY + dy;
+      applyGraphTransform(overlay);
+    }
+    function onPanUp() {
+      document.removeEventListener('mousemove', onPanMove);
+      document.removeEventListener('mouseup', onPanUp);
+      graphState.panDrag = null;
+      canvasEl.style.cursor = 'grab';
+    }
+  }
+
+  function applyGraphTransform(overlay) {
+    const g = overlay.querySelector('.graph-transform-g');
+    if (!g) return;
+    g.setAttribute('transform', `translate(${graphState.pan.x} ${graphState.pan.y}) scale(${graphState.zoom})`);
+  }
+
+  function updateNodePosition(overlay, nodeId) {
+    const pos = graphState.nodes[nodeId];
+    if (!pos) return;
+    // Update node transform
+    const nodeEl = overlay.querySelector(`[data-graph-region="${nodeId}"]`);
+    if (nodeEl) {
+      nodeEl.setAttribute('transform', `translate(${pos.x.toFixed(1)} ${pos.y.toFixed(1)})`);
+    }
+    // Update líneas conectadas (esto es "barato": re-renderizamos el grupo .graph-edges)
+    const allRegions = A.Data.regions || [];
+    const drawnEdges = new Set();
+    const editingId = editingDraft && editingDraft.id;
+    const lines = [];
+    for (const r of allRegions) {
+      const ppos = graphState.nodes[r.id];
+      if (!ppos) continue;
+      for (const cid of (r.connections || [])) {
+        const other = graphState.nodes[cid];
+        if (!other) continue;
+        const edgeKey = [r.id, cid].sort().join('::');
+        if (drawnEdges.has(edgeKey)) continue;
+        drawnEdges.add(edgeKey);
+        const touchesEditing = r.id === editingId || cid === editingId;
+        const touchesSelected = graphState.selected && (r.id === graphState.selected || cid === graphState.selected);
+        const cls = `graph-edge ${touchesEditing ? 'is-editing' : ''} ${touchesSelected ? 'is-selected' : ''}`;
+        lines.push(`<line x1="${ppos.x.toFixed(1)}" y1="${ppos.y.toFixed(1)}" x2="${other.x.toFixed(1)}" y2="${other.y.toFixed(1)}" class="${cls}" />`);
+      }
+    }
+    const edgesGroup = overlay.querySelector('.graph-edges');
+    if (edgesGroup) edgesGroup.innerHTML = lines.join('');
+  }
+
+  function handleNodeClick(nodeId) {
+    if (!graphState.selected) {
+      graphState.selected = nodeId;
+      renderGraphEditor();
+      return;
+    }
+    if (graphState.selected === nodeId) {
+      // Click en el mismo: deseleccionar
+      graphState.selected = null;
+      renderGraphEditor();
+      return;
+    }
+    // Toggle conexión bidireccional entre selected y nodeId
+    toggleConnection(graphState.selected, nodeId);
+    graphState.selected = null;
+    renderGraphEditor();
+  }
+
+  /**
+   * Activa o desactiva una conexión bidireccional entre dos regiones.
+   * Persiste el cambio como override del editor.
+   */
+  function toggleConnection(idA, idB) {
+    if (idA === idB) return;
+    const overrides = A.Data.getOverrides();
+    overrides.regions = overrides.regions || [];
+
+    [idA, idB].forEach((thisId, i) => {
+      const otherId = i === 0 ? idB : idA;
+      // Buscar la región (override > seed)
+      let target = overrides.regions.find((r) => r.id === thisId);
+      if (!target) {
+        const seed = A.Data.regions.find((r) => r.id === thisId);
+        if (!seed) return;
+        target = JSON.parse(JSON.stringify(seed));
+        overrides.regions.push(target);
+      }
+      target.connections = target.connections || [];
+      const idx = target.connections.indexOf(otherId);
+      if (idx >= 0) target.connections.splice(idx, 1);
+      else target.connections.push(otherId);
+    });
+
+    A.Data.saveOverrides(overrides);
+    A.Data.init();
+    dirty = true;
+    // Si la región editada cambió sus conexiones, reflejarlo en editingDraft
+    if (editingDraft && (editingDraft.id === idA || editingDraft.id === idB)) {
+      const fresh = A.Data.regions.find((r) => r.id === editingDraft.id);
+      if (fresh) {
+        editingDraft.connections = [...(fresh.connections || [])];
+      }
+    }
   }
 
   const Editor = { mount, unmount };

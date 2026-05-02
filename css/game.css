@@ -3809,33 +3809,89 @@
   }
 }
 
-/* === v1.5.7e: Nodos del mapa con color por tipo de zona === */
-/* Las zonas seguras tienen un toque verde, las de combate un toque rojo */
-.map-fullscreen-svg .map-node.is-safe.is-neighbor circle {
-  fill: #e8f0d4;
-  stroke: #6a8a30;
+/* === v1.5.7f: Nodos del mapa con color por BIOMA === */
+/* Cada bioma tiene su paleta: relleno claro (vecinos) + relleno fuerte (current) + stroke */
+
+/* Aldea/villa - dorado cálido */
+.map-fullscreen-svg .map-node.biome-village.is-neighbor circle { fill: #f4e0b0; stroke: #b08820; }
+.map-fullscreen-svg .map-node.biome-village.is-current circle  { fill: #e0b850; stroke: #875e10; }
+
+/* Bosque - verde frondoso */
+.map-fullscreen-svg .map-node.biome-forest.is-neighbor circle { fill: #c8e0a8; stroke: #4a7028; }
+.map-fullscreen-svg .map-node.biome-forest.is-current circle  { fill: #6ea838; stroke: #2d4815; }
+
+/* Cementerio - violeta apagado */
+.map-fullscreen-svg .map-node.biome-graveyard.is-neighbor circle { fill: #d8d0e0; stroke: #685080; }
+.map-fullscreen-svg .map-node.biome-graveyard.is-current circle  { fill: #8a7aa0; stroke: #3e2c58; }
+
+/* Llanura - amarillo pálido */
+.map-fullscreen-svg .map-node.biome-plains.is-neighbor circle { fill: #f0e8c8; stroke: #a89048; }
+.map-fullscreen-svg .map-node.biome-plains.is-current circle  { fill: #d8b860; stroke: #745a18; }
+
+/* Pantano - verde oliva oscuro */
+.map-fullscreen-svg .map-node.biome-swamp.is-neighbor circle { fill: #b8c89a; stroke: #5a6028; }
+.map-fullscreen-svg .map-node.biome-swamp.is-current circle  { fill: #6e7a3a; stroke: #3a3e15; }
+
+/* Costa - turquesa */
+.map-fullscreen-svg .map-node.biome-coast.is-neighbor circle { fill: #c0e0d8; stroke: #2a8078; }
+.map-fullscreen-svg .map-node.biome-coast.is-current circle  { fill: #5ab8a8; stroke: #144a45; }
+
+/* Tierras arcanas - violeta brillante */
+.map-fullscreen-svg .map-node.biome-arcane.is-neighbor circle { fill: #e0c8e8; stroke: #7a3898; }
+.map-fullscreen-svg .map-node.biome-arcane.is-current circle  { fill: #b070c8; stroke: #4a1860; }
+
+/* Montaña - marrón piedra */
+.map-fullscreen-svg .map-node.biome-mountain.is-neighbor circle { fill: #d8c8b0; stroke: #785838; }
+.map-fullscreen-svg .map-node.biome-mountain.is-current circle  { fill: #a08068; stroke: #4a3010; }
+
+/* Desierto - amarillo arena */
+.map-fullscreen-svg .map-node.biome-desert.is-neighbor circle { fill: #f0dca0; stroke: #b89030; }
+.map-fullscreen-svg .map-node.biome-desert.is-current circle  { fill: #d8b048; stroke: #785e10; }
+
+/* Ruinas - gris piedra antigua */
+.map-fullscreen-svg .map-node.biome-ruins.is-neighbor circle { fill: #d4ccc0; stroke: #6e5e48; }
+.map-fullscreen-svg .map-node.biome-ruins.is-current circle  { fill: #988568; stroke: #3e3018; }
+
+/* Cripta - violeta oscuro/negro */
+.map-fullscreen-svg .map-node.biome-crypt.is-neighbor circle { fill: #c8b8c8; stroke: #4a3050; }
+.map-fullscreen-svg .map-node.biome-crypt.is-current circle  { fill: #6e4a78; stroke: #2a1530; }
+
+/* Cueva - gris oscuro */
+.map-fullscreen-svg .map-node.biome-cave.is-neighbor circle { fill: #b8b0a8; stroke: #383028; }
+.map-fullscreen-svg .map-node.biome-cave.is-current circle  { fill: #686058; stroke: #181410; }
+
+/* Mar abierto - azul fuerte */
+.map-fullscreen-svg .map-node.biome-sea.is-neighbor circle { fill: #b0d0e8; stroke: #2858a0; }
+.map-fullscreen-svg .map-node.biome-sea.is-current circle  { fill: #4080c0; stroke: #102e60; }
+
+/* Volcán - rojo fuego */
+.map-fullscreen-svg .map-node.biome-volcano.is-neighbor circle { fill: #f0c0a0; stroke: #b04020; }
+.map-fullscreen-svg .map-node.biome-volcano.is-current circle  { fill: #d05a28; stroke: #601810; }
+
+/* Infierno - rojo intenso/negro */
+.map-fullscreen-svg .map-node.biome-hell.is-neighbor circle { fill: #e8a898; stroke: #802018; }
+.map-fullscreen-svg .map-node.biome-hell.is-current circle  { fill: #b03020; stroke: #400808; }
+
+/* Guarida - marrón rojizo */
+.map-fullscreen-svg .map-node.biome-lair.is-neighbor circle { fill: #d8b098; stroke: #783820; }
+.map-fullscreen-svg .map-node.biome-lair.is-current circle  { fill: #a06040; stroke: #381810; }
+
+/* Abismo - azul casi negro */
+.map-fullscreen-svg .map-node.biome-abyss.is-neighbor circle { fill: #a8b8c8; stroke: #182838; }
+.map-fullscreen-svg .map-node.biome-abyss.is-current circle  { fill: #485868; stroke: #08101c; }
+
+/* Lejanos: misma paleta pero atenuada */
+.map-fullscreen-svg .map-node.is-far circle { opacity: 0.38; }
+
+/* Fallback: sin bioma o tipo desconocido */
+.map-fullscreen-svg .map-node.is-safe.is-neighbor:not([class*="biome-"]) circle {
+  fill: #e8f0d4; stroke: #6a8a30;
 }
-.map-fullscreen-svg .map-node.is-safe.is-current circle {
-  fill: #b8d27e;
-  stroke: #4a6b1f;
+.map-fullscreen-svg .map-node.is-combat.is-neighbor:not([class*="biome-"]) circle {
+  fill: #f4dccd; stroke: #b04a2e;
 }
-.map-fullscreen-svg .map-node.is-combat.is-neighbor circle {
-  fill: #f4dccd;
-  stroke: #b04a2e;
-}
-.map-fullscreen-svg .map-node.is-combat.is-current circle {
-  fill: #d68a6a;
-  stroke: #8d2818;
-}
-.map-fullscreen-svg .map-node.is-far.is-safe circle {
-  fill: #e8f0d4;
-  stroke: #8a9c5a;
-  opacity: 0.35;
-}
-.map-fullscreen-svg .map-node.is-far.is-combat circle {
-  fill: #f4dccd;
-  stroke: #b07a5a;
-  opacity: 0.35;
+.map-fullscreen-svg .map-node.is-current:not([class*="biome-"]) circle {
+  fill: var(--gold); stroke: var(--gold-deep);
 }
 
 /* ============================================================
@@ -4125,3 +4181,215 @@
     gap: 4px;
   }
 }
+
+/* ============================================================
+   v1.5.7f — Editor visual de conexiones (graph editor)
+   ============================================================ */
+
+.graph-editor-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(40, 30, 15, 0.6);
+  backdrop-filter: blur(2px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: var(--sp-3);
+  animation: fadeInOverlay 200ms ease-out;
+}
+
+.graph-editor-modal {
+  background: var(--surface-raised);
+  border: var(--border-w) solid var(--gold-deep);
+  border-radius: var(--r-lg);
+  width: 100%;
+  max-width: 1400px;
+  height: 90vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: var(--shadow-xl, 0 20px 60px rgba(60, 40, 20, 0.4));
+  animation: zoomInModal 250ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.graph-editor-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--sp-3) var(--sp-4);
+  border-bottom: var(--border-w) solid var(--border);
+  background: linear-gradient(180deg, var(--gold-bg-soft) 0%, var(--surface-raised) 100%);
+  border-radius: var(--r-lg) var(--r-lg) 0 0;
+}
+.graph-editor-header h2 {
+  margin: 0;
+  font-size: var(--fs-lg);
+  color: var(--gold-text);
+}
+.graph-editor-status {
+  margin-top: 4px;
+  font-size: var(--fs-xs);
+}
+
+.graph-editor-canvas {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(ellipse 25% 35% at 22% 30%, rgba(120, 90, 50, 0.06) 0%, transparent 60%),
+    radial-gradient(ellipse 30% 25% at 78% 65%, rgba(80, 110, 60, 0.05) 0%, transparent 60%),
+    radial-gradient(ellipse 40% 30% at 90% 10%, rgba(74, 120, 160, 0.08) 0%, transparent 70%),
+    radial-gradient(ellipse at center, rgba(212, 164, 55, 0.08) 0%, transparent 65%),
+    linear-gradient(135deg, #f4e9d0 0%, #ecdcb8 100%);
+  cursor: grab;
+}
+.graph-editor-canvas:active { cursor: grabbing; }
+
+.graph-svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  user-select: none;
+}
+
+.graph-zoom-controls {
+  position: absolute;
+  bottom: 14px;
+  right: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  z-index: 5;
+}
+
+/* Edges */
+.graph-edge {
+  stroke: rgba(120, 90, 50, 0.45);
+  stroke-width: 2;
+  stroke-dasharray: none;
+  pointer-events: none;
+}
+.graph-edge.is-editing {
+  stroke: var(--gold-deep);
+  stroke-width: 3;
+}
+.graph-edge.is-selected {
+  stroke: #5a9233;
+  stroke-width: 3;
+}
+
+/* Nodes - igual paleta por bioma que el mapa de viaje (reuso) */
+.graph-node {
+  cursor: pointer;
+}
+.graph-node circle {
+  fill: var(--surface-sunken);
+  stroke: var(--border-strong);
+  stroke-width: 1.5;
+  transition: stroke-width var(--t-fast);
+}
+.graph-node text {
+  pointer-events: none;
+  user-select: none;
+}
+.graph-node-label {
+  fill: var(--text);
+  font-weight: 600;
+}
+.graph-node:hover circle {
+  stroke-width: 3;
+}
+.graph-node.is-editing circle {
+  fill: var(--gold);
+  stroke: var(--gold-deep);
+  stroke-width: 4;
+  filter: drop-shadow(0 4px 8px rgba(212, 164, 55, 0.5));
+}
+.graph-node.is-selected circle {
+  stroke: #5a9233;
+  stroke-width: 4;
+  filter: drop-shadow(0 4px 10px rgba(90, 146, 51, 0.5));
+}
+
+/* Aplicar misma paleta de biomas que en el mapa principal */
+.graph-svg .graph-node.biome-village circle { fill: #f4e0b0; stroke: #b08820; }
+.graph-svg .graph-node.biome-forest circle { fill: #c8e0a8; stroke: #4a7028; }
+.graph-svg .graph-node.biome-graveyard circle { fill: #d8d0e0; stroke: #685080; }
+.graph-svg .graph-node.biome-plains circle { fill: #f0e8c8; stroke: #a89048; }
+.graph-svg .graph-node.biome-swamp circle { fill: #b8c89a; stroke: #5a6028; }
+.graph-svg .graph-node.biome-coast circle { fill: #c0e0d8; stroke: #2a8078; }
+.graph-svg .graph-node.biome-arcane circle { fill: #e0c8e8; stroke: #7a3898; }
+.graph-svg .graph-node.biome-mountain circle { fill: #d8c8b0; stroke: #785838; }
+.graph-svg .graph-node.biome-desert circle { fill: #f0dca0; stroke: #b89030; }
+.graph-svg .graph-node.biome-ruins circle { fill: #d4ccc0; stroke: #6e5e48; }
+.graph-svg .graph-node.biome-crypt circle { fill: #c8b8c8; stroke: #4a3050; }
+.graph-svg .graph-node.biome-cave circle { fill: #b8b0a8; stroke: #383028; }
+.graph-svg .graph-node.biome-sea circle { fill: #b0d0e8; stroke: #2858a0; }
+.graph-svg .graph-node.biome-volcano circle { fill: #f0c0a0; stroke: #b04020; }
+.graph-svg .graph-node.biome-hell circle { fill: #e8a898; stroke: #802018; }
+.graph-svg .graph-node.biome-lair circle { fill: #d8b098; stroke: #783820; }
+.graph-svg .graph-node.biome-abyss circle { fill: #a8b8c8; stroke: #182838; }
+
+/* Cuando está editando o seleccionada, el stroke fuerte sobreescribe */
+.graph-svg .graph-node.is-editing circle {
+  stroke: var(--gold-deep) !important;
+  stroke-width: 4;
+}
+.graph-svg .graph-node.is-selected circle {
+  stroke: #2d4815 !important;
+  stroke-width: 4;
+}
+
+.graph-editor-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-3) var(--sp-4);
+  border-top: var(--border-w) solid var(--border);
+  background: var(--surface);
+  border-radius: 0 0 var(--r-lg) var(--r-lg);
+  flex-wrap: wrap;
+}
+.graph-editor-legend {
+  display: flex;
+  gap: var(--sp-2);
+  align-items: center;
+  font-size: var(--fs-xs);
+  flex-wrap: wrap;
+}
+.graph-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.graph-legend-item .dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: var(--border-w) solid var(--border-strong);
+}
+.graph-editor-actions {
+  display: flex;
+  gap: var(--sp-2);
+}
+
+/* Botón en el form de regiones */
+.connections-editor-block {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.btn-graph-editor {
+  align-self: flex-start;
+  padding: 6px 12px;
+  background: var(--gold-bg-soft);
+  border: var(--border-w) solid var(--gold-deep);
+  color: var(--gold-text);
+  font-weight: var(--fw-semi);
+  cursor: pointer;
+  border-radius: var(--r-sm);
+}
+.btn-graph-editor:hover { background: var(--gold-bg); }
+
