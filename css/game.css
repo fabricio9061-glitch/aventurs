@@ -2720,3 +2720,111 @@
   font-size: 11px;
   color: var(--text-muted);
 }
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+/* ============================================================
+   v1.5.5 — pills de stat en tienda
+   ============================================================ */
+
+.item-stat-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 6px;
+  margin-left: 6px;
+  font-size: 10px;
+  font-weight: var(--fw-semi);
+  background: var(--gold-bg);
+  border: var(--border-w) solid var(--gold-deep);
+  border-radius: var(--r-sm);
+  color: var(--gold-text);
+  font-variant-numeric: tabular-nums;
+  vertical-align: middle;
+}
+.item-stat-pill-dmg {
+  background: var(--hp-bg);
+  border-color: #d4a89a;
+  color: var(--hp);
+}
+.item-stat-pill-def {
+  background: var(--mana-bg);
+  border-color: #a8bfd9;
+  color: var(--mana);
+}
+.item-stat-pill-bag {
+  background: var(--food-bg);
+  border-color: #d4b18a;
+  color: var(--food);
+}
+
+/* ============================================================
+   v1.5.5b — Status effects, esquiva, dado de daño en log
+   ============================================================ */
+
+/* Badges de efectos en cards de combatiente */
+.combat-effects-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 6px 0;
+  justify-content: center;
+}
+.effect-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px 6px;
+  font-size: 10px;
+  font-weight: var(--fw-semi);
+  border-radius: var(--r-full);
+  border: var(--border-w) solid;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+.effect-bleed { background: #fce8e0; border-color: #d4684f; color: #8a3220; }
+.effect-poison { background: #e9eed5; border-color: #7a8c2c; color: #4d5a18; }
+.effect-fire { background: #fce0d0; border-color: #c4592b; color: #7d3014; }
+.effect-cold { background: #d8e7f0; border-color: #4a7fa1; color: #25516e; }
+.effect-shock { background: #f4ebca; border-color: #b08818; color: #6d530d; }
+.effect-blind { background: #e5e2dc; border-color: #8a7c63; color: #463d2e; }
+.effect-silence { background: #e6dde9; border-color: #7d4d8c; color: #4a2858; }
+.effect-turns { font-size: 9px; opacity: 0.85; }
+
+/* Pill del dado de esquiva (se diferencia del de impacto) */
+.die-pill-dodge {
+  background: var(--mana-bg);
+  border-color: #a8bfd9;
+  color: var(--mana);
+}
+
+/* Pill del dado de daño (con notación tipo 1d6) */
+.dice-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 6px;
+  margin-right: 6px;
+  background: var(--hp-bg);
+  border: var(--border-w) solid #d4a89a;
+  border-radius: var(--r-sm);
+  font-size: 10px;
+  font-weight: var(--fw-semi);
+  color: var(--hp);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Resultado evaded en log */
+.combat-log-row .result-evaded {
+  color: var(--mana);
+}
+.combat-log-row .result-evaded .log-icon {
+  color: var(--mana);
+}
+
+/* Texto faint dentro del log */
+.log-faint {
+  color: var(--text-faint);
+  font-size: 10px;
+  font-weight: var(--fw-normal);
+}

@@ -150,22 +150,78 @@
    */
   function spawnInstance(enemyData) {
     const instanceId = 'e_' + Date.now().toString(36) + '_' + Math.floor(Math.random() * 10000);
-    return {
+    const inst = {
       instanceId,
       id: enemyData.id,
       name: enemyData.name,
       icon: enemyData.icon,
       hp: enemyData.health,
       maxHp: enemyData.health,
-      damage: enemyData.damage,
-      armor: enemyData.armor,
-      speed: enemyData.speed,
+      damage: enemyData.damage, // notación dados ('1d6') o número
+      baseDamage: enemyData.baseDamage || enemyData.damage, // daño base sin arma
+      armor: enemyData.armor || 0,
+      speed: enemyData.speed || 10,
+      dodge: enemyData.dodge || Math.max(0, Math.floor((enemyData.speed || 10) / 4)),
       difficulty: enemyData.difficulty,
       category: enemyData.category,
       tier: enemyData.tier,
       family: (enemyData.family || []).slice(),
       tags: (enemyData.tags || []).slice(),
+      effects: [],
+      equippedWeapon: null,
+      equippedArmor: null,
     };
+
+    // Si es humanoide, equiparle un arma probable
+    if (inst.family.includes('humanoid')) {
+      const equipped = pickHumanoidEquipment(inst);
+      if (equipped.weapon) {
+        inst.equippedWeapon = equipped.weapon.id;
+        inst.damage = equipped.weapon.damage; // sobreescribe el daño base
+      } else {
+        // Sin arma: usa baseDamage (más bajo que con arma)
+        inst.damage = inst.baseDamage;
+      }
+      if (equipped.armor) {
+        inst.equippedArmor = equipped.armor.id;
+        inst.armor = (inst.armor || 0) + equipped.armor.defense;
+        // Armaduras pesadas reducen velocidad
+        inst.speed = Math.max(1, inst.speed - (equipped.armor.weight || 0));
+      }
+    }
+
+    return inst;
+  }
+
+  /**
+   * Para enemigos humanoides, decide qué arma/armadura llevan según su tier.
+   * Devuelve { weapon: WeaponData|null, armor: ArmorData|null }
+   */
+  function pickHumanoidEquipment(enemy) {
+    const tier = enemy.tier || 1;
+    const weapons = (window.Aventurs.Data.weapons || []).filter((w) => !w.magic);
+    const armors = (window.Aventurs.Data.armors || []);
+    if (weapons.length === 0) return { weapon: null, armor: null };
+    // Filtrar por tier acorde
+    const eligibleWeapons = weapons.filter((w) => Math.abs((w.tier || 1) - tier) <= 1);
+    const eligibleArmors = armors.filter((a) => Math.abs((a.tier || 1) - tier) <= 1);
+
+    let weapon = null;
+    let armor = null;
+
+    // Probabilidad de tener arma según tier
+    // tier 1-2: 60%, tier 3-4: 80%, tier 5+: 95%
+    const weaponChance = tier <= 2 ? 0.6 : tier <= 4 ? 0.8 : 0.95;
+    if (Math.random() < weaponChance && eligibleWeapons.length > 0) {
+      weapon = eligibleWeapons[Math.floor(Math.random() * eligibleWeapons.length)];
+    }
+    // Probabilidad de tener armadura
+    // tier 1-2: 25%, tier 3-4: 50%, tier 5+: 75%
+    const armorChance = tier <= 2 ? 0.25 : tier <= 4 ? 0.5 : 0.75;
+    if (Math.random() < armorChance && eligibleArmors.length > 0) {
+      armor = eligibleArmors[Math.floor(Math.random() * eligibleArmors.length)];
+    }
+    return { weapon, armor };
   }
 
   // ---- Helpers ----
