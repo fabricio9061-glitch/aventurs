@@ -44,6 +44,8 @@
       case 'tame': html = renderTame(payload); break;
       case 'magic': html = renderMagic(); break;
       case 'chronicles-full': html = renderChroniclesFull(); break;
+      case 'travel': html = renderTravelModal(); break;
+      case 'combat-full-log': html = renderCombatFullLog(); break;
       case 'equipped-bag': html = renderEquippedBag(payload); break;
       case 'combat-spell': html = renderCombatSpell(); break;
       case 'combat-item': html = renderCombatItem(); break;
@@ -687,6 +689,218 @@
     return d.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
   }
 
+  // ---------- Travel modal (lista de destinos + mapa) ----------
+
+  function renderTravelModal() {
+    const neighbors = A.Travel.neighbors() || [];
+    const currentRegion = A.Data.getById('regions', A.State.world.regionId);
+    const body = `
+      <div class="travel-modal">
+        <div class="travel-modal-header">
+          <span class="travel-modal-current">
+            <span class="travel-modal-icon-mini">${currentRegion ? currentRegion.icon : '📍'}</span>
+            <span class="dim">Estás en</span>
+            <strong>${currentRegion ? A.Utils.escapeHtml(currentRegion.name) : '?'}</strong>
+          </span>
+        </div>
+
+        ${renderTravelMapSvg(currentRegion)}
+
+        ${neighbors.length === 0 ? `
+          <div class="empty-card">
+            <div class="empty-icon">🗺️</div>
+            <div class="empty-title">No hay caminos desde acá</div>
+            <div class="empty-text muted">Esta región es un punto final.</div>
+          </div>
+        ` : `
+          <div class="travel-modal-section-title">Destinos disponibles</div>
+          <div class="travel-modal-list">
+            ${neighbors.map((n) => travelModalCard(n)).join('')}
+          </div>
+        `}
+      </div>
+    `;
+    return modalShell('Viajar', body);
+  }
+
+  /**
+   * Genera un mapa SVG con auto-layout BFS por anillos:
+   *   - región actual al centro
+   *   - regiones a 1 salto en el anillo 1
+   *   - regiones a 2 saltos en el anillo 2
+   *   - etc.
+   * Las líneas representan las conexiones reales entre regiones.
+   */
+  function renderTravelMapSvg(currentRegion) {
+    if (!currentRegion) return '';
+    const allRegions = A.Data.regions || [];
+    if (allRegions.length === 0) return '';
+
+    // BFS: distancia de cada región al actual
+    const dist = {};
+    dist[currentRegion.id] = 0;
+    const queue = [currentRegion.id];
+    while (queue.length > 0) {
+      const id = queue.shift();
+      const reg = allRegions.find((r) => r.id === id);
+      if (!reg) continue;
+      for (const cid of (reg.connections || [])) {
+        if (dist[cid] === undefined) {
+          dist[cid] = dist[id] + 1;
+          queue.push(cid);
+        }
+      }
+    }
+
+    // Agrupar por distancia
+    const rings = {};
+    for (const r of allRegions) {
+      const d = dist[r.id];
+      if (d === undefined) continue; // región desconectada del actual
+      if (!rings[d]) rings[d] = [];
+      rings[d].push(r);
+    }
+
+    // Posicionar: centro (300,200), radios 80, 160, 240
+    const cx = 300, cy = 200;
+    const ringRadii = [0, 95, 175, 250];
+    const positions = {};
+    for (const dStr of Object.keys(rings)) {
+      const d = parseInt(dStr, 10);
+      const ring = rings[d];
+      const radius = ringRadii[d] != null ? ringRadii[d] : 250 + (d - 3) * 75;
+      if (d === 0) {
+        positions[ring[0].id] = { x: cx, y: cy };
+      } else {
+        const n = ring.length;
+        for (let i = 0; i < n; i++) {
+          // Distribuir en el círculo, empezando desde arriba (-PI/2)
+          const angle = -Math.PI / 2 + (2 * Math.PI * i) / n;
+          positions[ring[i].id] = {
+            x: cx + Math.cos(angle) * radius,
+            y: cy + Math.sin(angle) * radius,
+          };
+        }
+      }
+    }
+
+    // Calcular bounds para viewBox
+    const xs = Object.values(positions).map((p) => p.x);
+    const ys = Object.values(positions).map((p) => p.y);
+    const minX = Math.min(...xs) - 60, maxX = Math.max(...xs) + 60;
+    const minY = Math.min(...ys) - 50, maxY = Math.max(...ys) + 50;
+    const w = maxX - minX, h = maxY - minY;
+
+    // Dibujar líneas (conexiones únicas)
+    const drawnEdges = new Set();
+    const lines = [];
+    for (const r of allRegions) {
+      if (!positions[r.id]) continue;
+      for (const cid of (r.connections || [])) {
+        if (!positions[cid]) continue;
+        const edgeKey = [r.id, cid].sort().join('-');
+        if (drawnEdges.has(edgeKey)) continue;
+        drawnEdges.add(edgeKey);
+        const a = positions[r.id], b = positions[cid];
+        // Línea destacada si conecta con la región actual
+        const isFromCurrent = r.id === currentRegion.id || cid === currentRegion.id;
+        const cls = isFromCurrent ? 'map-edge map-edge-active' : 'map-edge';
+        lines.push(`<line x1="${a.x.toFixed(1)}" y1="${a.y.toFixed(1)}" x2="${b.x.toFixed(1)}" y2="${b.y.toFixed(1)}" class="${cls}" />`);
+      }
+    }
+
+    // Dibujar nodos
+    const nodes = [];
+    for (const r of allRegions) {
+      if (!positions[r.id]) continue;
+      const p = positions[r.id];
+      const isCurrent = r.id === currentRegion.id;
+      const isNeighbor = (currentRegion.connections || []).includes(r.id);
+      const reachable = isCurrent || isNeighbor;
+      const cls = `map-node ${isCurrent ? 'is-current' : ''} ${isNeighbor ? 'is-neighbor' : ''} ${!reachable ? 'is-far' : ''} is-${r.type}`;
+      const nodeRadius = isCurrent ? 26 : isNeighbor ? 22 : 16;
+      const fontSize = isCurrent ? 22 : isNeighbor ? 18 : 14;
+      const labelY = p.y + nodeRadius + 14;
+      nodes.push(`
+        <g class="${cls}" data-map-region="${A.Utils.escapeHtml(r.id)}" ${isNeighbor ? 'data-clickable="1"' : ''}>
+          <circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="${nodeRadius}" />
+          <text x="${p.x.toFixed(1)}" y="${(p.y + 1).toFixed(1)}" text-anchor="middle" dominant-baseline="middle" font-size="${fontSize}" class="map-node-icon">${r.icon || '📍'}</text>
+          <text x="${p.x.toFixed(1)}" y="${labelY.toFixed(1)}" text-anchor="middle" class="map-node-label" font-size="10">${A.Utils.escapeHtml(r.name)}</text>
+        </g>
+      `);
+    }
+
+    return `
+      <div class="travel-map-wrap">
+        <div class="travel-map-legend">
+          <span class="map-legend-item"><span class="map-legend-dot is-current"></span>Estás aquí</span>
+          <span class="map-legend-item"><span class="map-legend-dot is-neighbor"></span>Disponible</span>
+          <span class="map-legend-item"><span class="map-legend-dot is-far"></span>Lejos</span>
+        </div>
+        <svg class="travel-map-svg" viewBox="${minX} ${minY} ${w} ${h}" xmlns="http://www.w3.org/2000/svg">
+          <g class="map-edges">${lines.join('')}</g>
+          <g class="map-nodes">${nodes.join('')}</g>
+        </svg>
+      </div>
+    `;
+  }
+
+  function travelModalCard(n) {
+    const dangerLabel = n.type === 'safe' ? 'Seguro' : 'Combate';
+    const dangerClass = n.type === 'safe' ? 'pill-safe' : 'pill-combat';
+    const enemiesCount = A.Data.enemiesInRegion(n.id).length;
+    const dist = n.distance || 1;
+    const travelCheck = A.Travel.canTravelToDetailed(n.id);
+    const locked = !travelCheck.ok && travelCheck.locked;
+    const cls = `travel-modal-card ${locked ? 'is-locked' : ''}`;
+    const distLabel = dist === 1 ? 'Cerca' : dist === 2 ? 'Medio camino' : 'Lejos';
+    return `
+      <button class="${cls}" data-travel="${A.Utils.escapeHtml(n.id)}" ${locked ? 'disabled data-locked="1"' : ''}>
+        <div class="travel-modal-icon">${n.icon || '📍'}</div>
+        <div class="travel-modal-info">
+          <div class="travel-modal-name">${A.Utils.escapeHtml(n.name)}</div>
+          <div class="travel-modal-meta">
+            <span class="pill ${dangerClass}">${dangerLabel}</span>
+            <span class="pill pill-tier">T${n.tier[0]}–${n.tier[1]}</span>
+            <span class="dim small">${distLabel}</span>
+            ${enemiesCount ? `<span class="dim small">· ${enemiesCount} criaturas</span>` : ''}
+          </div>
+          ${n.description ? `<div class="travel-modal-desc dim">${A.Utils.escapeHtml(n.description)}</div>` : ''}
+          ${locked ? `<div class="travel-locked-msg">🔒 Necesitas ${travelCheck.required} encuentros completados (llevás ${travelCheck.have}).</div>` : ''}
+        </div>
+        <div class="travel-modal-arrow">${locked ? '🔒' : '→'}</div>
+      </button>
+    `;
+  }
+
+  // ---------- Combat full log (modal) ----------
+
+  function renderCombatFullLog() {
+    const c = A.State.combat;
+    if (!c || !c.log) return modalShell('Historial', '<p class="muted">Sin combate activo.</p>');
+    const out = [];
+    for (const e of c.log) {
+      if (e.type === 'turn-header') {
+        out.push(`<div class="combat-log-divider">${A.Utils.escapeHtml(e.text)}</div>`);
+      } else {
+        const icon = e.actorIcon || ({ player: '🗡️', enemy: '👹', pet: '🐾', loot: '💰', system: '·' })[e.type] || '·';
+        const text = A.Utils.escapeHtml(e.text || '');
+        let detail = '';
+        if (e.roll) detail += `<span class="dim small">D20=${e.roll}${e.bonus ? '+' + e.bonus : ''}</span>`;
+        if (e.dodgeRoll != null) detail += ` <span class="dim small">esq D20=${e.dodgeTotal}/${e.dodgeVs || 12}</span>`;
+        if (e.dmg) detail += ` <span class="num small">−${e.dmg} HP</span>`;
+        out.push(`
+          <div class="combat-fulllog-row is-${e.type}">
+            <span class="combat-fulllog-icon">${icon}</span>
+            <span class="combat-fulllog-text">${text}</span>
+            ${detail ? `<span class="combat-fulllog-detail">${detail}</span>` : ''}
+          </div>
+        `);
+      }
+    }
+    return modalShell('Historial de combate', `<div class="combat-fulllog-modal">${out.join('')}</div>`);
+  }
+
   // ---------- Magic ----------
 
   function renderMagic() {
@@ -928,6 +1142,24 @@
             A.State.closeModal();
             A.Combat.start({ enemyId: b.dataset.enemyId, fromTravel: false });
           }
+        });
+      });
+    }
+
+    if (id === 'travel') {
+      overlay.querySelectorAll('[data-travel]').forEach((b) => {
+        if (b.disabled) return;
+        b.addEventListener('click', () => {
+          const ok = A.Travel.start(b.dataset.travel);
+          if (ok) A.State.closeModal();
+        });
+      });
+      // Click en nodos del mapa (solo neighbors clickables)
+      overlay.querySelectorAll('[data-clickable="1"][data-map-region]').forEach((g) => {
+        g.style.cursor = 'pointer';
+        g.addEventListener('click', () => {
+          const ok = A.Travel.start(g.dataset.mapRegion);
+          if (ok) A.State.closeModal();
         });
       });
     }

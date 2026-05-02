@@ -65,7 +65,7 @@
         </div>
 
         <footer class="shell-footer">
-          <span class="version-pill">v1.5.5</span>
+          <span class="version-pill">v1.5.6b</span>
         </footer>
       </div>
     `;
@@ -240,11 +240,14 @@
 
   function renderActiveView() {
     if (!mainEl) return;
-    // Si hay combate activo, renderizar Combat
+    const shellBody = rootEl.querySelector('.shell-body');
+    // Si hay combate activo, renderizar Combat y ocultar paneles laterales
     if (A.State.combat) {
+      if (shellBody) shellBody.classList.add('is-combat');
       A.Views.Combat.mount(mainEl);
       return;
     }
+    if (shellBody) shellBody.classList.remove('is-combat');
     const tab = A.State.ui.activeTab || 'world';
     const map = { world: 'World' };
     const viewName = map[tab];

@@ -2828,3 +2828,353 @@
   font-size: 10px;
   font-weight: var(--fw-normal);
 }
+
+/* ============================================================
+   v1.5.6 — Travel modal (lista de destinos)
+   ============================================================ */
+
+.travel-modal {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+.travel-modal-header {
+  display: flex;
+  align-items: center;
+  padding: var(--sp-2) var(--sp-3);
+  background: var(--gold-bg-soft);
+  border: var(--border-w) solid var(--gold-deep);
+  border-radius: var(--r-md);
+}
+.travel-modal-current {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-size: var(--fs-sm);
+}
+.travel-modal-icon-mini {
+  font-size: 18px;
+}
+
+.travel-modal-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.travel-modal-card {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: var(--sp-3);
+  text-align: left;
+  background: var(--surface-raised);
+  border: var(--border-w) solid var(--border);
+  border-radius: var(--r-md);
+  padding: var(--sp-3) var(--sp-4);
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+  transition: border-color var(--t-base), transform var(--t-base), box-shadow var(--t-base);
+  box-shadow: var(--shadow-sm);
+}
+.travel-modal-card:hover:not(:disabled) {
+  border-color: var(--gold);
+  transform: translateX(2px);
+  box-shadow: var(--shadow-md);
+}
+.travel-modal-card.is-locked {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.travel-modal-icon {
+  font-size: 32px;
+  width: 56px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--gold-bg-soft);
+  border: var(--border-w) solid var(--gold-deep);
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.travel-modal-info { min-width: 0; }
+.travel-modal-name {
+  font-weight: var(--fw-semi);
+  font-size: var(--fs-md);
+  margin-bottom: 4px;
+}
+.travel-modal-meta {
+  display: flex;
+  gap: var(--sp-2);
+  align-items: center;
+  flex-wrap: wrap;
+  font-size: var(--fs-xs);
+  margin-bottom: 4px;
+}
+.travel-modal-desc {
+  font-size: var(--fs-xs);
+  font-style: italic;
+  margin-top: 4px;
+  line-height: 1.4;
+}
+.travel-modal-arrow {
+  font-size: 22px;
+  color: var(--gold-deep);
+  font-weight: var(--fw-medium);
+  padding-left: var(--sp-2);
+}
+.travel-locked-msg {
+  margin-top: 6px;
+  font-size: var(--fs-xs);
+  color: var(--warning);
+  font-weight: var(--fw-medium);
+}
+
+/* ============================================================
+   v1.5.6 — Mapa visual de regiones (SVG con auto-layout)
+   ============================================================ */
+
+.travel-map-wrap {
+  position: relative;
+  background:
+    radial-gradient(ellipse at center, var(--gold-bg-soft) 0%, var(--surface) 70%),
+    var(--surface);
+  border: var(--border-w) solid var(--border);
+  border-radius: var(--r-lg);
+  padding: var(--sp-3);
+  box-shadow: var(--shadow-inset);
+}
+.travel-map-legend {
+  display: flex;
+  gap: var(--sp-3);
+  justify-content: center;
+  font-size: 10px;
+  margin-bottom: var(--sp-2);
+  color: var(--text-muted);
+}
+.map-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.map-legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: var(--border-w) solid var(--border-strong);
+}
+.map-legend-dot.is-current { background: var(--gold); border-color: var(--gold-deep); }
+.map-legend-dot.is-neighbor { background: var(--gold-bg); border-color: var(--gold-deep); }
+.map-legend-dot.is-far { background: var(--surface-sunken); border-color: var(--border-strong); }
+
+.travel-map-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 380px;
+  user-select: none;
+}
+
+/* Edges (líneas entre regiones) */
+.map-edge {
+  stroke: var(--border-strong);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+  opacity: 0.5;
+}
+.map-edge-active {
+  stroke: var(--gold-deep);
+  stroke-width: 2;
+  stroke-dasharray: none;
+  opacity: 0.85;
+}
+
+/* Nodes (círculos de regiones) */
+.map-node circle {
+  fill: var(--surface-sunken);
+  stroke: var(--border-strong);
+  stroke-width: 1;
+  transition: stroke var(--t-fast), fill var(--t-fast), transform var(--t-fast);
+  transform-origin: center;
+  transform-box: fill-box;
+}
+.map-node.is-far circle {
+  fill: var(--surface-sunken);
+  stroke: var(--border);
+  opacity: 0.55;
+}
+.map-node.is-far .map-node-label,
+.map-node.is-far .map-node-icon {
+  opacity: 0.6;
+}
+.map-node.is-neighbor circle {
+  fill: var(--gold-bg);
+  stroke: var(--gold-deep);
+  stroke-width: 1.5;
+}
+.map-node.is-current circle {
+  fill: var(--gold);
+  stroke: var(--gold-deep);
+  stroke-width: 2.5;
+  filter: drop-shadow(0 2px 4px rgba(212, 164, 55, 0.4));
+}
+.map-node[data-clickable="1"]:hover circle {
+  fill: var(--gold);
+  stroke-width: 2.5;
+}
+.map-node[data-clickable="1"]:hover .map-node-icon {
+  filter: drop-shadow(0 1px 2px rgba(0,0,0,0.2));
+}
+
+.map-node-label {
+  fill: var(--text);
+  font-weight: 500;
+  pointer-events: none;
+}
+.map-node.is-current .map-node-label {
+  font-weight: 600;
+  fill: var(--gold-text);
+}
+
+.travel-modal-section-title {
+  font-size: 10px;
+  font-weight: var(--fw-semi);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-dim);
+  margin: var(--sp-2) 0 var(--sp-1);
+  padding-left: 2px;
+}
+
+/* ============================================================
+   v1.5.6b — Combat full-screen, cola de turnos, log compacto
+   ============================================================ */
+
+/* Combate: ocultar sidebar y crónicas, main full-width */
+.shell-body.is-combat {
+  grid-template-columns: 1fr;
+  grid-template-areas: "main";
+}
+.shell-body.is-combat .shell-sidebar,
+.shell-body.is-combat .shell-chronicles {
+  display: none;
+}
+
+/* Achicar la separación general entre crónicas-bar y main */
+.shell-body {
+  gap: var(--sp-2) var(--sp-4);
+}
+
+/* Cola de turnos arriba (Búho B → Anibal → ...) */
+.combat-turn-queue {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+  font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums;
+}
+.turn-queue-item {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 9px;
+  border-radius: var(--r-full);
+  background: var(--surface);
+  border: var(--border-w) solid var(--border);
+  color: var(--text-muted);
+  font-weight: var(--fw-medium);
+  white-space: nowrap;
+  transition: all var(--t-fast);
+}
+.turn-queue-item.is-active {
+  background: var(--gold);
+  border-color: var(--gold-deep);
+  color: white;
+  font-weight: var(--fw-semi);
+  box-shadow: var(--shadow-sm);
+}
+.turn-queue-item.is-dead {
+  text-decoration: line-through;
+  opacity: 0.4;
+}
+.turn-queue-arrow {
+  color: var(--text-faint);
+  font-size: 12px;
+  font-weight: var(--fw-semi);
+}
+
+/* Header del log de combate */
+.combat-log-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 10px;
+  background: var(--surface);
+  border-radius: var(--r-md) var(--r-md) 0 0;
+  border: var(--border-w) solid var(--border);
+  border-bottom: none;
+}
+.combat-log-title {
+  font-size: 11px;
+  font-weight: var(--fw-semi);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-dim);
+}
+
+.combat-log {
+  border-radius: var(--r-md);
+}
+.combat-log-list {
+  background: var(--surface-raised);
+  border: var(--border-w) solid var(--border);
+  border-radius: 0 0 var(--r-md) var(--r-md);
+  padding: var(--sp-2) var(--sp-3);
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+/* Modal de historial completo de combate */
+.combat-fulllog-modal {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+.combat-fulllog-row {
+  display: grid;
+  grid-template-columns: 22px 1fr auto;
+  gap: var(--sp-2);
+  padding: 4px 8px;
+  font-size: 11px;
+  border-radius: var(--r-sm);
+  border-left: 2px solid transparent;
+  align-items: center;
+}
+.combat-fulllog-row.is-player {
+  background: rgba(212, 164, 55, 0.06);
+  border-left-color: var(--gold);
+}
+.combat-fulllog-row.is-enemy {
+  background: rgba(180, 60, 50, 0.06);
+  border-left-color: #b03c32;
+}
+.combat-fulllog-row.is-pet {
+  background: rgba(80, 130, 50, 0.06);
+  border-left-color: #5a9233;
+}
+.combat-fulllog-row.is-system {
+  color: var(--text-muted);
+  font-style: italic;
+}
+.combat-fulllog-icon { text-align: center; }
+.combat-fulllog-detail {
+  font-size: 10px;
+  white-space: nowrap;
+}
+

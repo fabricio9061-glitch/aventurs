@@ -123,15 +123,6 @@
           </section>
         ` : ''}
 
-        ${neighbors.length ? `
-          <section class="region-block">
-            <div class="block-title">Caminos desde aquí</div>
-            <div class="travel-list">
-              ${neighbors.map((n) => travelCard(n)).join('')}
-            </div>
-          </section>
-        ` : ''}
-
       </section>
     `;
 
@@ -382,9 +373,7 @@
 
   function onAction(action) {
     if (action === 'open-travel') {
-      // Scrollear suavemente a la sección de "Caminos desde aquí"
-      const list = mainEl.querySelector('.travel-list');
-      if (list) list.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      A.State.openModal('travel');
       return;
     }
     if (action === 'open-craft') {

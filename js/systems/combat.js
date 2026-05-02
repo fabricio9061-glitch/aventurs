@@ -74,42 +74,60 @@
     // Asignar letras (A, B, C...) si hay múltiples del mismo id
     assignLabels(instances);
 
-    // ---- Calcular iniciativa: cada combatiente tira d20 + speed ----
+    // ---- Calcular iniciativa ----
+    // El orden lo determina la VELOCIDAD pura. Solo cuando hay empate de velocidad
+    // entre 2+ combatientes, esos combatientes tiran d20 entre sí para desempatar.
     const p = State().player;
     const initiative = [];
     const playerEffSpeed = effectivePlayerSpeed(p);
-    const playerInit = A.Utils.dice(20) + playerEffSpeed;
     initiative.push({
       kind: 'player',
       id: 'player',
       name: p.name,
-      init: playerInit,
       speed: playerEffSpeed,
+      tieRoll: 0, // se asigna abajo si hay empate
     });
     if (p.pet && p.pet.health > 0) {
-      const petInit = A.Utils.dice(20) + (p.pet.speed || 10);
       initiative.push({
         kind: 'pet',
         id: 'pet',
         name: p.pet.name,
-        init: petInit,
         speed: p.pet.speed || 10,
+        tieRoll: 0,
       });
     }
     for (const inst of instances) {
-      const enInit = A.Utils.dice(20) + (inst.speed || 10);
       initiative.push({
         kind: 'enemy',
         id: inst.instanceId,
         name: inst.displayName,
-        init: enInit,
         speed: inst.speed || 10,
+        tieRoll: 0,
       });
     }
-    // Ordenar de mayor a menor; en empate, otro d20 desempata
+
+    // Detectar empates: agrupar por speed
+    const bySpeed = {};
+    for (const a of initiative) {
+      if (!bySpeed[a.speed]) bySpeed[a.speed] = [];
+      bySpeed[a.speed].push(a);
+    }
+    // Asignar tieRoll a los empatados
+    const tieGroups = []; // para loguear
+    for (const speedKey of Object.keys(bySpeed)) {
+      const group = bySpeed[speedKey];
+      if (group.length > 1) {
+        for (const a of group) {
+          a.tieRoll = A.Utils.dice(20);
+        }
+        tieGroups.push({ speed: parseInt(speedKey, 10), members: group });
+      }
+    }
+
+    // Ordenar: speed desc, luego tieRoll desc
     initiative.sort((a, b) => {
-      if (b.init !== a.init) return b.init - a.init;
-      return A.Utils.dice(20) - A.Utils.dice(20);
+      if (b.speed !== a.speed) return b.speed - a.speed;
+      return b.tieRoll - a.tieRoll;
     });
 
     const combat = {
@@ -129,7 +147,14 @@
     State().combat = combat;
 
     addLog(combat, 'system', { text: `Comienza el combate contra ${A.Encounter.describeGroup(instances)}.` });
-    addLog(combat, 'system', { text: `Orden de iniciativa: ${initiative.map((i) => `${i.name} (${i.init})`).join(' → ')}` });
+    addLog(combat, 'system', { text: `Orden por velocidad: ${initiative.map((i) => `${i.name} (vel ${i.speed})`).join(' → ')}` });
+    // Si hubo empates, loguear el desempate por d20
+    for (const tg of tieGroups) {
+      const desc = tg.members
+        .map((m) => `${m.name}: ${m.tieRoll}`)
+        .join(', ');
+      addLog(combat, 'system', { text: `⚖️ Empate de velocidad ${tg.speed} → desempate D20: ${desc}` });
+    }
     addTurnHeader(combat, 1);
 
     A.Bus.emit('combat:started', { count: instances.length });
@@ -466,38 +491,40 @@
     const target = getTarget();
     if (!target) { onVictory(); return; }
     const p = State().player;
-    const enemyDifficulty = target.difficulty || 10;
     const precBonus = Math.floor((p.stats.precision || 0) / 2);
     const roll = A.Utils.dice(20);
     const total = roll + precBonus;
 
+    // Modelo simplificado: 1 = fumble (falla), 20 = crítico (no esquivable),
+    // resto = el defensor intenta esquivar con d20+(dodge/2) ≥ 12
     if (roll === 1) {
       addLog(c, 'player', {
-        text: `Atacaste a ${target.displayName}`,
-        actor: p.name, target: target.displayName,
-        roll, bonus: precBonus, total, vs: enemyDifficulty, vsLabel: 'Dif',
+        text: `Atacaste a ${target.displayName} pero fallaste por completo`,
+        actor: p.name, target: target.displayName, actorIcon: '🗡️',
+        roll, bonus: precBonus, total,
         result: 'fumble',
       });
-    } else if (total >= enemyDifficulty || roll === 20) {
+    } else {
       const weaponId = p.equipment.weapon;
       const weapon = weaponId ? A.Data.getById('weapons', weaponId) : null;
       const damageDice = weapon ? weapon.damage : '1d3';
       const isCrit = roll === 20;
 
-      // El enemigo intenta esquivar (excepto en críticos)
+      // El defensor intenta esquivar (excepto en críticos)
       const enemyDodgeStat = target.dodge || 0;
+      const dodgeBonus = Math.floor(enemyDodgeStat / 2);
       const dodgeRoll = A.Utils.dice(20);
-      const dodgeTotal = dodgeRoll + Math.floor(enemyDodgeStat / 2);
+      const dodgeTotal = dodgeRoll + dodgeBonus;
       const dodgeDifficulty = 12;
       const enemyEvades = !isCrit && dodgeTotal >= dodgeDifficulty;
 
       if (enemyEvades) {
         addLog(c, 'player', {
           text: `${target.displayName} esquivó tu ataque`,
-          actor: p.name, target: target.displayName,
+          actor: p.name, target: target.displayName, actorIcon: '🗡️',
           weapon: weapon ? weapon.name : 'puños',
-          roll, bonus: precBonus, total, vs: enemyDifficulty, vsLabel: 'Dif',
-          dodgeRoll, dodgeBonus: Math.floor(enemyDodgeStat / 2), dodgeTotal, dodgeVs: dodgeDifficulty,
+          roll, bonus: precBonus, total,
+          dodgeRoll, dodgeBonus, dodgeTotal, dodgeVs: dodgeDifficulty,
           result: 'evaded',
         });
       } else {
@@ -508,39 +535,28 @@
         const finalDmg = Math.max(0, rawDmg - targetArmor);
         target.hp = Math.max(0, target.hp - finalDmg);
         addLog(c, 'player', {
-          text: isCrit ? `Golpeaste CRÍTICO a ${target.displayName}` : `Atacaste a ${target.displayName}`,
-          actor: p.name, target: target.displayName,
+          text: isCrit ? `¡Golpe crítico a ${target.displayName}!` : `Atacaste a ${target.displayName}`,
+          actor: p.name, target: target.displayName, actorIcon: '🗡️',
           weapon: weapon ? weapon.name : 'puños',
           damageDice,
-          roll, bonus: precBonus, total, vs: enemyDifficulty, vsLabel: 'Dif',
+          roll, bonus: precBonus, total,
           dodgeRoll: isCrit ? null : dodgeRoll, dodgeTotal: isCrit ? null : dodgeTotal, dodgeVs: dodgeDifficulty,
           rawDmg, targetArmor, dmg: finalDmg, hpAfter: target.hp, hpMax: target.maxHp,
           result: isCrit ? 'crit' : (finalDmg === 0 ? 'blocked' : 'hit'),
         });
 
-        // Si impactó (no bloqueado), aplicar statusEffect del arma si tiene
         if (finalDmg > 0 && weapon) {
           maybeInflictStatusOnHit(weapon, target);
         }
 
         if (target.hp <= 0) {
           addLog(c, 'system', { text: `${target.displayName} cayó.`, killed: target.displayName });
-          // Drop probabilístico de arma equipada de humanoide
           maybeDropEquippedWeapon(c, target);
         }
       }
-    } else {
-      addLog(c, 'player', {
-        text: `Atacaste a ${target.displayName} pero fallaste`,
-        actor: p.name, target: target.displayName,
-        roll, bonus: precBonus, total, vs: enemyDifficulty, vsLabel: 'Dif',
-        result: 'miss',
-      });
     }
 
-    // Procesar efectos de estado en el target (sangrado/veneno/fuego)
     if (target && target.hp > 0) processStatusTickOnEnemy(c, target);
-
     afterPlayerAction();
   }
 
@@ -721,30 +737,50 @@
     const alive = aliveEnemies();
     if (alive.length === 0) { nextActor(); return; }
     const target = alive[Math.floor(Math.random() * alive.length)];
-    const enemyDifficulty = target.difficulty || 10;
+    const targetDodge = target.dodge || 0;
     const targetArmor = target.armor || 0;
+    const petIcon = pet.icon || '🐾';
     const roll = A.Utils.dice(20);
-    if (roll >= enemyDifficulty || roll === 20) {
-      let rawDmg = rollDamage(pet.damage);
-      const isCrit = roll === 20;
-      if (isCrit) rawDmg *= 2;
-      const finalDmg = Math.max(0, rawDmg - targetArmor);
-      target.hp = Math.max(0, target.hp - finalDmg);
+
+    if (roll === 1) {
       addLog(c, 'pet', {
-        text: `${pet.name} ataca a ${target.displayName}`,
-        actor: pet.name, target: target.displayName,
-        roll, bonus: 0, total: roll, vs: enemyDifficulty, vsLabel: 'Dif',
-        rawDmg, targetArmor, dmg: finalDmg, hpAfter: target.hp, hpMax: target.maxHp,
-        result: isCrit ? 'crit' : (finalDmg === 0 ? 'blocked' : 'hit'),
+        text: `${pet.name} ataca a ${target.displayName} pero falla`,
+        actor: pet.name, target: target.displayName, actorIcon: petIcon,
+        roll, bonus: 0, total: roll,
+        result: 'fumble',
       });
-      if (target.hp <= 0) addLog(c, 'system', { text: `${target.displayName} cayó por la mascota.` });
     } else {
-      addLog(c, 'pet', {
-        text: `${pet.name} ataca a ${target.displayName}`,
-        actor: pet.name, target: target.displayName,
-        roll, bonus: 0, total: roll, vs: enemyDifficulty, vsLabel: 'Dif',
-        result: 'miss',
-      });
+      const isCrit = roll === 20;
+      const dodgeBonus = Math.floor(targetDodge / 2);
+      const dodgeRoll = A.Utils.dice(20);
+      const dodgeTotal = dodgeRoll + dodgeBonus;
+      const dodgeDifficulty = 12;
+      const evaded = !isCrit && dodgeTotal >= dodgeDifficulty;
+
+      if (evaded) {
+        addLog(c, 'pet', {
+          text: `${target.displayName} esquivó el ataque de ${pet.name}`,
+          actor: pet.name, target: target.displayName, actorIcon: petIcon,
+          roll, bonus: 0, total: roll,
+          dodgeRoll, dodgeBonus, dodgeTotal, dodgeVs: dodgeDifficulty,
+          result: 'evaded',
+        });
+      } else {
+        let rawDmg = rollDamage(pet.damage);
+        if (isCrit) rawDmg *= 2;
+        const finalDmg = Math.max(0, rawDmg - targetArmor);
+        target.hp = Math.max(0, target.hp - finalDmg);
+        addLog(c, 'pet', {
+          text: isCrit ? `${pet.name} golpea CRÍTICO a ${target.displayName}` : `${pet.name} ataca a ${target.displayName}`,
+          actor: pet.name, target: target.displayName, actorIcon: petIcon,
+          damageDice: pet.damage,
+          roll, bonus: 0, total: roll,
+          dodgeRoll: isCrit ? null : dodgeRoll, dodgeTotal: isCrit ? null : dodgeTotal, dodgeVs: dodgeDifficulty,
+          rawDmg, targetArmor, dmg: finalDmg, hpAfter: target.hp, hpMax: target.maxHp,
+          result: isCrit ? 'crit' : (finalDmg === 0 ? 'blocked' : 'hit'),
+        });
+        if (target.hp <= 0) addLog(c, 'system', { text: `${target.displayName} cayó por la mascota.` });
+      }
     }
     nextActor();
   }
@@ -762,49 +798,45 @@
     const p = State().player;
     const equipArmor = p.equipment.armor ? A.Data.getById('armors', p.equipment.armor) : null;
     const playerArmor = (p.stats.armor || 0) + (equipArmor ? equipArmor.defense : 0);
-    // Para impacto: 10 + (dodge/2) hace que enemigos torpes igual peguen a veces
-    const playerDifficulty = 10 + Math.floor((p.stats.dodge || 0) / 2);
 
     const damageNotation = enemy.damage;
     const enemyAtkBonus = computeAtkBonus(damageNotation);
     const pet = p.pet;
     const targetPet = pet && pet.health > 0 && Math.random() < 0.4;
-    const targetDifficulty = targetPet ? (10 + Math.floor((pet.dodge || 0) / 2)) : playerDifficulty;
     const targetArmor = targetPet ? (pet.armor || 0) : playerArmor;
     const targetName = targetPet ? pet.name : p.name;
     const targetDodge = targetPet ? (pet.dodge || 0) : (p.stats.dodge || 0);
+    const enemyIcon = enemy.icon || '👹';
 
     const roll = A.Utils.dice(20);
     const total = roll + enemyAtkBonus;
 
+    // Modelo simplificado: 1 = fumble, 20 = crítico, defensor esquiva con d20+(dodge/2) ≥ 12
     if (roll === 1) {
       addLog(c, 'enemy', {
-        text: `${enemy.displayName} ataca a ${targetName}`,
-        actor: enemy.displayName, target: targetName,
-        roll, bonus: enemyAtkBonus, total, vs: targetDifficulty, vsLabel: 'Dif',
+        text: `${enemy.displayName} ataca a ${targetName} pero falla por completo`,
+        actor: enemy.displayName, target: targetName, actorIcon: enemyIcon,
+        roll, bonus: enemyAtkBonus, total,
         result: 'fumble',
       });
-    } else if (total >= targetDifficulty || roll === 20) {
-      // El ataque conecta: ahora el defensor intenta esquivar
+    } else {
+      // El defensor intenta esquivar (excepto en críticos)
       const isCrit = roll === 20;
-      // Tirada de esquiva: d20 + dodge >= 12 (más dodge, más fácil esquivar)
-      // Críticos NO se pueden esquivar
+      const dodgeBonus = Math.floor(targetDodge / 2);
       const dodgeRoll = A.Utils.dice(20);
-      const dodgeTotal = dodgeRoll + Math.floor(targetDodge / 2);
+      const dodgeTotal = dodgeRoll + dodgeBonus;
       const dodgeDifficulty = 12;
       const evaded = !isCrit && dodgeTotal >= dodgeDifficulty;
 
       if (evaded) {
-        // Esquiva exitosa: 0 daño
         addLog(c, 'enemy', {
           text: `${enemy.displayName} ataca pero ${targetName} esquiva`,
-          actor: enemy.displayName, target: targetName,
-          roll, bonus: enemyAtkBonus, total, vs: targetDifficulty, vsLabel: 'Dif',
-          dodgeRoll, dodgeBonus: Math.floor(targetDodge / 2), dodgeTotal, dodgeVs: dodgeDifficulty,
+          actor: enemy.displayName, target: targetName, actorIcon: enemyIcon,
+          roll, bonus: enemyAtkBonus, total,
+          dodgeRoll, dodgeBonus, dodgeTotal, dodgeVs: dodgeDifficulty,
           result: 'evaded',
         });
       } else {
-        // Daño con armadura
         let rawDmg = rollDamage(damageNotation);
         if (isCrit) rawDmg *= 2;
         const finalDmg = Math.max(0, rawDmg - targetArmor);
@@ -812,8 +844,8 @@
           pet.health = Math.max(0, pet.health - finalDmg);
           addLog(c, 'enemy', {
             text: isCrit ? `${enemy.displayName} golpea CRÍTICO a ${pet.name}` : `${enemy.displayName} hiere a ${pet.name}`,
-            actor: enemy.displayName, target: pet.name,
-            roll, bonus: enemyAtkBonus, total, vs: targetDifficulty, vsLabel: 'Dif',
+            actor: enemy.displayName, target: pet.name, actorIcon: enemyIcon,
+            roll, bonus: enemyAtkBonus, total,
             dodgeRoll: isCrit ? null : dodgeRoll, dodgeTotal: isCrit ? null : dodgeTotal, dodgeVs: dodgeDifficulty,
             rawDmg, targetArmor, dmg: finalDmg, hpAfter: pet.health, hpMax: pet.maxHealth,
             damageDice: damageNotation,
@@ -828,8 +860,8 @@
           if (finalDmg > 0) A.State.damagePlayer(finalDmg);
           addLog(c, 'enemy', {
             text: isCrit ? `${enemy.displayName} golpea CRÍTICO a ${p.name}` : `${enemy.displayName} te hiere`,
-            actor: enemy.displayName, target: p.name,
-            roll, bonus: enemyAtkBonus, total, vs: targetDifficulty, vsLabel: 'Dif',
+            actor: enemy.displayName, target: p.name, actorIcon: enemyIcon,
+            roll, bonus: enemyAtkBonus, total,
             dodgeRoll: isCrit ? null : dodgeRoll, dodgeTotal: isCrit ? null : dodgeTotal, dodgeVs: dodgeDifficulty,
             rawDmg, targetArmor, dmg: finalDmg, hpAfter: p.hp, hpMax: p.maxHp,
             damageDice: damageNotation,
@@ -837,13 +869,6 @@
           });
         }
       }
-    } else {
-      addLog(c, 'enemy', {
-        text: `${enemy.displayName} ataca a ${targetName} pero falla`,
-        actor: enemy.displayName, target: targetName,
-        roll, bonus: enemyAtkBonus, total, vs: targetDifficulty, vsLabel: 'Dif',
-        result: 'miss',
-      });
     }
 
     // Procesar efectos de estado al final del turno del enemigo (ej: sangrado en player)

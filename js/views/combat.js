@@ -38,9 +38,7 @@
             <span class="combat-icon">⚔️</span>
             <span>Combate · Turno ${c.round}</span>
           </div>
-          <div class="combat-turn-badge">
-            ${alive.length} enemigo${alive.length !== 1 ? 's' : ''} · Activo: <strong>${A.Utils.escapeHtml(currentActorName)}</strong>
-          </div>
+          ${renderTurnQueue(c)}
         </header>
 
         <div class="combat-arena">
@@ -51,18 +49,6 @@
           </div>
         </div>
 
-        ${alive.length > 1 ? `
-          <div class="combat-target-row">
-            <span class="dim">🎯 Objetivo:</span>
-            ${alive.map((e) => `
-              <button class="combat-target-btn ${e.instanceId === targetId ? 'is-active' : ''}"
-                      data-target="${A.Utils.escapeHtml(e.instanceId)}">
-                ${A.Utils.escapeHtml(e.displayName)}
-              </button>
-            `).join('')}
-          </div>
-        ` : ''}
-
         ${p.pet ? renderPetMini(p.pet, currentActor && currentActor.kind === 'pet') : ''}
 
         <section class="combat-actions-bar ${isPlayerTurnNow ? '' : 'is-disabled'}">
@@ -70,8 +56,9 @@
         </section>
 
         <section class="combat-log">
+          ${renderLogHeader(c)}
           <div class="combat-log-list" id="combat-log-list">
-            ${renderLogGroupedByTurn(c.log)}
+            ${renderCurrentTurnLog(c)}
           </div>
         </section>
 
@@ -79,9 +66,63 @@
     `;
 
     bindEvents();
-    // Auto-scroll al fondo del log
     const list = mainEl.querySelector('#combat-log-list');
     if (list) list.scrollTop = list.scrollHeight;
+  }
+
+  /**
+   * Cola de turnos arriba a la derecha del header.
+   * Estilo: Búho B → Aníbal → Búho A → Zorro (el actual destacado)
+   */
+  function renderTurnQueue(c) {
+    if (!c.initiative || c.initiative.length === 0) return '';
+    const items = c.initiative.map((a, idx) => {
+      const isActive = idx === c.currentActorIdx;
+      const isDead = isActorDead(c, a);
+      const cls = `turn-queue-item ${isActive ? 'is-active' : ''} ${isDead ? 'is-dead' : ''}`;
+      return `<span class="${cls}">${A.Utils.escapeHtml(a.name)}</span>`;
+    }).join('<span class="turn-queue-arrow">›</span>');
+    return `<div class="combat-turn-queue">${items}</div>`;
+  }
+
+  function isActorDead(c, actor) {
+    if (actor.kind === 'enemy') {
+      const inst = c.enemies.find((e) => e.instanceId === actor.id);
+      return !inst || inst.hp <= 0;
+    }
+    if (actor.kind === 'player') return A.State.player.hp <= 0;
+    if (actor.kind === 'pet') return !A.State.player.pet || A.State.player.pet.health <= 0;
+    return false;
+  }
+
+  /**
+   * Header del log: muestra el número de turno actual y un botón para ver historial completo.
+   */
+  function renderLogHeader(c) {
+    const turnHeaders = (c.log || []).filter((e) => e.type === 'turn-header');
+    const totalTurns = turnHeaders.length;
+    return `
+      <div class="combat-log-header">
+        <span class="combat-log-title">Acciones del turno ${c.round}</span>
+        ${totalTurns > 1 ? `
+          <button class="btn-mini" data-combat-action="show-full-log">Ver historial completo</button>
+        ` : ''}
+      </div>
+    `;
+  }
+
+  /**
+   * Devuelve el log SOLO del turno actual (desde el último turn-header).
+   */
+  function renderCurrentTurnLog(c) {
+    if (!c.log || c.log.length === 0) return '<div class="muted small">Sin acciones aún en este turno.</div>';
+    // Encontrar índice del último turn-header
+    let startIdx = 0;
+    for (let i = c.log.length - 1; i >= 0; i--) {
+      if (c.log[i].type === 'turn-header') { startIdx = i; break; }
+    }
+    const slice = c.log.slice(startIdx);
+    return renderLogGroupedByTurn(slice);
   }
 
   function isPlayerTurnLocal(c) {
@@ -124,9 +165,9 @@
 
         <div class="combat-card-stats">
           <div class="card-stat" title="Daño del arma">⚔️ ${dmgStr}${p.stats.damage ? `+${p.stats.damage}` : ''}</div>
-          <div class="card-stat" title="Armadura (reduce daño)">🛡️ ${totalArmor}</div>
+          <div class="card-stat" title="Armadura (reduce daño recibido)">🛡️ ${totalArmor}</div>
           <div class="card-stat" title="Velocidad efectiva (con peso del equipo)">⚡ ${speedLabel}</div>
-          <div class="card-stat" title="Esquiva">💨 ${p.stats.dodge || 0}</div>
+          <div class="card-stat" title="Esquiva: tirás D20+${Math.floor((p.stats.dodge || 0) / 2)} ≥ 12 al ser atacado">💨 ${p.stats.dodge || 0}</div>
         </div>
       </div>
     `;
@@ -154,9 +195,9 @@
 
         <div class="combat-card-stats">
           <div class="card-stat" title="Daño">⚔️ ${damageStr}</div>
-          <div class="card-stat" title="Armadura (reduce daño)">🛡️ ${e.armor || 0}</div>
+          <div class="card-stat" title="Armadura (reduce daño recibido)">🛡️ ${e.armor || 0}</div>
           <div class="card-stat" title="Velocidad">⚡ ${e.speed || 0}</div>
-          <div class="card-stat" title="Esquiva">💨 ${e.dodge || 0}</div>
+          <div class="card-stat" title="Esquiva: tira D20+${Math.floor((e.dodge || 0) / 2)} ≥ 12 al ser atacado">💨 ${e.dodge || 0}</div>
         </div>
 
         ${dead ? `<div class="combat-card-dead-tag">caído</div>` : ''}
@@ -283,7 +324,7 @@
 
     const headerLine = `
       <div class="log-line log-header result-${entry.result || ''}">
-        <span class="log-bullet">${actorIcon(entry.type)}</span>
+        <span class="log-bullet">${actorIcon(entry.type, entry)}</span>
         <span class="log-text">${A.Utils.escapeHtml(entry.text)}</span>
       </div>
     `;
@@ -292,11 +333,12 @@
 
     // 1) Tirada de impacto
     if (entry.roll) {
+      const totalPart = entry.bonus ? ` +${entry.bonus} = <strong>${entry.total}</strong>` : '';
       parts.push(`
         <div class="log-line log-sub">
           <span class="log-tree">├─</span>
           <span class="die-pill" title="Dado de impacto">${entry.roll}</span>
-          <span class="log-text">Impacto: D20=<strong>${entry.roll}</strong>${entry.bonus ? ` +${entry.bonus} = <strong>${entry.total}</strong>` : ''} vs ${entry.vsLabel || 'objetivo'} <strong>${entry.vs}</strong></span>
+          <span class="log-text">Ataque: D20=<strong>${entry.roll}</strong>${totalPart}</span>
         </div>
       `);
     }
@@ -304,11 +346,12 @@
     // 2) Tirada de esquiva del defensor (si la hubo)
     if (entry.dodgeRoll != null) {
       const evadedClass = entry.result === 'evaded' ? 'result-evaded' : '';
+      const dodgeTotalPart = entry.dodgeBonus ? ` +${entry.dodgeBonus} = <strong>${entry.dodgeTotal}</strong>` : '';
       parts.push(`
         <div class="log-line log-sub ${evadedClass}">
           <span class="log-tree">├─</span>
           <span class="die-pill die-pill-dodge" title="Dado de esquiva">${entry.dodgeRoll}</span>
-          <span class="log-text">Esquiva: D20=<strong>${entry.dodgeRoll}</strong>${entry.dodgeBonus ? ` +${entry.dodgeBonus} = <strong>${entry.dodgeTotal}</strong>` : ''} vs DC <strong>${entry.dodgeVs || 12}</strong></span>
+          <span class="log-text">Esquiva: D20=<strong>${entry.dodgeRoll}</strong>${dodgeTotalPart} vs DC <strong>${entry.dodgeVs || 12}</strong></span>
         </div>
       `);
     }
@@ -376,7 +419,9 @@
     return `<div class="${cls}">${parts.join('')}</div>`;
   }
 
-  function actorIcon(type) {
+  function actorIcon(type, entry) {
+    // Si el entry tiene actorIcon (icono real del actor), úsalo
+    if (entry && entry.actorIcon) return entry.actorIcon;
     if (type === 'player') return '🗡️';
     if (type === 'enemy') return '👹';
     if (type === 'pet') return '🐾';
@@ -409,6 +454,7 @@
         else if (action === 'flee') A.Combat.playerFlee();
         else if (action === 'spell') A.State.openModal('combat-spell');
         else if (action === 'item') A.State.openModal('combat-item');
+        else if (action === 'show-full-log') A.State.openModal('combat-full-log');
         else if (action === 'finish') {
           const wasVictory = A.State.combat && A.State.combat.result === 'victory';
           const fromTravel = A.State.combat && A.State.combat.fromTravel;
