@@ -214,6 +214,8 @@
       const bl = FAMILY_BLACKLIST[f] || [];
       for (const id of bl) blacklist.add(id);
     }
+    // Blacklist personalizada del enemigo (rechazos del editor)
+    for (const id of (enemy.dropsBlacklist || [])) blacklist.add(id);
 
     const add = (itemId, chance, reason) => {
       if (!itemId) return;

@@ -340,7 +340,7 @@
         <label>Conexiones</label>
         <div class="connections-editor-block">
           <input class="form-input" data-field="connections" data-array="csv" type="text" value="${A.Utils.escapeHtml((e.connections || []).join(', '))}" placeholder="separadas por coma">
-          <button class="btn-mini btn-graph-editor" data-editor-action="open-graph-editor">🗺️ Abrir editor visual de conexiones</button>
+          <button type="button" class="btn-mini btn-graph-editor" onclick="window.Aventurs.openGraphEditor && window.Aventurs.openGraphEditor()">🗺️ Abrir editor visual de conexiones</button>
         </div>
       </div>`,
       row('Distancia', inp('distance', e.distance, 'number')),
@@ -1002,32 +1002,74 @@
 
             ${(() => {
               const drops = A.LootIntelligence ? A.LootIntelligence.suggestDrops(enemy) : [];
-              if (!drops.length) return '';
+              const manualDrops = enemy.drops || [];
+              const blacklist = enemy.dropsBlacklist || [];
+              if (!drops.length && !manualDrops.length && !blacklist.length) return '';
+
+              const manualRows = manualDrops.map((d, i) => {
+                const item = A.Data.getById('items', d.itemId);
+                const name = item ? item.name : d.itemId;
+                const icon = item ? (item.icon || '📦') : '📦';
+                return `
+                  <div class="audit-wizard-drop-row is-manual">
+                    <span class="audit-wizard-drop-icon">${icon}</span>
+                    <span class="audit-wizard-drop-name">${A.Utils.escapeHtml(name)}</span>
+                    <span class="audit-wizard-drop-chance num">${Math.round((d.chance || 0) * 100)}%</span>
+                    <span class="audit-wizard-drop-reason dim">${d.source === 'auto' ? 'auto-aceptado' : 'manual'}</span>
+                    <button class="btn-mini btn-mini-danger" data-audit-drop-action="remove-manual" data-drop-itemid="${A.Utils.escapeHtml(d.itemId)}">Quitar</button>
+                  </div>
+                `;
+              }).join('');
+
+              const sugRows = drops.map((d) => {
+                const item = A.Data.getById('items', d.itemId);
+                const name = item ? item.name : d.itemId;
+                const icon = item ? (item.icon || '📦') : '📦';
+                return `
+                  <div class="audit-wizard-drop-row is-suggested">
+                    <span class="audit-wizard-drop-icon">${icon}</span>
+                    <span class="audit-wizard-drop-name">${A.Utils.escapeHtml(name)}</span>
+                    <span class="audit-wizard-drop-chance num">${Math.round(d.chance * 100)}%</span>
+                    <span class="audit-wizard-drop-reason dim">${A.Utils.escapeHtml(d.reason)}</span>
+                    <button class="btn-mini" data-audit-drop-action="accept" data-drop-itemid="${A.Utils.escapeHtml(d.itemId)}" data-drop-chance="${d.chance}">✓ Aceptar</button>
+                    <button class="btn-mini btn-mini-danger" data-audit-drop-action="reject" data-drop-itemid="${A.Utils.escapeHtml(d.itemId)}">✕ Rechazar</button>
+                  </div>
+                `;
+              }).join('');
+
+              const blRows = blacklist.length ? `
+                <div class="audit-wizard-drops-bl-title dim">Rechazados (no se sugieren más)</div>
+                ${blacklist.map((id) => {
+                  const item = A.Data.getById('items', id);
+                  const name = item ? item.name : id;
+                  const icon = item ? (item.icon || '📦') : '📦';
+                  return `
+                    <div class="audit-wizard-drop-row is-blacklist">
+                      <span class="audit-wizard-drop-icon">${icon}</span>
+                      <span class="audit-wizard-drop-name">${A.Utils.escapeHtml(name)}</span>
+                      <span class="audit-wizard-drop-chance dim">—</span>
+                      <span class="audit-wizard-drop-reason dim">rechazado</span>
+                      <button class="btn-mini" data-audit-drop-action="unreject" data-drop-itemid="${A.Utils.escapeHtml(id)}">Restaurar</button>
+                    </div>
+                  `;
+                }).join('')}
+              ` : '';
+
               return `
                 <div class="audit-wizard-drops">
-                  <div class="audit-wizard-drops-title">📦 Drops sugeridos por LootIntelligence</div>
-                  <div class="audit-wizard-drops-list">
-                    ${drops.map((d) => {
-                      const item = A.Data.getById('items', d.itemId);
-                      const name = item ? item.name : d.itemId;
-                      const icon = item ? (item.icon || '📦') : '📦';
-                      return `
-                        <div class="audit-wizard-drop-row">
-                          <span class="audit-wizard-drop-icon">${icon}</span>
-                          <span class="audit-wizard-drop-name">${A.Utils.escapeHtml(name)}</span>
-                          <span class="audit-wizard-drop-chance num">${Math.round(d.chance * 100)}%</span>
-                          <span class="audit-wizard-drop-reason dim">${A.Utils.escapeHtml(d.reason)}</span>
-                        </div>
-                      `;
-                    }).join('')}
-                  </div>
+                  <div class="audit-wizard-drops-title">📦 Drops del enemigo</div>
+                  ${manualDrops.length ? `<div class="audit-wizard-drops-section-title dim">Drops actuales (${manualDrops.length})</div>` : ''}
+                  ${manualRows}
+                  ${drops.length ? `<div class="audit-wizard-drops-section-title dim">Sugeridos por LootIntelligence (${drops.length})</div>` : ''}
+                  ${sugRows}
+                  ${blRows}
                 </div>
               `;
             })()}
 
             <div class="audit-wizard-actions-info dim">
               💡 "Aplicar todos" usará la sugerencia de AutoBalance para los campos desbalanceados.
-              "Saltar" deja el enemigo sin cambios y pasa al siguiente.
+              Los drops aceptados se guardan en el enemigo. Los rechazados no vuelven a sugerirse.
             </div>
           </main>
         </div>
@@ -1074,10 +1116,78 @@
         }
       });
     });
+
+    // === Drops del wizard: aceptar / rechazar / restaurar / quitar ===
+    overlay.querySelectorAll('[data-audit-drop-action]').forEach((b) => {
+      b.addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        const action = b.dataset.auditDropAction;
+        const itemId = b.dataset.dropItemid;
+        const chance = parseFloat(b.dataset.dropChance) || 0.3;
+        if (!itemId) return;
+
+        const current = auditWizardState.items[auditWizardState.cursor];
+        if (!current) return;
+        const enemy = current.enemy;
+
+        applyDropAction(enemy, action, itemId, chance);
+        // Re-render para reflejar cambios
+        renderAuditWizard();
+      });
+    });
+
     // Click fuera del modal cierra
     overlay.addEventListener('click', (e) => {
       if (e.target === overlay) closeAuditWizard();
     });
+  }
+
+  /**
+   * Aplica una acción de drop al enemigo y persiste como override:
+   * - accept:        agrega a enemy.drops con source:'auto'
+   * - reject:        agrega a enemy.dropsBlacklist
+   * - unreject:      quita de dropsBlacklist
+   * - remove-manual: quita de enemy.drops
+   */
+  function applyDropAction(enemy, action, itemId, chance) {
+    const overrides = A.Data.getOverrides();
+    overrides.enemies = overrides.enemies || [];
+    let target = overrides.enemies.find((e) => e.id === enemy.id);
+    if (!target) {
+      target = JSON.parse(JSON.stringify(enemy));
+      delete target._source;
+      overrides.enemies.push(target);
+    }
+    target.drops = target.drops || [];
+    target.dropsBlacklist = target.dropsBlacklist || [];
+
+    if (action === 'accept') {
+      // Si ya está en blacklist, quitarla
+      target.dropsBlacklist = target.dropsBlacklist.filter((id) => id !== itemId);
+      // Si ya está en drops, no duplicar
+      if (!target.drops.some((d) => d.itemId === itemId)) {
+        target.drops.push({ itemId, chance, source: 'auto' });
+      }
+    } else if (action === 'reject') {
+      if (!target.dropsBlacklist.includes(itemId)) {
+        target.dropsBlacklist.push(itemId);
+      }
+      // Si estaba en drops, quitarlo también
+      target.drops = target.drops.filter((d) => d.itemId !== itemId);
+    } else if (action === 'unreject') {
+      target.dropsBlacklist = target.dropsBlacklist.filter((id) => id !== itemId);
+    } else if (action === 'remove-manual') {
+      target.drops = target.drops.filter((d) => d.itemId !== itemId);
+    }
+
+    A.Data.saveOverrides(overrides);
+    A.Data.init();
+    dirty = true;
+    // Actualizar enemy referenciado en auditWizardState
+    const updated = A.Data.getById('enemies', enemy.id);
+    if (updated) {
+      auditWizardState.items[auditWizardState.cursor].enemy = updated;
+    }
   }
 
   function applyCurrentAudit() {
@@ -1197,6 +1307,14 @@
   function openGraphEditor() {
     try {
       console.log('[GraphEditor] Abriendo editor visual de conexiones...');
+
+      // Si hay un draft sin guardar, guardarlo silenciosamente para que
+      // las conexiones del editor visual reflejen lo que está en pantalla
+      if (editingDraft && dirty) {
+        console.log('[GraphEditor] Guardando draft pendiente antes de abrir...');
+        try { saveDraft(true); } catch (e) { console.warn('No se pudo guardar draft:', e); }
+      }
+
       // Cargar posiciones persistidas
       const saved = loadGraphPositions();
       graphState.nodes = { ...saved };
@@ -1597,4 +1715,6 @@
 
   A.Views = A.Views || {};
   A.Views.Editor = Editor;
+  // Exponer función para que el onclick inline del botón la pueda llamar
+  A.openGraphEditor = openGraphEditor;
 })(window.Aventurs);
