@@ -59,18 +59,20 @@
         </header>
 
         <div class="shell-body">
-          <aside class="shell-chronicles" id="shell-chronicles"></aside>
-          <main class="shell-main" id="shell-main"></main>
+          <main class="shell-main" id="shell-main">
+            <aside class="shell-chronicles" id="shell-chronicles"></aside>
+            <div class="shell-main-content" id="shell-main-content"></div>
+          </main>
           <aside class="shell-sidebar" id="shell-sidebar"></aside>
         </div>
 
         <footer class="shell-footer">
-          <span class="version-pill">v1.5.7c</span>
+          <span class="version-pill">v1.5.7d</span>
         </footer>
       </div>
     `;
 
-    mainEl = rootEl.querySelector('#shell-main');
+    mainEl = rootEl.querySelector('#shell-main-content');
     sidebarEl = rootEl.querySelector('#shell-sidebar');
     chroniclesEl = rootEl.querySelector('#shell-chronicles');
 
@@ -173,7 +175,7 @@
 
   function equipMini(label, equipped, slotName) {
     if (!equipped) {
-      return `<div class="equip-mini is-empty"><div class="dim">${label}</div><div class="faint">—</div></div>`;
+      return `<div class="equip-mini is-empty"><div class="equip-mini-label dim">${label}</div><div class="equip-mini-empty-mark faint">—</div></div>`;
     }
     let stat = '';
     if (slotName === 'weapon') stat = `${equipped.damage}`;
@@ -183,9 +185,9 @@
       ? `data-equipped-bag="${A.Utils.escapeHtml(equipped.id)}"`
       : `data-equipped-slot="${slotName}"`;
     return `
-      <button class="equip-mini equip-mini-clickable" ${dataAttr}>
-        <div class="dim">${label}</div>
-        <div class="equip-mini-content">
+      <button class="equip-mini equip-mini-clickable" ${dataAttr} title="${A.Utils.escapeHtml(equipped.name)}">
+        <div class="equip-mini-label dim">${label}</div>
+        <div class="equip-mini-body">
           <span class="equip-mini-icon">${equipped.icon || '⚔️'}</span>
           <span class="equip-mini-name">${A.Utils.escapeHtml(equipped.name)}</span>
         </div>

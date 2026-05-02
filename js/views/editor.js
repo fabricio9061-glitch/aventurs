@@ -446,9 +446,34 @@
       </div>
     `).join('') : '<div class="muted small">Sin sugerencias para este enemigo.</div>';
 
+    const fullAudit = A.AutoBalance.auditEnemyFull(e);
+    const fullAuditHtml = `
+      <div class="autobalance-full" id="autobalance-full" style="display:none">
+        <div class="autobalance-full-header">
+          <span class="dim small">Reporte completo: ${fullAudit.length} campos</span>
+          <span class="autobalance-legend">
+            <span class="ab-badge ab-ok">OK</span>
+            <span class="ab-badge ab-warning">Desvío leve</span>
+            <span class="ab-badge ab-critical">Desvío crítico</span>
+          </span>
+        </div>
+        <div class="autobalance-full-list">
+          ${fullAudit.map((a) => `
+            <div class="autobalance-full-row ab-${a.status}">
+              <span class="autobalance-full-field">${A.Utils.escapeHtml(a.label)}</span>
+              <span class="autobalance-full-cur"><span class="dim">actual:</span> <strong>${A.Utils.escapeHtml(String(a.current ?? '—'))}</strong>${a.isDamageDice ? ` <span class="dim">(~${a.currentNum.toFixed(1)})</span>` : ''}</span>
+              <span class="autobalance-full-sug"><span class="dim">sugerido:</span> <strong>${a.suggested}</strong></span>
+              <span class="autobalance-full-delta">${a.delta}% desvío</span>
+              ${a.status !== 'ok' ? `<button class="btn-mini" data-audit-apply="${a.field}" data-audit-value="${a.suggested}">Aplicar</button>` : '<span class="ab-check">✓</span>'}
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `;
+
     const auditHtml = audit.length ? `
       <div class="autobalance-audit">
-        <div class="audit-title dim">AutoBalance sugiere:</div>
+        <div class="audit-title dim">AutoBalance sugiere (desvíos críticos):</div>
         ${audit.map((a) => `
           <div class="audit-row">
             <span>${a.field}: actual ${a.current} → sugerido ${a.suggested}</span>
@@ -502,7 +527,11 @@
         <div class="autobalance-block">
           <div class="dim small">Stats sugeridos: HP ${sug.health}, daño ${sug.damage}, dificultad ${sug.difficulty}, armadura ${sug.armor}, velocidad ${sug.speed}.</div>
           ${auditHtml}
-          <button class="btn-mini" data-action="autobalance-apply-all">Aplicar todos los sugeridos</button>
+          <div class="autobalance-actions">
+            <button class="btn-mini" data-action="autobalance-toggle-full">📊 Generar reporte completo</button>
+            <button class="btn-mini" data-action="autobalance-apply-all">Aplicar todos los sugeridos</button>
+          </div>
+          ${fullAuditHtml}
         </div>
       </div>`,
     ].join('');
@@ -761,6 +790,18 @@
         Object.assign(editingDraft, sug);
         dirty = true;
         render();
+      });
+    }
+    // Toggle del panel "Reporte completo de autobalance"
+    const toggleFull = host.querySelector('[data-action="autobalance-toggle-full"]');
+    if (toggleFull) {
+      toggleFull.addEventListener('click', (ev) => {
+        ev.preventDefault();
+        const panel = host.querySelector('#autobalance-full');
+        if (!panel) return;
+        const isOpen = panel.style.display !== 'none';
+        panel.style.display = isOpen ? 'none' : 'block';
+        toggleFull.textContent = isOpen ? '📊 Generar reporte completo' : '📊 Ocultar reporte';
       });
     }
   }

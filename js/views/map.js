@@ -45,10 +45,15 @@
 
         <div class="map-view-canvas">
           ${renderMapSvg(currentRegion)}
+          <div class="map-zoom-controls">
+            <button class="map-zoom-btn" data-map-zoom="in" title="Acercar (rueda del mouse)">+</button>
+            <button class="map-zoom-btn" data-map-zoom="out" title="Alejar (rueda del mouse)">−</button>
+            <button class="map-zoom-btn map-zoom-reset" data-map-zoom="reset" title="Restablecer zoom y posición">⊙</button>
+          </div>
         </div>
 
         <footer class="map-view-hint muted">
-          Tocá un nodo dorado para viajar. Las regiones lejanas necesitan que viajes por etapas.
+          🖱️ Rueda para zoom · Arrastrar para mover · Click en nodo dorado para viajar · <kbd>Esc</kbd> para volver
         </footer>
       </section>
     `;
@@ -165,8 +170,10 @@
 
     return `
       <svg class="map-fullscreen-svg" viewBox="${minX} ${minY} ${w} ${h}" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet">
-        <g class="map-edges">${lines.join('')}</g>
-        <g class="map-nodes">${nodes.join('')}</g>
+        <g class="map-transform-g">
+          <g class="map-edges">${lines.join('')}</g>
+          <g class="map-nodes">${nodes.join('')}</g>
+        </g>
       </svg>
     `;
   }
@@ -178,11 +185,108 @@
     // Click en nodos clickables (vecinos)
     mainEl.querySelectorAll('[data-clickable="1"][data-map-region]').forEach((g) => {
       g.style.cursor = 'pointer';
-      g.addEventListener('click', () => {
+      g.addEventListener('click', (e) => {
+        // Si fue un drag, no viajar
+        if (didDragRecently) return;
         const ok = A.Travel.start(g.dataset.mapRegion);
         if (ok) closeMap();
       });
     });
+    // Zoom & Pan
+    setupZoomPan();
+  }
+
+  // Zoom + pan state
+  let zoom = 1.0;
+  let panX = 0, panY = 0;
+  let isDragging = false;
+  let dragStartX = 0, dragStartY = 0;
+  let didDragRecently = false;
+
+  function setupZoomPan() {
+    const canvas = mainEl.querySelector('.map-view-canvas');
+    const svg = mainEl.querySelector('.map-fullscreen-svg');
+    const transformG = mainEl.querySelector('.map-transform-g');
+    if (!canvas || !svg || !transformG) return;
+
+    // Reset state on remount
+    zoom = 1.0; panX = 0; panY = 0;
+    applyTransform(transformG);
+
+    // Botones zoom in/out/reset
+    const zoomInBtn = mainEl.querySelector('[data-map-zoom="in"]');
+    const zoomOutBtn = mainEl.querySelector('[data-map-zoom="out"]');
+    const resetBtn = mainEl.querySelector('[data-map-zoom="reset"]');
+    if (zoomInBtn) zoomInBtn.addEventListener('click', () => { zoom = Math.min(3, zoom * 1.25); applyTransform(transformG); });
+    if (zoomOutBtn) zoomOutBtn.addEventListener('click', () => { zoom = Math.max(0.5, zoom / 1.25); applyTransform(transformG); });
+    if (resetBtn) resetBtn.addEventListener('click', () => { zoom = 1.0; panX = 0; panY = 0; applyTransform(transformG); });
+
+    // Wheel = zoom
+    canvas.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      const delta = e.deltaY > 0 ? 0.9 : 1.111;
+      const newZoom = Math.max(0.5, Math.min(3, zoom * delta));
+      zoom = newZoom;
+      applyTransform(transformG);
+    }, { passive: false });
+
+    // Drag (mouse) = pan
+    canvas.addEventListener('mousedown', (e) => {
+      if (e.button !== 0) return;
+      isDragging = true;
+      didDragRecently = false;
+      dragStartX = e.clientX - panX;
+      dragStartY = e.clientY - panY;
+      canvas.classList.add('is-dragging');
+    });
+    document.addEventListener('mousemove', onPanMove);
+    document.addEventListener('mouseup', onPanEnd);
+
+    // Touch (móvil) = pan
+    canvas.addEventListener('touchstart', (e) => {
+      if (e.touches.length !== 1) return;
+      isDragging = true;
+      didDragRecently = false;
+      dragStartX = e.touches[0].clientX - panX;
+      dragStartY = e.touches[0].clientY - panY;
+    }, { passive: true });
+    canvas.addEventListener('touchmove', (e) => {
+      if (!isDragging || e.touches.length !== 1) return;
+      panX = e.touches[0].clientX - dragStartX;
+      panY = e.touches[0].clientY - dragStartY;
+      didDragRecently = true;
+      applyTransform(transformG);
+    }, { passive: true });
+    canvas.addEventListener('touchend', () => {
+      isDragging = false;
+      setTimeout(() => { didDragRecently = false; }, 100);
+    });
+
+    function onPanMove(e) {
+      if (!isDragging) return;
+      const newPanX = e.clientX - dragStartX;
+      const newPanY = e.clientY - dragStartY;
+      // Detectar drag real (movimiento mayor a 4px)
+      if (Math.abs(newPanX - panX) > 2 || Math.abs(newPanY - panY) > 2) {
+        didDragRecently = true;
+      }
+      panX = newPanX;
+      panY = newPanY;
+      applyTransform(transformG);
+    }
+    function onPanEnd() {
+      if (isDragging) {
+        isDragging = false;
+        canvas.classList.remove('is-dragging');
+        // Mantener didDragRecently un poco para que el click en nodo no se dispare después de drag
+        setTimeout(() => { didDragRecently = false; }, 100);
+      }
+    }
+  }
+
+  function applyTransform(g) {
+    if (!g) return;
+    g.setAttribute('transform', `translate(${panX} ${panY}) scale(${zoom})`);
   }
 
   function closeMap() {

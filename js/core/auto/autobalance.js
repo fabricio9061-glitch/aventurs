@@ -100,6 +100,54 @@
   }
 
   /**
+   * Reporte completo: todos los campos comparados vs sugerencia, marcando cuál
+   * está dentro de tolerancia y cuál se desvía. Útil para "Generar autobalance".
+   */
+  function auditEnemyFull(enemy) {
+    const sug = suggestEnemyStats(enemy);
+    const out = [];
+    const fields = [
+      { key: 'health', label: 'Salud (HP)' },
+      { key: 'damage', label: 'Daño' },
+      { key: 'difficulty', label: 'Dificultad' },
+      { key: 'armor', label: 'Armadura' },
+      { key: 'speed', label: 'Velocidad' },
+    ];
+    for (const f of fields) {
+      const cur = enemy[f.key];
+      const ideal = sug[f.key] ?? 0;
+      const isDamageDice = f.key === 'damage' && typeof cur === 'string';
+      // Para daño en notación dados, parseamos el promedio
+      let curNum = cur;
+      if (isDamageDice) {
+        // 1d6+1 → promedio = (1+6)/2 + 1 = 4.5
+        const m = String(cur).match(/^(\d+)d(\d+)([+-]\d+)?$/);
+        if (m) {
+          const n = +m[1], sides = +m[2], bonus = m[3] ? +m[3] : 0;
+          curNum = n * (sides + 1) / 2 + bonus;
+        } else { curNum = Number(cur) || 0; }
+      } else {
+        curNum = Number(cur) || 0;
+      }
+      const delta = ideal === 0 ? 0 : Math.abs(curNum - ideal) / ideal;
+      let status = 'ok';
+      if (delta > 0.5) status = 'critical';
+      else if (delta > 0.25) status = 'warning';
+      out.push({
+        field: f.key,
+        label: f.label,
+        current: cur,
+        currentNum: curNum,
+        suggested: ideal,
+        delta: Math.round(delta * 100),
+        status,
+        isDamageDice,
+      });
+    }
+    return out;
+  }
+
+  /**
    * Sugiere stats de items según tier y rarity.
    */
   function suggestItemValue({ tier = 1, rarity = 'common' } = {}) {
@@ -111,6 +159,7 @@
   A.AutoBalance = {
     suggestEnemyStats,
     auditEnemy,
+    auditEnemyFull,
     suggestItemValue,
     CATEGORY_MULT,
   };
