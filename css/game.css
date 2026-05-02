@@ -3273,28 +3273,24 @@
 .map-view-canvas {
   flex: 1;
   background:
-    /* Vetas/manchas de pergamino — irregularidades suaves */
-    radial-gradient(ellipse 25% 35% at 22% 30%, rgba(120, 90, 50, 0.06) 0%, transparent 60%),
-    radial-gradient(ellipse 30% 25% at 78% 65%, rgba(80, 110, 60, 0.05) 0%, transparent 60%),
-    radial-gradient(ellipse 20% 30% at 50% 80%, rgba(100, 80, 40, 0.04) 0%, transparent 60%),
-    /* "Agua" sugerida en una esquina */
-    radial-gradient(ellipse 40% 30% at 90% 10%, rgba(74, 120, 160, 0.08) 0%, transparent 70%),
-    radial-gradient(ellipse 30% 35% at 5% 90%, rgba(74, 120, 160, 0.06) 0%, transparent 70%),
-    /* Halo central */
-    radial-gradient(ellipse at center, rgba(212, 164, 55, 0.08) 0%, transparent 65%),
-    /* Color base pergamino */
-    linear-gradient(135deg, #f4e9d0 0%, #ecdcb8 100%);
+    /* "Agua" sugerida en esquinas con tono más sutil */
+    radial-gradient(ellipse 30% 25% at 88% 12%, rgba(70, 130, 180, 0.06) 0%, transparent 70%),
+    radial-gradient(ellipse 25% 30% at 8% 88%, rgba(70, 130, 180, 0.05) 0%, transparent 70%),
+    /* Halo central muy suave */
+    radial-gradient(ellipse at center, rgba(212, 164, 55, 0.04) 0%, transparent 70%),
+    /* Color base más neutro: beige pálido casi crema */
+    linear-gradient(135deg, #f8f1de 0%, #f0e6cf 100%);
   border: var(--border-w) solid var(--gold-deep);
   border-radius: var(--r-lg);
   box-shadow:
-    inset 0 0 60px rgba(140, 90, 40, 0.12),
-    inset 0 0 0 6px rgba(247, 234, 200, 0.6),
+    inset 0 0 50px rgba(140, 90, 40, 0.08),
+    inset 0 0 0 6px rgba(247, 234, 200, 0.5),
     var(--shadow-md);
   overflow: hidden;
   position: relative;
   min-height: 0;
 }
-/* Textura granulada sutil */
+/* Textura granulada MUY sutil, prácticamente invisible */
 .map-view-canvas::before {
   content: '';
   position: absolute;
@@ -3303,9 +3299,9 @@
     repeating-linear-gradient(
       45deg,
       transparent 0,
-      transparent 2px,
-      rgba(140, 90, 40, 0.015) 2px,
-      rgba(140, 90, 40, 0.015) 4px
+      transparent 3px,
+      rgba(140, 90, 40, 0.008) 3px,
+      rgba(140, 90, 40, 0.008) 6px
     );
   pointer-events: none;
   z-index: 1;
@@ -3809,86 +3805,90 @@
   }
 }
 
-/* === v1.5.7f: Nodos del mapa con color por BIOMA === */
+/* === v1.5.7h: Nodos del mapa con color por BIOMA (saturación reforzada) === */
 /* Cada bioma tiene su paleta: relleno claro (vecinos) + relleno fuerte (current) + stroke */
 
+/* Stroke más grueso para todos los nodos para que se vean mejor */
+.map-fullscreen-svg .map-node circle { stroke-width: 2.5; }
+.map-fullscreen-svg .map-node.is-current circle { stroke-width: 4; }
+
 /* Aldea/villa - dorado cálido */
-.map-fullscreen-svg .map-node.biome-village.is-neighbor circle { fill: #f4e0b0; stroke: #b08820; }
-.map-fullscreen-svg .map-node.biome-village.is-current circle  { fill: #e0b850; stroke: #875e10; }
+.map-fullscreen-svg .map-node.biome-village.is-neighbor circle { fill: #f0d080; stroke: #8a6010; }
+.map-fullscreen-svg .map-node.biome-village.is-current circle  { fill: #d8a020; stroke: #5a3800; }
 
-/* Bosque - verde frondoso */
-.map-fullscreen-svg .map-node.biome-forest.is-neighbor circle { fill: #c8e0a8; stroke: #4a7028; }
-.map-fullscreen-svg .map-node.biome-forest.is-current circle  { fill: #6ea838; stroke: #2d4815; }
+/* Bosque - verde frondoso saturado */
+.map-fullscreen-svg .map-node.biome-forest.is-neighbor circle { fill: #98c668; stroke: #2a5810; }
+.map-fullscreen-svg .map-node.biome-forest.is-current circle  { fill: #4a8810; stroke: #1a2e08; }
 
-/* Cementerio - violeta apagado */
-.map-fullscreen-svg .map-node.biome-graveyard.is-neighbor circle { fill: #d8d0e0; stroke: #685080; }
-.map-fullscreen-svg .map-node.biome-graveyard.is-current circle  { fill: #8a7aa0; stroke: #3e2c58; }
+/* Cementerio - violeta apagado pero notorio */
+.map-fullscreen-svg .map-node.biome-graveyard.is-neighbor circle { fill: #b8a8c8; stroke: #4a3060; }
+.map-fullscreen-svg .map-node.biome-graveyard.is-current circle  { fill: #6a5080; stroke: #28183c; }
 
-/* Llanura - amarillo pálido */
-.map-fullscreen-svg .map-node.biome-plains.is-neighbor circle { fill: #f0e8c8; stroke: #a89048; }
-.map-fullscreen-svg .map-node.biome-plains.is-current circle  { fill: #d8b860; stroke: #745a18; }
+/* Llanura - amarillo verdoso (no se confunde con dorado) */
+.map-fullscreen-svg .map-node.biome-plains.is-neighbor circle { fill: #d8c878; stroke: #807030; }
+.map-fullscreen-svg .map-node.biome-plains.is-current circle  { fill: #b09028; stroke: #503808; }
 
 /* Pantano - verde oliva oscuro */
-.map-fullscreen-svg .map-node.biome-swamp.is-neighbor circle { fill: #b8c89a; stroke: #5a6028; }
-.map-fullscreen-svg .map-node.biome-swamp.is-current circle  { fill: #6e7a3a; stroke: #3a3e15; }
+.map-fullscreen-svg .map-node.biome-swamp.is-neighbor circle { fill: #98a868; stroke: #404818; }
+.map-fullscreen-svg .map-node.biome-swamp.is-current circle  { fill: #586020; stroke: #20240a; }
 
 /* Costa - turquesa */
-.map-fullscreen-svg .map-node.biome-coast.is-neighbor circle { fill: #c0e0d8; stroke: #2a8078; }
-.map-fullscreen-svg .map-node.biome-coast.is-current circle  { fill: #5ab8a8; stroke: #144a45; }
+.map-fullscreen-svg .map-node.biome-coast.is-neighbor circle { fill: #80c8b8; stroke: #105850; }
+.map-fullscreen-svg .map-node.biome-coast.is-current circle  { fill: #208878; stroke: #082828; }
 
 /* Tierras arcanas - violeta brillante */
-.map-fullscreen-svg .map-node.biome-arcane.is-neighbor circle { fill: #e0c8e8; stroke: #7a3898; }
-.map-fullscreen-svg .map-node.biome-arcane.is-current circle  { fill: #b070c8; stroke: #4a1860; }
+.map-fullscreen-svg .map-node.biome-arcane.is-neighbor circle { fill: #c898d8; stroke: #501870; }
+.map-fullscreen-svg .map-node.biome-arcane.is-current circle  { fill: #8030a0; stroke: #281040; }
 
-/* Montaña - marrón piedra */
-.map-fullscreen-svg .map-node.biome-mountain.is-neighbor circle { fill: #d8c8b0; stroke: #785838; }
-.map-fullscreen-svg .map-node.biome-mountain.is-current circle  { fill: #a08068; stroke: #4a3010; }
+/* Montaña - marrón piedra fuerte */
+.map-fullscreen-svg .map-node.biome-mountain.is-neighbor circle { fill: #c0a880; stroke: #503818; }
+.map-fullscreen-svg .map-node.biome-mountain.is-current circle  { fill: #785838; stroke: #281808; }
 
-/* Desierto - amarillo arena */
-.map-fullscreen-svg .map-node.biome-desert.is-neighbor circle { fill: #f0dca0; stroke: #b89030; }
-.map-fullscreen-svg .map-node.biome-desert.is-current circle  { fill: #d8b048; stroke: #785e10; }
+/* Desierto - naranja arena saturado */
+.map-fullscreen-svg .map-node.biome-desert.is-neighbor circle { fill: #e8c060; stroke: #806010; }
+.map-fullscreen-svg .map-node.biome-desert.is-current circle  { fill: #c08818; stroke: #503808; }
 
-/* Ruinas - gris piedra antigua */
-.map-fullscreen-svg .map-node.biome-ruins.is-neighbor circle { fill: #d4ccc0; stroke: #6e5e48; }
-.map-fullscreen-svg .map-node.biome-ruins.is-current circle  { fill: #988568; stroke: #3e3018; }
+/* Ruinas - gris piedra antigua con tono cálido */
+.map-fullscreen-svg .map-node.biome-ruins.is-neighbor circle { fill: #b8a890; stroke: #503818; }
+.map-fullscreen-svg .map-node.biome-ruins.is-current circle  { fill: #786040; stroke: #281808; }
 
-/* Cripta - violeta oscuro/negro */
-.map-fullscreen-svg .map-node.biome-crypt.is-neighbor circle { fill: #c8b8c8; stroke: #4a3050; }
-.map-fullscreen-svg .map-node.biome-crypt.is-current circle  { fill: #6e4a78; stroke: #2a1530; }
+/* Cripta - violeta oscuro */
+.map-fullscreen-svg .map-node.biome-crypt.is-neighbor circle { fill: #a890b0; stroke: #2a1838; }
+.map-fullscreen-svg .map-node.biome-crypt.is-current circle  { fill: #503060; stroke: #100820; }
 
 /* Cueva - gris oscuro */
-.map-fullscreen-svg .map-node.biome-cave.is-neighbor circle { fill: #b8b0a8; stroke: #383028; }
-.map-fullscreen-svg .map-node.biome-cave.is-current circle  { fill: #686058; stroke: #181410; }
+.map-fullscreen-svg .map-node.biome-cave.is-neighbor circle { fill: #908880; stroke: #181410; }
+.map-fullscreen-svg .map-node.biome-cave.is-current circle  { fill: #484038; stroke: #08060a; }
 
 /* Mar abierto - azul fuerte */
-.map-fullscreen-svg .map-node.biome-sea.is-neighbor circle { fill: #b0d0e8; stroke: #2858a0; }
-.map-fullscreen-svg .map-node.biome-sea.is-current circle  { fill: #4080c0; stroke: #102e60; }
+.map-fullscreen-svg .map-node.biome-sea.is-neighbor circle { fill: #80b0e0; stroke: #103880; }
+.map-fullscreen-svg .map-node.biome-sea.is-current circle  { fill: #2860a8; stroke: #081840; }
 
-/* Volcán - rojo fuego */
-.map-fullscreen-svg .map-node.biome-volcano.is-neighbor circle { fill: #f0c0a0; stroke: #b04020; }
-.map-fullscreen-svg .map-node.biome-volcano.is-current circle  { fill: #d05a28; stroke: #601810; }
+/* Volcán - rojo fuego saturado */
+.map-fullscreen-svg .map-node.biome-volcano.is-neighbor circle { fill: #e89878; stroke: #802818; }
+.map-fullscreen-svg .map-node.biome-volcano.is-current circle  { fill: #b04018; stroke: #401008; }
 
-/* Infierno - rojo intenso/negro */
-.map-fullscreen-svg .map-node.biome-hell.is-neighbor circle { fill: #e8a898; stroke: #802018; }
-.map-fullscreen-svg .map-node.biome-hell.is-current circle  { fill: #b03020; stroke: #400808; }
+/* Infierno - rojo intenso */
+.map-fullscreen-svg .map-node.biome-hell.is-neighbor circle { fill: #d87060; stroke: #501010; }
+.map-fullscreen-svg .map-node.biome-hell.is-current circle  { fill: #902010; stroke: #200008; }
 
 /* Guarida - marrón rojizo */
-.map-fullscreen-svg .map-node.biome-lair.is-neighbor circle { fill: #d8b098; stroke: #783820; }
-.map-fullscreen-svg .map-node.biome-lair.is-current circle  { fill: #a06040; stroke: #381810; }
+.map-fullscreen-svg .map-node.biome-lair.is-neighbor circle { fill: #c08868; stroke: #501810; }
+.map-fullscreen-svg .map-node.biome-lair.is-current circle  { fill: #804020; stroke: #200808; }
 
 /* Abismo - azul casi negro */
-.map-fullscreen-svg .map-node.biome-abyss.is-neighbor circle { fill: #a8b8c8; stroke: #182838; }
-.map-fullscreen-svg .map-node.biome-abyss.is-current circle  { fill: #485868; stroke: #08101c; }
+.map-fullscreen-svg .map-node.biome-abyss.is-neighbor circle { fill: #788898; stroke: #081020; }
+.map-fullscreen-svg .map-node.biome-abyss.is-current circle  { fill: #283848; stroke: #000810; }
 
 /* Lejanos: misma paleta pero atenuada */
-.map-fullscreen-svg .map-node.is-far circle { opacity: 0.38; }
+.map-fullscreen-svg .map-node.is-far circle { opacity: 0.45; }
 
 /* Fallback: sin bioma o tipo desconocido */
 .map-fullscreen-svg .map-node.is-safe.is-neighbor:not([class*="biome-"]) circle {
-  fill: #e8f0d4; stroke: #6a8a30;
+  fill: #c8e088; stroke: #4a7028;
 }
 .map-fullscreen-svg .map-node.is-combat.is-neighbor:not([class*="biome-"]) circle {
-  fill: #f4dccd; stroke: #b04a2e;
+  fill: #f0b898; stroke: #903820;
 }
 .map-fullscreen-svg .map-node.is-current:not([class*="biome-"]) circle {
   fill: var(--gold); stroke: var(--gold-deep);

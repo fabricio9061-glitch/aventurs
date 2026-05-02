@@ -678,6 +678,7 @@
     host.querySelectorAll('[data-editor-action]').forEach((b) => {
       b.addEventListener('click', () => {
         const a = b.dataset.editorAction;
+        console.log('[Editor] click action:', a);
         if (a === 'back') {
           if (dirty && !confirm('Tienes cambios sin guardar. ¿Salir igual?')) return;
           unmount();
@@ -1156,20 +1157,28 @@
   }
 
   function openGraphEditor() {
-    // Cargar posiciones persistidas
-    const saved = loadGraphPositions();
-    graphState.nodes = { ...saved };
-    graphState.selected = null;
-    graphState.drag = null;
-    graphState.panDrag = null;
-    graphState.pan = { x: 0, y: 0 };
-    graphState.zoom = 1.0;
+    try {
+      console.log('[GraphEditor] Abriendo editor visual de conexiones...');
+      // Cargar posiciones persistidas
+      const saved = loadGraphPositions();
+      graphState.nodes = { ...saved };
+      graphState.selected = null;
+      graphState.drag = null;
+      graphState.panDrag = null;
+      graphState.pan = { x: 0, y: 0 };
+      graphState.zoom = 1.0;
 
-    // Layout automático para nodos sin posición previa
-    autoLayout();
+      // Layout automático para nodos sin posición previa
+      autoLayout();
 
-    graphState.open = true;
-    renderGraphEditor();
+      graphState.open = true;
+      console.log('[GraphEditor] Posiciones calculadas, renderizando...', Object.keys(graphState.nodes).length, 'nodos');
+      renderGraphEditor();
+      console.log('[GraphEditor] Render completo. Overlay:', document.getElementById('graph-editor-overlay') ? 'SÍ existe en DOM' : 'NO existe en DOM');
+    } catch (err) {
+      console.error('[GraphEditor] ERROR al abrir:', err);
+      alert('Error al abrir editor visual: ' + err.message + '\n\nVer consola para detalles.');
+    }
   }
 
   function closeGraphEditor() {
@@ -1193,15 +1202,26 @@
     const allRegions = A.Data.regions || [];
     const editingId = editingDraft && editingDraft.id;
 
+    // Garantía: TODA región debe tener posición antes de calcular viewBox
+    // Si autoLayout no la asignó (caso raro), le pongo una por defecto
+    let fallbackX = 100;
+    for (const r of allRegions) {
+      if (!graphState.nodes[r.id] || typeof graphState.nodes[r.id].x !== 'number' || isNaN(graphState.nodes[r.id].x)) {
+        graphState.nodes[r.id] = { x: fallbackX, y: 100 };
+        fallbackX += 80;
+      }
+    }
+
     // Calcular bounds del viewBox (todos los nodos + padding)
-    const xs = allRegions.map((r) => (graphState.nodes[r.id] || { x: 0 }).x);
-    const ys = allRegions.map((r) => (graphState.nodes[r.id] || { y: 0 }).y);
+    const xs = allRegions.map((r) => graphState.nodes[r.id].x);
+    const ys = allRegions.map((r) => graphState.nodes[r.id].y);
     const padding = 100;
-    const minX = Math.min(...xs) - padding;
-    const maxX = Math.max(...xs) + padding;
-    const minY = Math.min(...ys) - padding;
-    const maxY = Math.max(...ys) + padding;
-    const w = maxX - minX, h = maxY - minY;
+    const minX = (xs.length ? Math.min(...xs) : 0) - padding;
+    const maxX = (xs.length ? Math.max(...xs) : 1000) + padding;
+    const minY = (ys.length ? Math.min(...ys) : 0) - padding;
+    const maxY = (ys.length ? Math.max(...ys) : 700) + padding;
+    const w = Math.max(100, maxX - minX);
+    const h = Math.max(100, maxY - minY);
 
     // Líneas (conexiones únicas) - leemos directamente de Data
     const drawnEdges = new Set();
