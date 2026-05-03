@@ -292,7 +292,7 @@
                 || A.Data.getById('weapons', itemId)
                 || A.Data.getById('armors', itemId);
       if (!item) return 0;
-      if (item.subtype === 'coin') return 0;
+      // v1.5.7k: monedas ahora ocupan slots como cualquier item (1 slot = 1 stack)
       return item.slots || 1;
     },
 

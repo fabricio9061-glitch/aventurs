@@ -4485,3 +4485,109 @@
 .btn-mini-danger:hover {
   background: #f5cdc0;
 }
+
+/* ============================================================
+   v1.5.7k — TagInput component (autocomplete)
+   ============================================================ */
+.tag-input-host {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+}
+.tag-input-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  min-height: 30px;
+  padding: 4px;
+  background: var(--surface-sunken);
+  border: var(--border-w) solid var(--border-soft);
+  border-radius: var(--r-sm);
+}
+.tag-input-empty {
+  padding: 4px 8px;
+  font-style: italic;
+}
+.tag-input-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 6px 3px 8px;
+  background: var(--gold-bg-soft);
+  border: var(--border-w) solid var(--gold-deep);
+  border-radius: 14px;
+  font-size: 12px;
+  font-weight: var(--fw-medium);
+  color: var(--text);
+}
+.tag-input-tag.is-orphan {
+  background: rgba(196, 85, 48, 0.1);
+  border-color: #c45530;
+}
+.tag-input-tag-icon { font-size: 14px; }
+.tag-input-tag-name { white-space: nowrap; }
+.tag-input-tag-remove {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  padding: 0 2px;
+  color: var(--text-muted);
+  border-radius: 50%;
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.tag-input-tag-remove:hover {
+  background: rgba(196, 85, 48, 0.2);
+  color: #8d2818;
+}
+
+.tag-input-search {
+  position: relative;
+}
+.tag-input-search-input {
+  width: 100%;
+}
+.tag-input-suggestions {
+  position: absolute;
+  top: calc(100% + 2px);
+  left: 0;
+  right: 0;
+  z-index: 100;
+  background: var(--surface-raised);
+  border: var(--border-w) solid var(--gold-deep);
+  border-radius: var(--r-sm);
+  box-shadow: var(--shadow-md);
+  max-height: 280px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+.tag-input-suggestion {
+  display: grid;
+  grid-template-columns: 24px 1fr auto;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background: transparent;
+  border: none;
+  border-bottom: var(--border-w) solid var(--border-soft);
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  font-size: var(--fs-sm);
+}
+.tag-input-suggestion:last-child { border-bottom: none; }
+.tag-input-suggestion:hover,
+.tag-input-suggestion.is-highlighted {
+  background: var(--gold-bg-soft);
+}
+.tag-input-sug-icon { font-size: 14px; text-align: center; }
+.tag-input-sug-name { font-weight: var(--fw-medium); }
+.tag-input-sug-id { font-size: 10px; font-family: monospace; }

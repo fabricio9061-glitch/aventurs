@@ -52,6 +52,40 @@
 
     { id:'colmillo_de_dragon', name:'Colmillo de dragón', type:'weapon', icon:'🦷', damage:'3d6+2', value:1200, rarity:'legendary', tier:10, weight:3, magic:true,
       description:'Tallado del diente de un dragón ancestral. La carne que toca arde.' },
+
+    /* ====== v1.5.7k — Armas adicionales ====== */
+    { id:'garrote', name:'Garrote', type:'weapon', icon:'🏏', damage:'1d4', value:8, rarity:'common', tier:1, weight:2, magic:false,
+      description:'Madera nudosa con manija. Lo más simple que se llama arma.' },
+
+    { id:'lanza', name:'Lanza', type:'weapon', icon:'🔱', damage:'1d8', value:90, rarity:'common', tier:3, weight:3, magic:false,
+      description:'Asta larga con punta de hierro. Mantiene al enemigo a raya.' },
+
+    { id:'ballesta', name:'Ballesta', type:'weapon', icon:'🏹', damage:'1d10', value:180, rarity:'uncommon', tier:4, weight:4, magic:false,
+      description:'Arco mecánico que pega más fuerte que un arco común. Lenta de recargar.' },
+
+    { id:'katana', name:'Katana', type:'weapon', icon:'⚔️', damage:'2d6', value:280, rarity:'rare', tier:5, weight:2, magic:false, statusEffect:{type:'bleed',chance:0.30,turns:3,value:2},
+      description:'Hoja curva forjada en cien capas. Corta lo que mira, sangra lo que toca.' },
+
+    { id:'martillo_de_guerra', name:'Martillo de guerra', type:'weapon', icon:'🔨', damage:'2d8', value:340, rarity:'rare', tier:6, weight:6, slots:2, magic:false,
+      description:'Cabeza de hierro forjada para romper armaduras. Lo que toca, abolla.' },
+
+    { id:'alabarda', name:'Alabarda', type:'weapon', icon:'🪓', damage:'2d6+2', value:300, rarity:'rare', tier:5, weight:5, slots:2, magic:false,
+      description:'Hacha y lanza juntas en un asta larga. Para mantener distancia y abrir cráneos.' },
+
+    { id:'varita', name:'Varita', type:'weapon', icon:'🪄', damage:'1d4', value:60, rarity:'common', tier:2, weight:0, magic:true,
+      description:'Madera tallada con runas. Canaliza maná pero pega flojo si te quedás sin.' },
+
+    { id:'baston_de_fuego', name:'Bastón de fuego', type:'weapon', icon:'🔥', damage:'1d8+1', value:320, rarity:'rare', tier:5, weight:2, magic:true, statusEffect:{type:'fire',chance:0.40,turns:4,value:3},
+      description:'La punta arde sin consumirse. Cada golpe deja brasas en la herida.' },
+
+    { id:'baston_de_hielo', name:'Bastón de hielo', type:'weapon', icon:'❄️', damage:'1d8+1', value:320, rarity:'rare', tier:5, weight:2, magic:true, statusEffect:{type:'cold',chance:0.40,turns:4,value:3},
+      description:'Cristal helado en el extremo. Quien lo toca queda lento por minutos.' },
+
+    { id:'excalibur', name:'Excalibur', type:'weapon', icon:'🗡️', damage:'4d6', value:5000, rarity:'legendary', tier:10, weight:3, magic:true, statusEffect:{type:'shock',chance:0.30,turns:3,value:4},
+      description:'Hoja de luz pura, forjada en el lago. Solo el digno puede empuñarla. Brilla más cuando hay justicia que defender.' },
+
+    { id:'mjolnir', name:'Mjölnir', type:'weapon', icon:'🔨', damage:'4d8', value:6000, rarity:'legendary', tier:10, weight:8, slots:2, magic:true, statusEffect:{type:'shock',chance:0.50,turns:4,value:5},
+      description:'Martillo del dios del trueno. Pesa lo que pesa la fe del que lo levanta. Suelta rayos al impactar.' },
   ];
 
   A.Seed = A.Seed || {};

@@ -313,6 +313,30 @@
     return `<input class="form-input" data-field="${field}" data-array="csv" type="text" value="${A.Utils.escapeHtml((value || []).join(', '))}" placeholder="separados por coma">`;
   }
 
+  /**
+   * Tag-input field: muestra un placeholder div que se monta con A.TagInput
+   * después del render. Persiste el valor en el draft via data-field.
+   *
+   * field: nombre del campo en el draft (ej: 'regions', 'sells', 'teaches')
+   * value: array de ids actuales
+   * collection: 'items'|'enemies'|'regions'|'spells' (qué buscar)
+   * placeholder: texto del input
+   * filter: función opcional para filtrar opciones
+   */
+  function tagsField(field, value, collection, placeholder = 'Buscar...', filter = null) {
+    const filterKey = filter ? `:${filter}` : '';
+    const safeId = field.replace(/[^a-zA-Z0-9_]/g, '_');
+    return `<div
+      class="tag-input-placeholder"
+      data-tag-input-mount="${safeId}"
+      data-tag-field="${field}"
+      data-tag-collection="${collection}"
+      data-tag-placeholder="${A.Utils.escapeHtml(placeholder)}"
+      data-tag-value='${A.Utils.escapeHtml(JSON.stringify(value || []))}'
+      ${filter ? `data-tag-filter="${filter}"` : ''}
+    ></div>`;
+  }
+
   function tier2(field, value) {
     const v = Array.isArray(value) ? value : [1, 1];
     return `<div class="form-tier">
@@ -323,6 +347,17 @@
   }
 
   function formRegions(e) {
+    // Enemigos asignados a esta región
+    const tier = Array.isArray(e.tier) ? e.tier : [e.tier || 1, e.tier || 1];
+    const tierMin = tier[0], tierMax = tier[1];
+    const allEnemies = A.Data.enemies || [];
+    const assignedEnemies = allEnemies.filter((en) => (en.regions || []).includes(e.id));
+    const tierMatches = assignedEnemies.filter((en) => en.tier >= tierMin && en.tier <= tierMax);
+    const tierMisfits = assignedEnemies.filter((en) => en.tier < tierMin || en.tier > tierMax);
+    const candidates = allEnemies.filter((en) =>
+      en.tier >= tierMin && en.tier <= tierMax && !(en.regions || []).includes(e.id)
+    );
+
     return [
       row('ID', inp('id', e.id)),
       row('Nombre', inp('name', e.name)),
@@ -348,6 +383,30 @@
       row('Descripción', txt('description', e.description, 4)),
       row('Encuentros requeridos (desbloqueo)', inp('reqEncounters', e.reqEncounters || 0, 'number', 'min="0" max="50"')),
       `<div class="form-row form-row-block">
+        <label>Enemigos en esta región (${assignedEnemies.length})</label>
+        <div class="region-enemies-block">
+          <div class="region-enemies-actions">
+            <button type="button" class="btn-mini btn-region-autobalance" onclick="window.Aventurs.openRegionEnemyEditor && window.Aventurs.openRegionEnemyEditor('${A.Utils.escapeHtml(e.id)}')">🎲 Auto-asignar enemigos por tier</button>
+            <span class="dim small">Tier ${tierMin}-${tierMax} · ${tierMatches.length} ok · ${tierMisfits.length} fuera de tier</span>
+          </div>
+          ${assignedEnemies.length === 0 ? '<div class="muted small">Sin enemigos asignados.</div>' : `
+            <div class="region-enemies-list">
+              ${assignedEnemies.map((en) => {
+                const ok = en.tier >= tierMin && en.tier <= tierMax;
+                return `
+                  <span class="region-enemy-tag ${ok ? '' : 'is-mismatch'}" title="Tier ${en.tier} ${ok ? '' : '(fuera de tier)'}">
+                    <span>${en.icon || '👹'}</span>
+                    <span>${A.Utils.escapeHtml(en.name)}</span>
+                    <span class="dim">T${en.tier}</span>
+                  </span>
+                `;
+              }).join('')}
+            </div>
+          `}
+          ${candidates.length > 0 ? `<div class="dim small">${candidates.length} enemigos candidatos en este tier (no asignados aún).</div>` : ''}
+        </div>
+      </div>`,
+      `<div class="form-row form-row-block">
         <label>Configuración de encuentros (solo combat)</label>
         <div class="encounter-block">
           ${[
@@ -362,6 +421,241 @@
         </div>
       </div>`,
     ].join('');
+  }
+
+  // ============================================================
+  // v1.5.7k — REGION ENEMY EDITOR: asignar enemigos a una región
+  // ============================================================
+  function openRegionEnemyEditor(regionId) {
+    const region = A.Data.getById('regions', regionId);
+    if (!region) {
+      alert('Región no encontrada: ' + regionId);
+      return;
+    }
+    const tier = Array.isArray(region.tier) ? region.tier : [region.tier || 1, region.tier || 1];
+    const tierMin = tier[0], tierMax = tier[1];
+    const allEnemies = A.Data.enemies || [];
+
+    let overlay = document.getElementById('region-enemy-editor-overlay');
+    if (overlay) overlay.remove();
+    overlay = document.createElement('div');
+    overlay.id = 'region-enemy-editor-overlay';
+    overlay.className = 'audit-wizard-overlay';
+    document.body.appendChild(overlay);
+
+    function renderModal() {
+      const assigned = allEnemies.filter((en) => (en.regions || []).includes(regionId));
+      const tierOk = assigned.filter((en) => en.tier >= tierMin && en.tier <= tierMax);
+      const tierBad = assigned.filter((en) => en.tier < tierMin || en.tier > tierMax);
+      const candidates = allEnemies.filter((en) =>
+        en.tier >= tierMin && en.tier <= tierMax && !(en.regions || []).includes(regionId)
+      ).sort((a, b) => a.tier - b.tier || (a.name || '').localeCompare(b.name || ''));
+
+      overlay.innerHTML = `
+        <div class="audit-wizard-modal" style="max-width:1000px">
+          <header class="audit-wizard-header">
+            <div>
+              <h2>🎲 Enemigos en ${A.Utils.escapeHtml(region.name)}</h2>
+              <div class="audit-wizard-progress">
+                <span class="dim">Tier de la región:</span>
+                <strong>${tierMin}–${tierMax}</strong>
+                <span class="dim">·</span>
+                <span class="dim">${assigned.length} asignados</span>
+                <span class="dim">·</span>
+                <span class="dim">${candidates.length} candidatos en tier</span>
+              </div>
+            </div>
+            <button class="modal-close" data-region-enemy-close type="button">✕</button>
+          </header>
+
+          <div class="audit-wizard-body" style="grid-template-columns: 1fr 1fr">
+            <main class="audit-wizard-main">
+              <div class="region-enemy-section-title">✓ Asignados a esta región (${assigned.length})</div>
+              ${assigned.length === 0 ? '<div class="muted small">Ninguno aún. Agregá desde la columna de candidatos →</div>' : `
+                <div class="region-enemy-list">
+                  ${assigned.map((en) => `
+                    <div class="region-enemy-row ${en.tier >= tierMin && en.tier <= tierMax ? 'is-ok' : 'is-mismatch'}">
+                      <span class="region-enemy-icon">${en.icon || '👹'}</span>
+                      <span class="region-enemy-name">${A.Utils.escapeHtml(en.name)}</span>
+                      <span class="region-enemy-tier">T${en.tier}</span>
+                      <span class="region-enemy-cat dim">${en.category || ''}</span>
+                      <button class="btn-mini btn-mini-danger" type="button" data-region-action="remove" data-enemy-id="${A.Utils.escapeHtml(en.id)}">Quitar</button>
+                    </div>
+                  `).join('')}
+                </div>
+              `}
+
+              ${tierBad.length > 0 ? `
+                <div class="region-enemy-warning">
+                  ⚠ ${tierBad.length} fuera de tier (recomendado quitar)
+                </div>
+              ` : ''}
+
+              <div class="audit-wizard-actions-info dim" style="margin-top:16px">
+                💡 "Auto-asignar por tier" agrega 5–8 enemigos candidatos del tier de la región (mezclando categorías weak/normal/strong).
+              </div>
+
+              <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+                <button class="btn-secondary" type="button" data-region-action="auto-assign">🎲 Auto-asignar por tier</button>
+                <button class="btn-secondary" type="button" data-region-action="clear">Vaciar todo</button>
+              </div>
+            </main>
+
+            <aside class="audit-wizard-main" style="border-left:1px solid var(--border)">
+              <div class="region-enemy-section-title">+ Candidatos en tier ${tierMin}–${tierMax} (${candidates.length})</div>
+              <input class="form-input region-enemy-search" type="text" placeholder="Buscar enemigo..." id="region-enemy-search">
+              ${candidates.length === 0 ? '<div class="muted small">No hay candidatos en este tier que no estén ya asignados.</div>' : `
+                <div class="region-enemy-list" id="region-enemy-candidates">
+                  ${candidates.map((en) => `
+                    <div class="region-enemy-row" data-enemy-name="${A.Utils.escapeHtml((en.name||'').toLowerCase())}">
+                      <span class="region-enemy-icon">${en.icon || '👹'}</span>
+                      <span class="region-enemy-name">${A.Utils.escapeHtml(en.name)}</span>
+                      <span class="region-enemy-tier">T${en.tier}</span>
+                      <span class="region-enemy-cat dim">${en.category || ''}</span>
+                      <button class="btn-mini" type="button" data-region-action="add" data-enemy-id="${A.Utils.escapeHtml(en.id)}">+ Agregar</button>
+                    </div>
+                  `).join('')}
+                </div>
+              `}
+            </aside>
+          </div>
+
+          <footer class="audit-wizard-footer">
+            <button class="btn-primary" type="button" data-region-enemy-close>Cerrar</button>
+          </footer>
+        </div>
+      `;
+      bindModalEvents();
+    }
+
+    function bindModalEvents() {
+      overlay.querySelectorAll('[data-region-enemy-close]').forEach((b) => {
+        b.addEventListener('click', () => overlay.remove());
+      });
+      overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) overlay.remove();
+      });
+      overlay.querySelectorAll('[data-region-action]').forEach((b) => {
+        b.addEventListener('click', () => {
+          const action = b.dataset.regionAction;
+          if (action === 'add') {
+            assignEnemyToRegion(b.dataset.enemyId, regionId);
+          } else if (action === 'remove') {
+            unassignEnemyFromRegion(b.dataset.enemyId, regionId);
+          } else if (action === 'auto-assign') {
+            autoAssignByTier(regionId, tierMin, tierMax);
+          } else if (action === 'clear') {
+            if (confirm('¿Quitar TODOS los enemigos de esta región?')) {
+              clearRegionEnemies(regionId);
+            }
+          }
+          renderModal();
+        });
+      });
+      // Búsqueda en candidatos
+      const search = overlay.querySelector('#region-enemy-search');
+      if (search) {
+        search.addEventListener('input', () => {
+          const q = search.value.toLowerCase();
+          overlay.querySelectorAll('#region-enemy-candidates [data-enemy-name]').forEach((row) => {
+            const matches = !q || row.dataset.enemyName.includes(q);
+            row.style.display = matches ? '' : 'none';
+          });
+        });
+      }
+    }
+
+    renderModal();
+  }
+
+  function assignEnemyToRegion(enemyId, regionId) {
+    const overrides = A.Data.getOverrides();
+    overrides.enemies = overrides.enemies || [];
+    let target = overrides.enemies.find((e) => e.id === enemyId);
+    if (!target) {
+      const seed = A.Data.getById('enemies', enemyId);
+      if (!seed) return;
+      target = JSON.parse(JSON.stringify(seed));
+      delete target._source;
+      overrides.enemies.push(target);
+    }
+    target.regions = target.regions || [];
+    if (!target.regions.includes(regionId)) target.regions.push(regionId);
+    A.Data.saveOverrides(overrides);
+    A.Data.init();
+    dirty = true;
+    if (editingDraft && editingDraft.id === regionId) render();
+  }
+
+  function unassignEnemyFromRegion(enemyId, regionId) {
+    const overrides = A.Data.getOverrides();
+    overrides.enemies = overrides.enemies || [];
+    let target = overrides.enemies.find((e) => e.id === enemyId);
+    if (!target) {
+      const seed = A.Data.getById('enemies', enemyId);
+      if (!seed) return;
+      target = JSON.parse(JSON.stringify(seed));
+      delete target._source;
+      overrides.enemies.push(target);
+    }
+    target.regions = (target.regions || []).filter((r) => r !== regionId);
+    A.Data.saveOverrides(overrides);
+    A.Data.init();
+    dirty = true;
+    if (editingDraft && editingDraft.id === regionId) render();
+  }
+
+  function autoAssignByTier(regionId, tierMin, tierMax) {
+    const allEnemies = A.Data.enemies || [];
+    const candidates = allEnemies.filter((en) =>
+      en.tier >= tierMin && en.tier <= tierMax && !(en.regions || []).includes(regionId)
+    );
+    // Mezcla balanceada: 50% weak, 30% normal, 15% strong, 5% boss
+    const byCategory = { weak: [], normal: [], strong: [], boss: [] };
+    for (const c of candidates) {
+      const cat = c.category || 'normal';
+      if (byCategory[cat]) byCategory[cat].push(c);
+    }
+    // Shuffle simple
+    const shuffle = (arr) => arr.sort(() => Math.random() - 0.5);
+    Object.values(byCategory).forEach(shuffle);
+
+    // Seleccionar: hasta 4 weak, 2 normal, 1 strong, 1 boss
+    const target = [
+      ...byCategory.weak.slice(0, 4),
+      ...byCategory.normal.slice(0, 2),
+      ...byCategory.strong.slice(0, 1),
+      ...byCategory.boss.slice(0, 1),
+    ];
+
+    if (target.length === 0) {
+      alert('No hay enemigos candidatos sin asignar en el tier de esta región.');
+      return;
+    }
+    for (const e of target) {
+      assignEnemyToRegion(e.id, regionId);
+    }
+    alert(`Auto-asignados ${target.length} enemigos a la región.`);
+  }
+
+  function clearRegionEnemies(regionId) {
+    const overrides = A.Data.getOverrides();
+    overrides.enemies = overrides.enemies || [];
+    const allEnemies = A.Data.enemies || [];
+    for (const en of allEnemies) {
+      if ((en.regions || []).includes(regionId)) {
+        let target = overrides.enemies.find((e) => e.id === en.id);
+        if (!target) {
+          target = JSON.parse(JSON.stringify(en));
+          delete target._source;
+          overrides.enemies.push(target);
+        }
+        target.regions = (target.regions || []).filter((r) => r !== regionId);
+      }
+    }
+    A.Data.saveOverrides(overrides);
+    A.Data.init();
+    dirty = true;
   }
 
   function formRaces(e) {
@@ -442,21 +736,41 @@
     const sug = A.AutoBalance.suggestEnemyStats(e);
     const audit = A.AutoBalance.auditEnemy(e);
 
-    const dropsHtml = (e.drops || []).map((d, i) => `
-      <div class="drop-row">
-        <input class="form-input" data-drop-field="itemId" data-drop-index="${i}" type="text" value="${A.Utils.escapeHtml(d.itemId)}">
-        <input class="form-input drop-chance" data-drop-field="chance" data-drop-index="${i}" type="number" min="0" max="1" step="0.05" value="${d.chance}">
-        ${d.source === 'auto' ? `<span class="pill pill-auto">auto</span>` : ''}
-        <button class="btn-mini" data-drop-action="remove" data-drop-index="${i}">×</button>
-      </div>
-    `).join('');
+    // Datalist nativo: el navegador hace autocomplete automático sobre los items
+    const itemDatalistId = 'editor-items-datalist';
+    const itemDatalistHtml = `<datalist id="${itemDatalistId}">${
+      (A.Data.items || []).map((it) => `<option value="${A.Utils.escapeHtml(it.id)}">${A.Utils.escapeHtml(it.name || it.id)} (${A.Utils.escapeHtml(it.id)})</option>`).join('')
+    }</datalist>`;
 
-    const sugHtml = suggested.length ? suggested.map((s) => `
-      <div class="drop-suggestion">
-        <span>${A.Utils.escapeHtml(s.itemId)} <span class="dim">(${Math.round(s.chance*100)}% · ${s.reason})</span></span>
-        <button class="btn-mini" data-drop-action="accept" data-drop-itemid="${A.Utils.escapeHtml(s.itemId)}" data-drop-chance="${s.chance}">+ Aceptar</button>
-      </div>
-    `).join('') : '<div class="muted small">Sin sugerencias para este enemigo.</div>';
+    const dropsHtml = itemDatalistHtml + (e.drops || []).map((d, i) => {
+      const item = A.Data.getById('items', d.itemId);
+      const itemIcon = item ? (item.icon || '📦') : '⚠️';
+      const itemName = item ? item.name : '(no existe)';
+      return `
+        <div class="drop-row">
+          <span class="drop-row-icon" title="${A.Utils.escapeHtml(itemName)}">${itemIcon}</span>
+          <input class="form-input drop-row-id" data-drop-field="itemId" data-drop-index="${i}" type="text" value="${A.Utils.escapeHtml(d.itemId)}" list="${itemDatalistId}" placeholder="Buscar item...">
+          <input class="form-input drop-chance" data-drop-field="chance" data-drop-index="${i}" type="number" min="0" max="1" step="0.05" value="${d.chance}">
+          ${d.source === 'auto' ? `<span class="pill pill-auto">auto</span>` : ''}
+          <button class="btn-mini" data-drop-action="remove" data-drop-index="${i}" type="button">×</button>
+        </div>
+      `;
+    }).join('');
+
+    const sugHtml = suggested.length ? suggested.map((s) => {
+      const item = A.Data.getById('items', s.itemId);
+      const icon = item ? (item.icon || '📦') : '📦';
+      const name = item ? item.name : s.itemId;
+      return `
+        <div class="drop-suggestion">
+          <span class="drop-sug-icon">${icon}</span>
+          <span class="drop-sug-name">${A.Utils.escapeHtml(name)}</span>
+          <span class="dim small">${Math.round(s.chance*100)}% · ${A.Utils.escapeHtml(s.reason)}</span>
+          <button class="btn-mini" data-drop-action="accept" data-drop-itemid="${A.Utils.escapeHtml(s.itemId)}" data-drop-chance="${s.chance}" type="button">+ Aceptar</button>
+          <button class="btn-mini btn-mini-danger" data-drop-action="reject" data-drop-itemid="${A.Utils.escapeHtml(s.itemId)}" type="button">✕ Rechazar</button>
+        </div>
+      `;
+    }).join('') : '<div class="muted small">Sin sugerencias para este enemigo.</div>';
 
     const fullAudit = A.AutoBalance.auditEnemyFull(e);
     const fullAuditHtml = `
@@ -515,7 +829,7 @@
       row('Esquiva', inp('dodge', e.dodge ?? Math.max(0, Math.floor((e.speed || 10) / 4)), 'number')),
       row('Loot mínimo (cobre)', inp('coinLoot.0', (e.coinLoot||[0,0])[0], 'number')),
       row('Loot máximo (cobre)', inp('coinLoot.1', (e.coinLoot||[0,0])[1], 'number')),
-      row('Regiones (csv)', arr('regions', e.regions)),
+      row('Regiones', tagsField('regions', e.regions, 'regions', 'Buscar región...')),
       row('Spawn min (por encuentro)', inp('spawn.min', (e.spawn||{}).min ?? 1, 'number', 'min="1" max="8"')),
       row('Spawn max (por encuentro)', inp('spawn.max', (e.spawn||{}).max ?? 1, 'number', 'min="1" max="8"')),
       row('Spawn weight (peso relativo)', inp('spawn.weight', (e.spawn||{}).weight ?? 1.0, 'number', 'min="0" max="5" step="0.1"')),
@@ -563,8 +877,8 @@
       ])),
       row('Región', inp('region', e.region)),
       row('Diálogos (uno por línea)', `<textarea class="form-input" data-field="dialog" data-array="lines" rows="4">${A.Utils.escapeHtml(dialogText)}</textarea>`),
-      row('Vende (csv ids)', arr('sells', e.sells)),
-      row('Enseña hechizos (csv ids)', arr('teaches', e.teaches)),
+      row('Vende', tagsField('sells', e.sells, 'items', 'Buscar item...')),
+      row('Enseña hechizos', tagsField('teaches', e.teaches, 'spells', 'Buscar hechizo...')),
       row('Costo descansar (cobre)', inp('services.restCost', (e.services||{}).restCost ?? '', 'number')),
     ].join('');
   }
@@ -774,6 +1088,7 @@
         ev.preventDefault();
         const action = b.dataset.dropAction;
         editingDraft.drops = editingDraft.drops || [];
+        editingDraft.dropsBlacklist = editingDraft.dropsBlacklist || [];
         if (action === 'add') {
           editingDraft.drops.push({ itemId: '', chance: 0.1 });
         } else if (action === 'remove') {
@@ -782,7 +1097,18 @@
         } else if (action === 'accept') {
           const itemId = b.dataset.dropItemid;
           const chance = Number(b.dataset.dropChance);
-          editingDraft.drops.push({ itemId, chance, source: 'auto' });
+          // Quitar de blacklist si estaba
+          editingDraft.dropsBlacklist = editingDraft.dropsBlacklist.filter((id) => id !== itemId);
+          if (!editingDraft.drops.some((d) => d.itemId === itemId)) {
+            editingDraft.drops.push({ itemId, chance, source: 'auto' });
+          }
+        } else if (action === 'reject') {
+          const itemId = b.dataset.dropItemid;
+          if (!editingDraft.dropsBlacklist.includes(itemId)) {
+            editingDraft.dropsBlacklist.push(itemId);
+          }
+          // Si estaba en drops, quitarlo
+          editingDraft.drops = editingDraft.drops.filter((d) => d.itemId !== itemId);
         }
         dirty = true;
         render();
@@ -833,6 +1159,36 @@
         toggleFull.textContent = isOpen ? '📊 Generar reporte completo' : '📊 Ocultar reporte';
       });
     }
+
+    // === Mount de tag-inputs (autocomplete) ===
+    host.querySelectorAll('[data-tag-input-mount]').forEach((placeholder) => {
+      try {
+        const field = placeholder.dataset.tagField;
+        const collection = placeholder.dataset.tagCollection;
+        const phText = placeholder.dataset.tagPlaceholder || 'Buscar...';
+        let initial = [];
+        try { initial = JSON.parse(placeholder.dataset.tagValue || '[]'); } catch (e) {}
+        if (!A.TagInput) {
+          console.warn('A.TagInput no cargado');
+          return;
+        }
+        A.TagInput.create({
+          container: placeholder,
+          value: initial,
+          collection,
+          placeholder: phText,
+          onChange: (newValue) => {
+            // Actualizar el draft con el nuevo array
+            if (editingDraft) {
+              editingDraft[field] = newValue;
+              dirty = true;
+            }
+          },
+        });
+      } catch (err) {
+        console.error('[TagInput] Error montando:', placeholder, err);
+      }
+    });
   }
 
   // ============================================================
@@ -991,10 +1347,15 @@
                     <strong>${A.Utils.escapeHtml(a.label)}</strong>
                   </div>
                   <div class="audit-wizard-stat-values">
-                    <span class="audit-wizard-stat-current"><span class="dim">actual</span> <strong>${A.Utils.escapeHtml(String(a.current ?? '—'))}</strong>${a.isDamageDice ? ` <span class="dim">(~${a.currentNum.toFixed(1)})</span>` : ''}</span>
+                    <span class="audit-wizard-stat-current">
+                      <span class="dim">actual</span>
+                      <input class="form-input audit-stat-input" type="text" value="${A.Utils.escapeHtml(String(a.current ?? ''))}" data-audit-stat-edit="${A.Utils.escapeHtml(a.field)}">
+                      ${a.isDamageDice ? ` <span class="dim">(~${a.currentNum.toFixed(1)})</span>` : ''}
+                    </span>
                     <span class="audit-wizard-stat-arrow dim">→</span>
                     <span class="audit-wizard-stat-suggested"><span class="dim">sugerido</span> <strong>${a.suggested}</strong></span>
                     <span class="audit-wizard-stat-delta dim">(${a.delta}% desvío)</span>
+                    <button class="btn-mini" type="button" data-audit-stat-apply="${A.Utils.escapeHtml(a.field)}" data-audit-stat-value="${A.Utils.escapeHtml(String(a.suggested))}">Usar sugerido</button>
                   </div>
                 </div>
               `).join('')}
@@ -1132,6 +1493,37 @@
 
         applyDropAction(enemy, action, itemId, chance);
         // Re-render para reflejar cambios
+        renderAuditWizard();
+      });
+    });
+
+    // === Stats editables inline: input change y "Usar sugerido" ===
+    overlay.querySelectorAll('[data-audit-stat-edit]').forEach((input) => {
+      input.addEventListener('change', (ev) => {
+        const field = input.dataset.auditStatEdit;
+        const current = auditWizardState.items[auditWizardState.cursor];
+        if (!current) return;
+        let value = input.value;
+        // Para campos numéricos, parsear
+        if (['health', 'difficulty', 'armor', 'speed'].includes(field)) {
+          value = Number(value);
+          if (isNaN(value)) return;
+        }
+        applyStatChange(current.enemy, field, value);
+      });
+    });
+
+    overlay.querySelectorAll('[data-audit-stat-apply]').forEach((btn) => {
+      btn.addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        const field = btn.dataset.auditStatApply;
+        let value = btn.dataset.auditStatValue;
+        const current = auditWizardState.items[auditWizardState.cursor];
+        if (!current) return;
+        if (['health', 'difficulty', 'armor', 'speed'].includes(field)) {
+          value = Number(value);
+        }
+        applyStatChange(current.enemy, field, value);
         renderAuditWizard();
       });
     });
@@ -1715,6 +2107,7 @@
 
   A.Views = A.Views || {};
   A.Views.Editor = Editor;
-  // Exponer función para que el onclick inline del botón la pueda llamar
+  // Exponer funciones para que los onclick inline las puedan llamar
   A.openGraphEditor = openGraphEditor;
+  A.openRegionEnemyEditor = openRegionEnemyEditor;
 })(window.Aventurs);

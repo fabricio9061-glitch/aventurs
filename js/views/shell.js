@@ -67,7 +67,7 @@
         </div>
 
         <footer class="shell-footer">
-          <span class="version-pill">v1.5.7j</span>
+          <span class="version-pill">v1.5.7k</span>
         </footer>
       </div>
     `;
@@ -149,11 +149,6 @@
             ${equipMini('Armadura', armor, 'armor')}
             ${equipMini('Mochila', bag, 'bag')}
           </div>
-        </div>
-
-        <div class="coins-row">
-          <span class="dim">Monedas</span>
-          <span class="num">${A.Currency.formatWallet()}</span>
         </div>
 
         ${p.pet ? `
