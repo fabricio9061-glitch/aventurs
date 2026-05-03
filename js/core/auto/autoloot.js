@@ -29,21 +29,24 @@
    * Drops por familia — SOLO materiales genéricos universales de esa familia.
    */
   const FAMILY_DROPS = {
-    beast:    [], // VACÍO: cada bestia tiene su drop específico por nombre
+    // v1.5.7m: Bestias ahora dropean carne (alimento) y colmillo genérico además de
+    // sus drops específicos por nombre. Para enemigos sin nombre específico
+    // (criaturas genéricas), esto les da algo razonable.
+    beast:    [{ itemId: 'carne_cruda', chance: 0.40 }, { itemId: 'mat_colmillo', chance: 0.20 }],
     insect:   [{ itemId: 'mat_pata_arana', chance: 0.10 }],
     undead:   [{ itemId: 'mat_hueso', chance: 0.45 }, { itemId: 'mat_craneo', chance: 0.10 }],
     spirit:   [{ itemId: 'mat_ectoplasma', chance: 0.40 }, { itemId: 'mat_esencia', chance: 0.20 }],
     demon:    [{ itemId: 'mat_esencia_sombra', chance: 0.20 }, { itemId: 'mat_cuerno_demonio', chance: 0.10 }],
-    dragon:   [{ itemId: 'mat_escama_dragon', chance: 0.50 }, { itemId: 'mat_sangre_dragon', chance: 0.25 }, { itemId: 'mat_garra', chance: 0.30 }],
+    dragon:   [{ itemId: 'mat_escama_dragon', chance: 0.50 }, { itemId: 'mat_sangre_dragon', chance: 0.25 }, { itemId: 'mat_garra', chance: 0.30 }, { itemId: 'carne_cruda', chance: 0.30 }],
     humanoid: [{ itemId: 'coin_copper', chance: 0.50 }, { itemId: 'mat_cuero', chance: 0.20 }],
     construct:[{ itemId: 'mat_hierro', chance: 0.30 }, { itemId: 'mat_nucleo_golem', chance: 0.05 }],
     elemental:[{ itemId: 'mat_gema_arcana', chance: 0.20 }],
     plant:    [{ itemId: 'mat_madera', chance: 0.40 }, { itemId: 'mat_hierba_curativa', chance: 0.20 }],
-    marine:   [{ itemId: 'mat_escama', chance: 0.25 }, { itemId: 'mat_caparazon', chance: 0.10 }],
-    aquatic:  [{ itemId: 'mat_escama', chance: 0.20 }],
+    marine:   [{ itemId: 'mat_escama', chance: 0.25 }, { itemId: 'mat_caparazon', chance: 0.10 }, { itemId: 'carne_cruda', chance: 0.30 }],
+    aquatic:  [{ itemId: 'mat_escama', chance: 0.20 }, { itemId: 'carne_cruda', chance: 0.25 }],
     arcane:   [{ itemId: 'mat_gema_arcana', chance: 0.30 }, { itemId: 'mat_esencia', chance: 0.15 }],
-    flying:   [{ itemId: 'mat_pluma', chance: 0.35 }],
-    giant:    [{ itemId: 'mat_piel', chance: 0.25 }, { itemId: 'mat_hueso', chance: 0.20 }],
+    flying:   [{ itemId: 'mat_pluma', chance: 0.35 }, { itemId: 'carne_cruda', chance: 0.25 }],
+    giant:    [{ itemId: 'mat_piel', chance: 0.25 }, { itemId: 'mat_hueso', chance: 0.20 }, { itemId: 'carne_cruda', chance: 0.30 }],
     legendary:[],
   };
 
@@ -69,41 +72,41 @@
   const NAME_RULES = [
     // ===== Mamíferos terrestres =====
     { words: ['lobo'],          notWords: ['licantropo', 'lobizon'],
-      drops: [{ itemId: 'mat_piel_lobo', chance: 0.45 }, { itemId: 'mat_diente_lobo', chance: 0.50 }, { itemId: 'mat_colmillo', chance: 0.20 }] },
+      drops: [{ itemId: 'mat_piel_lobo', chance: 0.45 }, { itemId: 'mat_diente_lobo', chance: 0.50 }, { itemId: 'mat_colmillo', chance: 0.20 }, { itemId: 'carne_cruda', chance: 0.50 }] },
     { words: ['oso'],           notWords: [],
-      drops: [{ itemId: 'mat_piel_oso', chance: 0.55 }, { itemId: 'mat_garra', chance: 0.40 }, { itemId: 'mat_colmillo', chance: 0.25 }] },
+      drops: [{ itemId: 'mat_piel_oso', chance: 0.55 }, { itemId: 'mat_garra', chance: 0.40 }, { itemId: 'mat_colmillo', chance: 0.25 }, { itemId: 'carne_cruda', chance: 0.55 }] },
     { words: ['perro', 'sabueso', 'mastin', 'mastín'], notWords: [],
-      drops: [{ itemId: 'mat_piel', chance: 0.35 }, { itemId: 'mat_diente_lobo', chance: 0.20 }] },
+      drops: [{ itemId: 'mat_piel', chance: 0.40 }, { itemId: 'mat_colmillo', chance: 0.30 }, { itemId: 'carne_cruda', chance: 0.45 }] },
     { words: ['gato', 'felino', 'pantera', 'leopardo', 'jaguar', 'tigre', 'leon', 'león'], notWords: ['licantropo'],
-      drops: [{ itemId: 'mat_piel', chance: 0.40 }, { itemId: 'mat_garra', chance: 0.45 }] },
+      drops: [{ itemId: 'mat_piel', chance: 0.45 }, { itemId: 'mat_garra', chance: 0.45 }, { itemId: 'mat_colmillo', chance: 0.25 }, { itemId: 'carne_cruda', chance: 0.40 }] },
     { words: ['zorro'],          notWords: [],
-      drops: [{ itemId: 'mat_piel', chance: 0.50 }, { itemId: 'mat_diente_lobo', chance: 0.15 }] },
+      drops: [{ itemId: 'mat_piel', chance: 0.55 }, { itemId: 'mat_colmillo', chance: 0.20 }, { itemId: 'carne_cruda', chance: 0.35 }] },
     { words: ['jabali', 'jabalí', 'cerdo'], notWords: [],
-      drops: [{ itemId: 'mat_piel', chance: 0.40 }, { itemId: 'mat_colmillo', chance: 0.45 }] },
+      drops: [{ itemId: 'mat_piel', chance: 0.45 }, { itemId: 'mat_colmillo', chance: 0.45 }, { itemId: 'carne_cruda', chance: 0.65 }] },
     { words: ['ciervo', 'venado', 'alce'], notWords: [],
-      drops: [{ itemId: 'mat_cuerno', chance: 0.55 }, { itemId: 'mat_piel', chance: 0.40 }] },
+      drops: [{ itemId: 'mat_cuerno', chance: 0.55 }, { itemId: 'mat_piel', chance: 0.40 }, { itemId: 'carne_cruda', chance: 0.65 }] },
     { words: ['toro', 'minotauro', 'bisonte'], notWords: [],
-      drops: [{ itemId: 'mat_cuerno', chance: 0.60 }, { itemId: 'mat_piel', chance: 0.40 }] },
+      drops: [{ itemId: 'mat_cuerno', chance: 0.60 }, { itemId: 'mat_piel', chance: 0.40 }, { itemId: 'carne_cruda', chance: 0.55 }] },
 
     // ===== Roedores =====
     { words: ['rata'], notWords: [],
-      drops: [{ itemId: 'mat_pelo_rata', chance: 0.60 }, { itemId: 'mat_cola_rata', chance: 0.45 }] },
+      drops: [{ itemId: 'mat_pelo_rata', chance: 0.60 }, { itemId: 'mat_cola_rata', chance: 0.45 }, { itemId: 'carne_cruda', chance: 0.20 }] },
     { words: ['conejo', 'liebre'], notWords: [],
-      drops: [{ itemId: 'mat_piel', chance: 0.50 }] },
+      drops: [{ itemId: 'mat_piel', chance: 0.50 }, { itemId: 'carne_cruda', chance: 0.65 }] },
 
     // ===== Aves rapaces =====
     { words: ['aguila', 'águila', 'halcon', 'halcón', 'cuervo', 'buho', 'búho', 'lechuza'], notWords: [],
-      drops: [{ itemId: 'mat_pluma', chance: 0.60 }, { itemId: 'mat_garra', chance: 0.40 }] },
+      drops: [{ itemId: 'mat_pluma', chance: 0.60 }, { itemId: 'mat_garra', chance: 0.40 }, { itemId: 'carne_cruda', chance: 0.30 }] },
     { words: ['ave', 'pajaro', 'pájaro'], notWords: ['fenix', 'fénix'],
-      drops: [{ itemId: 'mat_pluma', chance: 0.55 }] },
+      drops: [{ itemId: 'mat_pluma', chance: 0.55 }, { itemId: 'carne_cruda', chance: 0.40 }] },
 
     // ===== Reptiles =====
     { words: ['serpiente', 'cobra', 'vibora', 'víbora'], notWords: ['kraken', 'hidra'],
-      drops: [{ itemId: 'mat_escama', chance: 0.50 }, { itemId: 'mat_veneno', chance: 0.40 }] },
+      drops: [{ itemId: 'mat_escama', chance: 0.50 }, { itemId: 'mat_veneno', chance: 0.40 }, { itemId: 'carne_cruda', chance: 0.25 }] },
     { words: ['lagarto', 'kobold'], notWords: [],
-      drops: [{ itemId: 'mat_escama_kobold', chance: 0.50 }, { itemId: 'mat_escama', chance: 0.20 }] },
+      drops: [{ itemId: 'mat_escama_kobold', chance: 0.50 }, { itemId: 'mat_escama', chance: 0.20 }, { itemId: 'carne_cruda', chance: 0.20 }] },
     { words: ['tortuga'], notWords: [],
-      drops: [{ itemId: 'mat_caparazon', chance: 0.65 }] },
+      drops: [{ itemId: 'mat_caparazon', chance: 0.65 }, { itemId: 'carne_cruda', chance: 0.40 }] },
 
     // ===== Insectos / arácnidos =====
     { words: ['araña', 'arana', 'tarantula', 'tarántula'], notWords: [],
@@ -119,19 +122,19 @@
 
     // ===== Acuáticos =====
     { words: ['tiburon', 'tiburón'], notWords: [],
-      drops: [{ itemId: 'mat_diente_tiburon', chance: 0.65 }, { itemId: 'mat_escama', chance: 0.30 }] },
+      drops: [{ itemId: 'mat_diente_tiburon', chance: 0.65 }, { itemId: 'mat_escama', chance: 0.30 }, { itemId: 'carne_cruda', chance: 0.45 }] },
     { words: ['pez', 'pescado'], notWords: [],
-      drops: [{ itemId: 'mat_escama', chance: 0.55 }] },
+      drops: [{ itemId: 'mat_escama', chance: 0.55 }, { itemId: 'carne_cruda', chance: 0.70 }] },
     { words: ['kraken', 'pulpo', 'calamar'], notWords: [],
-      drops: [{ itemId: 'mat_tinta_kraken', chance: 0.50 }] },
+      drops: [{ itemId: 'mat_tinta_kraken', chance: 0.50 }, { itemId: 'carne_cruda', chance: 0.50 }] },
     { words: ['sirena'], notWords: [],
       drops: [{ itemId: 'mat_escama_sirena', chance: 0.55 }, { itemId: 'mat_perla', chance: 0.25 }] },
 
     // ===== Dragones =====
     { words: ['dragon', 'dragón', 'wyvern', 'drake'], notWords: [],
-      drops: [{ itemId: 'mat_escama_dragon', chance: 0.60 }, { itemId: 'mat_sangre_dragon', chance: 0.30 }, { itemId: 'mat_garra', chance: 0.40 }] },
+      drops: [{ itemId: 'mat_escama_dragon', chance: 0.60 }, { itemId: 'mat_sangre_dragon', chance: 0.30 }, { itemId: 'mat_garra', chance: 0.40 }, { itemId: 'carne_cruda', chance: 0.40 }] },
     { words: ['hidra'], notWords: [],
-      drops: [{ itemId: 'mat_colmillo_hidra', chance: 0.50 }, { itemId: 'mat_escama', chance: 0.40 }] },
+      drops: [{ itemId: 'mat_colmillo_hidra', chance: 0.50 }, { itemId: 'mat_escama', chance: 0.40 }, { itemId: 'carne_cruda', chance: 0.30 }] },
     { words: ['basilisco'], notWords: [],
       drops: [{ itemId: 'mat_ojo_basilisco', chance: 0.45 }, { itemId: 'mat_escama', chance: 0.35 }] },
 

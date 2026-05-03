@@ -4591,3 +4591,38 @@
 .tag-input-sug-icon { font-size: 14px; text-align: center; }
 .tag-input-sug-name { font-weight: var(--fw-medium); }
 .tag-input-sug-id { font-size: 10px; font-family: monospace; }
+
+/* ============================================================
+   v1.5.7m — Weapon effect editor
+   ============================================================ */
+.weapon-effect-block {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  background: var(--surface);
+  border: var(--border-w) solid var(--border);
+  border-radius: var(--r-md);
+  border-left: 3px solid var(--gold-deep);
+}
+.weapon-effect-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
+  cursor: pointer;
+  user-select: none;
+}
+.weapon-effect-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 8px;
+  border-top: var(--border-w) solid var(--border-soft);
+  transition: opacity 0.15s;
+}
+.weapon-effect-fields.is-disabled {
+  opacity: 0.4;
+  pointer-events: none;
+}

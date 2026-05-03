@@ -738,6 +738,9 @@
   }
 
   function formWeapons(e) {
+    e.statusEffect = e.statusEffect || null;
+    const eff = e.statusEffect || { type: '', chance: 0, turns: 0, value: 0 };
+    const hasEffect = !!e.statusEffect;
     return [
       row('ID', inp('id', e.id)),
       row('Nombre', inp('name', e.name)),
@@ -750,7 +753,33 @@
       ])),
       row('Tier', inp('tier', e.tier, 'number', 'min="1" max="10"')),
       row('Peso', inp('weight', e.weight, 'number')),
+      row('Slots (1 normal, 2 voluminoso)', inp('slots', e.slots ?? 1, 'number', 'min="1" max="3"')),
       row('Mágica', chk('magic', e.magic)),
+      `<div class="form-row form-row-block">
+        <label>Efecto al impactar</label>
+        <div class="weapon-effect-block">
+          <label class="weapon-effect-toggle">
+            <input type="checkbox" data-weapon-effect-toggle ${hasEffect ? 'checked' : ''}>
+            <span>${hasEffect ? 'Activo' : 'Sin efecto especial'}</span>
+          </label>
+          <div class="weapon-effect-fields ${hasEffect ? '' : 'is-disabled'}">
+            ${row('Tipo', sel('statusEffect.type', eff.type, [
+              {value:'bleed', label:'🩸 Sangrado (HP)'},
+              {value:'fire', label:'🔥 Fuego (HP, refresh)'},
+              {value:'cold', label:'❄️ Frío (slow, refresh)'},
+              {value:'shock', label:'⚡ Aturdir (skip turn, refresh)'},
+              {value:'poison', label:'☠️ Veneno (HP, acumula)'},
+            ]))}
+            ${row('Probabilidad (0–1)', inp('statusEffect.chance', eff.chance, 'number', 'min="0" max="1" step="0.05"'))}
+            ${row('Turnos', inp('statusEffect.turns', eff.turns, 'number', 'min="1" max="10"'))}
+            ${row('Valor (daño/turno o intensidad)', inp('statusEffect.value', eff.value, 'number', 'min="0" max="20"'))}
+          </div>
+          <div class="dim small">
+            💡 Sangrado/Veneno: daño por turno = "valor". Fuego/Frío/Aturdir: efecto refresh (no acumula).
+            Probabilidad 0.20 = 20% por golpe.
+          </div>
+        </div>
+      </div>`,
       row('Descripción', txt('description', e.description, 3)),
     ].join('');
   }
@@ -1221,6 +1250,24 @@
         toggleFull.textContent = isOpen ? '📊 Generar reporte completo' : '📊 Ocultar reporte';
       });
     }
+
+    // === Toggle de weapon statusEffect ===
+    host.querySelectorAll('[data-weapon-effect-toggle]').forEach((cb) => {
+      cb.addEventListener('change', () => {
+        if (!editingDraft) return;
+        if (cb.checked) {
+          // Activar: si no hay statusEffect, crear default
+          if (!editingDraft.statusEffect) {
+            editingDraft.statusEffect = { type: 'bleed', chance: 0.20, turns: 3, value: 1 };
+          }
+        } else {
+          // Desactivar: borrar
+          editingDraft.statusEffect = null;
+        }
+        dirty = true;
+        render();
+      });
+    });
 
     // === Mount de tag-inputs (autocomplete) ===
     host.querySelectorAll('[data-tag-input-mount]').forEach((placeholder) => {
