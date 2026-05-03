@@ -213,6 +213,15 @@
     giant:     ['carne_bestia', 'carne_ave', 'carne_pez', 'carne_reptil', 'carne_dragon', 'carne_insecto'],
   };
 
+  /**
+   * v1.5.7o: families "primarias" anulan las blacklists de las "secundarias".
+   * Ej: si un enemigo es ['dragon', 'flying'], la blacklist de flying NO aplica
+   * (porque dragon es primaria y manda). Esto permite que dragones voladores
+   * dropeen mat_escama_dragon y carne_dragon (que están blacklisteadas en flying).
+   */
+  const PRIMARY_FAMILIES = ['dragon', 'marine', 'aquatic', 'giant', 'undead', 'elemental', 'demon', 'spirit', 'construct', 'plant', 'humanoid'];
+  const SECONDARY_FAMILIES = ['flying', 'insect', 'arcane'];
+
   function suggestDrops(enemy) {
     if (!enemy) return [];
     const suggestions = new Map();
@@ -220,7 +229,14 @@
     const families = enemy.family || [];
     const tags = enemy.tags || [];
     const blacklist = new Set();
+
+    // v1.5.7o: si el enemigo tiene una family "primaria" (dragon, marine, giant, etc),
+    // las blacklists de las secundarias (flying, insect, arcane) se ignoran.
+    // Esto permite que dragones voladores dropeen escamas de dragón.
+    const hasPrimary = families.some((f) => PRIMARY_FAMILIES.includes(f));
+
     for (const f of families) {
+      if (hasPrimary && SECONDARY_FAMILIES.includes(f)) continue; // skip blacklist secundaria
       const bl = FAMILY_BLACKLIST[f] || [];
       for (const id of bl) blacklist.add(id);
     }
