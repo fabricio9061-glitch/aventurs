@@ -71,6 +71,22 @@
     { id:'semillas', name:'Semillas', type:'item', subtype:'tame', icon:'🌾', value:3, weight:0, stack:99,
       description:'Granos secos. Atraen aves y criaturas pequeñas.' },
 
+    // --- Carnes específicas (drops de combate, comestibles tras cocinar) ---
+    { id:'carne_bestia', name:'Carne de bestia', type:'item', subtype:'food', icon:'🥩', value:8, weight:0, stack:99, foodValue:3,
+      description:'Carne roja de mamífero salvaje. Sustanciosa, alimenta bien después de cocinada.' },
+    { id:'carne_ave', name:'Carne de ave', type:'item', subtype:'food', icon:'🍗', value:6, weight:0, stack:99, foodValue:2,
+      description:'Carne blanca de pájaro. Más liviana que la de bestia, igual te llena.' },
+    { id:'carne_pez', name:'Carne de pez', type:'item', subtype:'food', icon:'🐟', value:7, weight:0, stack:99, foodValue:2,
+      description:'Filete fresco. Si lo dejás más de un día sin cocinar, te arrepentís.' },
+    { id:'carne_reptil', name:'Carne de reptil', type:'item', subtype:'food', icon:'🦎', value:5, weight:0, stack:99, foodValue:2,
+      description:'Sabe rara, pero alimenta. Mejor con sal y mucho fuego.' },
+    { id:'carne_dragon', name:'Carne de dragón', type:'item', subtype:'food', icon:'🐲', value:80, weight:0, stack:99, foodValue:8,
+      description:'Trozo del bicho más temible que mataste. Calienta el cuerpo aunque esté cruda.' },
+    { id:'carne_insecto', name:'Pulpa de insecto', type:'item', subtype:'food', icon:'🦗', value:3, weight:0, stack:99, foodValue:1,
+      description:'Pulpa amarillenta de exoesqueleto. No es lujo, pero te saca de un mal día.' },
+    { id:'carne_gigante', name:'Carne de gigante', type:'item', subtype:'food', icon:'🍖', value:25, weight:1, stack:50, foodValue:6,
+      description:'Pieza enorme. Una sola te alcanza para tres comidas.' },
+
     // --- Pergaminos de hechizo (Fase 3) ---
     // Cada pergamino enseña un hechizo al usarlo. Drops de enemigos arcanos.
     { id:'pergamino_chispa', name:'Pergamino: Chispa', type:'item', subtype:'scroll_spell', icon:'📜', value:80, weight:0, stack:10,
