@@ -67,7 +67,7 @@
         </div>
 
         <footer class="shell-footer">
-          <span class="version-pill">v1.5.7n</span>
+          <span class="version-pill">v1.5.7n-fix</span>
         </footer>
       </div>
     `;
@@ -196,11 +196,8 @@
     const cap = bag ? bag.slots : 5;
     const used = A.State.inventoryUsedSlots();
 
-    // Excluir monedas (no ocupan slots)
-    const items = (p.inventory || []).filter((s) => {
-      const it = A.Data.getById('items', s.itemId);
-      return !it || it.subtype !== 'coin';
-    });
+    // v1.5.7n: monedas se muestran en mochila como cualquier item
+    const items = (p.inventory || []);
 
     // Construir las celdas: items con slots:2 ocupan 2 celdas (grid-column: span 2)
     const cells = [];
