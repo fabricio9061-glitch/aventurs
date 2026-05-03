@@ -23,6 +23,13 @@
       const overrides = Data._loadOverrides();
       const seed = A.Seed || {};
 
+      // Logging para detectar pérdida de overrides
+      const overrideCounts = {};
+      for (const k of COLLECTIONS) {
+        overrideCounts[k] = (overrides[k] || []).length;
+      }
+      const totalOverrides = Object.values(overrideCounts).reduce((a, b) => a + b, 0);
+
       for (const key of COLLECTIONS) {
         const seedList = (seed[key] || []).map((e) => ({ ...e, _source: 'seed' }));
         const overrideList = (overrides[key] || []).map((e) => ({ ...e, _source: 'editor' }));
@@ -40,6 +47,9 @@
       }
 
       console.log('[Data] Inicializado. Counts:', Data._counts());
+      if (totalOverrides > 0) {
+        console.log('[Data] Overrides activos:', overrideCounts);
+      }
     },
 
     /**

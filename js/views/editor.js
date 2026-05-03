@@ -66,6 +66,62 @@
     A.Bus.emit('editor:closed');
   }
 
+  /**
+   * Exporta los overrides actuales como descarga JSON.
+   * Permite al usuario hacer backup antes de actualizar versión.
+   */
+  function exportOverrides() {
+    const overrides = A.Data.getOverrides();
+    const blob = new Blob([JSON.stringify(overrides, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const date = new Date().toISOString().split('T')[0];
+    a.href = url;
+    a.download = `aventurs-content-${date}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  /**
+   * Importa overrides desde un archivo JSON. Reemplaza los actuales tras confirmar.
+   */
+  function importOverrides() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'application/json,.json';
+    input.addEventListener('change', (ev) => {
+      const file = ev.target.files && ev.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const data = JSON.parse(e.target.result);
+          if (typeof data !== 'object' || data === null) {
+            throw new Error('Archivo no es un objeto JSON válido');
+          }
+          // Validar al menos una colección esperada
+          const valid = ['regions', 'races', 'weapons', 'armors', 'items', 'enemies', 'spells', 'recipes', 'npcs', 'pets', 'bags', '_deleted'];
+          const found = Object.keys(data).filter((k) => valid.includes(k));
+          if (found.length === 0) {
+            throw new Error('Archivo no parece un export válido del editor');
+          }
+          if (!confirm(`Importar overrides desde el archivo?\n\nEsto REEMPLAZA todos tus cambios actuales del editor.\n\nColecciones a importar: ${found.join(', ')}`)) return;
+          A.Data.saveOverrides(data);
+          A.Data.init();
+          A.Bus.emit('editor:content-changed');
+          render();
+          alert('Importado correctamente.');
+        } catch (err) {
+          alert('Error al importar: ' + err.message);
+        }
+      };
+      reader.readAsText(file);
+    });
+    input.click();
+  }
+
   function render() {
     if (!host) return;
 
@@ -92,6 +148,8 @@
             ${validation.length ? `
               <button class="btn-ghost" data-editor-action="show-validation">⚠ Avisos (${validation.length})</button>
             ` : ''}
+            <button class="btn-ghost" data-editor-action="export-overrides" title="Descarga un archivo .json con todos tus cambios del editor">📥 Exportar</button>
+            <button class="btn-ghost" data-editor-action="import-overrides" title="Carga un archivo .json con cambios del editor">📤 Importar</button>
             <button class="btn-primary" data-editor-action="back">Volver al juego</button>
           </div>
         </header>
@@ -1022,6 +1080,10 @@
           } else if (a === 'open-graph-editor') {
             console.log('[Editor] llamando openGraphEditor()...');
             openGraphEditor();
+          } else if (a === 'export-overrides') {
+            exportOverrides();
+          } else if (a === 'import-overrides') {
+            importOverrides();
           }
         } catch (err) {
           console.error('[Editor] Error en handler:', a, err);
@@ -1510,6 +1572,7 @@
           if (isNaN(value)) return;
         }
         applyStatChange(current.enemy, field, value);
+        renderAuditWizard();
       });
     });
 
@@ -1579,6 +1642,36 @@
     const updated = A.Data.getById('enemies', enemy.id);
     if (updated) {
       auditWizardState.items[auditWizardState.cursor].enemy = updated;
+    }
+  }
+
+  /**
+   * Aplica cambio en un stat individual (health, damage, difficulty, armor, speed)
+   * y persiste como override.
+   */
+  function applyStatChange(enemy, field, value) {
+    const overrides = A.Data.getOverrides();
+    overrides.enemies = overrides.enemies || [];
+    let target = overrides.enemies.find((e) => e.id === enemy.id);
+    if (!target) {
+      target = JSON.parse(JSON.stringify(enemy));
+      delete target._source;
+      overrides.enemies.push(target);
+    }
+    target[field] = value;
+
+    A.Data.saveOverrides(overrides);
+    A.Data.init();
+    dirty = true;
+    // Re-calcular audit del enemigo actual para reflejar el cambio
+    const updated = A.Data.getById('enemies', enemy.id);
+    if (updated && auditWizardState.items[auditWizardState.cursor]) {
+      auditWizardState.items[auditWizardState.cursor].enemy = updated;
+      // Re-correr el audit para actualizar status (ok/warning/critical)
+      const newAudit = A.AutoBalance.auditEnemyFull(updated);
+      const issues = newAudit.filter((a) => a.status !== 'ok');
+      auditWizardState.items[auditWizardState.cursor].audit = newAudit;
+      auditWizardState.items[auditWizardState.cursor].issues = issues;
     }
   }
 
