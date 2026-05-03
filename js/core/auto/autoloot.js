@@ -38,7 +38,7 @@
     spirit:   [{ itemId: 'mat_ectoplasma', chance: 0.40 }, { itemId: 'mat_esencia', chance: 0.20 }],
     demon:    [{ itemId: 'mat_esencia_sombra', chance: 0.20 }, { itemId: 'mat_cuerno_demonio', chance: 0.10 }],
     dragon:   [{ itemId: 'mat_escama_dragon', chance: 0.50 }, { itemId: 'mat_sangre_dragon', chance: 0.25 }, { itemId: 'mat_garra', chance: 0.30 }, { itemId: 'carne_dragon', chance: 0.30 }],
-    humanoid: [{ itemId: 'coin_copper', chance: 0.50 }, { itemId: 'mat_cuero', chance: 0.20 }],
+    humanoid: [{ itemId: 'mat_cuero', chance: 0.20 }],
     construct:[{ itemId: 'mat_hierro', chance: 0.30 }, { itemId: 'mat_nucleo_golem', chance: 0.05 }],
     elemental:[{ itemId: 'mat_gema_arcana', chance: 0.20 }],
     plant:    [{ itemId: 'mat_madera', chance: 0.40 }, { itemId: 'mat_hierba_curativa', chance: 0.20 }],
@@ -222,6 +222,35 @@
   const PRIMARY_FAMILIES = ['dragon', 'marine', 'aquatic', 'giant', 'undead', 'elemental', 'demon', 'spirit', 'construct', 'plant', 'humanoid'];
   const SECONDARY_FAMILIES = ['flying', 'insect', 'arcane'];
 
+  /**
+   * v1.5.7p: Sugiere monedas según el tier del enemigo.
+   * - Tier 1-3: solo cobre
+   * - Tier 4-6: cobre + plata ocasional
+   * - Tier 7-9: plata + oro ocasional
+   * - Tier 10: oro + plata
+   */
+  function suggestCoinsByTier(tier) {
+    const t = tier || 1;
+    if (t <= 3) {
+      return [{ itemId: 'coin_copper', chance: 0.50 }];
+    } else if (t <= 6) {
+      return [
+        { itemId: 'coin_copper', chance: 0.45 },
+        { itemId: 'coin_silver', chance: 0.25 },
+      ];
+    } else if (t <= 9) {
+      return [
+        { itemId: 'coin_silver', chance: 0.45 },
+        { itemId: 'coin_gold', chance: 0.20 },
+      ];
+    } else {
+      return [
+        { itemId: 'coin_gold', chance: 0.45 },
+        { itemId: 'coin_silver', chance: 0.30 },
+      ];
+    }
+  }
+
   function suggestDrops(enemy) {
     if (!enemy) return [];
     const suggestions = new Map();
@@ -286,6 +315,17 @@
     for (const t of tags) {
       const drops = TAG_DROPS[t] || [];
       for (const d of drops) add(d.itemId, d.chance, `tag:${t}`);
+    }
+
+    // 4. v1.5.7p: Monedas escaladas por tier
+    // Solo enemigos que pueden tener loot en moneda (humanoides, demonios, dragones, gigantes)
+    const canDropCoins = families.some((f) => ['humanoid', 'demon', 'dragon', 'giant', 'undead'].includes(f));
+    if (canDropCoins) {
+      const tier = enemy.tier || 1;
+      const coinDrops = suggestCoinsByTier(tier);
+      for (const c of coinDrops) {
+        add(c.itemId, c.chance, `tier:${tier}`);
+      }
     }
 
     // Filtra items que no existen

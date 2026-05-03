@@ -492,7 +492,6 @@
     }
     const tier = Array.isArray(region.tier) ? region.tier : [region.tier || 1, region.tier || 1];
     const tierMin = tier[0], tierMax = tier[1];
-    const allEnemies = A.Data.enemies || [];
 
     let overlay = document.getElementById('region-enemy-editor-overlay');
     if (overlay) overlay.remove();
@@ -502,6 +501,8 @@
     document.body.appendChild(overlay);
 
     function renderModal() {
+      // v1.5.7p-fix: leer enemies fresh cada vez para reflejar overrides recientes
+      const allEnemies = A.Data.enemies || [];
       const assigned = allEnemies.filter((en) => (en.regions || []).includes(regionId));
       const tierOk = assigned.filter((en) => en.tier >= tierMin && en.tier <= tierMax);
       const tierBad = assigned.filter((en) => en.tier < tierMin || en.tier > tierMax);
@@ -823,36 +824,65 @@
     const sug = A.AutoBalance.suggestEnemyStats(e);
     const audit = A.AutoBalance.auditEnemy(e);
 
-    // Datalist nativo: el navegador hace autocomplete automático sobre los items
-    const itemDatalistId = 'editor-items-datalist';
+    // v1.5.7p: Datalist combinado de items + weapons + armors
+    // Permite que enemigos dropeen armas y armaduras además de items.
+    const itemDatalistId = 'editor-drops-datalist';
+    const allDroppables = [
+      ...((A.Data.items || []).map((it) => ({ ...it, _kind: 'item' }))),
+      ...((A.Data.weapons || []).map((w) => ({ ...w, _kind: 'weapon' }))),
+      ...((A.Data.armors || []).map((a) => ({ ...a, _kind: 'armor' }))),
+    ];
     const itemDatalistHtml = `<datalist id="${itemDatalistId}">${
-      (A.Data.items || []).map((it) => `<option value="${A.Utils.escapeHtml(it.id)}">${A.Utils.escapeHtml(it.name || it.id)} (${A.Utils.escapeHtml(it.id)})</option>`).join('')
+      allDroppables.map((it) => {
+        const kindLabel = it._kind === 'weapon' ? '⚔️ arma' : it._kind === 'armor' ? '🛡️ armadura' : 'item';
+        return `<option value="${A.Utils.escapeHtml(it.id)}">${A.Utils.escapeHtml(it.name || it.id)} — ${kindLabel} (${A.Utils.escapeHtml(it.id)})</option>`;
+      }).join('')
     }</datalist>`;
 
     const dropsHtml = itemDatalistHtml + (e.drops || []).map((d, i) => {
-      const item = A.Data.getById('items', d.itemId);
+      const item = A.Inventory.resolveData(d.itemId);
       const itemIcon = item ? (item.icon || '📦') : '⚠️';
       const itemName = item ? item.name : '(no existe)';
+      const chancePct = Math.round((d.chance || 0) * 100);
+      const isAuto = d.source === 'auto';
+      const kindBadge = item ?
+        (item.type === 'weapon' ? '<span class="drop-kind-badge drop-kind-weapon" title="Arma">⚔️</span>'
+        : item.type === 'armor' ? '<span class="drop-kind-badge drop-kind-armor" title="Armadura">🛡️</span>'
+        : '') : '';
       return `
-        <div class="drop-row">
-          <span class="drop-row-icon" title="${A.Utils.escapeHtml(itemName)}">${itemIcon}</span>
-          <input class="form-input drop-row-id" data-drop-field="itemId" data-drop-index="${i}" type="text" value="${A.Utils.escapeHtml(d.itemId)}" list="${itemDatalistId}" placeholder="Buscar item...">
-          <input class="form-input drop-chance" data-drop-field="chance" data-drop-index="${i}" type="number" min="0" max="1" step="0.05" value="${d.chance}">
-          ${d.source === 'auto' ? `<span class="pill pill-auto">auto</span>` : ''}
-          <button class="btn-mini" data-drop-action="remove" data-drop-index="${i}" type="button">×</button>
+        <div class="drop-row-v2">
+          <span class="drop-row-icon">${itemIcon}</span>
+          <div class="drop-row-info">
+            <div class="drop-row-name">${A.Utils.escapeHtml(itemName)} ${kindBadge}</div>
+            <input class="form-input drop-row-id" data-drop-field="itemId" data-drop-index="${i}" type="text" value="${A.Utils.escapeHtml(d.itemId)}" list="${itemDatalistId}" placeholder="Buscar item, arma o armadura...">
+          </div>
+          <div class="drop-row-chance">
+            <input class="form-input drop-chance-pct" data-drop-field="chance" data-drop-index="${i}" type="number" min="0" max="100" step="1" value="${chancePct}">
+            <span class="drop-chance-suffix">%</span>
+          </div>
+          <span class="drop-row-source ${isAuto ? 'is-auto' : 'is-manual'}" title="${isAuto ? 'Aceptado desde sugerencia' : 'Agregado manualmente'}">
+            ${isAuto ? 'AUTO' : 'MANUAL'}
+          </span>
+          <button class="drop-row-remove" data-drop-action="remove" data-drop-index="${i}" type="button" title="Quitar este drop">×</button>
         </div>
       `;
     }).join('');
 
     const sugHtml = suggested.length ? suggested.map((s) => {
-      const item = A.Data.getById('items', s.itemId);
+      const item = A.Inventory.resolveData(s.itemId);
       const icon = item ? (item.icon || '📦') : '📦';
       const name = item ? item.name : s.itemId;
+      const kindBadge = item ?
+        (item.type === 'weapon' ? '<span class="drop-kind-badge drop-kind-weapon" title="Arma">⚔️</span>'
+        : item.type === 'armor' ? '<span class="drop-kind-badge drop-kind-armor" title="Armadura">🛡️</span>'
+        : '') : '';
       return `
-        <div class="drop-suggestion">
+        <div class="drop-suggestion-v2">
           <span class="drop-sug-icon">${icon}</span>
-          <span class="drop-sug-name">${A.Utils.escapeHtml(name)}</span>
-          <span class="dim small">${Math.round(s.chance*100)}% · ${A.Utils.escapeHtml(s.reason)}</span>
+          <div class="drop-sug-info">
+            <div class="drop-sug-name">${A.Utils.escapeHtml(name)} ${kindBadge}</div>
+            <div class="drop-sug-meta dim">${Math.round(s.chance*100)}% · ${A.Utils.escapeHtml(s.reason)}</div>
+          </div>
           <button class="btn-mini" data-drop-action="accept" data-drop-itemid="${A.Utils.escapeHtml(s.itemId)}" data-drop-chance="${s.chance}" type="button">+ Aceptar</button>
           <button class="btn-mini btn-mini-danger" data-drop-action="reject" data-drop-itemid="${A.Utils.escapeHtml(s.itemId)}" type="button">✕ Rechazar</button>
         </div>
@@ -927,8 +957,8 @@
       `<div class="form-row form-row-block">
         <label>Drops manuales</label>
         <div class="drops-block">
-          ${dropsHtml || '<div class="muted small">Ninguno.</div>'}
-          <button class="btn-mini" data-drop-action="add">+ Agregar drop</button>
+          ${dropsHtml || '<div class="muted small" style="padding:12px">Ninguno todavía. Agregá uno con el botón de abajo o aceptá una sugerencia.</div>'}
+          <button class="drop-add-btn" data-drop-action="add" type="button">+ Agregar drop manual</button>
         </div>
       </div>`,
       `<div class="form-row form-row-block">
@@ -1213,7 +1243,13 @@
         const idx = Number(el.dataset.dropIndex);
         editingDraft.drops = editingDraft.drops || [];
         if (!editingDraft.drops[idx]) return;
-        editingDraft.drops[idx][field] = field === 'chance' ? Number(el.value) : el.value;
+        if (field === 'chance') {
+          // El input está en %, internamente guardamos decimal 0-1
+          const pct = Number(el.value);
+          editingDraft.drops[idx].chance = Math.max(0, Math.min(1, pct / 100));
+        } else {
+          editingDraft.drops[idx][field] = el.value;
+        }
         dirty = true;
       };
       el.addEventListener('input', handler);
@@ -1477,32 +1513,52 @@
               if (!drops.length && !manualDrops.length && !blacklist.length) return '';
 
               const manualRows = manualDrops.map((d, i) => {
-                const item = A.Data.getById('items', d.itemId);
+                const item = A.Inventory.resolveData(d.itemId);
                 const name = item ? item.name : d.itemId;
                 const icon = item ? (item.icon || '📦') : '📦';
+                const chancePct = Math.round((d.chance || 0) * 100);
+                const isAuto = d.source === 'auto';
+                const kindBadge = item ?
+                  (item.type === 'weapon' ? '<span class="drop-kind-badge drop-kind-weapon" title="Arma">⚔️</span>'
+                  : item.type === 'armor' ? '<span class="drop-kind-badge drop-kind-armor" title="Armadura">🛡️</span>'
+                  : '') : '';
                 return `
-                  <div class="audit-wizard-drop-row is-manual">
-                    <span class="audit-wizard-drop-icon">${icon}</span>
-                    <span class="audit-wizard-drop-name">${A.Utils.escapeHtml(name)}</span>
-                    <span class="audit-wizard-drop-chance num">${Math.round((d.chance || 0) * 100)}%</span>
-                    <span class="audit-wizard-drop-reason dim">${d.source === 'auto' ? 'auto-aceptado' : 'manual'}</span>
-                    <button class="btn-mini btn-mini-danger" data-audit-drop-action="remove-manual" data-drop-itemid="${A.Utils.escapeHtml(d.itemId)}">Quitar</button>
+                  <div class="drop-row-v2 is-manual">
+                    <span class="drop-row-icon">${icon}</span>
+                    <div class="drop-row-info">
+                      <div class="drop-row-name">${A.Utils.escapeHtml(name)} ${kindBadge}</div>
+                      <div class="drop-row-id-text dim">${A.Utils.escapeHtml(d.itemId)}</div>
+                    </div>
+                    <div class="drop-row-chance">
+                      <input class="form-input drop-chance-pct" data-wizard-drop-chance="${A.Utils.escapeHtml(d.itemId)}" type="number" min="0" max="100" step="1" value="${chancePct}">
+                      <span class="drop-chance-suffix">%</span>
+                    </div>
+                    <span class="drop-row-source ${isAuto ? 'is-auto' : 'is-manual'}">${isAuto ? 'AUTO' : 'MANUAL'}</span>
+                    <button class="drop-row-remove" data-audit-drop-action="remove-manual" data-drop-itemid="${A.Utils.escapeHtml(d.itemId)}" type="button" title="Quitar este drop">×</button>
                   </div>
                 `;
               }).join('');
 
               const sugRows = drops.map((d) => {
-                const item = A.Data.getById('items', d.itemId);
+                const item = A.Inventory.resolveData(d.itemId);
                 const name = item ? item.name : d.itemId;
                 const icon = item ? (item.icon || '📦') : '📦';
+                const kindBadge = item ?
+                  (item.type === 'weapon' ? '<span class="drop-kind-badge drop-kind-weapon" title="Arma">⚔️</span>'
+                  : item.type === 'armor' ? '<span class="drop-kind-badge drop-kind-armor" title="Armadura">🛡️</span>'
+                  : '') : '';
                 return `
-                  <div class="audit-wizard-drop-row is-suggested">
-                    <span class="audit-wizard-drop-icon">${icon}</span>
-                    <span class="audit-wizard-drop-name">${A.Utils.escapeHtml(name)}</span>
-                    <span class="audit-wizard-drop-chance num">${Math.round(d.chance * 100)}%</span>
-                    <span class="audit-wizard-drop-reason dim">${A.Utils.escapeHtml(d.reason)}</span>
-                    <button class="btn-mini" data-audit-drop-action="accept" data-drop-itemid="${A.Utils.escapeHtml(d.itemId)}" data-drop-chance="${d.chance}">✓ Aceptar</button>
-                    <button class="btn-mini btn-mini-danger" data-audit-drop-action="reject" data-drop-itemid="${A.Utils.escapeHtml(d.itemId)}">✕ Rechazar</button>
+                  <div class="drop-row-v2 is-suggested">
+                    <span class="drop-row-icon">${icon}</span>
+                    <div class="drop-row-info">
+                      <div class="drop-row-name">${A.Utils.escapeHtml(name)} ${kindBadge}</div>
+                      <div class="drop-row-meta dim">${A.Utils.escapeHtml(d.reason)}</div>
+                    </div>
+                    <div class="drop-row-chance-display">
+                      <span class="num">${Math.round(d.chance * 100)}%</span>
+                    </div>
+                    <button class="btn-mini" data-audit-drop-action="accept" data-drop-itemid="${A.Utils.escapeHtml(d.itemId)}" data-drop-chance="${d.chance}" type="button">✓ Aceptar</button>
+                    <button class="btn-mini btn-mini-danger" data-audit-drop-action="reject" data-drop-itemid="${A.Utils.escapeHtml(d.itemId)}" type="button">✕ Rechazar</button>
                   </div>
                 `;
               }).join('');
@@ -1510,16 +1566,18 @@
               const blRows = blacklist.length ? `
                 <div class="audit-wizard-drops-bl-title dim">Rechazados (no se sugieren más)</div>
                 ${blacklist.map((id) => {
-                  const item = A.Data.getById('items', id);
+                  const item = A.Inventory.resolveData(id);
                   const name = item ? item.name : id;
                   const icon = item ? (item.icon || '📦') : '📦';
                   return `
-                    <div class="audit-wizard-drop-row is-blacklist">
-                      <span class="audit-wizard-drop-icon">${icon}</span>
-                      <span class="audit-wizard-drop-name">${A.Utils.escapeHtml(name)}</span>
-                      <span class="audit-wizard-drop-chance dim">—</span>
-                      <span class="audit-wizard-drop-reason dim">rechazado</span>
-                      <button class="btn-mini" data-audit-drop-action="unreject" data-drop-itemid="${A.Utils.escapeHtml(id)}">Restaurar</button>
+                    <div class="drop-row-v2 is-blacklist">
+                      <span class="drop-row-icon">${icon}</span>
+                      <div class="drop-row-info">
+                        <div class="drop-row-name">${A.Utils.escapeHtml(name)}</div>
+                        <div class="drop-row-meta dim">rechazado</div>
+                      </div>
+                      <span class="drop-row-chance-display dim">—</span>
+                      <button class="btn-mini" data-audit-drop-action="unreject" data-drop-itemid="${A.Utils.escapeHtml(id)}" type="button">Restaurar</button>
                     </div>
                   `;
                 }).join('')}
@@ -1606,6 +1664,21 @@
       });
     });
 
+    // === Wizard: cantidades de drops editables ===
+    overlay.querySelectorAll('[data-wizard-drop-chance]').forEach((input) => {
+      input.addEventListener('change', (ev) => {
+        const itemId = input.dataset.wizardDropChance;
+        const pct = Number(input.value);
+        const newChance = Math.max(0, Math.min(1, pct / 100));
+        const current = auditWizardState.items[auditWizardState.cursor];
+        if (!current) return;
+        const enemy = current.enemy;
+        // Actualizar drop manual con nueva chance
+        applyDropChanceChange(enemy, itemId, newChance);
+        // No re-render para no perder foco
+      });
+    });
+
     // === Stats editables inline: input change y "Usar sugerido" ===
     overlay.querySelectorAll('[data-audit-stat-edit]').forEach((input) => {
       input.addEventListener('change', (ev) => {
@@ -1689,6 +1762,33 @@
     const updated = A.Data.getById('enemies', enemy.id);
     if (updated) {
       auditWizardState.items[auditWizardState.cursor].enemy = updated;
+    }
+  }
+
+  /**
+   * Cambia la chance de un drop manual existente y persiste como override.
+   */
+  function applyDropChanceChange(enemy, itemId, newChance) {
+    const overrides = A.Data.getOverrides();
+    overrides.enemies = overrides.enemies || [];
+    let target = overrides.enemies.find((e) => e.id === enemy.id);
+    if (!target) {
+      target = JSON.parse(JSON.stringify(enemy));
+      delete target._source;
+      overrides.enemies.push(target);
+    }
+    target.drops = target.drops || [];
+    const drop = target.drops.find((d) => d.itemId === itemId);
+    if (drop) {
+      drop.chance = Math.max(0, Math.min(1, newChance));
+      A.Data.saveOverrides(overrides);
+      A.Data.init();
+      dirty = true;
+      // Actualizar referencia en wizard state
+      const updated = A.Data.getById('enemies', enemy.id);
+      if (updated && auditWizardState.items[auditWizardState.cursor]) {
+        auditWizardState.items[auditWizardState.cursor].enemy = updated;
+      }
     }
   }
 
