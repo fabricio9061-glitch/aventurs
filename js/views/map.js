@@ -90,26 +90,40 @@
       rings[d].push(r);
     }
 
-    // Posicionar: centro grande para que llene la pantalla
-    const cx = 500, cy = 350;
-    const ringRadii = [0, 130, 240, 340, 430];
+    // v1.6.0: Si las regiones tienen pos:{x,y} guardada, usarla.
+    // Solo aplicar auto-layout BFS para las que no tienen pos.
     const positions = {};
-    for (const dStr of Object.keys(rings)) {
-      const d = parseInt(dStr, 10);
-      const ring = rings[d];
-      const radius = ringRadii[d] != null ? ringRadii[d] : 430 + (d - 4) * 90;
-      if (d === 0) {
-        positions[ring[0].id] = { x: cx, y: cy };
-      } else {
-        const n = ring.length;
-        // Offset de ángulo según anillo para que no queden alineados
-        const angleOffset = -Math.PI / 2 + (d * 0.3);
-        for (let i = 0; i < n; i++) {
-          const angle = angleOffset + (2 * Math.PI * i) / n;
-          positions[ring[i].id] = {
-            x: cx + Math.cos(angle) * radius,
-            y: cy + Math.sin(angle) * radius,
-          };
+    const cx = 500, cy = 350;
+
+    // Primero: posiciones explícitas del editor visual
+    let hasExplicit = 0;
+    for (const r of allRegions) {
+      if (r.pos && typeof r.pos.x === 'number' && typeof r.pos.y === 'number') {
+        positions[r.id] = { x: r.pos.x, y: r.pos.y };
+        hasExplicit++;
+      }
+    }
+
+    // Fallback: BFS para nodos sin pos explícita
+    if (hasExplicit < allRegions.length) {
+      const ringRadii = [0, 130, 240, 340, 430];
+      for (const dStr of Object.keys(rings)) {
+        const d = parseInt(dStr, 10);
+        const ring = rings[d];
+        const radius = ringRadii[d] != null ? ringRadii[d] : 430 + (d - 4) * 90;
+        if (d === 0) {
+          if (!positions[ring[0].id]) positions[ring[0].id] = { x: cx, y: cy };
+        } else {
+          const n = ring.length;
+          const angleOffset = -Math.PI / 2 + (d * 0.3);
+          for (let i = 0; i < n; i++) {
+            if (positions[ring[i].id]) continue; // ya tiene pos explícita
+            const angle = angleOffset + (2 * Math.PI * i) / n;
+            positions[ring[i].id] = {
+              x: cx + Math.cos(angle) * radius,
+              y: cy + Math.sin(angle) * radius,
+            };
+          }
         }
       }
     }

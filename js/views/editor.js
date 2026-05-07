@@ -211,10 +211,15 @@
   }
 
   function selectEntity(id) {
+    // v1.6.0: warning si hay cambios sin guardar
+    if (dirty && editingDraft && editingDraft.id !== id) {
+      if (!confirm('Tienes cambios sin guardar en el elemento actual. ¿Cambiar de elemento y descartar?')) return;
+    }
     activeId = id;
     const entity = getById(id);
     if (entity) startDraft(entity);
     else editingDraft = null;
+    dirty = false;
     render();
   }
 
@@ -247,6 +252,25 @@
     A.Data.init();
     dirty = false;
     if (!silent) render();
+  }
+
+  /**
+   * v1.6.0: Descartar cambios sin guardar.
+   * Recarga el draft desde el dato persistido (overrides o seed).
+   */
+  function discardChanges() {
+    if (!editingDraft || !dirty) return;
+    if (!confirm('¿Descartar todos los cambios sin guardar?')) return;
+    const id = editingDraft.id;
+    const original = getById(id);
+    if (original) {
+      startDraft(original);
+    } else {
+      editingDraft = null;
+      activeId = null;
+    }
+    dirty = false;
+    render();
   }
 
   function deleteEntity() {
@@ -332,6 +356,7 @@
     return `
       <div class="detail-toolbar">
         <button class="btn-primary" data-editor-action="save" ${dirty ? '' : 'disabled'}>Guardar</button>
+        <button class="btn-secondary" data-editor-action="discard" ${dirty ? '' : 'disabled'} title="Descartar cambios sin guardar">↶ Descartar cambios</button>
         <button class="btn-secondary" data-editor-action="duplicate">Duplicar</button>
         <button class="btn-danger" data-editor-action="delete">Eliminar</button>
       </div>
@@ -445,23 +470,40 @@
         <div class="region-enemies-block">
           <div class="region-enemies-actions">
             <button type="button" class="btn-mini btn-region-autobalance" onclick="window.Aventurs.openRegionEnemyEditor && window.Aventurs.openRegionEnemyEditor('${A.Utils.escapeHtml(e.id)}')">🎲 Auto-asignar enemigos por tier</button>
-            <span class="dim small">Tier ${tierMin}-${tierMax} · ${tierMatches.length} ok · ${tierMisfits.length} fuera de tier</span>
+            ${tierMisfits.length > 0 ? `<button type="button" class="btn-mini btn-mini-danger" onclick="window.Aventurs.removeRegionMisfits && window.Aventurs.removeRegionMisfits('${A.Utils.escapeHtml(e.id)}')" title="Quita los enemigos cuyo tier está fuera del rango de la región">⚠ Quitar ${tierMisfits.length} fuera de tier</button>` : ''}
+            <span class="dim small">Tier ${tierMin}-${tierMax} · ${tierMatches.length} ok · ${tierMisfits.length} fuera</span>
           </div>
-          ${assignedEnemies.length === 0 ? '<div class="muted small">Sin enemigos asignados.</div>' : `
-            <div class="region-enemies-list">
-              ${assignedEnemies.map((en) => {
-                const ok = en.tier >= tierMin && en.tier <= tierMax;
-                return `
-                  <span class="region-enemy-tag ${ok ? '' : 'is-mismatch'}" title="Tier ${en.tier} ${ok ? '' : '(fuera de tier)'}">
-                    <span>${en.icon || '👹'}</span>
-                    <span>${A.Utils.escapeHtml(en.name)}</span>
-                    <span class="dim">T${en.tier}</span>
-                  </span>
-                `;
-              }).join('')}
-            </div>
-          `}
-          ${candidates.length > 0 ? `<div class="dim small">${candidates.length} enemigos candidatos en este tier (no asignados aún).</div>` : ''}
+          ${assignedEnemies.length === 0 ? '<div class="muted small" style="padding:12px">Sin enemigos asignados. Click en "Auto-asignar" para llenar.</div>' : (() => {
+            // Agrupar por tier
+            const byTier = {};
+            for (const en of assignedEnemies) {
+              const t = en.tier || 1;
+              if (!byTier[t]) byTier[t] = [];
+              byTier[t].push(en);
+            }
+            const tiers = Object.keys(byTier).map(Number).sort((a, b) => a - b);
+            return tiers.map((t) => {
+              const list = byTier[t];
+              const tierOk = t >= tierMin && t <= tierMax;
+              return `
+                <div class="region-enemies-tier-group">
+                  <div class="region-enemies-tier-header ${tierOk ? '' : 'is-mismatch'}">
+                    <span>Tier ${t} (${list.length})${tierOk ? '' : ' · ⚠ fuera de tier'}</span>
+                  </div>
+                  <div class="region-enemies-tier-content">
+                    ${list.map((en) => `
+                      <span class="region-enemy-tag ${tierOk ? '' : 'is-mismatch'}" title="${en.category || ''}">
+                        <span>${en.icon || '👹'}</span>
+                        <span>${A.Utils.escapeHtml(en.name)}</span>
+                        <span class="cat-pill cat-${en.category || 'normal'}">${en.category || 'norm'}</span>
+                      </span>
+                    `).join('')}
+                  </div>
+                </div>
+              `;
+            }).join('');
+          })()}
+          ${candidates.length > 0 ? `<div class="dim small">💡 Hay ${candidates.length} enemigos candidatos del tier ${tierMin}-${tierMax} no asignados todavía.</div>` : ''}
         </div>
       </div>`,
       `<div class="form-row form-row-block">
@@ -845,6 +887,8 @@
       const itemName = item ? item.name : '(no existe)';
       const chancePct = Math.round((d.chance || 0) * 100);
       const isAuto = d.source === 'auto';
+      const qtyMin = d.qtyMin || 1;
+      const qtyMax = d.qtyMax || 1;
       const kindBadge = item ?
         (item.type === 'weapon' ? '<span class="drop-kind-badge drop-kind-weapon" title="Arma">⚔️</span>'
         : item.type === 'armor' ? '<span class="drop-kind-badge drop-kind-armor" title="Armadura">🛡️</span>'
@@ -855,6 +899,11 @@
           <div class="drop-row-info">
             <div class="drop-row-name">${A.Utils.escapeHtml(itemName)} ${kindBadge}</div>
             <input class="form-input drop-row-id" data-drop-field="itemId" data-drop-index="${i}" type="text" value="${A.Utils.escapeHtml(d.itemId)}" list="${itemDatalistId}" placeholder="Buscar item, arma o armadura...">
+          </div>
+          <div class="drop-row-qty" title="Cantidad mínima – máxima al dropear">
+            <input class="form-input drop-qty-input" data-drop-field="qtyMin" data-drop-index="${i}" type="number" min="1" max="99" step="1" value="${qtyMin}" title="Cantidad mínima">
+            <span class="drop-qty-sep">–</span>
+            <input class="form-input drop-qty-input" data-drop-field="qtyMax" data-drop-index="${i}" type="number" min="1" max="99" step="1" value="${qtyMax}" title="Cantidad máxima">
           </div>
           <div class="drop-row-chance">
             <input class="form-input drop-chance-pct" data-drop-field="chance" data-drop-index="${i}" type="number" min="0" max="100" step="1" value="${chancePct}">
@@ -1128,6 +1177,8 @@
             newEntity();
           } else if (a === 'save') {
             saveDraft();
+          } else if (a === 'discard') {
+            discardChanges();
           } else if (a === 'delete') {
             if (confirm('¿Eliminar este elemento? Si era del seed original, queda oculto.')) deleteEntity();
           } else if (a === 'duplicate') {
@@ -1247,6 +1298,15 @@
           // El input está en %, internamente guardamos decimal 0-1
           const pct = Number(el.value);
           editingDraft.drops[idx].chance = Math.max(0, Math.min(1, pct / 100));
+        } else if (field === 'qtyMin' || field === 'qtyMax') {
+          // v1.6.0: cantidades como int >= 1
+          editingDraft.drops[idx][field] = Math.max(1, Math.min(99, parseInt(el.value, 10) || 1));
+          // Asegurar qtyMax >= qtyMin
+          const d = editingDraft.drops[idx];
+          if (d.qtyMin && d.qtyMax && d.qtyMin > d.qtyMax) {
+            if (field === 'qtyMin') d.qtyMax = d.qtyMin;
+            else d.qtyMin = d.qtyMax;
+          }
         } else {
           editingDraft.drops[idx][field] = el.value;
         }
@@ -1604,7 +1664,8 @@
 
         <footer class="audit-wizard-footer">
           <button class="btn-secondary" data-audit-action="prev" ${cursor === 0 ? 'disabled' : ''}>← Anterior</button>
-          <button class="btn-secondary" data-audit-action="skip">Saltar</button>
+          <button class="btn-secondary" data-audit-action="next" ${cursor >= auditWizardState.items.length - 1 ? 'disabled' : ''}>Siguiente →</button>
+          <button class="btn-secondary" data-audit-action="skip" title="Saltar este sin cambios y pasar al siguiente">Saltar</button>
           <button class="btn-primary" data-audit-action="apply">✓ Aplicar todos los sugeridos</button>
           <button class="btn-ghost" data-audit-close>Cerrar</button>
         </footer>
@@ -1866,15 +1927,56 @@
   const GRAPH_STORAGE_KEY = 'aventurs:graph_positions';
 
   function loadGraphPositions() {
+    // v1.6.0: prioridad — leer pos de cada region (override > seed)
+    // Si una región tiene region.pos, usarlo. Si no, fallback al storage legacy.
+    const result = {};
+    const regions = A.Data.regions || [];
+    for (const r of regions) {
+      if (r.pos && typeof r.pos.x === 'number' && typeof r.pos.y === 'number') {
+        result[r.id] = { x: r.pos.x, y: r.pos.y };
+      }
+    }
+    // Fallback: legacy localStorage key (para no perder posiciones viejas)
     try {
       const raw = localStorage.getItem(GRAPH_STORAGE_KEY);
-      return raw ? JSON.parse(raw) : {};
-    } catch (e) { return {}; }
-  }
-  function saveGraphPositions() {
-    try {
-      localStorage.setItem(GRAPH_STORAGE_KEY, JSON.stringify(graphState.nodes));
+      if (raw) {
+        const legacy = JSON.parse(raw);
+        for (const id of Object.keys(legacy)) {
+          if (!result[id]) result[id] = legacy[id];
+        }
+      }
     } catch (e) {}
+    return result;
+  }
+
+  function saveGraphPositions() {
+    // v1.6.0: persistir las posiciones EN cada region como pos:{x,y} en el override.
+    // Esto hace que: (a) viajen con export/import, (b) el mapa principal las lea.
+    try {
+      const overrides = A.Data.getOverrides();
+      overrides.regions = overrides.regions || [];
+      const regions = A.Data.regions || [];
+      for (const id of Object.keys(graphState.nodes)) {
+        const pos = graphState.nodes[id];
+        if (!pos || typeof pos.x !== 'number') continue;
+        // Buscar override existente o crear uno
+        let target = overrides.regions.find((r) => r.id === id);
+        if (!target) {
+          const seed = regions.find((r) => r.id === id);
+          if (!seed) continue;
+          target = JSON.parse(JSON.stringify(seed));
+          delete target._source;
+          overrides.regions.push(target);
+        }
+        target.pos = { x: pos.x, y: pos.y };
+      }
+      A.Data.saveOverrides(overrides);
+      A.Data.init();
+      // Compat: también guardamos legacy
+      localStorage.setItem(GRAPH_STORAGE_KEY, JSON.stringify(graphState.nodes));
+    } catch (e) {
+      console.warn('[GraphEditor] Error guardando posiciones:', e);
+    }
   }
 
   /**
@@ -2087,8 +2189,10 @@
             <span class="dim">Las conexiones son bidireccionales</span>
           </div>
           <div class="graph-editor-actions">
-            <button class="btn-secondary" data-graph-action="auto-layout">↻ Re-acomodar</button>
-            <button class="btn-primary" data-graph-close>Cerrar</button>
+            <button class="btn-secondary" data-graph-action="auto-layout" title="Reordenar automáticamente (no guarda)">↻ Re-acomodar</button>
+            <button class="btn-secondary" data-graph-action="reset-layout" title="Borrar todas las posiciones guardadas">✕ Restablecer</button>
+            <button class="btn-primary" data-graph-action="save-layout" title="Guardar las posiciones actuales en cada región">💾 Guardar layout</button>
+            <button class="btn-secondary" data-graph-close>Cerrar</button>
           </div>
         </footer>
       </div>
@@ -2150,7 +2254,45 @@
     // Auto-layout button
     overlay.querySelectorAll('[data-graph-action="auto-layout"]').forEach((b) => {
       b.addEventListener('click', () => {
-        // Forzar re-layout: borrar posiciones actuales
+        // Forzar re-layout: borrar posiciones actuales (en memoria, no persistidas)
+        graphState.nodes = {};
+        autoLayout();
+        renderGraphEditor();
+      });
+    });
+
+    // v1.6.0: Guardar layout button
+    overlay.querySelectorAll('[data-graph-action="save-layout"]').forEach((b) => {
+      b.addEventListener('click', () => {
+        saveGraphPositions();
+        // Feedback visual: cambiar texto del botón temporalmente
+        const original = b.textContent;
+        b.textContent = '✓ Guardado';
+        b.disabled = true;
+        setTimeout(() => {
+          b.textContent = original;
+          b.disabled = false;
+        }, 1500);
+      });
+    });
+
+    // v1.6.0: Restablecer layout — borra posiciones guardadas en regions y graph_positions
+    overlay.querySelectorAll('[data-graph-action="reset-layout"]').forEach((b) => {
+      b.addEventListener('click', () => {
+        if (!confirm('¿Borrar todas las posiciones guardadas y volver al layout automático?')) return;
+        // Borrar pos de cada region en overrides
+        try {
+          const overrides = A.Data.getOverrides();
+          overrides.regions = (overrides.regions || []).map((r) => {
+            const cp = { ...r };
+            delete cp.pos;
+            return cp;
+          });
+          A.Data.saveOverrides(overrides);
+          A.Data.init();
+          // Borrar legacy
+          localStorage.removeItem(GRAPH_STORAGE_KEY);
+        } catch (e) { console.warn('reset-layout error:', e); }
         graphState.nodes = {};
         autoLayout();
         renderGraphEditor();
@@ -2343,6 +2485,31 @@
     }
   }
 
+  /**
+   * v1.6.0: Quita todos los enemigos asignados a una región cuyo tier
+   * está fuera del rango de la región. Se persiste como override.
+   */
+  function removeRegionMisfits(regionId) {
+    const region = A.Data.getById('regions', regionId);
+    if (!region) return;
+    const tier = Array.isArray(region.tier) ? region.tier : [region.tier || 1, region.tier || 1];
+    const tierMin = tier[0], tierMax = tier[1];
+    const allEnemies = A.Data.enemies || [];
+    const misfits = allEnemies.filter((en) =>
+      (en.regions || []).includes(regionId) &&
+      (en.tier < tierMin || en.tier > tierMax)
+    );
+    if (misfits.length === 0) {
+      alert('No hay enemigos fuera de tier para quitar.');
+      return;
+    }
+    if (!confirm(`¿Quitar ${misfits.length} enemigos de esta región?\n\n${misfits.map((e) => `- ${e.name} (T${e.tier})`).join('\n')}`)) return;
+    for (const en of misfits) {
+      unassignEnemyFromRegion(en.id, regionId);
+    }
+    if (editingDraft && editingDraft.id === regionId) render();
+  }
+
   const Editor = { mount, unmount };
 
   A.Views = A.Views || {};
@@ -2350,4 +2517,5 @@
   // Exponer funciones para que los onclick inline las puedan llamar
   A.openGraphEditor = openGraphEditor;
   A.openRegionEnemyEditor = openRegionEnemyEditor;
+  A.removeRegionMisfits = removeRegionMisfits;
 })(window.Aventurs);

@@ -84,12 +84,12 @@
               </div>
             </button>
           ` : ''}
-          ${isSafeRegion ? `
+          ${isSafeRegion && npcs.some((n) => n.role === 'blacksmith') ? `
             <button class="action-card-main" data-action="open-craft">
               <div class="action-card-icon">⚒️</div>
               <div class="action-card-text">
                 <div class="action-card-label">Crafteo</div>
-                <div class="action-card-desc">Crear objetos con materiales.</div>
+                <div class="action-card-desc">Hay un herrero acá. Podés forjar objetos.</div>
               </div>
             </button>
           ` : ''}

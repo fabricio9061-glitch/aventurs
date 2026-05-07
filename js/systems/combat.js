@@ -965,13 +965,17 @@
       }
       for (const d of enemyData.drops || []) {
         if (Math.random() < (d.chance || 0)) {
-          const ok = A.State.addItem(d.itemId, 1);
+          // v1.6.0: cantidad random entre qtyMin y qtyMax (default 1-1)
+          const qMin = Math.max(1, d.qtyMin || 1);
+          const qMax = Math.max(qMin, d.qtyMax || qMin);
+          const dropQty = qMin + Math.floor(Math.random() * (qMax - qMin + 1));
+          const ok = A.State.addItem(d.itemId, dropQty);
           const item = A.Data.getById('items', d.itemId)
                     || A.Data.getById('weapons', d.itemId)
                     || A.Data.getById('armors', d.itemId);
           if (ok && item) {
             if (!aggregatedDrops[d.itemId]) aggregatedDrops[d.itemId] = { item, qty: 0 };
-            aggregatedDrops[d.itemId].qty += 1;
+            aggregatedDrops[d.itemId].qty += dropQty;
           } else if (!ok) {
             addLog(c, 'loot', { text: `Hubo botín pero no entró en la mochila.` });
           }
