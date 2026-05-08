@@ -39,15 +39,25 @@
     }
 
     // 4. Game over handling
-    A.Bus.on('player:died', () => {
-      // En Fase 2 implementamos pantalla de game over.
-      // Por ahora, una alerta simple y reset.
+    A.Bus.on('player:died', (payload) => {
+      // v1.6.2: si fue muerte específica por inanición, mostrar pantalla narrativa
+      if (payload && payload.cause === 'starvation') {
+        // El handler 'player:died-starvation' renderiza la pantalla
+        return;
+      }
       setTimeout(() => {
         if (confirm('Has caído en combate. ¿Empezar una nueva aventura?')) {
           A.State.reset();
           mountRoot();
         }
       }, 100);
+    });
+
+    // v1.6.2: pantalla narrativa de muerte por inanición
+    A.Bus.on('player:died-starvation', (payload) => {
+      setTimeout(() => {
+        showStarvationDeathScreen(payload);
+      }, 200);
     });
 
     // 5. Montar vista raíz
@@ -67,6 +77,54 @@
     } else {
       A.Views.Character.mount(app);
     }
+  }
+
+  /**
+   * v1.6.2: Pantalla narrativa de muerte por inanición.
+   * No teleport, muestra info: lugar, días sobrevividos, opción reaparecer.
+   */
+  function showStarvationDeathScreen(info) {
+    // Limpiar overlays existentes
+    document.querySelectorAll('.modal-overlay, .death-overlay').forEach((el) => el.remove());
+
+    const overlay = document.createElement('div');
+    overlay.className = 'death-overlay';
+    overlay.innerHTML = `
+      <div class="death-screen">
+        <div class="death-icon">💀</div>
+        <h1 class="death-title">Caíste por inanición</h1>
+        <div class="death-narrative">
+          <p>El hambre te consumió. No volviste a levantarte.</p>
+        </div>
+        <div class="death-stats">
+          <div class="death-stat">
+            <div class="death-stat-label">Lugar de muerte</div>
+            <div class="death-stat-val">${A.Utils.escapeHtml(info.regionName || 'el camino')}</div>
+          </div>
+          <div class="death-stat">
+            <div class="death-stat-label">Días sobrevividos</div>
+            <div class="death-stat-val">${info.day || 1}</div>
+          </div>
+          <div class="death-stat">
+            <div class="death-stat-label">Nivel alcanzado</div>
+            <div class="death-stat-val">${info.level || 1}</div>
+          </div>
+          <div class="death-stat">
+            <div class="death-stat-label">Causa</div>
+            <div class="death-stat-val">Inanición</div>
+          </div>
+        </div>
+        <div class="death-actions">
+          <button class="btn-primary death-btn" data-death-action="restart">Empezar nueva aventura</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+    overlay.querySelector('[data-death-action="restart"]').addEventListener('click', () => {
+      overlay.remove();
+      A.State.reset();
+      mountRoot();
+    });
   }
 
   // Re-mount si la partida se resetea (por ejemplo desde el menú "Borrar todo")

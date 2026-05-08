@@ -905,6 +905,8 @@
 
     // v1.5.9: combatir avanza 1 unidad de tiempo
     if (A.Time) A.Time.advance(1, 'combat');
+    // v1.6.2: combatir consume hambre
+    if (A.Survival) A.Survival.applyTurnTick('combat');
 
     // XP: suma de todos los enemigos vencidos
     let totalXp = 0;

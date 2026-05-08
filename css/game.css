@@ -5285,3 +5285,600 @@
 .chronicles-clock.is-dawn .clock-phase {
   color: #a88dd6;
 }
+
+/* ============================================================
+   v1.6.2 — Hunger states + death screen
+   ============================================================ */
+
+/* Badge de estado de hambre */
+.hunger-badge {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 8px;
+  font-size: 9px;
+  font-weight: var(--fw-semi);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-left: 6px;
+  vertical-align: middle;
+}
+.hunger-badge.hunger-sated { background: rgba(107, 142, 35, 0.15); color: #4a6a18; }
+.hunger-badge.hunger-normal { background: rgba(160, 168, 156, 0.15); color: #6a7060; }
+.hunger-badge.hunger-hungry { background: rgba(196, 168, 80, 0.2); color: #8a6a18; }
+.hunger-badge.hunger-weak { background: rgba(196, 120, 48, 0.25); color: #7a3010; }
+.hunger-badge.hunger-starving {
+  background: rgba(141, 40, 24, 0.3);
+  color: #8d2818;
+  animation: hunger-pulse 1.5s ease-in-out infinite;
+}
+
+/* Bar de food coloreada según estado */
+.bar.bar-food.hunger-hungry > span { background: #c4a850; }
+.bar.bar-food.hunger-weak > span { background: #c47830; }
+.bar.bar-food.hunger-starving > span {
+  background: #8d2818;
+  animation: hunger-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes hunger-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+/* === Pantalla de muerte por inanición === */
+.death-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 10, 12, 0.92);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  backdrop-filter: blur(4px);
+  animation: death-fade-in 0.6s ease;
+}
+@keyframes death-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.death-screen {
+  background: linear-gradient(160deg, #1a1614, #2a1a18);
+  border: 2px solid #5a2018;
+  border-radius: var(--r-lg);
+  padding: 40px 48px;
+  max-width: 520px;
+  width: 90%;
+  text-align: center;
+  color: #e8d8c8;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6), inset 0 0 40px rgba(141, 40, 24, 0.15);
+}
+.death-icon {
+  font-size: 72px;
+  margin-bottom: 12px;
+  animation: death-shake 0.8s ease;
+}
+@keyframes death-shake {
+  0% { transform: scale(0.5); opacity: 0; }
+  50% { transform: scale(1.2); }
+  100% { transform: scale(1); opacity: 1; }
+}
+.death-title {
+  font-size: 28px;
+  font-weight: var(--fw-bold);
+  margin: 0 0 16px;
+  color: #e6a070;
+  letter-spacing: 0.02em;
+}
+.death-narrative {
+  font-style: italic;
+  color: #b8a090;
+  margin-bottom: 28px;
+  line-height: 1.6;
+}
+.death-narrative p {
+  margin: 0;
+  font-size: 16px;
+}
+.death-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 28px;
+  padding: 20px;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: var(--r-md);
+  border: 1px solid #3a2a28;
+}
+.death-stat {
+  text-align: left;
+}
+.death-stat-label {
+  font-size: 11px;
+  color: #8a7868;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 4px;
+}
+.death-stat-val {
+  font-size: 17px;
+  font-weight: var(--fw-medium);
+  color: #e8d8c8;
+}
+.death-actions {
+  display: flex;
+  justify-content: center;
+}
+.death-btn {
+  padding: 12px 32px;
+  font-size: 15px;
+  background: #6a3030;
+  color: #fff;
+  border: 1.5px solid #8a4040;
+  border-radius: var(--r-md);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.death-btn:hover {
+  background: #8a4040;
+  transform: translateY(-1px);
+}
+
+/* ============================================================
+   v1.6.3 — Audit Wizard Toast
+   ============================================================ */
+#audit-toast-wrap {
+  position: fixed;
+  top: 24px;
+  right: 24px;
+  z-index: 10001;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: none;
+}
+.audit-toast {
+  padding: 12px 18px;
+  border-radius: var(--r-md);
+  font-size: 13px;
+  font-weight: var(--fw-medium);
+  background: var(--surface-raised);
+  border: 1.5px solid var(--border-strong);
+  box-shadow: 0 6px 20px rgba(0,0,0,0.18);
+  opacity: 0;
+  transform: translateX(20px);
+  transition: opacity 0.25s ease, transform 0.25s ease;
+  pointer-events: auto;
+  min-width: 200px;
+  max-width: 320px;
+}
+.audit-toast.is-visible {
+  opacity: 1;
+  transform: translateX(0);
+}
+.audit-toast-success {
+  background: linear-gradient(90deg, #f4faf0, #e8f4dc);
+  border-color: #6b8e23;
+  color: #3a5018;
+}
+.audit-toast-info {
+  background: var(--surface-raised);
+  border-color: var(--gold-deep);
+  color: var(--gold-text);
+}
+.audit-toast-error {
+  background: linear-gradient(90deg, #fcf0ed, #f9e2dc);
+  border-color: #c45530;
+  color: #6a2810;
+}
+
+/* ============================================================
+   v1.6.3 — Combat cards uniformes (player/enemy/pet con misma estructura)
+   ============================================================ */
+
+/* Player card: borde dorado/gold */
+.ally-card.player-card {
+  border-left: 3px solid var(--gold-deep);
+}
+.ally-card.player-card.is-active {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 2px var(--gold-bg-soft), 0 4px 12px rgba(212, 164, 55, 0.18);
+}
+
+/* Enemy card: borde rojo, clickeable */
+.ally-card.enemy-card {
+  border-left: 3px solid #c45530;
+  background: var(--surface);
+  text-align: left;
+  cursor: pointer;
+  width: 100%;
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+  appearance: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border-radius: var(--r-md);
+  border-top: var(--border-w) solid var(--border);
+  border-right: var(--border-w) solid var(--border);
+  border-bottom: var(--border-w) solid var(--border);
+  position: relative;
+  transition: all 0.15s ease;
+}
+.ally-card.enemy-card:hover:not(:disabled) {
+  border-color: var(--gold-deep);
+  transform: translateY(-1px);
+}
+.ally-card.enemy-card:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+.ally-card.enemy-card.is-target {
+  border-left-color: var(--gold);
+  box-shadow: 0 0 0 2px var(--gold-bg);
+}
+.ally-card.enemy-card.is-active {
+  border-left-color: #ff6020;
+  box-shadow: 0 0 0 2px rgba(196, 85, 48, 0.2);
+  animation: enemy-active-pulse 1s ease-in-out infinite;
+}
+@keyframes enemy-active-pulse {
+  0%, 100% { box-shadow: 0 0 0 2px rgba(196, 85, 48, 0.2); }
+  50% { box-shadow: 0 0 0 3px rgba(196, 85, 48, 0.4); }
+}
+.ally-card.enemy-card.is-dead {
+  opacity: 0.4;
+}
+.combat-card-dead-tag {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) rotate(-12deg);
+  background: rgba(141, 40, 24, 0.85);
+  color: #fff;
+  font-size: 18px;
+  font-weight: var(--fw-bold);
+  padding: 4px 16px;
+  border-radius: 4px;
+  pointer-events: none;
+}
+
+/* Bar enemy-hp con tono distinto */
+.bar.bar-enemy-hp > span {
+  background: linear-gradient(90deg, #c4513a, #e57040);
+}
+
+/* Speed delta en player (cuando se reduce por peso) */
+.ally-stat-delta {
+  font-size: 9px;
+  color: #c45530;
+  margin-left: 2px;
+}
+
+/* Strip de enemigos */
+.combat-enemies-strip {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+
+/* Layout combat-arena: party panel a la izquierda, vs en medio, enemigos a la derecha */
+.combat-arena {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 16px;
+  align-items: start;
+}
+.combat-vs {
+  align-self: center;
+  font-size: 32px;
+  font-weight: var(--fw-bold);
+  color: var(--gold-deep);
+  padding: 0 8px;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.15);
+}
+
+/* Combat effects row */
+.combat-effects-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: -2px;
+  margin-bottom: -2px;
+}
+
+/* Pet card en sidebar usa mismo estilo */
+
+@media (max-width: 800px) {
+  .combat-arena {
+    grid-template-columns: 1fr;
+  }
+  .combat-vs {
+    transform: rotate(90deg);
+    margin: 4px auto;
+  }
+}
+
+/* ============================================================
+   v1.6.3 — Char Creator 2 columnas + identidad visual
+   ============================================================ */
+.char-page-v2 {
+  min-height: 100vh;
+  background: linear-gradient(135deg, var(--surface), var(--surface-sunken));
+  padding: 0;
+}
+.char-create-v2 {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 24px 32px 48px;
+}
+.char-title-block {
+  text-align: center;
+  margin-bottom: 28px;
+}
+.char-title-block .char-title {
+  font-size: 32px;
+  font-weight: var(--fw-bold);
+  margin: 0 0 6px;
+  color: var(--text);
+}
+.char-title-block .char-sub {
+  font-size: 14px;
+  margin: 0;
+}
+
+/* Layout 2 columnas */
+.char-layout-2col {
+  display: grid;
+  grid-template-columns: 1fr 1.1fr;
+  gap: 28px;
+  align-items: start;
+}
+
+@media (max-width: 1024px) {
+  .char-layout-2col {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Panel preview izquierda */
+.char-preview-panel {
+  background: var(--surface-raised);
+  border: 2px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: 28px;
+  position: sticky;
+  top: 16px;
+  min-height: 480px;
+  transition: border-color 0.3s, box-shadow 0.3s;
+}
+.char-preview-panel.has-selection {
+  border-color: var(--race-accent);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.08), 0 0 0 1px var(--race-accent);
+  background: linear-gradient(160deg, var(--surface-raised), var(--surface));
+}
+.char-preview-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 480px;
+  color: var(--text-muted);
+}
+.char-preview-empty-icon {
+  font-size: 64px;
+  opacity: 0.3;
+  margin-bottom: 12px;
+}
+.char-preview-empty-text {
+  text-align: center;
+  font-size: 15px;
+  line-height: 1.6;
+}
+.race-preview-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+.race-preview-icon {
+  font-size: 96px;
+  line-height: 1;
+  margin-bottom: 16px;
+  filter: drop-shadow(0 4px 12px rgba(0,0,0,0.15));
+  animation: race-icon-fade-in 0.3s ease;
+}
+@keyframes race-icon-fade-in {
+  from { opacity: 0; transform: scale(0.85); }
+  to { opacity: 1; transform: scale(1); }
+}
+.race-preview-name {
+  font-size: 28px;
+  font-weight: var(--fw-bold);
+  color: var(--race-primary);
+  margin-bottom: 4px;
+}
+.race-preview-type {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--race-accent);
+  font-weight: var(--fw-semi);
+  margin-bottom: 16px;
+}
+.race-preview-desc {
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text-muted);
+  font-style: italic;
+  margin: 0 0 24px;
+  max-width: 340px;
+}
+.race-preview-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  margin-bottom: 18px;
+}
+.race-stat-row {
+  display: grid;
+  grid-template-columns: 80px 1fr 30px;
+  align-items: center;
+  gap: 10px;
+}
+.race-stat-label {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  text-align: right;
+}
+.race-stat-bar {
+  height: 8px;
+  background: var(--surface-sunken);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.race-stat-bar > span {
+  display: block;
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.4s ease;
+}
+.race-stat-val {
+  font-size: 14px;
+  font-weight: var(--fw-semi);
+  text-align: left;
+}
+.race-preview-extras {
+  border-top: var(--border-w) solid var(--border-soft);
+  width: 100%;
+  padding-top: 12px;
+}
+.race-extra-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  padding: 4px 0;
+}
+
+/* Panel selector derecha */
+.char-selector-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+/* Grid de razas v2 */
+.race-grid-v2 {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+@media (max-width: 720px) {
+  .race-grid-v2 { grid-template-columns: repeat(3, 1fr); }
+}
+@media (max-width: 480px) {
+  .race-grid-v2 { grid-template-columns: repeat(2, 1fr); }
+}
+.race-card-v2 {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  background: var(--surface-raised);
+  border: 1.5px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 14px 8px;
+  gap: 4px;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  overflow: hidden;
+}
+.race-card-v2::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  background: var(--race-primary, var(--gold));
+  opacity: 0.7;
+}
+.race-card-v2:hover {
+  transform: translateY(-2px);
+  border-color: var(--race-accent, var(--border-strong));
+  box-shadow: 0 6px 16px rgba(0,0,0,0.08);
+}
+.race-card-v2.is-selected {
+  border-color: var(--race-primary);
+  background: linear-gradient(160deg, var(--surface-raised), var(--surface));
+  box-shadow: 0 0 0 2px var(--race-accent), 0 6px 18px rgba(0,0,0,0.1);
+}
+.race-card-v2.is-selected::before {
+  height: 4px;
+  opacity: 1;
+}
+.race-card-v2 .race-icon {
+  font-size: 32px;
+  line-height: 1;
+}
+.race-card-v2 .race-name {
+  font-weight: var(--fw-semi);
+  font-size: 13px;
+}
+.race-card-v2 .race-tag {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--race-accent, var(--text-muted));
+  font-weight: var(--fw-medium);
+}
+.race-card-v2 .race-mini-stats {
+  display: flex;
+  gap: 6px;
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+/* Form block (nombre + botón) */
+.char-form-block {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 18px;
+  background: var(--surface-raised);
+  border: 1.5px solid var(--border);
+  border-radius: var(--r-md);
+}
+.char-input-v2 {
+  width: 100%;
+  padding: 12px 14px;
+  font-size: 15px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--surface);
+}
+.char-input-v2:focus {
+  outline: none;
+  border-color: var(--gold-deep);
+  box-shadow: 0 0 0 2px var(--gold-bg-soft);
+}
+.char-input-hint {
+  font-size: 11px;
+  margin-top: -4px;
+}
+.char-create-btn {
+  padding: 14px 24px;
+  font-size: 15px;
+  font-weight: var(--fw-semi);
+  margin-top: 4px;
+  transition: all 0.2s;
+}
+.char-create-btn:not(:disabled):hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(212, 164, 55, 0.3);
+}

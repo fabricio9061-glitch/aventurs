@@ -67,7 +67,7 @@
         </div>
 
         <footer class="shell-footer">
-          <span class="version-pill">v1.6.1</span>
+          <span class="version-pill">v1.6.3</span>
         </footer>
       </div>
     `;
@@ -129,10 +129,10 @@
           <div class="bar bar-xp"><span style="width:${pct(p.xp, xpToNext)}%"></span></div>
 
           <div class="bar-row">
-            <span class="bar-label">Comida</span>
+            <span class="bar-label">Comida${A.Survival ? ` <span class="hunger-badge hunger-${A.Survival.getStatus().id}">${A.Survival.getStatus().label}</span>` : ''}</span>
             <span class="bar-val num">${p.food || 0}/${p.maxFood || 20}</span>
           </div>
-          <div class="bar bar-food"><span style="width:${pct(p.food || 0, p.maxFood || 20)}%"></span></div>
+          <div class="bar bar-food ${A.Survival ? 'hunger-' + A.Survival.getStatus().id : ''}"><span style="width:${pct(p.food || 0, p.maxFood || 20)}%"></span></div>
         </div>
 
         <div class="stat-grid">
@@ -514,6 +514,7 @@
     unsubscribers.push(A.Bus.on('view:changed', renderActiveView));
     unsubscribers.push(A.Bus.on('player:hp-changed', renderSidebar));
     unsubscribers.push(A.Bus.on('player:mana-changed', renderSidebar));
+    unsubscribers.push(A.Bus.on('player:food-changed', renderSidebar));
     unsubscribers.push(A.Bus.on('player:xp-changed', renderSidebar));
     unsubscribers.push(A.Bus.on('player:leveled', renderSidebar));
     unsubscribers.push(A.Bus.on('inventory:changed', renderSidebar));

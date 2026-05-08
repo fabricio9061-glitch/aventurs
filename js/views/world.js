@@ -400,20 +400,36 @@
       }
       // Descanso al raso: solo +50% HP, sin maná ni food
       const p = A.State.player;
-      const heal = Math.floor(p.maxHp / 2);
+      let healMult = 0.5;
+      // v1.6.2: si tenés hambre severa, no descansás bien
+      if (A.Survival) {
+        const status = A.Survival.getStatus();
+        if (status.penalties.restPenalty) {
+          healMult = status.id === 'starving' ? 0.1 : 0.25;
+        }
+      }
+      const heal = Math.floor(p.maxHp * healMult);
       const before = p.hp;
       A.State.healHp(heal);
       const recovered = p.hp - before;
-      A.State.addChronicle({
-        type: 'rest',
-        text: `Descansaste durante la noche. +${recovered} salud. (Para recuperar maná y comida, buscá una posada.)`,
-      });
+      let restNote = `Descansaste durante la noche. +${recovered} salud.`;
+      if (A.Survival && A.Survival.getStatus().penalties.restPenalty) {
+        restNote += ` Tu hambre te impide descansar bien.`;
+      }
+      A.State.addChronicle({ type: 'rest', text: restNote });
       // Avanzar el tiempo hasta la mañana del día siguiente
       if (A.Time) A.Time.passTo('day');
     } else if (action === 'explore') {
       const region = A.Data.getById('regions', A.State.world.regionId);
       // v1.5.9: explorar avanza 1 unidad de tiempo
       if (A.Time) A.Time.advance(1, 'explore');
+      // v1.6.2: explorar consume hambre cada 2 acciones (no cada acción)
+      if (A.Survival && A.State.player) {
+        A.State.player._exploreCounter = (A.State.player._exploreCounter || 0) + 1;
+        if (A.State.player._exploreCounter % 2 === 0) {
+          A.Survival.applyTurnTick('explore');
+        }
+      }
       // Primero probar eventos custom de la región
       if (region && Array.isArray(region.events) && region.events.length > 0) {
         for (const ev of region.events) {

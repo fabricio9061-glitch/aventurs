@@ -1738,7 +1738,13 @@
         const enemy = current.enemy;
 
         applyDropAction(enemy, action, itemId, chance);
-        // Re-render para reflejar cambios
+        // v1.6.3: feedback visual breve
+        const label = action === 'accept' ? '✓ Drop aceptado'
+                    : action === 'reject' ? '✕ Drop rechazado'
+                    : action === 'unreject' ? '↻ Drop restaurado'
+                    : action === 'remove-manual' ? 'Drop eliminado'
+                    : 'Acción aplicada';
+        showWizardToast(label, action === 'reject' || action === 'remove-manual' ? 'info' : 'success');
         renderAuditWizard();
       });
     });
@@ -1867,10 +1873,13 @@
     A.Data.saveOverrides(overrides);
     A.Data.init();
     dirty = true;
-    // Actualizar enemy referenciado en auditWizardState
+    // v1.6.3: SYNC reactivo completo (modelo + audit)
     const updated = A.Data.getById('enemies', enemy.id);
-    if (updated) {
+    if (updated && auditWizardState.items[auditWizardState.cursor]) {
       auditWizardState.items[auditWizardState.cursor].enemy = updated;
+      auditWizardState.items[auditWizardState.cursor].audit = A.AutoBalance.auditEnemyFull(updated);
+      auditWizardState.items[auditWizardState.cursor].issues =
+        auditWizardState.items[auditWizardState.cursor].audit.filter((a) => a.status !== 'ok');
     }
   }
 
@@ -1931,37 +1940,61 @@
     }
   }
 
+  /**
+   * v1.6.3: Aplica los stats sugeridos del enemigo actual.
+   * Reactivo: actualiza el modelo, recalcula la auditoría y re-renderiza.
+   * NO avanza cursor automáticamente — el usuario decide cuándo pasar al siguiente.
+   */
   function applyCurrentAudit() {
     const current = auditWizardState.items[auditWizardState.cursor];
     if (!current) return;
     const enemy = current.enemy;
     const sug = A.AutoBalance.suggestEnemyStats(enemy);
-    // Tomamos los campos desbalanceados (warning/critical) y los aplicamos
+
     const overrides = A.Data.getOverrides();
     overrides.enemies = overrides.enemies || [];
-    // Hacer una copia limpia del enemigo actual y aplicarle los cambios
     const idx = overrides.enemies.findIndex((e) => e.id === enemy.id);
     let target = idx >= 0 ? overrides.enemies[idx] : JSON.parse(JSON.stringify(enemy));
     delete target._source;
+
+    let appliedFields = 0;
     for (const a of current.audit) {
       if (a.status === 'ok') continue;
       const newVal = sug[a.field];
       if (newVal == null) continue;
       target[a.field] = newVal;
+      appliedFields++;
     }
+
+    if (appliedFields === 0) {
+      showWizardToast('Nada para aplicar — todos los stats ya están OK', 'info');
+      return;
+    }
+
     if (idx >= 0) overrides.enemies[idx] = target;
     else overrides.enemies.push(target);
+
     A.Data.saveOverrides(overrides);
     A.Data.init();
+
+    // v1.6.3: SYNC reactivo — re-leer enemigo, recalcular auditoría, re-renderizar
+    const updated = A.Data.getById('enemies', enemy.id);
+    if (updated) {
+      auditWizardState.items[auditWizardState.cursor].enemy = updated;
+      auditWizardState.items[auditWizardState.cursor].audit = A.AutoBalance.auditEnemyFull(updated);
+      auditWizardState.items[auditWizardState.cursor].issues =
+        auditWizardState.items[auditWizardState.cursor].audit.filter((a) => a.status !== 'ok');
+    }
+
     auditWizardState.appliedCount++;
-    auditWizardState.cursor++;
     dirty = true;
     renderAuditWizard();
+    showWizardToast(`✓ ${appliedFields} stat${appliedFields > 1 ? 's' : ''} aplicado${appliedFields > 1 ? 's' : ''}`, 'success');
   }
 
   /**
-   * v1.6.1: Acepta todos los drops sugeridos del enemigo actual sin tocar stats.
-   * Toma cada sugerencia activa (no rechazada) y la agrega como drop con qty default.
+   * v1.6.3: Acepta todos los drops sugeridos del enemigo actual.
+   * Reactivo: actualiza, recalcula, re-renderiza, feedback visual.
    */
   function acceptAllDropsForCurrentAudit() {
     const current = auditWizardState.items[auditWizardState.cursor];
@@ -1970,13 +2003,16 @@
     if (!A.LootIntelligence) return;
     const suggested = A.LootIntelligence.suggestDrops(enemy);
     if (!suggested || suggested.length === 0) {
-      alert('No hay sugerencias de drops para este enemigo.');
+      showWizardToast('No hay sugerencias de drops para este enemigo', 'info');
       return;
     }
     const rejected = new Set(enemy.dropsBlacklist || []);
-    const validSug = suggested.filter((s) => !rejected.has(s.itemId));
+    const existingDropIds = new Set((enemy.drops || []).map((d) => d.itemId));
+    const validSug = suggested.filter((s) =>
+      !rejected.has(s.itemId) && !existingDropIds.has(s.itemId)
+    );
     if (validSug.length === 0) {
-      alert('Todas las sugerencias están rechazadas para este enemigo.');
+      showWizardToast('Ya tenés todas las sugerencias aceptadas o rechazadas', 'info');
       return;
     }
 
@@ -1989,30 +2025,59 @@
 
     let added = 0;
     for (const s of validSug) {
-      // No duplicar si ya existe el drop
-      if (target.drops.some((d) => d.itemId === s.itemId)) continue;
-      // Leer override de qty desde el wizard si lo modificó
-      const wizardQtyMin = auditWizardState.dropQty && auditWizardState.dropQty[enemy.id] && auditWizardState.dropQty[enemy.id][s.itemId] && auditWizardState.dropQty[enemy.id][s.itemId].min;
-      const wizardQtyMax = auditWizardState.dropQty && auditWizardState.dropQty[enemy.id] && auditWizardState.dropQty[enemy.id][s.itemId] && auditWizardState.dropQty[enemy.id][s.itemId].max;
+      const wizardQty = (auditWizardState.dropQty && auditWizardState.dropQty[enemy.id] && auditWizardState.dropQty[enemy.id][s.itemId]) || {};
       target.drops.push({
         itemId: s.itemId,
         chance: s.chance || 0.3,
-        qtyMin: wizardQtyMin || s.qtyMin || 1,
-        qtyMax: wizardQtyMax || s.qtyMax || 1,
+        qtyMin: wizardQty.min || s.qtyMin || 1,
+        qtyMax: wizardQty.max || s.qtyMax || 1,
         source: 'auto',
       });
       added++;
     }
-    if (added === 0) {
-      alert('Todas las sugerencias ya estaban aceptadas.');
-      return;
-    }
+
     if (idx >= 0) overrides.enemies[idx] = target;
     else overrides.enemies.push(target);
     A.Data.saveOverrides(overrides);
     A.Data.init();
+
+    // v1.6.3: SYNC reactivo
+    const updated = A.Data.getById('enemies', enemy.id);
+    if (updated) {
+      auditWizardState.items[auditWizardState.cursor].enemy = updated;
+      auditWizardState.items[auditWizardState.cursor].audit = A.AutoBalance.auditEnemyFull(updated);
+      auditWizardState.items[auditWizardState.cursor].issues =
+        auditWizardState.items[auditWizardState.cursor].audit.filter((a) => a.status !== 'ok');
+    }
+
     dirty = true;
     renderAuditWizard();
+    showWizardToast(`✓ ${added} drop${added > 1 ? 's' : ''} aceptado${added > 1 ? 's' : ''}`, 'success');
+  }
+
+  /**
+   * v1.6.3: Toast flotante para feedback del wizard de auditoría.
+   * Aparece arriba a la derecha, desaparece después de 2.5s.
+   */
+  function showWizardToast(text, type) {
+    type = type || 'info';
+    let toastWrap = document.getElementById('audit-toast-wrap');
+    if (!toastWrap) {
+      toastWrap = document.createElement('div');
+      toastWrap.id = 'audit-toast-wrap';
+      document.body.appendChild(toastWrap);
+    }
+    const toast = document.createElement('div');
+    toast.className = `audit-toast audit-toast-${type}`;
+    toast.textContent = text;
+    toastWrap.appendChild(toast);
+    // Forzar reflow para animación
+    toast.offsetHeight;
+    toast.classList.add('is-visible');
+    setTimeout(() => {
+      toast.classList.remove('is-visible');
+      setTimeout(() => toast.remove(), 300);
+    }, 2500);
   }
 
   // ============================================================

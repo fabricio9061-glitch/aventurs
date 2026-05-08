@@ -149,32 +149,43 @@
     const baseSpeed = p.stats.speed || 10;
     const effSpeed = A.Combat.effectivePlayerSpeed ? A.Combat.effectivePlayerSpeed(p) : baseSpeed;
     const speedDelta = effSpeed - baseSpeed;
-    const speedLabel = speedDelta < 0 ? `${effSpeed} <span class="log-faint">(${baseSpeed}${speedDelta})</span>` : `${effSpeed}`;
+    const speedLabel = speedDelta < 0 ? `${effSpeed}<span class="ally-stat-delta">${speedDelta}</span>` : `${effSpeed}`;
+    const xpToNext = 50 * (p.level + 1) * (p.level + 1);
 
     return `
-      <div class="combat-card combat-card-player ${isActive ? 'is-active' : ''}">
-        <div class="combat-card-icon">${race ? race.icon : '👤'}</div>
-        <div class="combat-card-name">${A.Utils.escapeHtml(p.name)}</div>
-        <div class="combat-card-meta dim">${race ? race.name : ''} · Nv ${p.level}</div>
-
-        <div class="combat-card-hp">
-          <div class="bar bar-hp"><span style="width:${pct(p.hp, p.maxHp)}%"></span></div>
-          <div class="combat-card-hp-text num">❤ ${p.hp}/${p.maxHp}</div>
-        </div>
-        ${p.hasMagic ? `
-          <div class="combat-card-mana">
-            <div class="bar bar-mana"><span style="width:${pct(p.mana, p.maxMana)}%"></span></div>
-            <div class="combat-card-mana-text num">✦ ${p.mana}/${p.maxMana}</div>
+      <div class="ally-card player-card ${isActive ? 'is-active' : ''}">
+        <div class="ally-card-header">
+          <span class="ally-card-icon">${race ? race.icon : '👤'}</span>
+          <div class="ally-card-id">
+            <div class="ally-card-name">${A.Utils.escapeHtml(p.name)}</div>
+            <div class="ally-card-meta dim">${race ? race.name : ''} · Nv ${p.level}</div>
           </div>
-        ` : ''}
-
+        </div>
+        <div class="ally-card-bars">
+          <div class="bar-row">
+            <span class="bar-label">Salud</span>
+            <span class="bar-val num">${p.hp}/${p.maxHp}</span>
+          </div>
+          <div class="bar bar-hp"><span style="width:${pct(p.hp, p.maxHp)}%"></span></div>
+          ${p.hasMagic ? `
+            <div class="bar-row">
+              <span class="bar-label">Maná</span>
+              <span class="bar-val num">${p.mana}/${p.maxMana}</span>
+            </div>
+            <div class="bar bar-mana"><span style="width:${pct(p.mana, p.maxMana)}%"></span></div>
+          ` : ''}
+          <div class="bar-row">
+            <span class="bar-label">XP</span>
+            <span class="bar-val num">${p.xp}/${xpToNext}</span>
+          </div>
+          <div class="bar bar-xp"><span style="width:${pct(p.xp, xpToNext)}%"></span></div>
+        </div>
         ${renderEffectsBadges(p.effects)}
-
-        <div class="combat-card-stats">
-          <div class="card-stat" title="Daño del arma">⚔️ ${dmgStr}${p.stats.damage ? `+${p.stats.damage}` : ''}</div>
-          <div class="card-stat" title="Armadura (reduce daño recibido)">🛡️ ${totalArmor}</div>
-          <div class="card-stat" title="Velocidad efectiva (con peso del equipo)">⚡ ${speedLabel}</div>
-          <div class="card-stat" title="Esquiva: tirás D20+${Math.floor((p.stats.dodge || 0) / 2)} ≥ 12 al ser atacado">💨 ${p.stats.dodge || 0}</div>
+        <div class="ally-card-stats">
+          <span class="ally-stat" title="Daño del arma${p.stats.damage ? ' + bonus' : ''}"><span class="dim">DMG</span> <span class="num">${dmgStr}${p.stats.damage ? `+${p.stats.damage}` : ''}</span></span>
+          <span class="ally-stat" title="Armadura"><span class="dim">ARM</span> <span class="num">${totalArmor}</span></span>
+          <span class="ally-stat" title="Velocidad"><span class="dim">VEL</span> <span class="num">${speedLabel}</span></span>
+          <span class="ally-stat" title="Esquiva"><span class="dim">ESQ</span> <span class="num">${p.stats.dodge || 0}</span></span>
         </div>
       </div>
     `;
@@ -182,31 +193,33 @@
 
   function renderEnemyCard(e, isTarget, isActive) {
     const dead = e.hp <= 0;
-    const cls = `combat-card combat-card-enemy ${isTarget && !dead ? 'is-target' : ''} ${isActive ? 'is-active' : ''} ${dead ? 'is-dead' : ''}`;
-    // Usar el damage de la instancia (con arma equipada si la tiene), no del seed
+    const cls = `ally-card enemy-card ${isTarget && !dead ? 'is-target' : ''} ${isActive ? 'is-active' : ''} ${dead ? 'is-dead' : ''}`;
     const damageStr = `${e.damage}`;
     const weapon = e.equippedWeapon ? A.Data.getById('weapons', e.equippedWeapon) : null;
 
     return `
-      <button class="${cls}" data-target="${A.Utils.escapeHtml(e.instanceId)}" ${dead ? 'disabled' : ''}>
-        <div class="combat-card-icon">${e.icon || '👹'}</div>
-        <div class="combat-card-name">${A.Utils.escapeHtml(e.displayName)}</div>
-        <div class="combat-card-meta dim">T${e.tier} · ${categoryLabel(e.category)}${weapon ? ` · ${weapon.icon || '⚔️'}` : ''}</div>
-
-        <div class="combat-card-hp">
+      <button type="button" class="${cls}" data-target="${A.Utils.escapeHtml(e.instanceId)}" ${dead ? 'disabled' : ''}>
+        <div class="ally-card-header">
+          <span class="ally-card-icon">${e.icon || '👹'}</span>
+          <div class="ally-card-id">
+            <div class="ally-card-name">${A.Utils.escapeHtml(e.displayName)}</div>
+            <div class="ally-card-meta dim">T${e.tier} · ${categoryLabel(e.category)}${weapon ? ` · ${weapon.icon || '⚔️'}` : ''}</div>
+          </div>
+        </div>
+        <div class="ally-card-bars">
+          <div class="bar-row">
+            <span class="bar-label">Salud</span>
+            <span class="bar-val num">${e.hp}/${e.maxHp}</span>
+          </div>
           <div class="bar bar-enemy-hp"><span style="width:${pct(e.hp, e.maxHp)}%"></span></div>
-          <div class="combat-card-hp-text num">❤ ${e.hp}/${e.maxHp}</div>
         </div>
-
         ${renderEffectsBadges(e.effects)}
-
-        <div class="combat-card-stats">
-          <div class="card-stat" title="Daño">⚔️ ${damageStr}</div>
-          <div class="card-stat" title="Armadura (reduce daño recibido)">🛡️ ${e.armor || 0}</div>
-          <div class="card-stat" title="Velocidad">⚡ ${e.speed || 0}</div>
-          <div class="card-stat" title="Esquiva: tira D20+${Math.floor((e.dodge || 0) / 2)} ≥ 12 al ser atacado">💨 ${e.dodge || 0}</div>
+        <div class="ally-card-stats">
+          <span class="ally-stat" title="Daño"><span class="dim">DMG</span> <span class="num">${damageStr}</span></span>
+          <span class="ally-stat" title="Armadura"><span class="dim">ARM</span> <span class="num">${e.armor || 0}</span></span>
+          <span class="ally-stat" title="Velocidad"><span class="dim">VEL</span> <span class="num">${e.speed || 0}</span></span>
+          <span class="ally-stat" title="Esquiva"><span class="dim">ESQ</span> <span class="num">${e.dodge || 0}</span></span>
         </div>
-
         ${dead ? `<div class="combat-card-dead-tag">caído</div>` : ''}
       </button>
     `;

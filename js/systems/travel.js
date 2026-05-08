@@ -82,6 +82,60 @@
    * Inicia viaje a targetId.
    * Devuelve { ok: bool, error?: string, traveling? }
    */
+  /**
+   * v1.6.2: Calcula pasos dinámicos según múltiples factores:
+   * - distance del destino (1-5)
+   * - tipo de bioma del target (montaña, volcán = más lento)
+   * - peso de la mochila / cantidad de items
+   * - velocidad del personaje (más rápido = menos pasos)
+   *
+   * Devuelve un número de pasos balanceado, pero ya no "fijo a 4".
+   */
+  function calculateTravelSteps(target) {
+    const distance = clamp(target.distance || 1, 1, 5);
+    // Base: distancia × 4 (antes era ×2). Distancia 1 = 4 pasos, 5 = 20.
+    let steps = distance * 4;
+
+    // Modificador por bioma del destino
+    const biome = target.biome || '';
+    const biomeStr = Array.isArray(biome) ? biome.join(',') : String(biome);
+    if (/montaña|mountain|volcán|volcano|nieve|snow/.test(biomeStr.toLowerCase())) {
+      steps += distance * 2; // montañas son lentas
+    } else if (/desierto|desert|pantano|swamp/.test(biomeStr.toLowerCase())) {
+      steps += distance; // desiertos/pantanos algo lentos
+    } else if (/camino|road|llanura|plains/.test(biomeStr.toLowerCase())) {
+      steps -= 1; // caminos son más rápidos
+    }
+
+    // Modificador por tier (zonas de mayor tier = más peligrosas/lejanas)
+    const tier = Array.isArray(target.tier) ? target.tier[0] : (target.tier || 1);
+    if (tier >= 5) steps += 4;
+    else if (tier >= 3) steps += 2;
+
+    // Modificador por peso de la mochila
+    const player = A.State && A.State.player;
+    if (player && Array.isArray(player.inventory)) {
+      const usedSlots = A.State.inventoryUsedSlots ? A.State.inventoryUsedSlots() : player.inventory.length;
+      const bag = A.Data.getById('bags', player.bagId || 'bag_basic');
+      const totalSlots = bag ? bag.slots : 10;
+      const fillPct = (usedSlots / totalSlots) * 100;
+      if (fillPct >= 90) steps += 3;       // muy cargado
+      else if (fillPct >= 70) steps += 2;
+      else if (fillPct >= 50) steps += 1;
+    }
+
+    // Modificador por velocidad del jugador
+    if (player && player.stats && player.stats.speed) {
+      const speed = player.stats.speed;
+      if (speed >= 18) steps -= 2;        // muy rápido
+      else if (speed >= 14) steps -= 1;
+      else if (speed <= 6) steps += 2;    // muy lento
+    }
+
+    // Clamp al final: mínimo 3, máximo 60
+    return Math.max(3, Math.min(60, steps));
+  }
+
   function start(targetId) {
     if (!canTravelTo(targetId)) {
       return { ok: false, error: 'No se puede viajar a esa región desde aquí.' };
@@ -89,7 +143,8 @@
     const target = A.Data.getById('regions', targetId);
     if (!target) return { ok: false, error: 'Región inválida.' };
 
-    const totalSteps = clamp(target.distance || 1, 1, 3) * 2 + 2; // 4..8 pasos según distancia
+    // v1.6.2: pasos dinámicos según factores
+    const totalSteps = calculateTravelSteps(target);
     const fromId = State().world.regionId;
 
     State().traveling = {
@@ -105,7 +160,7 @@
     A.Bus.emit('travel:started', { fromId, toId: targetId, totalSteps });
     A.State.addChronicle({
       type: 'travel',
-      text: `Partiste hacia ${target.name}.`,
+      text: `Partiste hacia ${target.name}. (${totalSteps} pasos estimados)`,
     });
     return { ok: true, traveling: State().traveling };
   }
@@ -123,14 +178,18 @@
     // Consumir food por paso
     A.State.consumeFoodForStep();
 
-    // Si murió de hambre/HP=0 mientras viajaba
+    // v1.6.2: Si murió de hambre o HP=0 mientras viajaba, MUERTE REAL.
+    // No más teleport al pueblo. La crónica ya se generó por Survival.
     if (State().player.hp <= 0) {
-      // Volver al pueblo, no perder progreso
       State().traveling = null;
-      State().player.hp = 1;
-      State().setRegion('pueblo_inicial');
-      A.State.addChronicle({ type: 'note', text: 'Te encontraron desmayado en el camino. Te llevaron al pueblo.' });
-      return { ok: false, error: 'Caíste en el camino.' };
+      // El evento player:died-starvation o player:died ya se emitió por Survival.
+      // Si el HP llegó a 0 sin estar en starvation, igual disparar muerte normal.
+      if (A.Survival && A.Survival.getStatus().id === 'starving') {
+        // Survival.deathByStarvation() ya disparó player:died-starvation
+      } else {
+        A.Bus.emit('player:died', { cause: 'travel-injury' });
+      }
+      return { ok: false, error: 'Caíste en el camino.', died: true };
     }
 
     // Si es el último paso, no resolvemos evento (paso final = llegar)

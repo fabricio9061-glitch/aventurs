@@ -438,14 +438,19 @@
 
     /**
      * Aplica el desgaste de food por viaje. Si llegó a 0, perder HP.
+     * v1.6.2: ahora usa Survival.applyTurnTick si está disponible.
      */
     consumeFoodForStep() {
       if (!State.player) return;
+      if (A.Survival && typeof A.Survival.applyTurnTick === 'function') {
+        A.Survival.applyTurnTick('travel-step');
+        return;
+      }
+      // Fallback legacy si Survival no está cargado
       if (State.player.food > 0) {
         State.player.food -= 1;
         A.Bus.emit('player:food-changed', { food: State.player.food });
       } else {
-        // Hambriento: pierde 1 HP por paso
         const hpLost = 1;
         State.player.hp = Math.max(0, State.player.hp - hpLost);
         A.Bus.emit('player:hp-changed', { current: State.player.hp });
