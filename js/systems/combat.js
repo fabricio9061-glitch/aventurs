@@ -958,22 +958,23 @@
     for (const inst of c.enemies) {
       const enemyData = A.Data.getById('enemies', inst.id);
       if (!enemyData) continue;
-      if (enemyData.coinLoot) {
-        const [min, max] = enemyData.coinLoot;
-        const coins = min + Math.floor(Math.random() * (max - min + 1));
-        if (coins > 0) totalCoins += coins;
-      }
+      // v1.6.1: coinLoot ya fue migrado a drops como coin_copper en Data.init().
+      // Solo procesamos drops unificados.
       for (const d of enemyData.drops || []) {
         if (Math.random() < (d.chance || 0)) {
-          // v1.6.0: cantidad random entre qtyMin y qtyMax (default 1-1)
           const qMin = Math.max(1, d.qtyMin || 1);
           const qMax = Math.max(qMin, d.qtyMax || qMin);
           const dropQty = qMin + Math.floor(Math.random() * (qMax - qMin + 1));
+          // Si el drop es un coin_copper, contabilizar como totalCoins
+          // (la moneda igual entra al inventario, pero la línea queda más prolija)
+          if (d.itemId === 'coin_copper') {
+            totalCoins += dropQty;
+          }
           const ok = A.State.addItem(d.itemId, dropQty);
           const item = A.Data.getById('items', d.itemId)
                     || A.Data.getById('weapons', d.itemId)
                     || A.Data.getById('armors', d.itemId);
-          if (ok && item) {
+          if (ok && item && d.itemId !== 'coin_copper') {
             if (!aggregatedDrops[d.itemId]) aggregatedDrops[d.itemId] = { item, qty: 0 };
             aggregatedDrops[d.itemId].qty += dropQty;
           } else if (!ok) {
@@ -983,7 +984,8 @@
       }
     }
     if (totalCoins > 0) {
-      A.Currency.add(totalCoins);
+      // v1.6.1: el coin_copper ya entró al inventario vía addItem (es un drop normal).
+      // Solo logeamos para el feedback del jugador.
       addLog(c, 'loot', { text: `Recogiste ${A.Currency.formatPrice(totalCoins)}.` });
     }
     // Mostrar drops agregados como una sola línea

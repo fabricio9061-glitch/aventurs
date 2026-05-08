@@ -50,6 +50,63 @@
       if (totalOverrides > 0) {
         console.log('[Data] Overrides activos:', overrideCounts);
       }
+
+      // v1.6.1: migración coinLoot → drop coin_copper
+      // Cada enemigo con coinLoot:[min,max] se convierte en un drop:
+      //   { itemId: 'coin_copper', qtyMin, qtyMax, chance: 1.0, source: 'auto' }
+      // y coinLoot se elimina. Si el enemigo es del editor (override), se
+      // persiste el cambio. Si es del seed, solo aplica en runtime.
+      let migrated = 0;
+      for (const en of Data.enemies) {
+        if (!en.coinLoot) continue;
+        if (!Array.isArray(en.coinLoot) || en.coinLoot.length < 2) continue;
+        const [cMin, cMax] = en.coinLoot;
+        if (cMax <= 0) { delete en.coinLoot; continue; }
+        en.drops = en.drops || [];
+        // No duplicar si ya existe un drop coin_copper migrado
+        const hasCoin = en.drops.some((d) => d.itemId === 'coin_copper' && d._migratedFromCoinLoot);
+        if (!hasCoin) {
+          en.drops.push({
+            itemId: 'coin_copper',
+            qtyMin: cMin,
+            qtyMax: cMax,
+            chance: 1.0,
+            source: 'auto',
+            _migratedFromCoinLoot: true,
+          });
+          migrated++;
+        }
+        delete en.coinLoot;
+      }
+
+      // Persistir migración en overrides para enemigos editados (si tenían coinLoot)
+      if (migrated > 0) {
+        try {
+          const ov = Data._loadOverrides();
+          let ovChanged = false;
+          for (const en of (ov.enemies || [])) {
+            if (en.coinLoot) {
+              const [cMin, cMax] = en.coinLoot;
+              en.drops = en.drops || [];
+              const hasCoin = en.drops.some((d) => d.itemId === 'coin_copper' && d._migratedFromCoinLoot);
+              if (!hasCoin && cMax > 0) {
+                en.drops.push({
+                  itemId: 'coin_copper',
+                  qtyMin: cMin,
+                  qtyMax: cMax,
+                  chance: 1.0,
+                  source: 'auto',
+                  _migratedFromCoinLoot: true,
+                });
+              }
+              delete en.coinLoot;
+              ovChanged = true;
+            }
+          }
+          if (ovChanged) Data.saveOverrides(ov);
+        } catch (e) { console.warn('[Data] Error persistiendo migración coinLoot:', e); }
+        console.log(`[Data] Migrados ${migrated} enemigos: coinLoot → drops coin_copper`);
+      }
     },
 
     /**

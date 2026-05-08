@@ -318,7 +318,7 @@
         return { ...base, type: 'item', subtype: 'misc', icon: '📦', value: 5, weight: 0, description: '' };
       case 'enemies':
         return { ...base, icon: '👹', family: ['humanoid'], category: 'normal', tier: 1, tags: [], biome: ['plains'],
-                 health: 10, damage: 2, difficulty: 8, armor: 0, speed: 8, coinLoot: [0, 5], drops: [], regions: [],
+                 health: 10, damage: 2, difficulty: 8, armor: 0, speed: 8, drops: [], regions: [],
                  spawn: { min: 1, max: 1, weight: 1.0, groupable: true },
                  tameable: false, tameItem: '', autoLoot: true };
       case 'npcs':
@@ -993,8 +993,6 @@
       row('Armadura', inp('armor', e.armor, 'number')),
       row('Velocidad', inp('speed', e.speed, 'number')),
       row('Esquiva', inp('dodge', e.dodge ?? Math.max(0, Math.floor((e.speed || 10) / 4)), 'number')),
-      row('Loot mínimo (cobre)', inp('coinLoot.0', (e.coinLoot||[0,0])[0], 'number')),
-      row('Loot máximo (cobre)', inp('coinLoot.1', (e.coinLoot||[0,0])[1], 'number')),
       row('Regiones', tagsField('regions', e.regions, 'regions', 'Buscar región...')),
       row('Spawn min (por encuentro)', inp('spawn.min', (e.spawn||{}).min ?? 1, 'number', 'min="1" max="8"')),
       row('Spawn max (por encuentro)', inp('spawn.max', (e.spawn||{}).max ?? 1, 'number', 'min="1" max="8"')),
@@ -1405,6 +1403,7 @@
     cursor: 0,     // índice actual en items
     appliedCount: 0,
     skippedCount: 0,
+    dropQty: {},   // v1.6.1: { enemyId: { itemId: { min, max } } } - overrides de qty antes de aceptar
   };
 
   function openAuditWizard() {
@@ -1424,6 +1423,7 @@
       cursor: 0,
       appliedCount: 0,
       skippedCount: 0,
+      dropQty: {},
     };
     renderAuditWizard();
   }
@@ -1607,12 +1607,21 @@
                   (item.type === 'weapon' ? '<span class="drop-kind-badge drop-kind-weapon" title="Arma">⚔️</span>'
                   : item.type === 'armor' ? '<span class="drop-kind-badge drop-kind-armor" title="Armadura">🛡️</span>'
                   : '') : '';
+                // v1.6.1: qty editable antes de aceptar
+                const qtyOverride = (auditWizardState.dropQty && auditWizardState.dropQty[enemy.id] && auditWizardState.dropQty[enemy.id][d.itemId]) || {};
+                const qtyMin = qtyOverride.min || d.qtyMin || 1;
+                const qtyMax = qtyOverride.max || d.qtyMax || 1;
                 return `
                   <div class="drop-row-v2 is-suggested">
                     <span class="drop-row-icon">${icon}</span>
                     <div class="drop-row-info">
                       <div class="drop-row-name">${A.Utils.escapeHtml(name)} ${kindBadge}</div>
                       <div class="drop-row-meta dim">${A.Utils.escapeHtml(d.reason)}</div>
+                    </div>
+                    <div class="drop-row-qty" title="Cantidad min – max">
+                      <input class="form-input drop-qty-input" data-wizard-sug-qty="min" data-sug-itemid="${A.Utils.escapeHtml(d.itemId)}" type="number" min="1" max="99" step="1" value="${qtyMin}" title="Cantidad mínima">
+                      <span class="drop-qty-sep">–</span>
+                      <input class="form-input drop-qty-input" data-wizard-sug-qty="max" data-sug-itemid="${A.Utils.escapeHtml(d.itemId)}" type="number" min="1" max="99" step="1" value="${qtyMax}" title="Cantidad máxima">
                     </div>
                     <div class="drop-row-chance-display">
                       <span class="num">${Math.round(d.chance * 100)}%</span>
@@ -1666,7 +1675,8 @@
           <button class="btn-secondary" data-audit-action="prev" ${cursor === 0 ? 'disabled' : ''}>← Anterior</button>
           <button class="btn-secondary" data-audit-action="next" ${cursor >= auditWizardState.items.length - 1 ? 'disabled' : ''}>Siguiente →</button>
           <button class="btn-secondary" data-audit-action="skip" title="Saltar este sin cambios y pasar al siguiente">Saltar</button>
-          <button class="btn-primary" data-audit-action="apply">✓ Aplicar todos los sugeridos</button>
+          <button class="btn-secondary" data-audit-action="accept-all-drops" title="Aceptar todas las sugerencias de loot sin tocar stats">✓ Drops sugeridos</button>
+          <button class="btn-primary" data-audit-action="apply" title="Aplicar todos los stats sugeridos (no incluye drops)">✓ Stats sugeridos</button>
           <button class="btn-ghost" data-audit-close>Cerrar</button>
         </footer>
       </div>
@@ -1691,8 +1701,16 @@
             auditWizardState.cursor--;
             renderAuditWizard();
           }
+        } else if (a === 'next') {
+          if (auditWizardState.cursor < auditWizardState.items.length - 1) {
+            auditWizardState.cursor++;
+            renderAuditWizard();
+          }
         } else if (a === 'apply') {
           applyCurrentAudit();
+        } else if (a === 'accept-all-drops') {
+          // v1.6.1: aceptar todos los drops sugeridos del enemigo actual
+          acceptAllDropsForCurrentAudit();
         }
       });
     });
@@ -1736,6 +1754,28 @@
         const enemy = current.enemy;
         // Actualizar drop manual con nueva chance
         applyDropChanceChange(enemy, itemId, newChance);
+        // No re-render para no perder foco
+      });
+    });
+
+    // v1.6.1: bind para qty editable de sugerencias (antes de aceptar)
+    overlay.querySelectorAll('[data-wizard-sug-qty]').forEach((input) => {
+      input.addEventListener('change', (ev) => {
+        const which = input.dataset.wizardSugQty; // 'min' o 'max'
+        const itemId = input.dataset.sugItemid;
+        const val = Math.max(1, Math.min(99, parseInt(input.value, 10) || 1));
+        const current = auditWizardState.items[auditWizardState.cursor];
+        if (!current) return;
+        const enemyId = current.enemy.id;
+        auditWizardState.dropQty[enemyId] = auditWizardState.dropQty[enemyId] || {};
+        auditWizardState.dropQty[enemyId][itemId] = auditWizardState.dropQty[enemyId][itemId] || {};
+        auditWizardState.dropQty[enemyId][itemId][which] = val;
+        // Asegurar que qtyMax >= qtyMin
+        const o = auditWizardState.dropQty[enemyId][itemId];
+        if (o.min && o.max && o.min > o.max) {
+          if (which === 'min') o.max = o.min;
+          else o.min = o.max;
+        }
         // No re-render para no perder foco
       });
     });
@@ -1802,7 +1842,15 @@
       target.dropsBlacklist = target.dropsBlacklist.filter((id) => id !== itemId);
       // Si ya está en drops, no duplicar
       if (!target.drops.some((d) => d.itemId === itemId)) {
-        target.drops.push({ itemId, chance, source: 'auto' });
+        // v1.6.1: usar qty editado en wizard si existe
+        const qOv = (auditWizardState.dropQty && auditWizardState.dropQty[enemy.id] && auditWizardState.dropQty[enemy.id][itemId]) || {};
+        target.drops.push({
+          itemId,
+          chance,
+          qtyMin: qOv.min || 1,
+          qtyMax: qOv.max || qOv.min || 1,
+          source: 'auto',
+        });
       }
     } else if (action === 'reject') {
       if (!target.dropsBlacklist.includes(itemId)) {
@@ -1907,6 +1955,62 @@
     A.Data.init();
     auditWizardState.appliedCount++;
     auditWizardState.cursor++;
+    dirty = true;
+    renderAuditWizard();
+  }
+
+  /**
+   * v1.6.1: Acepta todos los drops sugeridos del enemigo actual sin tocar stats.
+   * Toma cada sugerencia activa (no rechazada) y la agrega como drop con qty default.
+   */
+  function acceptAllDropsForCurrentAudit() {
+    const current = auditWizardState.items[auditWizardState.cursor];
+    if (!current) return;
+    const enemy = current.enemy;
+    if (!A.LootIntelligence) return;
+    const suggested = A.LootIntelligence.suggestDrops(enemy);
+    if (!suggested || suggested.length === 0) {
+      alert('No hay sugerencias de drops para este enemigo.');
+      return;
+    }
+    const rejected = new Set(enemy.dropsBlacklist || []);
+    const validSug = suggested.filter((s) => !rejected.has(s.itemId));
+    if (validSug.length === 0) {
+      alert('Todas las sugerencias están rechazadas para este enemigo.');
+      return;
+    }
+
+    const overrides = A.Data.getOverrides();
+    overrides.enemies = overrides.enemies || [];
+    const idx = overrides.enemies.findIndex((e) => e.id === enemy.id);
+    let target = idx >= 0 ? overrides.enemies[idx] : JSON.parse(JSON.stringify(enemy));
+    delete target._source;
+    target.drops = target.drops || [];
+
+    let added = 0;
+    for (const s of validSug) {
+      // No duplicar si ya existe el drop
+      if (target.drops.some((d) => d.itemId === s.itemId)) continue;
+      // Leer override de qty desde el wizard si lo modificó
+      const wizardQtyMin = auditWizardState.dropQty && auditWizardState.dropQty[enemy.id] && auditWizardState.dropQty[enemy.id][s.itemId] && auditWizardState.dropQty[enemy.id][s.itemId].min;
+      const wizardQtyMax = auditWizardState.dropQty && auditWizardState.dropQty[enemy.id] && auditWizardState.dropQty[enemy.id][s.itemId] && auditWizardState.dropQty[enemy.id][s.itemId].max;
+      target.drops.push({
+        itemId: s.itemId,
+        chance: s.chance || 0.3,
+        qtyMin: wizardQtyMin || s.qtyMin || 1,
+        qtyMax: wizardQtyMax || s.qtyMax || 1,
+        source: 'auto',
+      });
+      added++;
+    }
+    if (added === 0) {
+      alert('Todas las sugerencias ya estaban aceptadas.');
+      return;
+    }
+    if (idx >= 0) overrides.enemies[idx] = target;
+    else overrides.enemies.push(target);
+    A.Data.saveOverrides(overrides);
+    A.Data.init();
     dirty = true;
     renderAuditWizard();
   }

@@ -198,36 +198,75 @@
     let applied = false;
     let chronicleText = '';
 
-    switch (ef.type) {
-      case 'heal': {
-        const amount = A.Utils.rollDice(ef.amount);
-        A.State.healHp(amount);
-        chronicleText = `Usaste ${item.name} y recuperaste ${amount} de salud.`;
-        applied = true;
-        break;
+    // v1.6.1: Item puede tener efectos combinados (food + heal)
+    // El consumo aplica TODOS los efectos del item simultáneamente.
+    // Los items declaran sus efectos en `effect: { type, amount, heal, hungerRestore, manaRestore }`
+    // o el item tiene los campos directos `healAmount`, `hungerRestore`, `foodValue`, `manaRestore`.
+    const effects = [];
+
+    // 1. Curación de HP — múltiples fuentes posibles
+    let healAmount = 0;
+    if (ef.type === 'heal') healAmount += A.Utils.rollDice(ef.amount);
+    if (ef.heal) healAmount += A.Utils.rollDice(ef.heal);
+    if (item.healAmount) healAmount += item.healAmount;
+
+    // 2. Restauración de comida
+    let hungerAmount = 0;
+    if (ef.type === 'food') hungerAmount += ef.amount || ef.hungerRestore || 0;
+    if (ef.hungerRestore) hungerAmount += ef.hungerRestore;
+    if (item.hungerRestore) hungerAmount += item.hungerRestore;
+    // foodValue del seed (carnes, pan, frutas) suma directo al hunger
+    if (item.foodValue) hungerAmount += item.foodValue;
+
+    // 3. Restauración de maná
+    let manaAmount = 0;
+    if (ef.type === 'mana') manaAmount += A.Utils.rollDice(ef.amount);
+    if (ef.manaRestore) manaAmount += A.Utils.rollDice(ef.manaRestore);
+
+    // Aplicar
+    if (healAmount > 0) {
+      const before = p.hp;
+      A.State.healHp(healAmount);
+      const recovered = p.hp - before;
+      if (recovered > 0) effects.push(`+${recovered} salud`);
+    }
+    if (hungerAmount > 0) {
+      const before = p.food || 0;
+      const maxFood = p.maxFood || 100;
+      p.food = Math.min(maxFood, before + hungerAmount);
+      const restored = p.food - before;
+      if (restored > 0) effects.push(`+${restored} comida`);
+      A.Bus.emit('player:food-changed', { current: p.food, max: maxFood });
+    }
+    if (manaAmount > 0) {
+      const before = p.mana || 0;
+      A.State.setMana(before + manaAmount);
+      const recovered = p.mana - before;
+      if (recovered > 0) effects.push(`+${recovered} maná`);
+    }
+
+    if (effects.length > 0) {
+      chronicleText = `Usaste ${item.name}: ${effects.join(', ')}.`;
+      applied = true;
+    } else {
+      // Casos especiales que no tocan stats numéricos
+      switch (ef.type) {
+        case 'cure':
+        case 'buff':
+        case 'escape':
+          chronicleText = `Usaste ${item.name}. (efecto disponible en combate)`;
+          applied = true;
+          break;
+        default:
+          // Si no aplicó nada, intentar warning
+          if (item.subtype === 'food' && (p.food || 0) >= (p.maxFood || 100)) {
+            chronicleText = `${item.name}: ya estás saciado, no podés comer más.`;
+            return false;
+          } else if (item.subtype === 'potion' && p.hp >= p.maxHp) {
+            chronicleText = `${item.name}: ya estás con salud completa.`;
+            return false;
+          }
       }
-      case 'mana': {
-        const amount = A.Utils.rollDice(ef.amount);
-        A.State.setMana(p.mana + amount);
-        chronicleText = `Usaste ${item.name} y recuperaste ${amount} de maná.`;
-        applied = true;
-        break;
-      }
-      case 'food': {
-        A.State.healHp(ef.amount || 1);
-        chronicleText = `Comiste ${item.name}. Recuperás ${ef.amount} de salud.`;
-        applied = true;
-        break;
-      }
-      case 'cure':
-      case 'buff':
-      case 'escape':
-        // En Fase 1 estos no hacen nada (Fase 2 con combate)
-        chronicleText = `Usaste ${item.name}. (efecto disponible en combate)`;
-        applied = true;
-        break;
-      default:
-        break;
     }
 
     if (applied) {

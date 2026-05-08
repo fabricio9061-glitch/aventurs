@@ -129,6 +129,11 @@
         if (typeof State.world.timeOfDay === 'undefined') { State.world.timeOfDay = 'day'; dirty = true; }
         if (typeof State.world.day === 'undefined') { State.world.day = 1; dirty = true; }
         if (typeof State.world.timeProgress === 'undefined') { State.world.timeProgress = 0; dirty = true; }
+        // v1.6.1: phase v2
+        if (typeof State.world.phase === 'undefined') {
+          State.world.phase = (State.world.timeOfDay === 'night') ? 'night' : 'morning';
+          dirty = true;
+        }
       }
 
       if (!p.schemaVersion || p.schemaVersion < 15) {
@@ -222,11 +227,9 @@
         regionId: 'pueblo_inicial',
         visited: ['pueblo_inicial'],
         npcsTalked: [],
-        // v1.5.9: sistema de tiempo basado en acciones
-        // timeOfDay: 'day' | 'night'
-        // day: contador de días (empieza en 1)
-        // timeProgress: unidades acumuladas dentro del estado actual (0-10 = día, 10-20 = noche)
-        timeOfDay: 'day',
+        // v1.6.1: tiempo con 4 fases
+        phase: 'morning',
+        timeOfDay: 'day', // legacy compat
         day: 1,
         timeProgress: 0,
       };

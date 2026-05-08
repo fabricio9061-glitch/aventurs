@@ -67,7 +67,7 @@
         </div>
 
         <footer class="shell-footer">
-          <span class="version-pill">v1.6.0</span>
+          <span class="version-pill">v1.6.1</span>
         </footer>
       </div>
     `;
@@ -155,7 +155,7 @@
 
         ${renderBag(bag)}
 
-        ${region ? `<div class="loc-pill"><span>${region.icon || '📍'}</span> <span>${A.Utils.escapeHtml(region.name)}</span>${A.Time ? ` <span class="time-pill" title="${A.Time.format()}">${A.Time.icon()} ${A.Time.format()}</span>` : ''}</div>` : ''}
+        ${region ? `<div class="loc-pill"><span>${region.icon || '📍'}</span> <span>${A.Utils.escapeHtml(region.name)}</span></div>` : ''}
       </div>
     `;
 
@@ -325,11 +325,28 @@
   function renderChroniclesPanel() {
     if (!chroniclesEl) return;
     const all = A.State.chronicles || [];
-    // v1.5.8: ordenar por ts descendente y tomar las 4 más recientes
     const sorted = all.slice().sort((a, b) => (b.ts || 0) - (a.ts || 0));
     const recent = sorted.slice(0, 4);
+
+    // v1.6.1: bloque de tiempo integrado al inicio de la barra de crónicas
+    let clockBlock = '';
+    if (A.Time && A.State.world) {
+      const theme = A.Time.colorTheme();
+      const phaseId = theme.phase;
+      clockBlock = `
+        <div class="chronicles-clock is-${phaseId}" title="Tiempo del mundo: ${A.Utils.escapeHtml(A.Time.format())}">
+          <span class="clock-icon">${A.Time.icon()}</span>
+          <span class="clock-text">
+            <span class="clock-day">Día ${A.State.world.day}</span>
+            <span class="clock-phase">${A.Time.phaseLabel()}</span>
+          </span>
+        </div>
+      `;
+    }
+
     chroniclesEl.innerHTML = `
       <div class="chronicles-bar">
+        ${clockBlock}
         <span class="chronicles-bar-label">📜 Crónicas</span>
         <div class="chronicles-bar-list">
           ${recent.length === 0
@@ -342,7 +359,6 @@
         </button>
       </div>
     `;
-    // Rebind del botón (se re-renderiza)
     chroniclesEl.querySelectorAll('[data-action]').forEach((btn) => {
       btn.addEventListener('click', () => handleAction(btn.dataset.action));
     });
@@ -513,8 +529,8 @@
     unsubscribers.push(A.Bus.on('travel:step', renderActiveView));
     unsubscribers.push(A.Bus.on('travel:completed', () => { renderSidebar(); renderActiveView(); }));
     // v1.5.9: re-render al cambiar el tiempo
-    unsubscribers.push(A.Bus.on('time:advanced', renderSidebar));
-    unsubscribers.push(A.Bus.on('time:phase-changed', () => { renderSidebar(); renderActiveView(); }));
+    unsubscribers.push(A.Bus.on('time:advanced', renderChroniclesPanel));
+    unsubscribers.push(A.Bus.on('time:phase-changed', () => { renderChroniclesPanel(); renderActiveView(); }));
     unsubscribers.push(A.Bus.on('travel:cancelled', renderActiveView));
     unsubscribers.push(A.Bus.on('combat:started', renderActiveView));
     unsubscribers.push(A.Bus.on('combat:ended', () => { renderSidebar(); renderActiveView(); }));

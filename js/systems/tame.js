@@ -84,15 +84,20 @@
     return Math.min(0.95, chance + bonus);
   }
 
-  function canTame(enemyId) {
+  function canTame(enemyId, instanceId) {
     const enemy = A.Data.getById('enemies', enemyId);
     if (!enemy) return { ok: false, reason: 'enemy-not-found' };
     if (!enemy.tameable) return { ok: false, reason: 'not-tameable' };
     if (!isInstinctive(enemy)) return { ok: false, reason: 'not-instinctive' };
     if (A.State.player.pet) return { ok: false, reason: 'already-have-pet' };
-    // No re-intentar si ya falló antes con esta especie
-    if (A.State.player.failedTames && A.State.player.failedTames.includes(enemy.id)) {
-      return { ok: false, reason: 'already-failed' };
+    // v1.6.1: bloqueo POR INSTANCIA, no por especie.
+    // Si la instancia tiene tameFailed, no se puede reintentar con ESA criatura,
+    // pero sí con otras de la misma especie en futuros encuentros.
+    if (instanceId && A.State.combat) {
+      const inst = (A.State.combat.enemies || []).find((e) => e.instanceId === instanceId);
+      if (inst && inst.tameFailed) {
+        return { ok: false, reason: 'instance-failed' };
+      }
     }
     const itemId = requiredItem(enemy);
     const haveIt = (A.State.player.inventory || []).some(
@@ -102,8 +107,8 @@
     return { ok: true, requiredItemId: itemId };
   }
 
-  function attempt(enemyId) {
-    const check = canTame(enemyId);
+  function attempt(enemyId, instanceId) {
+    const check = canTame(enemyId, instanceId);
     if (!check.ok) {
       A.Bus.emit('tame:failed', { enemyId, reason: check.reason });
       return { success: false, reason: check.reason, requiredItemId: check.requiredItemId };
@@ -114,7 +119,6 @@
     const itemData = A.Data.getById('items', itemId);
     const itemName = itemData ? itemData.name : itemId;
 
-    // Consumir el item
     A.State.removeItem(itemId, 1);
 
     const dc = diceConfigFor(enemy);
@@ -127,14 +131,14 @@
     A.Bus.emit('tame:attempt', { enemyId, success, roll, dice: `D${dc.sides}`, threshold: effectiveThreshold });
 
     if (!success) {
-      // Marcar este enemyId como ya fallido (no se puede reintentar)
-      if (!A.State.player.failedTames) A.State.player.failedTames = [];
-      if (!A.State.player.failedTames.includes(enemy.id)) {
-        A.State.player.failedTames.push(enemy.id);
+      // v1.6.1: marcar la INSTANCIA como fallida, no la especie global.
+      if (instanceId && A.State.combat) {
+        const inst = (A.State.combat.enemies || []).find((e) => e.instanceId === instanceId);
+        if (inst) inst.tameFailed = true;
       }
       A.State.addChronicle({
         type: 'note',
-        text: `Le ofreciste ${itemName} a ${enemy.name}. Tirada D${dc.sides}: ${roll} (necesitabas ≤${effectiveThreshold}). No se dejó acercar y huyó. No vas a poder domesticar a otro de esta especie.`,
+        text: `Le ofreciste ${itemName} a ${enemy.name}. Tirada D${dc.sides}: ${roll} (necesitabas ≤${effectiveThreshold}). El ${enemy.name} desconfía de vos y huye.`,
       });
       A.State.persist();
       A.Bus.emit('tame:failed', { enemyId, roll });
