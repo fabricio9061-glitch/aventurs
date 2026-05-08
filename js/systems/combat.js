@@ -139,7 +139,18 @@
       log: [],
       result: null,
       fromTravel: !!opts.fromTravel,
+      ambush: !!opts.ambush,
     };
+
+    // v1.6.4: Si fue emboscada (avoid fallido), los enemigos arrancan primero.
+    // Reordenamos initiative para poner al primer enemigo en posición 0.
+    if (combat.ambush) {
+      const firstEnemyIdx = initiative.findIndex((e) => e.kind === 'enemy');
+      if (firstEnemyIdx > 0) {
+        const reordered = initiative.slice(firstEnemyIdx).concat(initiative.slice(0, firstEnemyIdx));
+        combat.initiative = reordered;
+      }
+    }
 
     // Para compatibilidad con código que mira c.turn, derivamos
     combat.turn = currentTurnKind(combat);
@@ -147,7 +158,10 @@
     State().combat = combat;
 
     addLog(combat, 'system', { text: `Comienza el combate contra ${A.Encounter.describeGroup(instances)}.` });
-    addLog(combat, 'system', { text: `Orden por velocidad: ${initiative.map((i) => `${i.name} (vel ${i.speed})`).join(' → ')}` });
+    if (combat.ambush) {
+      addLog(combat, 'system', { text: '⚠️ Te emboscaron. Los enemigos atacan primero.' });
+    }
+    addLog(combat, 'system', { text: `Orden por velocidad: ${combat.initiative.map((i) => `${i.name} (vel ${i.speed})`).join(' → ')}` });
     // Si hubo empates, loguear el desempate por d20
     for (const tg of tieGroups) {
       const desc = tg.members

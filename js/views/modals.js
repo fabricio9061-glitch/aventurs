@@ -862,8 +862,38 @@
     const locked = !travelCheck.ok && travelCheck.locked;
     const cls = `travel-modal-card ${locked ? 'is-locked' : ''}`;
     const distLabel = dist === 1 ? 'Cerca' : dist === 2 ? 'Medio camino' : 'Lejos';
+
+    // v1.6.4: Si está bloqueada, mostrar lista de requisitos data-driven
+    let lockedSection = '';
+    if (locked) {
+      const reqs = travelCheck.requirements || [];
+      const customWarning = n.unlockConditions && n.unlockConditions.warningText;
+      const metCount = reqs.filter((r) => r.met).length;
+      lockedSection = `
+        <div class="travel-locked-block">
+          <div class="travel-locked-header">
+            <span class="travel-locked-icon">🔒</span>
+            <span class="travel-locked-title">Región bloqueada</span>
+            <span class="travel-locked-progress dim">${metCount}/${reqs.length} requisitos</span>
+          </div>
+          ${customWarning ? `<div class="travel-locked-warning dim">${A.Utils.escapeHtml(customWarning)}</div>` : ''}
+          ${reqs.length > 0 ? `
+            <ul class="travel-locked-reqs">
+              ${reqs.map((r) => `
+                <li class="${r.met ? 'is-met' : 'is-pending'}">
+                  <span class="req-mark">${r.met ? '✓' : '✗'}</span>
+                  <span class="req-label">${A.Utils.escapeHtml(r.label)}</span>
+                  ${!r.met && r.target > 1 ? `<span class="req-progress dim">(${r.current}/${r.target})</span>` : ''}
+                </li>
+              `).join('')}
+            </ul>
+          ` : ''}
+        </div>
+      `;
+    }
+
     return `
-      <button class="${cls}" data-travel="${A.Utils.escapeHtml(n.id)}" ${locked ? 'disabled data-locked="1"' : ''}>
+      <button class="${cls}" data-travel="${A.Utils.escapeHtml(n.id)}" ${locked ? 'disabled data-locked="1"' : ''} ${locked ? `title="Región bloqueada — falta ${(travelCheck.requirements || []).filter(r => !r.met).map(r => r.label).join(', ')}"` : ''}>
         <div class="travel-modal-icon">${n.icon || '📍'}</div>
         <div class="travel-modal-info">
           <div class="travel-modal-name">${A.Utils.escapeHtml(n.name)}</div>
@@ -874,7 +904,7 @@
             ${enemiesCount ? `<span class="dim small">· ${enemiesCount} criaturas</span>` : ''}
           </div>
           ${n.description ? `<div class="travel-modal-desc dim">${A.Utils.escapeHtml(n.description)}</div>` : ''}
-          ${locked ? `<div class="travel-locked-msg">🔒 Necesitas ${travelCheck.required} encuentros completados (llevás ${travelCheck.have}).</div>` : ''}
+          ${lockedSection}
         </div>
         <div class="travel-modal-arrow">${locked ? '🔒' : '→'}</div>
       </button>

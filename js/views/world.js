@@ -201,11 +201,69 @@
             ${!isGroup && enemy && enemy.tameable && !A.State.player.pet ? `
               <button class="btn-secondary" data-travel-action="tame" data-enemy-id="${A.Utils.escapeHtml(ev.enemyId)}">Intentar domar</button>
             ` : ''}
-            <button class="btn-ghost" data-travel-action="avoid">Evitar</button>
+            ${(() => {
+              const odds = calculateAvoidOdds(ev);
+              return `<button class="btn-ghost" data-travel-action="avoid" title="D20+${odds.speedBonus} vs DC ${odds.dc}">Evitar (${odds.chancePct}%)</button>`;
+            })()}
           </div>
         </div>
       </div>
     `;
+  }
+
+  /**
+   * v1.6.4: Calcula la dificultad de evitar un encuentro.
+   * Devuelve { dc, bonus, chancePct } donde:
+   *   - dc: dificultad a superar (8-18 según peligro)
+   *   - bonus: D20 + (speed/4) + ajustes de hambre/noche/peso
+   *   - chancePct: probabilidad estimada de éxito
+   */
+  function calculateAvoidOdds(event) {
+    const p = A.State.player;
+    if (!p) return { dc: 10, bonus: 0, chancePct: 50 };
+
+    // DC base por peligro: tier máximo del enemigo
+    let dc = 8;
+    let enemies = (event && Array.isArray(event.enemies) && event.enemies.length > 0)
+      ? event.enemies
+      : (event && event.enemyId ? [{ tier: (A.Data.getById('enemies', event.enemyId) || {}).tier || 1 }] : []);
+    const maxTier = enemies.reduce((acc, e) => Math.max(acc, e.tier || 1), 1);
+    dc = 8 + Math.min(10, maxTier - 1);
+
+    // Más enemigos = más difícil
+    if (enemies.length > 1) dc += (enemies.length - 1) * 2;
+
+    // Modificador por hambre (Survival.weak/starving)
+    if (A.Survival) {
+      const status = A.Survival.getStatus();
+      if (status.id === 'weak') dc += 1;
+      if (status.id === 'starving') dc += 2;
+    }
+
+    // Modificador nocturno
+    if (A.Time && A.Time.isNight()) dc += 1;
+
+    // Bonus del jugador: D20 promedio (10.5) + speed/4
+    const speed = (p.stats && p.stats.speed) || 10;
+    const speedBonus = Math.floor(speed / 4);
+
+    // Probabilidad: P(D20 + speedBonus >= dc) = (21 - (dc - speedBonus)) / 20
+    const need = Math.max(1, dc - speedBonus);
+    const successOutcomes = Math.max(0, Math.min(20, 21 - need));
+    const chancePct = Math.round((successOutcomes / 20) * 100);
+
+    return { dc, speedBonus, chancePct };
+  }
+
+  /**
+   * v1.6.4: Tirada de D20 + speedBonus contra dc. Devuelve resultado.
+   */
+  function rollAvoid(event) {
+    const odds = calculateAvoidOdds(event);
+    const roll = 1 + Math.floor(Math.random() * 20);
+    const total = roll + odds.speedBonus;
+    const success = total >= odds.dc;
+    return { roll, speedBonus: odds.speedBonus, total, dc: odds.dc, success };
   }
 
   function eventRow(e) {
@@ -323,15 +381,41 @@
         } else if (action === 'cancel') {
           A.Travel.cancel();
         } else if (action === 'avoid') {
-          // Marcar el último evento creature como resuelto y avanzar
+          // v1.6.4: Evitar requiere tirada D20+speedBonus vs DC del encuentro
           const t = A.State.traveling;
           const last = t.events[t.events.length - 1];
           if (last && last.kind === 'creature') {
-            last.resolved = true;
-            last.text = `Evitaste a ${last.enemyName} sin pelear.`;
+            const result = rollAvoid(last);
+            const enemyName = last.enemyName || 'al enemigo';
+            if (result.success) {
+              last.resolved = true;
+              last.text = `Evitaste a ${enemyName} (D20=${result.roll}+${result.speedBonus} ≥ ${result.dc}).`;
+              A.State.addChronicle({
+                type: 'travel',
+                text: `Intentaste evitar a ${enemyName}. D20=${result.roll}+${result.speedBonus} vs DC ${result.dc}. Lo lograste.`,
+              });
+              A.State.persist();
+              A.Travel.step();
+            } else {
+              // Fallaste: combate empieza con desventaja (enemigos atacan primero)
+              last.resolved = true;
+              last.text = `Te detectaron al intentar evitar a ${enemyName}.`;
+              A.State.addChronicle({
+                type: 'travel',
+                text: `Intentaste evitar a ${enemyName}. D20=${result.roll}+${result.speedBonus} vs DC ${result.dc}. Falla. El combate empieza con desventaja.`,
+              });
+              A.State.persist();
+              if (last.enemies && last.enemies.length > 0) {
+                A.Combat.start({ enemies: last.enemies, fromTravel: true, ambush: true });
+              } else {
+                A.Combat.start({ enemyId: btn.dataset.enemyId || last.enemyId, fromTravel: true, ambush: true });
+              }
+            }
+          } else {
+            // Fallback: si no hay enemigo, simplemente avanzar
+            A.State.persist();
+            A.Travel.step();
           }
-          A.State.persist();
-          A.Travel.step();
         } else if (action === 'tame') {
           A.State.openModal('tame', { enemyId: btn.dataset.enemyId, fromTravel: true });
         } else if (action === 'fight') {
@@ -439,9 +523,11 @@
           }
         }
       }
+      // v1.6.4: balance rebalanceado a favor de eventos pacíficos
+      // 35% combate, 65% pacífico (rastros, monedas, observación, recursos, hallazgos)
       const r = Math.random();
-      if (r < 0.60) {
-        // Generar grupo via Encounter (respeta encounter config de la región)
+      if (r < 0.35) {
+        // Combate (antes era 60%)
         const group = A.Encounter.generate(A.State.world.regionId);
         if (group && group.length > 0) {
           const desc = A.Encounter.describeGroup(group);
@@ -450,12 +536,56 @@
           return;
         }
         A.State.addChronicle({ type: 'note', text: 'Recorriste la zona pero no encontraste nada.' });
-      } else if (r < 0.85) {
+      } else if (r < 0.50) {
+        // 15%: monedas escondidas
         const coins = 3 + Math.floor(Math.random() * 12);
-        A.Currency.add(coins);
-        A.State.addChronicle({ type: 'loot', text: `Encontraste ${A.Currency.formatPrice(coins)} escondidos.` });
+        A.State.addItem('coin_copper', coins);
+        A.State.addChronicle({ type: 'loot', text: `Encontraste ${coins} monedas de cobre escondidas.` });
+      } else if (r < 0.62) {
+        // 12%: criatura observando desde lejos (no combate)
+        const peacefulMessages = [
+          'Viste un ciervo pasar entre los árboles. Te observa un instante y desaparece.',
+          'Una sombra se mueve a lo lejos. Algo te observa, pero no se acerca.',
+          'Un pájaro graznó al verte. Voló al horizonte sin más.',
+          'Escuchaste pasos cerca. Cuando miraste, ya no había nadie.',
+          'Una criatura desconocida cruzó el camino. No quiso pelear.',
+        ];
+        A.State.addChronicle({ type: 'note', text: peacefulMessages[Math.floor(Math.random() * peacefulMessages.length)] });
+      } else if (r < 0.74) {
+        // 12%: rastros / signos
+        const trackMessages = [
+          'Encontraste huellas frescas en el suelo. Algo grande pasó hace poco.',
+          'Marcas de garras en un árbol. Algún animal marcó territorio.',
+          'Una fogata apagada con cenizas tibias. Alguien estuvo acá hace horas.',
+          'Restos de un campamento abandonado. Nada útil quedó.',
+          'Plumas raras esparcidas por el suelo. ¿Pelea de aves?',
+        ];
+        A.State.addChronicle({ type: 'note', text: trackMessages[Math.floor(Math.random() * trackMessages.length)] });
+      } else if (r < 0.86) {
+        // 12%: recurso menor / hierba / fruta
+        const resourceItems = ['pan', 'queso', 'manzana', 'fruta_silvestre', 'hierba_curativa'];
+        const validItems = resourceItems.filter((id) => A.Data.getById('items', id));
+        if (validItems.length > 0) {
+          const itemId = validItems[Math.floor(Math.random() * validItems.length)];
+          const item = A.Data.getById('items', itemId);
+          const ok = A.State.addItem(itemId, 1);
+          if (ok) {
+            A.State.addChronicle({ type: 'loot', text: `Encontraste ${item.icon || ''} ${item.name} en el camino.` });
+          } else {
+            A.State.addChronicle({ type: 'note', text: 'Encontraste algo útil pero no entró en tu mochila.' });
+          }
+        } else {
+          A.State.addChronicle({ type: 'note', text: 'Recorriste la zona, sin novedad.' });
+        }
       } else {
-        A.State.addChronicle({ type: 'note', text: 'No encontraste nada útil esta vez.' });
+        // 14%: nada útil (viento, paisaje, etc)
+        const idleMessages = [
+          'Solo el viento entre los árboles. Recorriste la zona en silencio.',
+          'Caminaste un buen rato. Nada que destacar.',
+          'El paisaje sigue igual. No hay novedades.',
+          'Un día tranquilo. Nada que reportar.',
+        ];
+        A.State.addChronicle({ type: 'note', text: idleMessages[Math.floor(Math.random() * idleMessages.length)] });
       }
     }
   }

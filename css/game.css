@@ -3310,8 +3310,7 @@
   z-index: 1;
   border-radius: var(--r-lg);
 }
-.map-view-canvas > .map-fullscreen-svg,
-.map-view-canvas > .map-zoom-controls {
+.map-view-canvas > .map-fullscreen-svg {
   position: relative;
   z-index: 2;
 }
@@ -5881,4 +5880,220 @@
 .char-create-btn:not(:disabled):hover {
   transform: translateY(-1px);
   box-shadow: 0 6px 18px rgba(212, 164, 55, 0.3);
+}
+
+/* ============================================================
+   v1.6.4 — Map controls overlay (fuera del canvas, sin clipping)
+   ============================================================ */
+.map-view-canvas-wrap {
+  position: relative;
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}
+.map-view-canvas-wrap > .map-view-canvas {
+  flex: 1;
+}
+.map-controls-overlay {
+  position: absolute;
+  bottom: 18px;
+  right: 18px;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: auto;
+}
+.map-controls-overlay .map-zoom-btn {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: #fdfaf3;
+  border: 1.5px solid var(--gold-deep);
+  color: var(--gold-deep);
+  font-size: 20px;
+  font-weight: var(--fw-bold);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 3px 10px rgba(0,0,0,0.18), 0 1px 3px rgba(0,0,0,0.1);
+  transition: all var(--t-fast);
+  line-height: 1;
+  flex-shrink: 0;
+  pointer-events: auto;
+}
+.map-controls-overlay .map-zoom-btn:hover {
+  background: var(--gold-bg);
+  transform: scale(1.05);
+}
+.map-controls-overlay .map-zoom-btn:active { transform: scale(0.92); }
+.map-controls-overlay .map-zoom-reset { font-size: 17px; }
+
+/* ============================================================
+   v1.6.4 — Audit wizard footer reorganizado (izq/centro/der)
+   ============================================================ */
+.audit-wizard-footer-v2 {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 16px;
+  padding: 14px 18px;
+  align-items: center;
+  border-top: var(--border-w) solid var(--border);
+  background: var(--surface-sunken);
+}
+.audit-wizard-footer-v2 .audit-footer-left,
+.audit-wizard-footer-v2 .audit-footer-center,
+.audit-wizard-footer-v2 .audit-footer-right {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.audit-wizard-footer-v2 .audit-footer-left { justify-content: flex-start; }
+.audit-wizard-footer-v2 .audit-footer-center { justify-content: center; }
+.audit-wizard-footer-v2 .audit-footer-right { justify-content: flex-end; }
+
+.audit-btn-apply-stats {
+  border-color: #6b8e23;
+  color: #4a6a18;
+}
+.audit-btn-apply-stats:hover { background: rgba(107, 142, 35, 0.08); }
+.audit-btn-apply-drops {
+  border-color: var(--gold-deep);
+  color: var(--gold-text);
+}
+.audit-btn-apply-drops:hover { background: var(--gold-bg-soft); }
+.audit-btn-apply-all {
+  font-weight: var(--fw-semi);
+}
+
+.btn-tiny {
+  padding: 4px 10px;
+  font-size: 14px;
+  min-width: 32px;
+  min-height: 32px;
+}
+
+/* ============================================================
+   v1.6.4 — Botón Domesticar contextual
+   ============================================================ */
+.combat-action-btn.combat-action-tame {
+  border-color: #6b8e23;
+  background: linear-gradient(180deg, #f4faf0, #e8f4dc);
+  color: #3a5018;
+}
+.combat-action-btn.combat-action-tame:hover:not(:disabled) {
+  background: linear-gradient(180deg, #e8f4dc, #dcebc4);
+  border-color: #5a7a18;
+}
+.combat-action-tame .tame-chance {
+  font-size: 11px;
+  opacity: 0.85;
+  margin-left: 2px;
+}
+
+/* ============================================================
+   v1.6.4 — Travel locked regions con requisitos detallados
+   ============================================================ */
+.travel-modal-card.is-locked {
+  opacity: 0.85;
+  background: linear-gradient(135deg, var(--surface), rgba(196, 85, 48, 0.04));
+  border-color: rgba(196, 85, 48, 0.4);
+  cursor: not-allowed;
+}
+.travel-modal-card.is-locked:hover {
+  border-color: rgba(196, 85, 48, 0.6);
+  background: linear-gradient(135deg, var(--surface), rgba(196, 85, 48, 0.08));
+}
+.travel-modal-card.is-locked .travel-modal-icon {
+  filter: grayscale(0.6);
+  opacity: 0.7;
+}
+
+.travel-locked-block {
+  margin-top: 10px;
+  padding: 10px 12px;
+  background: rgba(196, 85, 48, 0.06);
+  border: 1px dashed rgba(196, 85, 48, 0.4);
+  border-radius: var(--r-sm);
+}
+.travel-locked-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+  font-size: 12px;
+  font-weight: var(--fw-semi);
+  color: #8d2818;
+}
+.travel-locked-icon { font-size: 14px; }
+.travel-locked-title { flex: 1; }
+.travel-locked-progress { font-size: 11px; }
+.travel-locked-warning {
+  font-size: 12px;
+  font-style: italic;
+  margin-bottom: 8px;
+  color: #6a3018;
+}
+.travel-locked-reqs {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.travel-locked-reqs li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+}
+.travel-locked-reqs li.is-met {
+  color: #4a6a18;
+}
+.travel-locked-reqs li.is-pending {
+  color: #6a3018;
+}
+.travel-locked-reqs .req-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  font-size: 10px;
+  font-weight: var(--fw-bold);
+  flex-shrink: 0;
+}
+.travel-locked-reqs .is-met .req-mark {
+  background: rgba(107, 142, 35, 0.2);
+  color: #4a6a18;
+}
+.travel-locked-reqs .is-pending .req-mark {
+  background: rgba(196, 85, 48, 0.15);
+  color: #8d2818;
+}
+.travel-locked-reqs .req-progress {
+  font-size: 10px;
+  margin-left: auto;
+}
+
+/* v1.6.4: Bloque de unlock-conditions en editor */
+.unlock-conditions-block {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  background: var(--surface-sunken);
+  border: 1px dashed var(--border);
+  border-radius: var(--r-sm);
+}
+.unlock-conditions-block .form-row-mini {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.unlock-conditions-block .form-row-mini > span {
+  font-size: 11px;
 }

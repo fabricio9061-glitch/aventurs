@@ -43,9 +43,12 @@
           <span class="map-legend-item"><span class="map-legend-dot is-far"></span>Lejano (necesita escalas)</span>
         </div>
 
-        <div class="map-view-canvas">
-          ${renderMapSvg(currentRegion)}
-          <div class="map-zoom-controls">
+        <div class="map-view-canvas-wrap">
+          <div class="map-view-canvas">
+            ${renderMapSvg(currentRegion)}
+          </div>
+          <!-- v1.6.4: controles fuera del canvas (no afectados por overflow ni transform del SVG) -->
+          <div class="map-controls-overlay">
             <button class="map-zoom-btn" data-map-zoom="in" title="Acercar (rueda del mouse)">+</button>
             <button class="map-zoom-btn" data-map-zoom="out" title="Alejar (rueda del mouse)">−</button>
             <button class="map-zoom-btn map-zoom-reset" data-map-zoom="reset" title="Restablecer zoom y posición">⊙</button>

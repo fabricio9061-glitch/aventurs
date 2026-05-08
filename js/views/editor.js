@@ -465,6 +465,28 @@
       row('Icono', inp('icon', e.icon)),
       row('Descripción', txt('description', e.description, 4)),
       row('Encuentros requeridos (desbloqueo)', inp('reqEncounters', e.reqEncounters || 0, 'number', 'min="0" max="50"')),
+      // v1.6.4: Bloque de requisitos de desbloqueo (data-driven)
+      `<div class="form-row form-row-block">
+        <label>🔒 Condiciones de desbloqueo</label>
+        <div class="unlock-conditions-block">
+          <div class="form-row-mini">
+            <span class="dim small">Nivel mínimo del jugador</span>
+            <input class="form-input" data-field="unlockConditions.minLevel" type="number" min="0" max="100" value="${(e.unlockConditions && e.unlockConditions.minLevel) || 0}">
+          </div>
+          <div class="form-row-mini">
+            <span class="dim small">Items requeridos (IDs separados por coma)</span>
+            <input class="form-input" data-field="unlockConditions.requiredItems" data-array="csv" type="text" value="${A.Utils.escapeHtml(((e.unlockConditions && e.unlockConditions.requiredItems) || []).join(', '))}" placeholder="ej: amuleto_fuego, brujula">
+          </div>
+          <div class="form-row-mini">
+            <span class="dim small">Regiones que deben haberse visitado (IDs separados por coma)</span>
+            <input class="form-input" data-field="unlockConditions.requiredRegions" data-array="csv" type="text" value="${A.Utils.escapeHtml(((e.unlockConditions && e.unlockConditions.requiredRegions) || []).join(', '))}" placeholder="ej: cuevas_ancestrales">
+          </div>
+          <div class="form-row-mini">
+            <span class="dim small">Mensaje custom mostrado al jugador (opcional)</span>
+            <input class="form-input" data-field="unlockConditions.warningText" type="text" value="${A.Utils.escapeHtml((e.unlockConditions && e.unlockConditions.warningText) || '')}" placeholder="ej: 'Tu personaje no soportaría el calor extremo.'">
+          </div>
+        </div>
+      </div>`,
       `<div class="form-row form-row-block">
         <label>Enemigos en esta región (${assignedEnemies.length})</label>
         <div class="region-enemies-block">
@@ -1292,25 +1314,36 @@
         const idx = Number(el.dataset.dropIndex);
         editingDraft.drops = editingDraft.drops || [];
         if (!editingDraft.drops[idx]) return;
+
+        // v1.6.4: clonar el drop antes de mutar para asegurar reactividad
+        const newDrop = { ...editingDraft.drops[idx] };
+
         if (field === 'chance') {
-          // El input está en %, internamente guardamos decimal 0-1
           const pct = Number(el.value);
-          editingDraft.drops[idx].chance = Math.max(0, Math.min(1, pct / 100));
+          newDrop.chance = Math.max(0, Math.min(1, pct / 100));
         } else if (field === 'qtyMin' || field === 'qtyMax') {
-          // v1.6.0: cantidades como int >= 1
-          editingDraft.drops[idx][field] = Math.max(1, Math.min(99, parseInt(el.value, 10) || 1));
+          newDrop[field] = Math.max(1, Math.min(99, parseInt(el.value, 10) || 1));
           // Asegurar qtyMax >= qtyMin
-          const d = editingDraft.drops[idx];
-          if (d.qtyMin && d.qtyMax && d.qtyMin > d.qtyMax) {
-            if (field === 'qtyMin') d.qtyMax = d.qtyMin;
-            else d.qtyMin = d.qtyMax;
+          if (newDrop.qtyMin && newDrop.qtyMax && newDrop.qtyMin > newDrop.qtyMax) {
+            if (field === 'qtyMin') newDrop.qtyMax = newDrop.qtyMin;
+            else newDrop.qtyMin = newDrop.qtyMax;
           }
         } else {
-          editingDraft.drops[idx][field] = el.value;
+          newDrop[field] = el.value;
         }
+
+        // Reemplazar en el array (también con nueva referencia para forzar reactividad)
+        editingDraft.drops = editingDraft.drops.map((d, i) => i === idx ? newDrop : d);
         dirty = true;
+        // v1.6.4: habilitar botón Guardar (estaba olvidado)
+        const saveBtn = host.querySelector('[data-editor-action="save"]');
+        if (saveBtn) saveBtn.disabled = false;
+        const discardBtn = host.querySelector('[data-editor-action="discard"]');
+        if (discardBtn) discardBtn.disabled = false;
       };
+      // v1.6.4: escuchar tanto input como change (number inputs son inconsistentes)
       el.addEventListener('input', handler);
+      el.addEventListener('change', handler);
     });
 
     // AutoBalance apply
@@ -1578,6 +1611,8 @@
                 const icon = item ? (item.icon || '📦') : '📦';
                 const chancePct = Math.round((d.chance || 0) * 100);
                 const isAuto = d.source === 'auto';
+                const qtyMin = d.qtyMin || 1;
+                const qtyMax = d.qtyMax || 1;
                 const kindBadge = item ?
                   (item.type === 'weapon' ? '<span class="drop-kind-badge drop-kind-weapon" title="Arma">⚔️</span>'
                   : item.type === 'armor' ? '<span class="drop-kind-badge drop-kind-armor" title="Armadura">🛡️</span>'
@@ -1588,6 +1623,11 @@
                     <div class="drop-row-info">
                       <div class="drop-row-name">${A.Utils.escapeHtml(name)} ${kindBadge}</div>
                       <div class="drop-row-id-text dim">${A.Utils.escapeHtml(d.itemId)}</div>
+                    </div>
+                    <div class="drop-row-qty" title="Cantidad min – max">
+                      <input class="form-input drop-qty-input" data-wizard-current-qty="min" data-current-itemid="${A.Utils.escapeHtml(d.itemId)}" type="number" min="1" max="99" step="1" value="${qtyMin}" title="Cantidad mínima">
+                      <span class="drop-qty-sep">–</span>
+                      <input class="form-input drop-qty-input" data-wizard-current-qty="max" data-current-itemid="${A.Utils.escapeHtml(d.itemId)}" type="number" min="1" max="99" step="1" value="${qtyMax}" title="Cantidad máxima">
                     </div>
                     <div class="drop-row-chance">
                       <input class="form-input drop-chance-pct" data-wizard-drop-chance="${A.Utils.escapeHtml(d.itemId)}" type="number" min="0" max="100" step="1" value="${chancePct}">
@@ -1671,13 +1711,20 @@
           </main>
         </div>
 
-        <footer class="audit-wizard-footer">
-          <button class="btn-secondary" data-audit-action="prev" ${cursor === 0 ? 'disabled' : ''}>← Anterior</button>
-          <button class="btn-secondary" data-audit-action="next" ${cursor >= auditWizardState.items.length - 1 ? 'disabled' : ''}>Siguiente →</button>
-          <button class="btn-secondary" data-audit-action="skip" title="Saltar este sin cambios y pasar al siguiente">Saltar</button>
-          <button class="btn-secondary" data-audit-action="accept-all-drops" title="Aceptar todas las sugerencias de loot sin tocar stats">✓ Drops sugeridos</button>
-          <button class="btn-primary" data-audit-action="apply" title="Aplicar todos los stats sugeridos (no incluye drops)">✓ Stats sugeridos</button>
-          <button class="btn-ghost" data-audit-close>Cerrar</button>
+        <footer class="audit-wizard-footer audit-wizard-footer-v2">
+          <div class="audit-footer-left">
+            <button class="btn-secondary" data-audit-action="prev" ${cursor === 0 ? 'disabled' : ''}>← Anterior</button>
+            <button class="btn-ghost" data-audit-action="skip" title="Saltar este sin cambios">Saltar</button>
+          </div>
+          <div class="audit-footer-center">
+            <button class="btn-secondary audit-btn-apply-stats" data-audit-action="apply" title="Aplica los stats sugeridos">✓ Stats</button>
+            <button class="btn-secondary audit-btn-apply-drops" data-audit-action="accept-all-drops" title="Acepta todas las sugerencias de drops">✓ Drops</button>
+            <button class="btn-primary audit-btn-apply-all" data-audit-action="apply-all" title="Aplica stats + drops sugeridos en un click">✓ Aplicar todo</button>
+          </div>
+          <div class="audit-footer-right">
+            <button class="btn-primary" data-audit-action="next" ${cursor >= auditWizardState.items.length - 1 ? 'disabled' : ''}>Siguiente →</button>
+            <button class="btn-ghost btn-tiny" data-audit-close title="Cerrar auditoría">✕</button>
+          </div>
         </footer>
       </div>
     `;
@@ -1710,6 +1757,10 @@
           applyCurrentAudit();
         } else if (a === 'accept-all-drops') {
           // v1.6.1: aceptar todos los drops sugeridos del enemigo actual
+          acceptAllDropsForCurrentAudit();
+        } else if (a === 'apply-all') {
+          // v1.6.4: aplicar stats + drops sugeridos en un solo click
+          applyCurrentAudit();
           acceptAllDropsForCurrentAudit();
         }
       });
@@ -1783,6 +1834,22 @@
           else o.min = o.max;
         }
         // No re-render para no perder foco
+      });
+    });
+
+    // v1.6.4: bind para qty editable de drops ACTUALES (ya en enemy.drops)
+    // Modificarlos persiste en overrides al instante.
+    overlay.querySelectorAll('[data-wizard-current-qty]').forEach((input) => {
+      input.addEventListener('change', (ev) => {
+        const which = input.dataset.wizardCurrentQty; // 'min' o 'max'
+        const itemId = input.dataset.currentItemid;
+        const val = Math.max(1, Math.min(99, parseInt(input.value, 10) || 1));
+        const current = auditWizardState.items[auditWizardState.cursor];
+        if (!current) return;
+        const enemy = current.enemy;
+        applyCurrentDropQty(enemy, itemId, which, val);
+        // No re-render para mantener foco; el toast da feedback
+        showWizardToast(`✓ Cantidad ${which} = ${val}`, 'success');
       });
     });
 
@@ -1907,6 +1974,38 @@
       if (updated && auditWizardState.items[auditWizardState.cursor]) {
         auditWizardState.items[auditWizardState.cursor].enemy = updated;
       }
+    }
+  }
+
+  /**
+   * v1.6.4: Modifica qtyMin o qtyMax de un drop actual del enemigo.
+   * which: 'min' | 'max'. Persiste como override.
+   */
+  function applyCurrentDropQty(enemy, itemId, which, value) {
+    const overrides = A.Data.getOverrides();
+    overrides.enemies = overrides.enemies || [];
+    let target = overrides.enemies.find((e) => e.id === enemy.id);
+    if (!target) {
+      target = JSON.parse(JSON.stringify(enemy));
+      delete target._source;
+      overrides.enemies.push(target);
+    }
+    target.drops = target.drops || [];
+    const drop = target.drops.find((d) => d.itemId === itemId);
+    if (!drop) return;
+    if (which === 'min') {
+      drop.qtyMin = Math.max(1, Math.min(99, value));
+      if (drop.qtyMax && drop.qtyMin > drop.qtyMax) drop.qtyMax = drop.qtyMin;
+    } else if (which === 'max') {
+      drop.qtyMax = Math.max(1, Math.min(99, value));
+      if (drop.qtyMin && drop.qtyMax < drop.qtyMin) drop.qtyMin = drop.qtyMax;
+    }
+    A.Data.saveOverrides(overrides);
+    A.Data.init();
+    dirty = true;
+    const updated = A.Data.getById('enemies', enemy.id);
+    if (updated && auditWizardState.items[auditWizardState.cursor]) {
+      auditWizardState.items[auditWizardState.cursor].enemy = updated;
     }
   }
 

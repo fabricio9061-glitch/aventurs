@@ -33,7 +33,8 @@
   /**
    * ¿Puede el jugador viajar a targetId desde la actual?
    * Verifica conexión, viaje en curso, y reqEncounters de la región destino.
-   * Devuelve { ok, error?, locked? }
+   * v1.6.4: Soporta unlockConditions con minLevel, requiredItems, requiredRegions.
+   * Devuelve { ok, error?, locked?, requirements? }
    */
   function canTravelToDetailed(targetId) {
     if (State().traveling && !State().traveling.completed) {
@@ -48,20 +49,97 @@
     }
     const target = A.Data.getById('regions', targetId);
     if (!target) return { ok: false, error: 'Región destino inválida.' };
-    // Verificar reqEncounters
-    if (target.reqEncounters && target.reqEncounters > 0) {
-      const totalEncounters = State().totalEncounters();
-      if (totalEncounters < target.reqEncounters) {
-        return {
-          ok: false,
-          locked: true,
-          error: `Necesitas ${target.reqEncounters} encuentros completados para ir allí. Llevás ${totalEncounters}.`,
-          required: target.reqEncounters,
-          have: totalEncounters,
-        };
+
+    const requirements = evaluateRegionRequirements(target);
+    const allMet = requirements.every((r) => r.met);
+    if (!allMet) {
+      const customMsg = (target.unlockConditions && target.unlockConditions.warningText) || null;
+      const failed = requirements.filter((r) => !r.met);
+      const errMsg = customMsg || `Faltan ${failed.length} requisito${failed.length > 1 ? 's' : ''}: ${failed.map((r) => r.label).join(', ')}.`;
+      return {
+        ok: false,
+        locked: true,
+        error: errMsg,
+        requirements,
+      };
+    }
+
+    return { ok: true, requirements };
+  }
+
+  /**
+   * v1.6.4: Evalúa requisitos completos de una región (data-driven).
+   * Devuelve array de { id, label, met, current, target, hint }
+   */
+  function evaluateRegionRequirements(region) {
+    const result = [];
+    const player = State().player;
+    const conds = region.unlockConditions || {};
+
+    // 1. Encuentros completados (legacy reqEncounters O unlockConditions.reqEncounters)
+    const reqEnc = conds.reqEncounters || region.reqEncounters || 0;
+    if (reqEnc > 0) {
+      const have = State().totalEncounters();
+      result.push({
+        id: 'encounters',
+        label: `${reqEnc} encuentros`,
+        met: have >= reqEnc,
+        current: have,
+        target: reqEnc,
+        hint: `Completá ${reqEnc - have} encuentros más.`,
+      });
+    }
+
+    // 2. Nivel mínimo
+    if (conds.minLevel && player) {
+      const lvl = player.level || 1;
+      result.push({
+        id: 'level',
+        label: `Nivel ${conds.minLevel}`,
+        met: lvl >= conds.minLevel,
+        current: lvl,
+        target: conds.minLevel,
+        hint: `Subí a nivel ${conds.minLevel}.`,
+      });
+    }
+
+    // 3. Items requeridos
+    if (Array.isArray(conds.requiredItems) && conds.requiredItems.length > 0) {
+      for (const itemId of conds.requiredItems) {
+        const itemData = A.Data.getById('items', itemId)
+                      || A.Data.getById('weapons', itemId)
+                      || A.Data.getById('armors', itemId);
+        const itemName = itemData ? itemData.name : itemId;
+        const has = (player && player.inventory || []).some((s) => s.itemId === itemId && s.qty > 0);
+        result.push({
+          id: 'item:' + itemId,
+          label: itemName,
+          met: has,
+          current: has ? 1 : 0,
+          target: 1,
+          hint: `Conseguí ${itemName}.`,
+        });
       }
     }
-    return { ok: true };
+
+    // 4. Regiones requeridas (visitadas previamente)
+    if (Array.isArray(conds.requiredRegions) && conds.requiredRegions.length > 0) {
+      const visited = new Set((State().world && State().world.visited) || []);
+      for (const regId of conds.requiredRegions) {
+        const regData = A.Data.getById('regions', regId);
+        const regName = regData ? regData.name : regId;
+        result.push({
+          id: 'region:' + regId,
+          label: regName,
+          met: visited.has(regId),
+          current: visited.has(regId) ? 1 : 0,
+          target: 1,
+          hint: `Visitá ${regName} antes.`,
+        });
+      }
+    }
+
+    return result;
   }
 
   function canTravelTo(targetId) {
@@ -394,6 +472,7 @@
   A.Travel = {
     canTravelTo,
     canTravelToDetailed,
+    evaluateRegionRequirements,
     neighbors,
     start,
     step,

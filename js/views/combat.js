@@ -303,6 +303,46 @@
     const spells = A.Combat.availableSpells();
     const items = A.Combat.availableItems();
     const disabled = !isPlayerTurnNow;
+
+    // v1.6.4: Domesticación contextual
+    // El botón aparece solo si:
+    //   1) El jugador no tiene mascota
+    //   2) Queda exactamente 1 enemigo vivo
+    //   3) Ese enemigo es domable (tameable + isInstinctive)
+    //   4) El jugador tiene el item requerido
+    const c = A.State.combat;
+    const aliveEnemies = (c.enemies || []).filter((e) => e.hp > 0);
+    let tameInfo = null;
+    if (!p.pet && aliveEnemies.length === 1 && A.Tame) {
+      const onlyOne = aliveEnemies[0];
+      const enemyData = A.Data.getById('enemies', onlyOne.id);
+      if (enemyData && enemyData.tameable) {
+        const check = A.Tame.canTame(enemyData.id, onlyOne.instanceId);
+        if (check.ok) {
+          tameInfo = {
+            enemyId: enemyData.id,
+            instanceId: onlyOne.instanceId,
+            chance: A.Tame.chanceFor ? Math.round(A.Tame.chanceFor(enemyData) * 100) : null,
+            requiredItem: check.requiredItemId,
+          };
+        } else if (check.reason === 'missing-item') {
+          // Mostrar disabled con tooltip explicativo
+          const itemData = A.Data.getById('items', check.requiredItemId);
+          tameInfo = {
+            enemyId: enemyData.id,
+            instanceId: onlyOne.instanceId,
+            disabled: true,
+            tooltip: `Necesitás ${itemData ? itemData.name : check.requiredItemId} para intentar domarlo`,
+          };
+        } else if (check.reason === 'instance-failed') {
+          tameInfo = {
+            disabled: true,
+            tooltip: 'Esta criatura ya desconfía de vos',
+          };
+        }
+      }
+    }
+
     return `
       <div class="combat-action-row">
         <button class="combat-action-btn" data-combat-action="attack" ${disabled ? 'disabled' : ''} title="Atacar">
@@ -319,6 +359,12 @@
           <span class="combat-action-icon">🧪</span>
           <span class="combat-action-label">Item</span>
         </button>
+        ${tameInfo ? `
+          <button class="combat-action-btn combat-action-tame" data-combat-action="tame" data-tame-enemy-id="${A.Utils.escapeHtml(tameInfo.enemyId || '')}" data-tame-instance-id="${A.Utils.escapeHtml(tameInfo.instanceId || '')}" ${disabled || tameInfo.disabled ? 'disabled' : ''} title="${A.Utils.escapeHtml(tameInfo.tooltip || (`Intentar domesticar (${tameInfo.chance != null ? tameInfo.chance + '%' : ''})`))}">
+            <span class="combat-action-icon">🐾</span>
+            <span class="combat-action-label">Domesticar${tameInfo.chance != null ? ` <span class="tame-chance">(${tameInfo.chance}%)</span>` : ''}</span>
+          </button>
+        ` : ''}
         <button class="combat-action-btn" data-combat-action="flee" ${disabled ? 'disabled' : ''} title="Huir">
           <span class="combat-action-icon">🏃</span>
           <span class="combat-action-label">Huir</span>
@@ -513,6 +559,24 @@
         else if (action === 'spell') A.State.openModal('combat-spell');
         else if (action === 'item') A.State.openModal('combat-item');
         else if (action === 'show-full-log') A.State.openModal('combat-full-log');
+        else if (action === 'tame') {
+          // v1.6.4: Domesticación contextual desde combate
+          const enemyId = b.dataset.tameEnemyId;
+          const instanceId = b.dataset.tameInstanceId;
+          if (enemyId && A.Tame) {
+            const result = A.Tame.attempt(enemyId, instanceId);
+            if (result && result.success) {
+              // Se domó: el combate termina (la mascota ya está asignada al player)
+              A.Combat.endCombatTamed && A.Combat.endCombatTamed();
+              if (!A.Combat.endCombatTamed) {
+                // Fallback: forzar fin del combate
+                if (A.State.combat) A.State.combat.result = 'tamed';
+                A.Bus.emit('combat:ended', { result: 'tamed' });
+              }
+            }
+            render();
+          }
+        }
         else if (action === 'finish') {
           const wasVictory = A.State.combat && A.State.combat.result === 'victory';
           const fromTravel = A.State.combat && A.State.combat.fromTravel;
