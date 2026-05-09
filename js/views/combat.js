@@ -151,14 +151,19 @@
     const speedDelta = effSpeed - baseSpeed;
     const speedLabel = speedDelta < 0 ? `${effSpeed}<span class="ally-stat-delta">${speedDelta}</span>` : `${effSpeed}`;
     const xpToNext = 50 * (p.level + 1) * (p.level + 1);
+    const hpPct = pct(p.hp, p.maxHp);
+    const hpColorClass = hpPct < 25 ? 'is-critical' : hpPct < 50 ? 'is-warning' : '';
 
     return `
-      <div class="ally-card player-card ${isActive ? 'is-active' : ''}">
+      <div class="ally-card player-card player-card-hero ${isActive ? 'is-active' : ''}">
         <div class="ally-card-header">
-          <span class="ally-card-icon">${race ? race.icon : '👤'}</span>
+          <span class="ally-card-icon ally-card-icon-hero">${race ? race.icon : '👤'}</span>
           <div class="ally-card-id">
-            <div class="ally-card-name">${A.Utils.escapeHtml(p.name)}</div>
-            <div class="ally-card-meta dim">${race ? race.name : ''} · Nv ${p.level}</div>
+            <div class="ally-card-name ally-card-name-hero">${A.Utils.escapeHtml(p.name)}</div>
+            <div class="ally-card-meta">
+              <span class="player-race-pill">${race ? race.name : ''}</span>
+              <span class="player-level-badge">Nv ${p.level}</span>
+            </div>
           </div>
         </div>
         <div class="ally-card-bars">
@@ -166,7 +171,7 @@
             <span class="bar-label">Salud</span>
             <span class="bar-val num">${p.hp}/${p.maxHp}</span>
           </div>
-          <div class="bar bar-hp"><span style="width:${pct(p.hp, p.maxHp)}%"></span></div>
+          <div class="bar bar-hp ${hpColorClass}"><span style="width:${hpPct}%"></span></div>
           ${p.hasMagic ? `
             <div class="bar-row">
               <span class="bar-label">Maná</span>
@@ -193,9 +198,14 @@
 
   function renderEnemyCard(e, isTarget, isActive) {
     const dead = e.hp <= 0;
-    const cls = `ally-card enemy-card ${isTarget && !dead ? 'is-target' : ''} ${isActive ? 'is-active' : ''} ${dead ? 'is-dead' : ''}`;
+    const catClass = `enemy-cat-${e.category || 'normal'}`;
+    const tierClass = e.tier >= 7 ? 'enemy-tier-elite' : e.tier >= 4 ? 'enemy-tier-mid' : 'enemy-tier-low';
+    const cls = `ally-card enemy-card ${catClass} ${tierClass} ${isTarget && !dead ? 'is-target' : ''} ${isActive ? 'is-active' : ''} ${dead ? 'is-dead' : ''}`;
     const damageStr = `${e.damage}`;
     const weapon = e.equippedWeapon ? A.Data.getById('weapons', e.equippedWeapon) : null;
+    const hpPct = pct(e.hp, e.maxHp);
+    // v1.6.6: color de la barra HP según porcentaje
+    const hpColorClass = hpPct < 25 ? 'is-critical' : hpPct < 50 ? 'is-warning' : '';
 
     return `
       <button type="button" class="${cls}" data-target="${A.Utils.escapeHtml(e.instanceId)}" ${dead ? 'disabled' : ''}>
@@ -203,7 +213,11 @@
           <span class="ally-card-icon">${e.icon || '👹'}</span>
           <div class="ally-card-id">
             <div class="ally-card-name">${A.Utils.escapeHtml(e.displayName)}</div>
-            <div class="ally-card-meta dim">T${e.tier} · ${categoryLabel(e.category)}${weapon ? ` · ${weapon.icon || '⚔️'}` : ''}</div>
+            <div class="ally-card-meta">
+              <span class="enemy-tier-badge">T${e.tier}</span>
+              <span class="enemy-cat-badge">${categoryLabel(e.category)}</span>
+              ${weapon ? `<span class="enemy-weapon-badge" title="${A.Utils.escapeHtml(weapon.name)}">${weapon.icon || '⚔️'}</span>` : ''}
+            </div>
           </div>
         </div>
         <div class="ally-card-bars">
@@ -211,7 +225,7 @@
             <span class="bar-label">Salud</span>
             <span class="bar-val num">${e.hp}/${e.maxHp}</span>
           </div>
-          <div class="bar bar-enemy-hp"><span style="width:${pct(e.hp, e.maxHp)}%"></span></div>
+          <div class="bar bar-enemy-hp ${hpColorClass}"><span style="width:${hpPct}%"></span></div>
         </div>
         ${renderEffectsBadges(e.effects)}
         <div class="ally-card-stats">

@@ -6097,3 +6097,270 @@
 .unlock-conditions-block .form-row-mini > span {
   font-size: 11px;
 }
+
+/* ============================================================
+   v1.6.5 — Wizard header con tier/category editables
+   ============================================================ */
+.audit-wizard-enemy-header-v2 {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 16px;
+  align-items: center;
+  padding: 12px 16px;
+  background: var(--surface-sunken);
+  border: var(--border-w) solid var(--border);
+  border-radius: var(--r-md);
+  margin-bottom: 12px;
+}
+.audit-wizard-enemy-header-v2 .audit-wizard-enemy-icon {
+  font-size: 36px;
+  line-height: 1;
+}
+.audit-wizard-enemy-header-v2 .audit-wizard-enemy-id {
+  min-width: 0;
+}
+.audit-wizard-enemy-header-v2 .audit-wizard-enemy-name {
+  font-size: var(--fs-md);
+  font-weight: var(--fw-semi);
+  margin: 0 0 2px;
+}
+.audit-wizard-enemy-header-v2 .audit-wizard-enemy-meta {
+  font-size: 11px;
+}
+.audit-wizard-classify {
+  display: flex;
+  gap: 10px;
+  align-items: flex-end;
+}
+.audit-classify-field {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.audit-classify-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: var(--fw-semi);
+}
+.audit-classify-input {
+  font-size: 12px;
+  padding: 4px 8px;
+  min-width: 80px;
+  font-weight: var(--fw-medium);
+}
+.audit-classify-field input.audit-classify-input {
+  width: 64px;
+  text-align: center;
+}
+
+/* ============================================================
+   v1.6.6 — Combat visual: cinematográfico, jerarquía clara
+   ============================================================ */
+
+/* === Player card hero: más grande que enemigos === */
+.ally-card.player-card-hero {
+  padding: 16px 16px 14px;
+  background: linear-gradient(160deg, var(--surface), var(--surface-raised));
+  border-width: 2px;
+  border-left-width: 4px;
+  border-left-color: var(--gold);
+  box-shadow: 0 4px 16px rgba(212, 164, 55, 0.08), 0 1px 3px rgba(0,0,0,0.08);
+  transition: all 0.25s ease;
+}
+.ally-card.player-card-hero.is-active {
+  box-shadow: 0 0 0 3px var(--gold-bg), 0 8px 24px rgba(212, 164, 55, 0.25);
+  transform: translateY(-1px);
+}
+
+.ally-card-icon-hero {
+  font-size: 38px !important;
+  width: 56px !important;
+  height: 56px !important;
+  background: linear-gradient(135deg, var(--gold-bg-soft), var(--gold-bg)) !important;
+  border-radius: var(--r-md) !important;
+  border: 1.5px solid var(--gold-deep);
+  box-shadow: inset 0 1px 2px rgba(255,255,255,0.4), 0 2px 4px rgba(0,0,0,0.08);
+}
+
+.ally-card-name-hero {
+  font-size: 17px !important;
+  font-weight: var(--fw-bold) !important;
+  color: var(--text);
+  letter-spacing: 0.01em;
+}
+
+/* Pills meta del player */
+.player-race-pill {
+  display: inline-block;
+  padding: 2px 8px;
+  background: var(--surface-sunken);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-right: 4px;
+}
+.player-level-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  background: linear-gradient(135deg, var(--gold-bg), var(--gold-bg-soft));
+  border: 1px solid var(--gold-deep);
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: var(--fw-semi);
+  color: var(--gold-text);
+}
+
+/* === Categorías de enemigo: colores distintivos === */
+.ally-card.enemy-card.enemy-cat-weak {
+  border-left-color: #8a8a78;
+  background: linear-gradient(160deg, var(--surface), #f6f4ee);
+}
+.ally-card.enemy-card.enemy-cat-normal {
+  border-left-color: #c45530;
+}
+.ally-card.enemy-card.enemy-cat-strong {
+  border-left-color: #d46a20;
+  background: linear-gradient(160deg, var(--surface), #fdf3e6);
+  border-left-width: 4px;
+}
+.ally-card.enemy-card.enemy-cat-boss {
+  border-left-color: #8d2818;
+  border-left-width: 5px;
+  background: linear-gradient(160deg, var(--surface), #fceae6);
+  box-shadow: 0 4px 12px rgba(141, 40, 24, 0.12);
+}
+
+/* Tier elite (>=7): glow dorado sutil */
+.ally-card.enemy-card.enemy-tier-elite {
+  background: linear-gradient(160deg, var(--surface), #fffaee);
+}
+.ally-card.enemy-card.enemy-tier-elite::before {
+  content: '★';
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  font-size: 11px;
+  color: var(--gold-deep);
+  text-shadow: 0 0 4px rgba(212, 164, 55, 0.5);
+  pointer-events: none;
+}
+
+/* Badges en meta del enemigo */
+.enemy-tier-badge {
+  display: inline-block;
+  padding: 1px 6px;
+  background: var(--surface-sunken);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 10px;
+  font-weight: var(--fw-semi);
+  color: var(--text-muted);
+}
+.enemy-cat-badge {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 8px;
+  font-size: 10px;
+  font-weight: var(--fw-semi);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-left: 4px;
+}
+.enemy-cat-weak .enemy-cat-badge {
+  background: rgba(138, 138, 120, 0.15);
+  color: #555548;
+}
+.enemy-cat-normal .enemy-cat-badge {
+  background: rgba(196, 85, 48, 0.12);
+  color: #6a2810;
+}
+.enemy-cat-strong .enemy-cat-badge {
+  background: rgba(212, 106, 32, 0.18);
+  color: #6a3010;
+}
+.enemy-cat-boss .enemy-cat-badge {
+  background: rgba(141, 40, 24, 0.2);
+  color: #6a1810;
+}
+.enemy-weapon-badge {
+  display: inline-block;
+  margin-left: 4px;
+  padding: 1px 4px;
+  background: var(--surface-sunken);
+  border-radius: 6px;
+  font-size: 11px;
+}
+
+/* === Bars con transición de color por hp === */
+.bar.bar-hp,
+.bar.bar-enemy-hp {
+  position: relative;
+  overflow: hidden;
+}
+.bar.bar-hp > span,
+.bar.bar-enemy-hp > span {
+  transition: width 0.5s cubic-bezier(0.2, 0.7, 0.2, 1), background 0.3s ease;
+}
+/* Player HP: verde por defecto, amarillo <50%, rojo <25% */
+.bar.bar-hp > span {
+  background: linear-gradient(90deg, #6b8e23, #7ca035);
+}
+.bar.bar-hp.is-warning > span {
+  background: linear-gradient(90deg, #c4a850, #d4b860);
+}
+.bar.bar-hp.is-critical > span {
+  background: linear-gradient(90deg, #c45530, #d4653a);
+  animation: hp-pulse 1.2s ease-in-out infinite;
+}
+/* Enemy HP: rojo por defecto, intensifica al bajar */
+.bar.bar-enemy-hp > span {
+  background: linear-gradient(90deg, #c4513a, #e57040);
+}
+.bar.bar-enemy-hp.is-warning > span {
+  background: linear-gradient(90deg, #d46a30, #e5805a);
+}
+.bar.bar-enemy-hp.is-critical > span {
+  background: linear-gradient(90deg, #8d2818, #a83828);
+  animation: hp-pulse 1.2s ease-in-out infinite;
+}
+@keyframes hp-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.75; }
+}
+
+/* === Layout cinematográfico mejorado === */
+.combat-arena {
+  gap: 20px;
+  padding: 8px 4px;
+}
+.combat-vs {
+  font-size: 28px;
+  background: linear-gradient(135deg, var(--gold-bg), var(--gold-bg-soft));
+  width: 56px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 2px solid var(--gold-deep);
+  box-shadow: 0 4px 12px rgba(212, 164, 55, 0.2);
+  align-self: center;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.15);
+}
+
+@media (max-width: 800px) {
+  .combat-vs {
+    transform: rotate(90deg);
+    width: 44px;
+    height: 44px;
+    font-size: 22px;
+  }
+}
+
+/* Active indicator: pulse más sutil pero más visible */
+@keyframes enemy-active-pulse {
+  0%, 100% { box-shadow: 0 0 0 2px rgba(196, 85, 48, 0.25), 0 4px 12px rgba(196, 85, 48, 0.15); }
+  50% { box-shadow: 0 0 0 4px rgba(196, 85, 48, 0.4), 0 6px 18px rgba(196, 85, 48, 0.25); }
+}

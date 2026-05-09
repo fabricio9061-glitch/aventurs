@@ -1565,15 +1565,29 @@
           </aside>
 
           <main class="audit-wizard-main">
-            <div class="audit-wizard-enemy-header">
+            <div class="audit-wizard-enemy-header audit-wizard-enemy-header-v2">
               <span class="audit-wizard-enemy-icon">${enemy.icon || '👹'}</span>
-              <div>
+              <div class="audit-wizard-enemy-id">
                 <h3 class="audit-wizard-enemy-name">${A.Utils.escapeHtml(enemy.name || enemy.id)}</h3>
                 <div class="audit-wizard-enemy-meta dim">
-                  Tier ${enemy.tier} ·
-                  ${enemy.category} ·
-                  ${(enemy.family || []).join(', ')}
+                  ${(enemy.family || []).join(', ') || 'sin familia'}
                 </div>
+              </div>
+              <div class="audit-wizard-classify">
+                <label class="audit-classify-field">
+                  <span class="audit-classify-label dim">Tier</span>
+                  <input class="form-input audit-classify-input" type="number" min="1" max="10" step="1"
+                         data-audit-classify="tier" value="${enemy.tier || 1}" title="Tier del enemigo (1-10). Cambiarlo recalcula sugerencias.">
+                </label>
+                <label class="audit-classify-field">
+                  <span class="audit-classify-label dim">Categoría</span>
+                  <select class="form-input audit-classify-input" data-audit-classify="category" title="Categoría: weak, normal, strong, boss. Recalcula sugerencias al cambiar.">
+                    <option value="weak" ${enemy.category === 'weak' ? 'selected' : ''}>weak</option>
+                    <option value="normal" ${enemy.category === 'normal' ? 'selected' : ''}>normal</option>
+                    <option value="strong" ${enemy.category === 'strong' ? 'selected' : ''}>strong</option>
+                    <option value="boss" ${enemy.category === 'boss' ? 'selected' : ''}>boss</option>
+                  </select>
+                </label>
               </div>
             </div>
 
@@ -1866,6 +1880,25 @@
           if (isNaN(value)) return;
         }
         applyStatChange(current.enemy, field, value);
+        renderAuditWizard();
+      });
+    });
+
+    // v1.6.5: Tier y Category editables en el header del wizard.
+    // Al cambiarlos, recalcula sugerencias de AutoBalance y re-renderiza.
+    overlay.querySelectorAll('[data-audit-classify]').forEach((input) => {
+      input.addEventListener('change', (ev) => {
+        const field = input.dataset.auditClassify; // 'tier' o 'category'
+        const current = auditWizardState.items[auditWizardState.cursor];
+        if (!current) return;
+        let value = input.value;
+        if (field === 'tier') {
+          value = Math.max(1, Math.min(10, parseInt(value, 10) || 1));
+        } else if (field === 'category') {
+          if (!['weak', 'normal', 'strong', 'boss'].includes(value)) return;
+        }
+        applyStatChange(current.enemy, field, value);
+        showWizardToast(`✓ ${field === 'tier' ? 'Tier' : 'Categoría'} = ${value}`, 'success');
         renderAuditWizard();
       });
     });
