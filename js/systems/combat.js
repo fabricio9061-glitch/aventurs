@@ -210,6 +210,64 @@
     return Math.max(1, speed - totalWeight);
   }
 
+  /**
+   * v1.6.7: Compone el daño del jugador como SUMA de:
+   *   1. Daño racial base (de la raza, default '1d3' si no está definido)
+   *   2. Daño del arma equipada (si tiene)
+   *   3. Modificador plano de stats.damage (bonus de raza/buff)
+   *
+   * El arma SUMA, no reemplaza. Esto solo aplica al jugador, NO a enemigos.
+   *
+   * Devuelve { expression, components, range }
+   *   expression: string para tirar con rollDiceCompound, ej "1d3 + 1d4"
+   *   components: array para mostrar el desglose en UI
+   *   range: { min, max }
+   */
+  function composePlayerDamage(player) {
+    if (!player) return { expression: '1d3', components: [], range: { min: 1, max: 3 } };
+    const components = [];
+
+    // 1. Daño racial base
+    const race = A.Data.getById('races', player.raceId);
+    const racialDmg = (race && race.baseDamage) || '1d3';
+    components.push({
+      source: 'race',
+      label: race ? race.name : 'Base',
+      expr: racialDmg,
+      icon: race ? race.icon : '✊',
+    });
+
+    // 2. Arma equipada
+    if (player.equipment && player.equipment.weapon) {
+      const w = A.Data.getById('weapons', player.equipment.weapon);
+      if (w && w.damage) {
+        components.push({
+          source: 'weapon',
+          label: w.name,
+          expr: w.damage,
+          icon: w.icon || '⚔️',
+        });
+      }
+    }
+
+    // 3. Bonus plano de stats.damage (si > 0)
+    if (player.stats && player.stats.damage > 0) {
+      components.push({
+        source: 'modifier',
+        label: 'Bonus stat',
+        expr: `+${player.stats.damage}`,
+        icon: '✨',
+      });
+    }
+
+    // Construir expresión: une con ' + ' pero limpia cualquier '+ +' que quede
+    let expression = components.map((c) => c.expr).join(' + ');
+    // Si algún componente ya empieza con '+' (ej: "+2"), evitar el "+ +"
+    expression = expression.replace(/\+\s*\+/g, '+').replace(/\s+/g, ' ').trim();
+    const range = A.Utils.diceRange(expression);
+    return { expression, components, range };
+  }
+
   // ============================================================
   // Status effects (sangrado, veneno, fuego, frío, eléctrico)
   // ============================================================
@@ -521,7 +579,9 @@
     } else {
       const weaponId = p.equipment.weapon;
       const weapon = weaponId ? A.Data.getById('weapons', weaponId) : null;
-      const damageDice = weapon ? weapon.damage : '1d3';
+      // v1.6.7: daño compuesto (racial + arma + bonus stat)
+      const composed = composePlayerDamage(p);
+      const damageDice = composed.expression;
       const isCrit = roll === 20;
 
       // El defensor intenta esquivar (excepto en críticos)
@@ -542,8 +602,9 @@
           result: 'evaded',
         });
       } else {
-        const damageRoll = A.Utils.rollDice(damageDice);
-        let rawDmg = damageRoll + (p.stats.damage || 0);
+        // v1.6.7: tirada compuesta con desglose por componente
+        const compoundResult = A.Utils.rollDiceCompound(composed.expression);
+        let rawDmg = compoundResult.total;
         if (isCrit) rawDmg *= 2;
         const targetArmor = target.armor || 0;
         const finalDmg = Math.max(0, rawDmg - targetArmor);
@@ -553,6 +614,12 @@
           actor: p.name, target: target.displayName, actorIcon: '🗡️',
           weapon: weapon ? weapon.name : 'puños',
           damageDice,
+          damageBreakdown: composed.components.map((cmp, i) => ({
+            label: cmp.label,
+            expr: cmp.expr,
+            rolled: compoundResult.components[i] ? compoundResult.components[i].rolled : 0,
+            icon: cmp.icon,
+          })),
           roll, bonus: precBonus, total,
           dodgeRoll: isCrit ? null : dodgeRoll, dodgeTotal: isCrit ? null : dodgeTotal, dodgeVs: dodgeDifficulty,
           rawDmg, targetArmor, dmg: finalDmg, hpAfter: target.hp, hpMax: target.maxHp,
@@ -1102,6 +1169,7 @@
     availableSpells,
     availableItems,
     effectivePlayerSpeed,
+    composePlayerDamage,
     applyStatus,
     removeStatus,
     effectLabel,

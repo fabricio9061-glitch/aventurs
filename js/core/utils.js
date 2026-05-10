@@ -31,6 +31,75 @@ window.Aventurs = window.Aventurs || {};
       return total + mod;
     },
 
+    /**
+     * v1.6.7: Tira una expresión de daño compuesta tipo "1d3 + 1d4", "2d4 + 1d6 + 2", "1d8 + 3".
+     * Permite sumar múltiples dados y modificadores planos.
+     * Devuelve { total, components: [{ expr, rolled }, ...] }
+     */
+    rollDiceCompound(expression) {
+      if (expression == null || expression === '') return { total: 0, components: [] };
+      const expr = String(expression).replace(/\s+/g, '');
+      // Split por + o - de alto nivel. Inserto separador antes de cada signo (excepto al inicio).
+      // Ej: "1d3+1d4-2" -> ["1d3", "+1d4", "-2"]
+      const parts = expr.split(/(?=[+-])/g).filter(Boolean);
+      const components = [];
+      let total = 0;
+      for (const raw of parts) {
+        if (!raw) continue;
+        if (/d/i.test(raw)) {
+          // Es un dado: NdM o NdM+K o NdM-K
+          const m = raw.match(/^([+-]?)(\d*)d(\d+)([+-]\d+)?$/i);
+          if (!m) continue;
+          const sign = m[1] === '-' ? -1 : 1;
+          const count = parseInt(m[2] || '1', 10);
+          const sides = parseInt(m[3], 10);
+          const innerMod = m[4] ? parseInt(m[4], 10) : 0;
+          let rolled = 0;
+          for (let i = 0; i < count; i++) rolled += Utils.dice(sides);
+          rolled = (rolled + innerMod) * sign;
+          components.push({ expr: raw, rolled });
+          total += rolled;
+        } else {
+          // Modificador plano: +N o -N
+          const v = parseInt(raw, 10);
+          if (!isNaN(v)) {
+            components.push({ expr: raw, rolled: v });
+            total += v;
+          }
+        }
+      }
+      return { total, components };
+    },
+
+    /**
+     * v1.6.7: Devuelve el rango (min, max) de una expresión compuesta sin tirar.
+     */
+    diceRange(expression) {
+      if (!expression) return { min: 0, max: 0 };
+      const expr = String(expression).replace(/\s+/g, '');
+      const parts = expr.split(/(?=[+-])/g).filter(Boolean);
+      let min = 0, max = 0;
+      for (const raw of parts) {
+        if (!raw) continue;
+        if (/d/i.test(raw)) {
+          const m = raw.match(/^([+-]?)(\d*)d(\d+)([+-]\d+)?$/i);
+          if (!m) continue;
+          const sign = m[1] === '-' ? -1 : 1;
+          const count = parseInt(m[2] || '1', 10);
+          const sides = parseInt(m[3], 10);
+          const innerMod = m[4] ? parseInt(m[4], 10) : 0;
+          const lo = (count * 1 + innerMod) * sign;
+          const hi = (count * sides + innerMod) * sign;
+          min += Math.min(lo, hi);
+          max += Math.max(lo, hi);
+        } else {
+          const v = parseInt(raw, 10);
+          if (!isNaN(v)) { min += v; max += v; }
+        }
+      }
+      return { min, max };
+    },
+
     clamp(n, min, max) {
       return Math.max(min, Math.min(max, n));
     },

@@ -145,7 +145,10 @@
     const weapon = p.equipment.weapon ? A.Data.getById('weapons', p.equipment.weapon) : null;
     const armor = p.equipment.armor ? A.Data.getById('armors', p.equipment.armor) : null;
     const totalArmor = (p.stats.armor || 0) + (armor ? armor.defense : 0);
-    const dmgStr = weapon ? weapon.damage : '1d3';
+    // v1.6.7: daño compuesto (racial + arma + bonus)
+    const composed = A.Combat.composePlayerDamage ? A.Combat.composePlayerDamage(p) : null;
+    const dmgStr = composed ? composed.expression : (weapon ? weapon.damage : '1d3');
+    const dmgTooltip = composed ? composed.components.map((c) => `${c.icon || ''} ${c.label}: ${c.expr}`).join(' · ') : '';
     const baseSpeed = p.stats.speed || 10;
     const effSpeed = A.Combat.effectivePlayerSpeed ? A.Combat.effectivePlayerSpeed(p) : baseSpeed;
     const speedDelta = effSpeed - baseSpeed;
@@ -187,7 +190,7 @@
         </div>
         ${renderEffectsBadges(p.effects)}
         <div class="ally-card-stats">
-          <span class="ally-stat" title="Daño del arma${p.stats.damage ? ' + bonus' : ''}"><span class="dim">DMG</span> <span class="num">${dmgStr}${p.stats.damage ? `+${p.stats.damage}` : ''}</span></span>
+          <span class="ally-stat" title="${A.Utils.escapeHtml(dmgTooltip || 'Daño total')}"><span class="dim">DMG</span> <span class="num">${dmgStr}</span></span>
           <span class="ally-stat" title="Armadura"><span class="dim">ARM</span> <span class="num">${totalArmor}</span></span>
           <span class="ally-stat" title="Velocidad"><span class="dim">VEL</span> <span class="num">${speedLabel}</span></span>
           <span class="ally-stat" title="Esquiva"><span class="dim">ESQ</span> <span class="num">${p.stats.dodge || 0}</span></span>

@@ -67,7 +67,7 @@
         </div>
 
         <footer class="shell-footer">
-          <span class="version-pill">v1.6.6</span>
+          <span class="version-pill">v1.6.7</span>
         </footer>
       </div>
     `;
@@ -494,12 +494,16 @@
   }
 
   /**
-   * Devuelve el daño que se debe mostrar en la UI:
-   * - Si tiene arma equipada: notación del arma + bonus de stats
-   * - Si no tiene arma: '1d3' (puños base) + bonus
-   * Nunca devuelve 0.
+   * Devuelve el daño compuesto a mostrar en la UI.
+   * v1.6.7: ahora usa Combat.composePlayerDamage para el desglose racial+arma+bonus.
    */
   function formatDamageDisplay(weapon, statsDamage) {
+    const p = A.State.player;
+    if (p && A.Combat && A.Combat.composePlayerDamage) {
+      const composed = A.Combat.composePlayerDamage(p);
+      return composed.expression;
+    }
+    // Fallback legacy
     const dice = weapon ? weapon.damage : '1d3';
     const bonus = statsDamage || 0;
     if (bonus > 0) return `${dice}+${bonus}`;

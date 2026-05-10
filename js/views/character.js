@@ -93,7 +93,9 @@
    * v1.6.3: Preview grande de la raza seleccionada (columna izquierda).
    */
   function renderRacePreview(race, stats, theme) {
-    const baseDmg = (stats.damage > 0) ? `1d3+${stats.damage}` : '1d3';
+    // v1.6.7: Mostrar la composición esperada al equipar un arma
+    const racialDmg = (race && race.baseDamage) || (stats.damage > 0 ? `1d3+${stats.damage}` : '1d3');
+    const baseDmg = racialDmg;
     // Barras visuales: estimadas a partir de stats típicos
     const bars = [
       { label: 'Salud', val: stats.maxHp, max: 30, color: '#c4513a' },
@@ -121,8 +123,11 @@
 
         <div class="race-preview-extras">
           <div class="race-extra-row">
-            <span class="dim">Daño base sin arma:</span>
+            <span class="dim">Daño racial base:</span>
             <span class="num">${baseDmg}</span>
+          </div>
+          <div class="race-extra-row dim small">
+            <span>Las armas suman a este valor (no lo reemplazan).</span>
           </div>
         </div>
       </div>

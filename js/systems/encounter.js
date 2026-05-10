@@ -211,8 +211,7 @@
       icon: enemyData.icon,
       hp: enemyData.health,
       maxHp: enemyData.health,
-      damage: enemyData.damage, // notación dados ('1d6') o número
-      baseDamage: enemyData.baseDamage || enemyData.damage, // daño base sin arma
+      damage: enemyData.damage, // v1.6.7: enemigos tienen un único campo damage final
       armor: enemyData.armor || 0,
       speed: enemyData.speed || 10,
       dodge: enemyData.dodge || Math.max(0, Math.floor((enemyData.speed || 10) / 4)),
@@ -226,10 +225,11 @@
       equippedArmor: null,
     };
 
-    // v1.5.9: Solo autoequipar humanoides si NO tienen damage definido en el seed,
-    // o si tienen flag equipmentEnabled explícito. Respeta el damage del editor.
+    // v1.5.9 / v1.6.7: Auto-equipar humanoides solo si tienen flag equipmentEnabled o
+    // no tienen damage definido. El daño compuesto NO aplica a enemigos: si se equipa,
+    // el arma reemplaza el damage (no suma como en el jugador).
     const shouldAutoEquip = inst.family.includes('humanoid') &&
-      (inst.equipmentEnabled === true || (!inst.damage && !inst.baseDamage));
+      (inst.equipmentEnabled === true || !inst.damage);
 
     if (shouldAutoEquip) {
       const equipped = pickHumanoidEquipment(inst);
@@ -237,8 +237,8 @@
         inst.equippedWeapon = equipped.weapon.id;
         inst.damage = equipped.weapon.damage;
       } else {
-        // Sin arma: usa baseDamage si existe, si no '1d3' (puños)
-        inst.damage = inst.baseDamage || '1d3';
+        // Sin arma: usa '1d3' (puños base)
+        inst.damage = inst.damage || '1d3';
       }
       if (equipped.armor) {
         inst.equippedArmor = equipped.armor.id;

@@ -1010,7 +1010,6 @@
       row('Biome (csv)', arr('biome', e.biome)),
       row('Salud', inp('health', e.health, 'number')),
       row('Daño (dados o número)', inp('damage', e.damage, 'text', 'placeholder="1d6+1"')),
-      row('Daño base sin arma', inp('baseDamage', e.baseDamage || '', 'text', 'placeholder="1d3 (humanoides sin arma)"')),
       row('Dificultad', inp('difficulty', e.difficulty, 'number')),
       row('Armadura', inp('armor', e.armor, 'number')),
       row('Velocidad', inp('speed', e.speed, 'number')),
