@@ -796,6 +796,24 @@
     return `<div class="form-row">${iconHtml}<label>${A.Utils.escapeHtml(label)}</label>${html}</div>`;
   }
 
+  /**
+   * v1.7.3: Envuelve un conjunto de rows en una sección tipo card con header.
+   * cols: cantidad de columnas de la grilla interna (default 2).
+   */
+  function section(title, icon, rowsHtml, cols = 2) {
+    return `
+      <div class="form-section">
+        <div class="form-section-header">
+          <span class="form-section-icon">${icon || '📋'}</span>
+          <span class="form-section-title">${A.Utils.escapeHtml(title)}</span>
+        </div>
+        <div class="form-section-body form-grid-${cols}">
+          ${rowsHtml}
+        </div>
+      </div>
+    `;
+  }
+
   function inp(field, value, type = 'text', extra = '') {
     return `<input class="form-input" data-field="${field}" type="${type}" value="${A.Utils.escapeHtml(value ?? '')}" ${extra}>`;
   }
@@ -1231,27 +1249,34 @@
     const eff = e.statusEffect || { type: '', chance: 0, turns: 0, value: 0 };
     const hasEffect = !!e.statusEffect;
     return [
-      row('ID', inp('id', e.id)),
-      row('Nombre', inp('name', e.name)),
-      row('Icono', inp('icon', e.icon)),
-      row('Daño (notación)', inp('damage', e.damage)),
-      row('Valor (cobre)', inp('value', e.value, 'number')),
-      row('Rareza', sel('rarity', e.rarity, [
-        {value:'common',label:'Común'},{value:'uncommon',label:'Poco común'},{value:'rare',label:'Raro'},
-        {value:'epic',label:'Épico'},{value:'legendary',label:'Legendario'},
-      ])),
-      row('Tier', inp('tier', e.tier, 'number', 'min="1" max="10"')),
-      row('Peso', inp('weight', e.weight, 'number')),
-      row('Slots (1 normal, 2 voluminoso)', inp('slots', e.slots ?? 1, 'number', 'min="1" max="3"')),
-      row('Mágica', chk('magic', e.magic)),
-      `<div class="form-row form-row-block">
-        <label>Efecto al impactar</label>
-        <div class="weapon-effect-block">
-          <label class="weapon-effect-toggle">
+      section('Identidad', '🆔', [
+        row('ID', inp('id', e.id)),
+        row('Nombre', inp('name', e.name)),
+        row('Icono', inp('icon', e.icon)),
+        row('Mágica', chk('magic', e.magic)),
+      ].join(''), 2),
+      section('Combate', '⚔️', [
+        row('Daño (notación)', inp('damage', e.damage)),
+        row('Tier', inp('tier', e.tier, 'number', 'min="1" max="10"')),
+        row('Rareza', sel('rarity', e.rarity, [
+          {value:'common',label:'Común'},{value:'uncommon',label:'Poco común'},{value:'rare',label:'Raro'},
+          {value:'epic',label:'Épico'},{value:'legendary',label:'Legendario'},
+        ])),
+        row('Valor (cobre)', inp('value', e.value, 'number')),
+        row('Peso', inp('weight', e.weight, 'number')),
+        row('Slots', inp('slots', e.slots ?? 1, 'number', 'min="1" max="3"')),
+      ].join(''), 3),
+      `<div class="form-section">
+        <div class="form-section-header">
+          <span class="form-section-icon">✨</span>
+          <span class="form-section-title">Efecto al impactar</span>
+          <label class="weapon-effect-toggle form-section-toggle">
             <input type="checkbox" data-weapon-effect-toggle ${hasEffect ? 'checked' : ''}>
-            <span>${hasEffect ? 'Activo' : 'Sin efecto especial'}</span>
+            <span>${hasEffect ? 'Activo' : 'Sin efecto'}</span>
           </label>
-          <div class="weapon-effect-fields ${hasEffect ? '' : 'is-disabled'}">
+        </div>
+        <div class="form-section-body weapon-effect-fields ${hasEffect ? '' : 'is-disabled'}">
+          <div class="form-grid-2">
             ${row('Tipo', sel('statusEffect.type', eff.type, [
               {value:'bleed', label:'🩸 Sangrado (HP)'},
               {value:'fire', label:'🔥 Fuego (HP, refresh)'},
@@ -1263,47 +1288,54 @@
             ${row('Turnos', inp('statusEffect.turns', eff.turns, 'number', 'min="1" max="10"'))}
             ${row('Valor (daño/turno o intensidad)', inp('statusEffect.value', eff.value, 'number', 'min="0" max="20"'))}
           </div>
-          <div class="dim small">
-            💡 Sangrado/Veneno: daño por turno = "valor". Fuego/Frío/Aturdir: efecto refresh (no acumula).
-            Probabilidad 0.20 = 20% por golpe.
+          <div class="dim small form-section-hint">
+            💡 Sangrado/Veneno: daño por turno = "valor". Fuego/Frío/Aturdir: efecto refresh (no acumula). Probabilidad 0.20 = 20% por golpe.
           </div>
         </div>
       </div>`,
-      row('Descripción', txt('description', e.description, 3)),
+      section('Descripción', '📝', row('Texto', txt('description', e.description, 3)), 1),
     ].join('');
   }
 
   function formArmors(e) {
     return [
-      row('ID', inp('id', e.id)),
-      row('Nombre', inp('name', e.name)),
-      row('Icono', inp('icon', e.icon)),
-      row('Defensa', inp('defense', e.defense, 'number')),
-      row('Valor (cobre)', inp('value', e.value, 'number')),
-      row('Rareza', sel('rarity', e.rarity, [
-        {value:'common',label:'Común'},{value:'uncommon',label:'Poco común'},{value:'rare',label:'Raro'},
-        {value:'epic',label:'Épico'},{value:'legendary',label:'Legendario'},
-      ])),
-      row('Tier', inp('tier', e.tier, 'number', 'min="1" max="10"')),
-      row('Peso', inp('weight', e.weight, 'number')),
-      row('Mágica', chk('magic', e.magic)),
-      row('Descripción', txt('description', e.description, 3)),
+      section('Identidad', '🆔', [
+        row('ID', inp('id', e.id)),
+        row('Nombre', inp('name', e.name)),
+        row('Icono', inp('icon', e.icon)),
+        row('Mágica', chk('magic', e.magic)),
+      ].join(''), 2),
+      section('Defensa', '🛡️', [
+        row('Defensa', inp('defense', e.defense, 'number')),
+        row('Tier', inp('tier', e.tier, 'number', 'min="1" max="10"')),
+        row('Rareza', sel('rarity', e.rarity, [
+          {value:'common',label:'Común'},{value:'uncommon',label:'Poco común'},{value:'rare',label:'Raro'},
+          {value:'epic',label:'Épico'},{value:'legendary',label:'Legendario'},
+        ])),
+        row('Valor (cobre)', inp('value', e.value, 'number')),
+        row('Peso', inp('weight', e.weight, 'number')),
+      ].join(''), 3),
+      section('Descripción', '📝', row('Texto', txt('description', e.description, 3)), 1),
     ].join('');
   }
 
   function formItems(e) {
     return [
-      row('ID', inp('id', e.id)),
-      row('Nombre', inp('name', e.name)),
-      row('Icono', inp('icon', e.icon)),
-      row('Subtipo', sel('subtype', e.subtype, [
-        {value:'coin',label:'Moneda'},{value:'potion',label:'Poción'},{value:'food',label:'Comida'},
-        {value:'scroll',label:'Pergamino'},{value:'material',label:'Material'},{value:'misc',label:'Misc'},
-      ])),
-      row('Valor (cobre)', inp('value', e.value, 'number')),
-      row('Peso', inp('weight', e.weight, 'number')),
-      row('Stack máx (opcional)', inp('stack', e.stack || '', 'number')),
-      row('Descripción', txt('description', e.description, 3)),
+      section('Identidad', '🆔', [
+        row('ID', inp('id', e.id)),
+        row('Nombre', inp('name', e.name)),
+        row('Icono', inp('icon', e.icon)),
+        row('Subtipo', sel('subtype', e.subtype, [
+          {value:'coin',label:'Moneda'},{value:'potion',label:'Poción'},{value:'food',label:'Comida'},
+          {value:'scroll',label:'Pergamino'},{value:'material',label:'Material'},{value:'misc',label:'Misc'},
+        ])),
+      ].join(''), 2),
+      section('Propiedades', '📦', [
+        row('Valor (cobre)', inp('value', e.value, 'number')),
+        row('Peso', inp('weight', e.weight, 'number')),
+        row('Stack máx (opcional)', inp('stack', e.stack || '', 'number')),
+      ].join(''), 3),
+      section('Descripción', '📝', row('Texto', txt('description', e.description, 3)), 1),
     ].join('');
   }
 
@@ -1422,51 +1454,74 @@
     ` : '<div class="muted small">Stats coherentes con tier+category+family.</div>';
 
     return [
-      row('ID', inp('id', e.id)),
-      row('Nombre', inp('name', e.name)),
-      row('Icono', inp('icon', e.icon)),
-      row('Tier', inp('tier', e.tier, 'number', 'min="1" max="10"')),
-      row('Category', sel('category', e.category, [
-        {value:'weak',label:'Débil'},{value:'normal',label:'Normal'},{value:'strong',label:'Fuerte'},{value:'boss',label:'Jefe'},
-      ])),
-      row('Family (csv)', arr('family', e.family)),
-      row('Tags (csv)', arr('tags', e.tags)),
-      row('Biome (csv)', arr('biome', e.biome)),
-      row('Salud', inp('health', e.health, 'number')),
-      row('Daño (dados o número)', inp('damage', e.damage, 'text', 'placeholder="1d6+1"')),
-      row('Dificultad', inp('difficulty', e.difficulty, 'number')),
-      row('Armadura', inp('armor', e.armor, 'number')),
-      row('Velocidad', inp('speed', e.speed, 'number')),
-      row('Esquiva', inp('dodge', e.dodge ?? Math.max(0, Math.floor((e.speed || 10) / 4)), 'number')),
-      row('Regiones', tagsField('regions', e.regions, 'regions', 'Buscar región...')),
-      row('Spawn min (por encuentro)', inp('spawn.min', (e.spawn||{}).min ?? 1, 'number', 'min="1" max="8"')),
-      row('Spawn max (por encuentro)', inp('spawn.max', (e.spawn||{}).max ?? 1, 'number', 'min="1" max="8"')),
-      row('Spawn weight (peso relativo)', inp('spawn.weight', (e.spawn||{}).weight ?? 1.0, 'number', 'min="0" max="5" step="0.1"')),
-      row('Agrupable (groupable)', chk('spawn.groupable', (e.spawn||{}).groupable !== false)),
-      row('Domable', chk('tameable', e.tameable)),
-      row('Item para domar (id)', inp('tameItem', e.tameItem || '', 'text')),
-      row('AutoLoot habilitado', chk('autoLoot', e.autoLoot)),
-      `<div class="form-row form-row-block">
-        <label>Drops manuales</label>
-        <div class="drops-block">
-          ${dropsHtml || '<div class="muted small" style="padding:12px">Ninguno todavía. Agregá uno con el botón de abajo o aceptá una sugerencia.</div>'}
-          <button class="drop-add-btn" data-drop-action="add" type="button">+ Agregar drop manual</button>
+      section('Identidad', '🆔', [
+        row('ID', inp('id', e.id)),
+        row('Nombre', inp('name', e.name)),
+        row('Icono', inp('icon', e.icon)),
+        row('Tier', inp('tier', e.tier, 'number', 'min="1" max="10"')),
+        row('Category', sel('category', e.category, [
+          {value:'weak',label:'Débil'},{value:'normal',label:'Normal'},{value:'strong',label:'Fuerte'},{value:'boss',label:'Jefe'},
+        ])),
+        row('Domable', chk('tameable', e.tameable)),
+      ].join(''), 3),
+      section('Clasificación', '🏷️', [
+        row('Family (csv)', arr('family', e.family)),
+        row('Tags (csv)', arr('tags', e.tags)),
+        row('Biome (csv)', arr('biome', e.biome)),
+      ].join(''), 1),
+      section('Stats de combate', '⚔️', [
+        row('Salud', inp('health', e.health, 'number')),
+        row('Daño (dados o número)', inp('damage', e.damage, 'text', 'placeholder="1d6+1"')),
+        row('Dificultad', inp('difficulty', e.difficulty, 'number')),
+        row('Armadura', inp('armor', e.armor, 'number')),
+        row('Velocidad', inp('speed', e.speed, 'number')),
+        row('Esquiva', inp('dodge', e.dodge ?? Math.max(0, Math.floor((e.speed || 10) / 4)), 'number')),
+      ].join(''), 3),
+      section('Spawn', '🎯', [
+        row('Spawn min', inp('spawn.min', (e.spawn||{}).min ?? 1, 'number', 'min="1" max="8"')),
+        row('Spawn max', inp('spawn.max', (e.spawn||{}).max ?? 1, 'number', 'min="1" max="8"')),
+        row('Spawn weight', inp('spawn.weight', (e.spawn||{}).weight ?? 1.0, 'number', 'min="0" max="5" step="0.1"')),
+        row('Agrupable', chk('spawn.groupable', (e.spawn||{}).groupable !== false)),
+        row('Item para domar (id)', inp('tameItem', e.tameItem || '', 'text')),
+        row('AutoLoot habilitado', chk('autoLoot', e.autoLoot)),
+      ].join(''), 3),
+      section('Regiones', '🗺️', row('Regiones', tagsField('regions', e.regions, 'regions', 'Buscar región...')), 1),
+      `<div class="form-section">
+        <div class="form-section-header">
+          <span class="form-section-icon">💰</span>
+          <span class="form-section-title">Drops manuales</span>
+        </div>
+        <div class="form-section-body">
+          <div class="drops-block">
+            ${dropsHtml || '<div class="muted small" style="padding:12px">Ninguno todavía. Agregá uno con el botón de abajo o aceptá una sugerencia.</div>'}
+            <button class="drop-add-btn" data-drop-action="add" type="button">+ Agregar drop manual</button>
+          </div>
         </div>
       </div>`,
-      `<div class="form-row form-row-block">
-        <label>Drops sugeridos (LootIntelligence)</label>
-        <div class="drops-suggestions">${sugHtml}</div>
+      `<div class="form-section">
+        <div class="form-section-header">
+          <span class="form-section-icon">🎁</span>
+          <span class="form-section-title">Drops sugeridos (LootIntelligence)</span>
+        </div>
+        <div class="form-section-body">
+          <div class="drops-suggestions">${sugHtml}</div>
+        </div>
       </div>`,
-      `<div class="form-row form-row-block">
-        <label>AutoBalance</label>
-        <div class="autobalance-block">
-          <div class="dim small">Stats sugeridos: HP ${sug.health}, daño ${sug.damage}, dificultad ${sug.difficulty}, armadura ${sug.armor}, velocidad ${sug.speed}.</div>
-          ${auditHtml}
-          <div class="autobalance-actions">
-            <button class="btn-mini" data-action="autobalance-toggle-full">📊 Generar reporte completo</button>
-            <button class="btn-mini" data-action="autobalance-apply-all">Aplicar todos los sugeridos</button>
+      `<div class="form-section">
+        <div class="form-section-header">
+          <span class="form-section-icon">📊</span>
+          <span class="form-section-title">AutoBalance</span>
+        </div>
+        <div class="form-section-body">
+          <div class="autobalance-block">
+            <div class="dim small">Stats sugeridos: HP ${sug.health}, daño ${sug.damage}, dificultad ${sug.difficulty}, armadura ${sug.armor}, velocidad ${sug.speed}.</div>
+            ${auditHtml}
+            <div class="autobalance-actions">
+              <button class="btn-mini" data-action="autobalance-toggle-full">📊 Generar reporte completo</button>
+              <button class="btn-mini" data-action="autobalance-apply-all">Aplicar todos los sugeridos</button>
+            </div>
+            ${fullAuditHtml}
           </div>
-          ${fullAuditHtml}
         </div>
       </div>`,
     ].join('');
@@ -1475,20 +1530,24 @@
   function formNpcs(e) {
     const dialogText = (e.dialog || []).join('\n');
     return [
-      row('ID', inp('id', e.id)),
-      row('Nombre', inp('name', e.name)),
-      row('Icono', inp('icon', e.icon)),
-      row('Rol', sel('role', e.role, [
-        {value:'merchant',label:'Mercader'},{value:'shopkeeper',label:'Comerciante'},{value:'vendor',label:'Vendedor'},
-        {value:'blacksmith',label:'Herrero'},{value:'tavernkeeper',label:'Tabernero'},{value:'innkeeper',label:'Posadero'},
-        {value:'healer',label:'Curandero'},{value:'priest',label:'Sacerdote'},{value:'sage',label:'Sabio'},
-        {value:'wizard',label:'Mago'},{value:'mage',label:'Mago'},{value:'guard',label:'Guardia'},{value:'quest',label:'Encargo'},
-      ])),
-      row('Región', inp('region', e.region)),
-      row('Diálogos (uno por línea)', `<textarea class="form-input" data-field="dialog" data-array="lines" rows="4">${A.Utils.escapeHtml(dialogText)}</textarea>`),
-      row('Vende', tagsField('sells', e.sells, 'items', 'Buscar item...')),
-      row('Enseña hechizos', tagsField('teaches', e.teaches, 'spells', 'Buscar hechizo...')),
-      row('Costo descansar (cobre)', inp('services.restCost', (e.services||{}).restCost ?? '', 'number')),
+      section('Identidad', '🆔', [
+        row('ID', inp('id', e.id)),
+        row('Nombre', inp('name', e.name)),
+        row('Icono', inp('icon', e.icon)),
+        row('Rol', sel('role', e.role, [
+          {value:'merchant',label:'Mercader'},{value:'shopkeeper',label:'Comerciante'},{value:'vendor',label:'Vendedor'},
+          {value:'blacksmith',label:'Herrero'},{value:'tavernkeeper',label:'Tabernero'},{value:'innkeeper',label:'Posadero'},
+          {value:'healer',label:'Curandero'},{value:'priest',label:'Sacerdote'},{value:'sage',label:'Sabio'},
+          {value:'wizard',label:'Mago'},{value:'mage',label:'Mago'},{value:'guard',label:'Guardia'},{value:'quest',label:'Encargo'},
+        ])),
+        row('Región', inp('region', e.region)),
+        row('Costo descansar (cobre)', inp('services.restCost', (e.services||{}).restCost ?? '', 'number')),
+      ].join(''), 2),
+      section('Diálogos', '💬', row('Uno por línea', `<textarea class="form-input" data-field="dialog" data-array="lines" rows="4">${A.Utils.escapeHtml(dialogText)}</textarea>`), 1),
+      section('Comercio', '🪙', [
+        row('Vende', tagsField('sells', e.sells, 'items', 'Buscar item...')),
+        row('Enseña hechizos', tagsField('teaches', e.teaches, 'spells', 'Buscar hechizo...')),
+      ].join(''), 1),
     ].join('');
   }
 

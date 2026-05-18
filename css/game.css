@@ -6370,24 +6370,11 @@
    ============================================================ */
 
 /* === Form rows con icon === */
-.form-row {
-  position: relative;
-}
+/* v1.7.3: el layout de form-row ahora lo maneja editor.css (secciones densas).
+   Solo dejamos el tamaño del icono. */
 .form-row-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 22px;
-  height: 22px;
-  font-size: 14px;
-  margin-right: 6px;
+  font-size: 12px;
   flex-shrink: 0;
-  vertical-align: middle;
-}
-.form-row > label {
-  display: inline-flex;
-  align-items: center;
-  gap: 0;
 }
 
 /* === Editor preview RPG card === */
