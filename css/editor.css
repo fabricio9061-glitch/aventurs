@@ -194,120 +194,88 @@
   display: flex;
   flex-direction: column;
   min-height: 0;
-  overflow-y: auto;
-  overflow-x: hidden;
+  overflow: hidden;
 }
 .detail-empty { margin: var(--sp-10) auto; max-width: 360px; text-align: center; }
 .detail-toolbar {
   display: flex;
   gap: var(--sp-2);
-  padding: var(--sp-3) var(--sp-5);
+  padding: 10px var(--sp-5);
   border-bottom: var(--border-w) solid var(--border);
   background: var(--surface);
-  position: sticky;
-  top: 0;
-  z-index: 5;
   flex-shrink: 0;
 }
-
-/* ---------- Preview RPG card ---------- */
-
-.editor-preview { margin: var(--sp-4) var(--sp-5) 0; }
-.editor-preview-rpg {
-  background: linear-gradient(160deg, var(--surface-raised), var(--surface));
-  border: 1.5px solid var(--r-border, var(--border));
-  border-radius: var(--r-lg);
-  padding: 14px 16px;
-  position: relative;
-  overflow: hidden;
+.editor-scroll {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: var(--sp-4) var(--sp-5) var(--sp-8);
 }
-.editor-preview-rpg::before {
-  content: '';
-  position: absolute;
-  top: 0; left: 0; right: 0;
-  height: 4px;
-  background: var(--r-color, var(--gold-deep));
-  opacity: 0.85;
+
+/* ---------- Header compacto v1.7.5 (1 línea, nunca se corta) ---------- */
+
+.ed-header {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  background: var(--surface-raised);
+  border: var(--border-w) solid var(--border);
+  border-left: 3px solid var(--accent, var(--gold-deep));
+  border-radius: var(--r-md);
+  padding: 11px 14px;
+  margin-bottom: var(--sp-3);
 }
-.editor-preview-magic::before { background: linear-gradient(90deg, #5050a0, #8050a0); }
-.rpg-card-header { display: flex; align-items: center; gap: 14px; margin-bottom: 12px; }
-.rpg-card-icon {
-  font-size: 34px;
-  width: 52px; height: 52px;
+.ed-header-icon {
+  width: 46px; height: 46px;
   display: flex; align-items: center; justify-content: center;
-  background: var(--r-bg, var(--surface-sunken));
-  border: 1.5px solid var(--r-border, var(--border));
+  font-size: 26px;
+  background: var(--surface-sunken);
   border-radius: var(--r-md);
   flex-shrink: 0;
 }
-.rpg-card-title-block { flex: 1; min-width: 0; }
-.rpg-card-name { font-size: 18px; font-weight: var(--fw-bold); margin-bottom: 4px; }
-.rpg-card-subtitle { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
-.rpg-rarity-pill, .rpg-tier-pill, .rpg-magic-pill {
-  display: inline-block;
-  padding: 2px 8px;
+.ed-header-main { flex: 1; min-width: 0; }
+.ed-header-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.ed-header-name {
+  font-size: 17px;
+  font-weight: var(--fw-bold);
+  color: var(--text);
+}
+.eh-pill {
   font-size: 10px;
   font-weight: var(--fw-semi);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  padding: 2px 7px;
   border-radius: 10px;
-  border: 1px solid;
-}
-.rpg-tier-pill { background: var(--surface-sunken); color: var(--text-muted); border-color: var(--border); }
-.rpg-magic-pill { background: rgba(80,80,160,0.1); color: #5050a0; border-color: rgba(80,80,160,0.3); }
-.rpg-card-stats {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(108px, 1fr));
-  gap: 8px;
-  margin-bottom: 10px;
-}
-.rpg-stat {
-  display: flex; align-items: center; gap: 8px;
+  border: 1px solid var(--border);
   background: var(--surface-sunken);
-  border: var(--border-w) solid var(--border);
-  border-radius: var(--r-sm);
-  padding: 6px 10px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
 }
-.rpg-stat-icon { font-size: 17px; flex-shrink: 0; }
-.rpg-stat-info { display: flex; flex-direction: column; min-width: 0; }
-.rpg-stat-label {
-  font-size: 10px; color: var(--text-muted);
-  text-transform: uppercase; letter-spacing: 0.03em;
+.ed-header-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-top: 7px;
 }
-.rpg-stat-val { font-size: 13px; font-weight: var(--fw-semi); }
-.rpg-stat-range { font-size: 10px; font-weight: var(--fw-medium); }
-.rpg-card-effects {
-  display: flex; flex-wrap: wrap; align-items: center; gap: 6px;
-  margin-bottom: 8px;
-  padding: 8px 10px;
-  background: var(--surface-sunken);
-  border: 1px dashed var(--border);
-  border-radius: var(--r-sm);
-}
-.rpg-effect-chance { font-size: 11px; font-weight: var(--fw-medium); }
-.rpg-card-desc {
+.eh-stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   font-size: 12px;
   color: var(--text-muted);
-  font-style: italic;
-  line-height: 1.5;
-  margin-top: 6px;
-  padding: 8px 10px;
-  background: rgba(0,0,0,0.02);
-  border-left: 2px solid var(--r-color, var(--gold-deep));
-  border-radius: var(--r-sm);
 }
-.effect-badge-v2 {
-  display: inline-flex; align-items: center; gap: 4px;
-  padding: 3px 8px;
-  background: var(--surface);
-  border: 1.5px solid var(--effect-color, var(--border));
-  border-radius: 12px;
-  font-size: 11px;
-  font-weight: var(--fw-medium);
-  color: var(--effect-color, var(--text));
-}
-.effect-badge-icon { font-size: 13px; line-height: 1; }
-.effect-badge-meta { font-size: 10px; opacity: 0.75; }
+.eh-stat-ic { font-style: normal; font-size: 13px; }
+.eh-stat-lb { color: var(--text-muted); }
+.eh-stat-vl { color: var(--text); font-weight: var(--fw-medium); }
+
+/* ---------- Preview RPG card ---------- */
+
 
 /* ============================================================
    FORM — el fix central.
@@ -316,7 +284,6 @@
 
 .editor-form {
   display: block;
-  padding: var(--sp-4) var(--sp-5) var(--sp-8);
   max-width: 1000px;
 }
 
@@ -331,10 +298,21 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 10px 14px;
+  padding: 9px 14px;
   background: var(--surface-sunken);
   border-bottom: var(--border-w) solid var(--border);
+  cursor: pointer;
+  user-select: none;
 }
+.form-section.is-collapsed .form-section-header { border-bottom: none; }
+.form-section.is-collapsed .form-section-body { display: none; }
+.form-section-chevron {
+  font-size: 11px;
+  color: var(--text-muted);
+  transition: transform 0.18s ease;
+  margin-left: auto;
+}
+.form-section.is-collapsed .form-section-chevron { transform: rotate(-90deg); }
 .form-section-icon { font-size: 14px; line-height: 1; flex-shrink: 0; }
 .form-section-title {
   font-size: 11px;
@@ -342,7 +320,6 @@
   text-transform: uppercase;
   letter-spacing: 0.07em;
   color: var(--text-muted);
-  flex: 1;
 }
 .form-section-toggle {
   font-size: 11px;
@@ -351,13 +328,15 @@
   gap: 5px;
   color: var(--text-muted);
   cursor: pointer;
+  margin-left: auto;
 }
+.form-section-header .form-section-toggle + .form-section-chevron { margin-left: 8px; }
 
 .form-section-body {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px 16px;
-  padding: 14px;
+  gap: 11px 14px;
+  padding: 13px 14px;
   align-items: flex-start;
 }
 .form-section-hint {
@@ -407,19 +386,23 @@
 .form-input {
   display: block;
   width: 100%;
-  min-height: 36px;
+  min-height: 34px;
   box-sizing: border-box;
-  background: var(--surface);
-  border: var(--border-w) solid var(--border-strong);
+  background: var(--surface-sunken);
+  border: var(--border-w) solid transparent;
   border-radius: var(--r-md);
-  padding: 8px 11px;
+  padding: 7px 10px;
   font-size: 13px;
   color: var(--text);
-  transition: border-color 0.15s, box-shadow 0.15s;
+  transition: background 0.13s, border-color 0.13s, box-shadow 0.13s;
 }
-.form-input:hover { border-color: var(--gold-deep); }
+.form-input:hover {
+  background: var(--surface);
+  border-color: var(--border);
+}
 .form-input:focus {
   outline: none;
+  background: var(--surface);
   border-color: var(--gold);
   box-shadow: 0 0 0 3px var(--gold-bg-soft);
 }

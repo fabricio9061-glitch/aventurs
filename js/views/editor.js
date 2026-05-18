@@ -454,14 +454,16 @@
     return `
       <div class="detail-toolbar">
         <button class="btn-primary" data-editor-action="save" ${dirty ? '' : 'disabled'}>Guardar</button>
-        <button class="btn-secondary" data-editor-action="discard" ${dirty ? '' : 'disabled'} title="Descartar cambios sin guardar">↶ Descartar cambios</button>
+        <button class="btn-secondary" data-editor-action="discard" ${dirty ? '' : 'disabled'} title="Descartar cambios sin guardar">↶ Descartar</button>
         <button class="btn-secondary" data-editor-action="duplicate">Duplicar</button>
         <button class="btn-danger" data-editor-action="delete">Eliminar</button>
       </div>
-      ${preview}
-      <form class="editor-form">
-        ${body}
-      </form>
+      <div class="editor-scroll">
+        ${preview}
+        <form class="editor-form">
+          ${body}
+        </form>
+      </div>
     `;
   }
 
@@ -491,13 +493,39 @@
   function renderEditorPreview(e) {
     if (!e) return '';
     const t = activeType;
-
     if (t === 'weapons') return previewWeapon(e);
     if (t === 'armors') return previewArmor(e);
     if (t === 'items') return previewItem(e);
     if (t === 'spells') return previewSpell(e);
     if (t === 'enemies') return previewEnemy(e);
-    return ''; // Sin preview para regions/races/npcs/recipes/pets/bags por ahora
+    if (t === 'regions') return previewRegion(e);
+    if (t === 'races') return previewRace(e);
+    if (t === 'npcs') return previewNpc(e);
+    return previewGeneric(e);
+  }
+
+  // v1.7.5: header compacto de UNA línea. icono + nombre + pills + stats inline.
+  // Reemplaza la card gigante anterior. Nunca se corta (no es sticky, va en el flujo).
+  function compactHeader(opts) {
+    const { icon, name, pills, stats, accent } = opts;
+    const pillsHtml = (pills || []).map((p) =>
+      `<span class="eh-pill" ${p.style ? `style="${p.style}"` : ''}>${p.text}</span>`
+    ).join('');
+    const statsHtml = (stats || []).filter(Boolean).map((s) =>
+      `<span class="eh-stat"><i class="eh-stat-ic">${s.icon}</i>${s.label ? `<span class="eh-stat-lb">${s.label}</span>` : ''}<span class="eh-stat-vl">${s.value}</span></span>`
+    ).join('');
+    return `
+      <div class="editor-preview ed-header" style="--accent: ${accent || 'var(--gold-deep)'}">
+        <div class="ed-header-icon">${icon || '📦'}</div>
+        <div class="ed-header-main">
+          <div class="ed-header-title-row">
+            <span class="ed-header-name">${A.Utils.escapeHtml(name || 'Sin nombre')}</span>
+            ${pillsHtml}
+          </div>
+          ${statsHtml ? `<div class="ed-header-stats">${statsHtml}</div>` : ''}
+        </div>
+      </div>
+    `;
   }
 
   function previewWeapon(e) {
@@ -505,261 +533,164 @@
     const icon = e.icon || autoWeaponIcon(e);
     const eff = e.statusEffect;
     const range = A.Utils.diceRange ? A.Utils.diceRange(e.damage || '1d4') : null;
-    return `
-      <div class="editor-preview editor-preview-rpg" style="--r-color: ${r.color}; --r-bg: ${r.bg}; --r-border: ${r.border};">
-        <div class="rpg-card-header">
-          <div class="rpg-card-icon">${icon}</div>
-          <div class="rpg-card-title-block">
-            <div class="rpg-card-name" style="color: ${r.color}">${A.Utils.escapeHtml(e.name || 'Sin nombre')}</div>
-            <div class="rpg-card-subtitle">
-              <span class="rpg-rarity-pill" style="background: ${r.bg}; color: ${r.color}; border-color: ${r.border}">${r.icon} ${r.label}</span>
-              ${e.tier ? `<span class="rpg-tier-pill">🏷️ T${e.tier}</span>` : ''}
-              ${e.magic ? `<span class="rpg-magic-pill">✨ Mágica</span>` : ''}
-            </div>
-          </div>
-        </div>
-        <div class="rpg-card-stats">
-          <div class="rpg-stat">
-            <span class="rpg-stat-icon">⚔️</span>
-            <div class="rpg-stat-info">
-              <span class="rpg-stat-label">Daño</span>
-              <span class="rpg-stat-val">${A.Utils.escapeHtml(e.damage || '—')}${range ? ` <span class="rpg-stat-range dim">(${range.min}-${range.max})</span>` : ''}</span>
-            </div>
-          </div>
-          ${e.value != null ? `
-            <div class="rpg-stat">
-              <span class="rpg-stat-icon">🪙</span>
-              <div class="rpg-stat-info">
-                <span class="rpg-stat-label">Valor</span>
-                <span class="rpg-stat-val">${e.value}</span>
-              </div>
-            </div>
-          ` : ''}
-          ${e.weight != null ? `
-            <div class="rpg-stat">
-              <span class="rpg-stat-icon">⚖️</span>
-              <div class="rpg-stat-info">
-                <span class="rpg-stat-label">Peso</span>
-                <span class="rpg-stat-val">${e.weight}</span>
-              </div>
-            </div>
-          ` : ''}
-          <div class="rpg-stat">
-            <span class="rpg-stat-icon">📦</span>
-            <div class="rpg-stat-info">
-              <span class="rpg-stat-label">Slots</span>
-              <span class="rpg-stat-val">${e.slots || 1}</span>
-            </div>
-          </div>
-        </div>
-        ${eff && eff.type ? `
-          <div class="rpg-card-effects">
-            ${effectBadgeHtml(eff.type, eff.value, eff.turns)}
-            ${eff.chance != null ? `<span class="rpg-effect-chance dim">${Math.round(eff.chance * 100)}%</span>` : ''}
-          </div>
-        ` : ''}
-        ${e.description ? `<div class="rpg-card-desc">${A.Utils.escapeHtml(e.description)}</div>` : ''}
-      </div>
-    `;
+    return compactHeader({
+      icon, name: e.name, accent: r.color,
+      pills: [
+        { text: `${r.icon} ${r.label}`, style: `background:${r.bg};color:${r.color};border-color:${r.border}` },
+        e.tier ? { text: `T${e.tier}` } : null,
+        e.magic ? { text: '✨ Mágica', style: 'background:rgba(80,80,160,.1);color:#5050a0;border-color:rgba(80,80,160,.3)' } : null,
+      ].filter(Boolean),
+      stats: [
+        { icon: '⚔️', label: '', value: `${A.Utils.escapeHtml(e.damage || '—')}${range ? ` (${range.min}-${range.max})` : ''}` },
+        e.value != null ? { icon: '🪙', value: e.value } : null,
+        e.weight != null ? { icon: '⚖️', value: e.weight } : null,
+        { icon: '📦', value: e.slots || 1 },
+        eff && eff.type ? { icon: '✨', value: `${effectLabel(eff.type)} ${eff.chance != null ? Math.round(eff.chance * 100) + '%' : ''}` } : null,
+      ],
+    });
   }
 
   function previewArmor(e) {
     const r = rarityTheme(e.rarity || 'common');
-    return `
-      <div class="editor-preview editor-preview-rpg" style="--r-color: ${r.color}; --r-bg: ${r.bg}; --r-border: ${r.border};">
-        <div class="rpg-card-header">
-          <div class="rpg-card-icon">${e.icon || '🛡️'}</div>
-          <div class="rpg-card-title-block">
-            <div class="rpg-card-name" style="color: ${r.color}">${A.Utils.escapeHtml(e.name || 'Sin nombre')}</div>
-            <div class="rpg-card-subtitle">
-              <span class="rpg-rarity-pill" style="background: ${r.bg}; color: ${r.color}; border-color: ${r.border}">${r.icon} ${r.label}</span>
-              ${e.tier ? `<span class="rpg-tier-pill">🏷️ T${e.tier}</span>` : ''}
-            </div>
-          </div>
-        </div>
-        <div class="rpg-card-stats">
-          <div class="rpg-stat">
-            <span class="rpg-stat-icon">🛡️</span>
-            <div class="rpg-stat-info">
-              <span class="rpg-stat-label">Defensa</span>
-              <span class="rpg-stat-val">${e.defense || 0}</span>
-            </div>
-          </div>
-          ${e.weight != null ? `
-            <div class="rpg-stat">
-              <span class="rpg-stat-icon">⚖️</span>
-              <div class="rpg-stat-info">
-                <span class="rpg-stat-label">Peso</span>
-                <span class="rpg-stat-val">${e.weight}</span>
-              </div>
-            </div>
-          ` : ''}
-          ${e.value != null ? `
-            <div class="rpg-stat">
-              <span class="rpg-stat-icon">🪙</span>
-              <div class="rpg-stat-info">
-                <span class="rpg-stat-label">Valor</span>
-                <span class="rpg-stat-val">${e.value}</span>
-              </div>
-            </div>
-          ` : ''}
-        </div>
-        ${e.description ? `<div class="rpg-card-desc">${A.Utils.escapeHtml(e.description)}</div>` : ''}
-      </div>
-    `;
+    return compactHeader({
+      icon: e.icon || '🛡️', name: e.name, accent: r.color,
+      pills: [
+        { text: `${r.icon} ${r.label}`, style: `background:${r.bg};color:${r.color};border-color:${r.border}` },
+        e.tier ? { text: `T${e.tier}` } : null,
+      ].filter(Boolean),
+      stats: [
+        { icon: '🛡️', label: 'Def', value: e.defense || 0 },
+        e.weight != null ? { icon: '⚖️', value: e.weight } : null,
+        e.value != null ? { icon: '🪙', value: e.value } : null,
+      ],
+    });
   }
 
   function previewItem(e) {
     const r = rarityTheme(e.rarity || 'common');
-    return `
-      <div class="editor-preview editor-preview-rpg" style="--r-color: ${r.color}; --r-bg: ${r.bg}; --r-border: ${r.border};">
-        <div class="rpg-card-header">
-          <div class="rpg-card-icon">${e.icon || '📦'}</div>
-          <div class="rpg-card-title-block">
-            <div class="rpg-card-name" style="color: ${r.color}">${A.Utils.escapeHtml(e.name || 'Sin nombre')}</div>
-            <div class="rpg-card-subtitle">
-              <span class="rpg-rarity-pill" style="background: ${r.bg}; color: ${r.color}; border-color: ${r.border}">${r.icon} ${r.label}</span>
-              ${e.subtype ? `<span class="rpg-tier-pill">🔖 ${A.Utils.escapeHtml(e.subtype)}</span>` : ''}
-            </div>
-          </div>
-        </div>
-        <div class="rpg-card-stats">
-          ${e.foodValue ? `
-            <div class="rpg-stat">
-              <span class="rpg-stat-icon">🍞</span>
-              <div class="rpg-stat-info">
-                <span class="rpg-stat-label">Comida</span>
-                <span class="rpg-stat-val">+${e.foodValue}</span>
-              </div>
-            </div>
-          ` : ''}
-          ${e.healAmount ? `
-            <div class="rpg-stat">
-              <span class="rpg-stat-icon">💚</span>
-              <div class="rpg-stat-info">
-                <span class="rpg-stat-label">Salud</span>
-                <span class="rpg-stat-val">+${e.healAmount}</span>
-              </div>
-            </div>
-          ` : ''}
-          ${e.manaAmount ? `
-            <div class="rpg-stat">
-              <span class="rpg-stat-icon">✦</span>
-              <div class="rpg-stat-info">
-                <span class="rpg-stat-label">Maná</span>
-                <span class="rpg-stat-val">+${e.manaAmount}</span>
-              </div>
-            </div>
-          ` : ''}
-          ${e.value != null ? `
-            <div class="rpg-stat">
-              <span class="rpg-stat-icon">🪙</span>
-              <div class="rpg-stat-info">
-                <span class="rpg-stat-label">Valor</span>
-                <span class="rpg-stat-val">${e.value}</span>
-              </div>
-            </div>
-          ` : ''}
-        </div>
-        ${e.description ? `<div class="rpg-card-desc">${A.Utils.escapeHtml(e.description)}</div>` : ''}
-      </div>
-    `;
+    return compactHeader({
+      icon: e.icon || '📦', name: e.name, accent: r.color,
+      pills: [
+        { text: `${r.icon} ${r.label}`, style: `background:${r.bg};color:${r.color};border-color:${r.border}` },
+        e.subtype ? { text: e.subtype } : null,
+      ].filter(Boolean),
+      stats: [
+        e.foodValue ? { icon: '🍞', value: `+${e.foodValue}` } : null,
+        e.healAmount ? { icon: '💚', value: `+${e.healAmount}` } : null,
+        e.manaAmount ? { icon: '✦', value: `+${e.manaAmount}` } : null,
+        e.value != null ? { icon: '🪙', value: e.value } : null,
+        e.weight != null ? { icon: '⚖️', value: e.weight } : null,
+      ],
+    });
   }
 
   function previewSpell(e) {
-    return `
-      <div class="editor-preview editor-preview-rpg editor-preview-magic">
-        <div class="rpg-card-header">
-          <div class="rpg-card-icon">${e.icon || '✨'}</div>
-          <div class="rpg-card-title-block">
-            <div class="rpg-card-name" style="color: #5050a0">${A.Utils.escapeHtml(e.name || 'Sin nombre')}</div>
-            <div class="rpg-card-subtitle">
-              <span class="rpg-rarity-pill" style="background: #f0e6f4; color: #5050a0; border-color: #5050a0">✨ Hechizo</span>
-              ${e.tier ? `<span class="rpg-tier-pill">🏷️ T${e.tier}</span>` : ''}
-              ${e.school ? `<span class="rpg-tier-pill">📜 ${A.Utils.escapeHtml(e.school)}</span>` : ''}
-            </div>
-          </div>
-        </div>
-        <div class="rpg-card-stats">
-          ${e.damage ? `
-            <div class="rpg-stat">
-              <span class="rpg-stat-icon">⚔️</span>
-              <div class="rpg-stat-info">
-                <span class="rpg-stat-label">Daño</span>
-                <span class="rpg-stat-val">${A.Utils.escapeHtml(e.damage)}</span>
-              </div>
-            </div>
-          ` : ''}
-          ${e.manaCost != null ? `
-            <div class="rpg-stat">
-              <span class="rpg-stat-icon">✦</span>
-              <div class="rpg-stat-info">
-                <span class="rpg-stat-label">Maná</span>
-                <span class="rpg-stat-val">${e.manaCost}</span>
-              </div>
-            </div>
-          ` : ''}
-        </div>
-        ${e.description ? `<div class="rpg-card-desc">${A.Utils.escapeHtml(e.description)}</div>` : ''}
-      </div>
-    `;
+    return compactHeader({
+      icon: e.icon || '✨', name: e.name, accent: '#5050a0',
+      pills: [
+        { text: '✨ Hechizo', style: 'background:#f0e6f4;color:#5050a0;border-color:#5050a0' },
+        e.tier ? { text: `T${e.tier}` } : null,
+        e.school ? { text: e.school } : null,
+      ].filter(Boolean),
+      stats: [
+        e.damage ? { icon: '⚔️', value: A.Utils.escapeHtml(e.damage) } : null,
+        e.manaCost != null ? { icon: '✦', value: e.manaCost } : null,
+      ],
+    });
   }
 
   function previewEnemy(e) {
     const catColors = {
-      weak: { color: '#555548', bg: '#eeeae0', border: '#8a8a78' },
-      normal: { color: '#6a2810', bg: '#fcebe6', border: '#c45530' },
-      strong: { color: '#6a3010', bg: '#fdf3e6', border: '#d46a20' },
-      boss: { color: '#6a1810', bg: '#fceae6', border: '#8d2818' },
+      weak: '#8a8a78', normal: '#c45530', strong: '#d46a20', boss: '#8d2818',
     };
     const c = catColors[e.category] || catColors.normal;
-    return `
-      <div class="editor-preview editor-preview-rpg" style="--r-color: ${c.color}; --r-bg: ${c.bg}; --r-border: ${c.border};">
-        <div class="rpg-card-header">
-          <div class="rpg-card-icon">${e.icon || '👹'}</div>
-          <div class="rpg-card-title-block">
-            <div class="rpg-card-name" style="color: ${c.color}">${A.Utils.escapeHtml(e.name || 'Sin nombre')}</div>
-            <div class="rpg-card-subtitle">
-              <span class="rpg-rarity-pill" style="background: ${c.bg}; color: ${c.color}; border-color: ${c.border}">${(e.category || 'normal').toUpperCase()}</span>
-              ${e.tier ? `<span class="rpg-tier-pill">🏷️ T${e.tier}</span>` : ''}
-              ${(e.family || []).length ? `<span class="rpg-tier-pill">👥 ${A.Utils.escapeHtml((e.family || []).join(', '))}</span>` : ''}
-            </div>
-          </div>
-        </div>
-        <div class="rpg-card-stats">
-          <div class="rpg-stat">
-            <span class="rpg-stat-icon">❤️</span>
-            <div class="rpg-stat-info">
-              <span class="rpg-stat-label">Salud</span>
-              <span class="rpg-stat-val">${e.health || 0}</span>
-            </div>
-          </div>
-          <div class="rpg-stat">
-            <span class="rpg-stat-icon">⚔️</span>
-            <div class="rpg-stat-info">
-              <span class="rpg-stat-label">Daño</span>
-              <span class="rpg-stat-val">${A.Utils.escapeHtml(e.damage || '—')}</span>
-            </div>
-          </div>
-          <div class="rpg-stat">
-            <span class="rpg-stat-icon">🛡️</span>
-            <div class="rpg-stat-info">
-              <span class="rpg-stat-label">Armadura</span>
-              <span class="rpg-stat-val">${e.armor || 0}</span>
-            </div>
-          </div>
-          <div class="rpg-stat">
-            <span class="rpg-stat-icon">⚡</span>
-            <div class="rpg-stat-info">
-              <span class="rpg-stat-label">Velocidad</span>
-              <span class="rpg-stat-val">${e.speed || 0}</span>
-            </div>
-          </div>
-        </div>
-        ${(e.drops || []).length ? `<div class="rpg-card-desc dim">💰 ${(e.drops || []).length} drops · ${e.tameable ? '🐾 domable' : ''}</div>` : ''}
-      </div>
-    `;
+    return compactHeader({
+      icon: e.icon || '👹', name: e.name, accent: c,
+      pills: [
+        { text: (e.category || 'normal').toUpperCase(), style: `color:${c};border-color:${c}` },
+        e.tier ? { text: `T${e.tier}` } : null,
+        (e.family || []).length ? { text: (e.family || []).join(', ') } : null,
+        e.tameable ? { text: '🐾 domable' } : null,
+      ].filter(Boolean),
+      stats: [
+        { icon: '❤️', value: e.health || 0 },
+        { icon: '⚔️', value: A.Utils.escapeHtml(e.damage || '—') },
+        { icon: '🛡️', value: e.armor || 0 },
+        { icon: '⚡', value: e.speed || 0 },
+        (e.drops || []).length ? { icon: '💰', value: `${(e.drops || []).length}` } : null,
+      ],
+    });
   }
+
+  function previewRegion(e) {
+    return compactHeader({
+      icon: e.icon || '🗺️', name: e.name, accent: 'var(--gold-deep)',
+      pills: [
+        e.type === 'safe' ? { text: '🟢 Zona segura' } : { text: '⚔️ Combate' },
+        e.biome ? { text: e.biome } : null,
+        Array.isArray(e.tier) ? { text: `T${e.tier[0]}-${e.tier[1]}` } : (e.tier ? { text: `T${e.tier}` } : null),
+      ].filter(Boolean),
+      stats: [
+        e.distance != null ? { icon: '📏', label: 'Dist', value: e.distance } : null,
+        (e.connections || []).length ? { icon: '🔗', value: (e.connections || []).length } : null,
+      ],
+    });
+  }
+
+  function previewRace(e) {
+    const b = e.bonuses || {};
+    return compactHeader({
+      icon: e.icon || '👤', name: e.name, accent: 'var(--gold-deep)',
+      pills: [
+        e.combatType ? { text: e.combatType } : null,
+        e.baseDamage ? { text: `daño ${e.baseDamage}` } : null,
+      ].filter(Boolean),
+      stats: [
+        b.hp ? { icon: '❤️', value: (b.hp > 0 ? '+' : '') + b.hp } : null,
+        b.mana ? { icon: '✦', value: (b.mana > 0 ? '+' : '') + b.mana } : null,
+        b.speed ? { icon: '⚡', value: (b.speed > 0 ? '+' : '') + b.speed } : null,
+        b.damage ? { icon: '⚔️', value: (b.damage > 0 ? '+' : '') + b.damage } : null,
+      ],
+    });
+  }
+
+  function previewNpc(e) {
+    return compactHeader({
+      icon: e.icon || '🧑', name: e.name, accent: 'var(--gold-deep)',
+      pills: [
+        e.role ? { text: roleLabel(e.role) } : null,
+        e.region ? { text: e.region } : null,
+      ].filter(Boolean),
+      stats: [
+        (e.sells || []).length ? { icon: '🪙', label: 'Vende', value: (e.sells || []).length } : null,
+        (e.teaches || []).length ? { icon: '✨', label: 'Enseña', value: (e.teaches || []).length } : null,
+      ],
+    });
+  }
+
+  function previewGeneric(e) {
+    return compactHeader({
+      icon: e.icon || '📋', name: e.name || e.id || 'Elemento',
+      pills: [e.id ? { text: e.id } : null].filter(Boolean),
+      stats: [],
+    });
+  }
+
+  function effectLabel(type) {
+    const m = { bleed: '🩸 Sangrado', fire: '🔥 Fuego', cold: '❄️ Frío', shock: '⚡ Aturde', poison: '☠️ Veneno', lifesteal: '✨ Robo vida' };
+    return m[type] || type;
+  }
+
+  function roleLabel(role) {
+    const m = {
+      merchant: 'Mercader', shopkeeper: 'Comerciante', vendor: 'Vendedor',
+      blacksmith: 'Herrero', tavernkeeper: 'Tabernero', innkeeper: 'Posadero',
+      healer: 'Curandero', priest: 'Sacerdote', sage: 'Sabio',
+      wizard: 'Mago', mage: 'Mago', guard: 'Guardia', quest: 'Encargo',
+    };
+    return m[role] || role || '';
+  }
+
 
   // ---------- Forms ----------
 
@@ -796,16 +727,29 @@
     return `<div class="form-row">${iconHtml}<label>${A.Utils.escapeHtml(label)}</label>${html}</div>`;
   }
 
+  // v1.7.5: estado de colapso por sección, persiste en localStorage
+  let collapsedSections = (() => {
+    try { return JSON.parse(localStorage.getItem('aventurs_editor_collapsed') || '{}'); }
+    catch { return {}; }
+  })();
+  function persistCollapsed() {
+    try { localStorage.setItem('aventurs_editor_collapsed', JSON.stringify(collapsedSections)); }
+    catch (e) { /* noop */ }
+  }
+
   /**
-   * v1.7.3: Envuelve un conjunto de rows en una sección tipo card con header.
-   * cols: cantidad de columnas de la grilla interna (default 2).
+   * v1.7.3/v1.7.5: Sección tipo card, colapsable, con memoria.
+   * cols: columnas de la grilla interna (default 2).
    */
   function section(title, icon, rowsHtml, cols = 2) {
+    const key = String(title).toLowerCase().replace(/\s+/g, '_');
+    const isCollapsed = !!collapsedSections[key];
     return `
-      <div class="form-section">
-        <div class="form-section-header">
+      <div class="form-section ${isCollapsed ? 'is-collapsed' : ''}" data-section-key="${key}">
+        <div class="form-section-header" data-section-toggle="${key}">
           <span class="form-section-icon">${icon || '📋'}</span>
           <span class="form-section-title">${A.Utils.escapeHtml(title)}</span>
+          <span class="form-section-chevron">▼</span>
         </div>
         <div class="form-section-body form-grid-${cols}">
           ${rowsHtml}
@@ -1715,6 +1659,21 @@
           console.error('[Editor] Error en handler:', a, err);
           alert(`Error en acción "${a}": ${err.message}\n\nVer consola.`);
         }
+      });
+
+      // v1.7.5: colapso de secciones (delegado, persistente)
+      host.addEventListener('click', (ev) => {
+        const hdr = ev.target.closest('[data-section-toggle]');
+        if (!hdr || !host.contains(hdr)) return;
+        // No colapsar si el click fue en un input/select/botón dentro del header
+        if (ev.target.closest('input, select, textarea, button, label')) return;
+        const sectionEl = hdr.closest('.form-section');
+        if (!sectionEl) return;
+        const key = hdr.dataset.sectionToggle;
+        const nowCollapsed = !sectionEl.classList.contains('is-collapsed');
+        sectionEl.classList.toggle('is-collapsed', nowCollapsed);
+        collapsedSections[key] = nowCollapsed;
+        persistCollapsed();
       });
     }
 
