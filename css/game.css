@@ -6364,3 +6364,802 @@
   0%, 100% { box-shadow: 0 0 0 2px rgba(196, 85, 48, 0.25), 0 4px 12px rgba(196, 85, 48, 0.15); }
   50% { box-shadow: 0 0 0 4px rgba(196, 85, 48, 0.4), 0 6px 18px rgba(196, 85, 48, 0.25); }
 }
+
+/* ============================================================
+   v1.6.8 — Editor visual moderno: iconografía + rareza + preview
+   ============================================================ */
+
+/* === Form rows con icon === */
+.form-row {
+  position: relative;
+}
+.form-row-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  font-size: 14px;
+  margin-right: 6px;
+  flex-shrink: 0;
+  vertical-align: middle;
+}
+.form-row > label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0;
+}
+
+/* === Editor preview RPG card === */
+.editor-preview-rpg {
+  background: linear-gradient(160deg, var(--surface-raised), var(--surface));
+  border: 2px solid var(--r-border, var(--border));
+  border-radius: var(--r-md);
+  padding: 14px 16px;
+  margin: 12px 0 18px;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.06);
+  transition: all 0.25s ease;
+}
+.editor-preview-rpg::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: var(--r-color, var(--gold-deep));
+  opacity: 0.85;
+}
+.editor-preview-magic::before {
+  background: linear-gradient(90deg, #5050a0, #8050a0);
+}
+
+.rpg-card-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 12px;
+}
+.rpg-card-icon {
+  font-size: 38px;
+  width: 56px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--r-bg, var(--surface-sunken));
+  border: 1.5px solid var(--r-border, var(--border));
+  border-radius: var(--r-sm);
+  flex-shrink: 0;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1));
+  transition: transform 0.2s ease;
+}
+.editor-preview-rpg:hover .rpg-card-icon {
+  transform: scale(1.05);
+}
+.rpg-card-title-block {
+  flex: 1;
+  min-width: 0;
+}
+.rpg-card-name {
+  font-size: 18px;
+  font-weight: var(--fw-bold);
+  margin-bottom: 4px;
+  letter-spacing: 0.01em;
+}
+.rpg-card-subtitle {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+.rpg-rarity-pill, .rpg-tier-pill, .rpg-magic-pill {
+  display: inline-block;
+  padding: 2px 8px;
+  font-size: 10px;
+  font-weight: var(--fw-semi);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-radius: 10px;
+  border: 1px solid;
+}
+.rpg-rarity-pill {
+  /* color, bg, border definidos via inline style según rareza */
+}
+.rpg-tier-pill {
+  background: var(--surface-sunken);
+  color: var(--text-muted);
+  border-color: var(--border);
+}
+.rpg-magic-pill {
+  background: rgba(80, 80, 160, 0.1);
+  color: #5050a0;
+  border-color: rgba(80, 80, 160, 0.3);
+}
+
+.rpg-card-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.rpg-stat {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--surface-sunken);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  padding: 6px 10px;
+}
+.rpg-stat-icon {
+  font-size: 18px;
+  flex-shrink: 0;
+}
+.rpg-stat-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.rpg-stat-label {
+  font-size: 10px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.rpg-stat-val {
+  font-size: 13px;
+  font-weight: var(--fw-semi);
+  color: var(--text);
+}
+.rpg-stat-range {
+  font-size: 10px;
+  font-weight: var(--fw-medium);
+}
+
+.rpg-card-effects {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 10px;
+  padding: 8px 10px;
+  background: var(--surface-sunken);
+  border: 1px dashed var(--border);
+  border-radius: var(--r-sm);
+}
+.rpg-effect-chance {
+  font-size: 11px;
+  font-weight: var(--fw-medium);
+}
+
+.rpg-card-desc {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-style: italic;
+  line-height: 1.5;
+  margin-top: 8px;
+  padding: 8px 10px;
+  background: rgba(0, 0, 0, 0.02);
+  border-left: 2px solid var(--r-color, var(--gold-deep));
+  border-radius: var(--r-sm);
+}
+
+/* === Effect badges v2 (con animación hover) === */
+.effect-badge-v2 {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  background: var(--surface);
+  border: 1.5px solid var(--effect-color, var(--border));
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: var(--fw-medium);
+  color: var(--effect-color, var(--text));
+  transition: all 0.18s ease;
+  cursor: default;
+}
+.effect-badge-v2:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px rgba(0,0,0,0.1);
+}
+.effect-badge-icon { font-size: 13px; line-height: 1; }
+.effect-badge-label { font-weight: var(--fw-semi); }
+.effect-badge-meta { font-size: 10px; opacity: 0.75; }
+
+/* === List items v2 (lateral con icon + rareza dot) === */
+.list-item-v2 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  position: relative;
+}
+.list-item-v2::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 60%;
+  background: var(--list-rarity, transparent);
+  border-radius: 0 2px 2px 0;
+  opacity: 0.85;
+}
+.list-item-v2.is-active::before {
+  width: 4px;
+  height: 75%;
+  opacity: 1;
+}
+.list-item-icon {
+  font-size: 22px;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface-sunken);
+  border-radius: var(--r-sm);
+  flex-shrink: 0;
+}
+.list-item-content {
+  flex: 1;
+  min-width: 0;
+}
+.list-item-content .list-item-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.list-item-rarity-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.list-item-content .list-item-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.list-item-tier {
+  display: inline-block;
+  padding: 1px 5px;
+  background: var(--surface-sunken);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 9px;
+  font-weight: var(--fw-semi);
+  color: var(--text-muted);
+}
+.list-item-id-text {
+  font-size: 10px;
+  font-family: var(--font-mono, monospace);
+  opacity: 0.7;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.list-item-edited {
+  font-size: 9px;
+  color: var(--gold-deep);
+  font-style: italic;
+}
+
+
+/* ============================================================
+   v1.6.9 — Travel view cinematográfica
+   ============================================================ */
+
+.travel-view-v2 {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px;
+  min-height: 100%;
+  background: linear-gradient(180deg, var(--surface), var(--surface-sunken));
+}
+
+/* Variantes por bioma (color sutil de fondo) */
+.travel-biome-forest { background: linear-gradient(180deg, var(--surface), #f0f5e8); }
+.travel-biome-plains { background: linear-gradient(180deg, var(--surface), #faf6e0); }
+.travel-biome-graveyard, .travel-biome-crypt { background: linear-gradient(180deg, var(--surface), #e8e8ec); }
+.travel-biome-swamp { background: linear-gradient(180deg, var(--surface), #ebefd8); }
+.travel-biome-coast, .travel-biome-sea { background: linear-gradient(180deg, var(--surface), #dceaf2); }
+.travel-biome-mountain { background: linear-gradient(180deg, var(--surface), #e8e6dc); }
+.travel-biome-desert { background: linear-gradient(180deg, var(--surface), #faf0d8); }
+.travel-biome-cave, .travel-biome-abyss { background: linear-gradient(180deg, var(--surface), #d8d8d4); }
+.travel-biome-ruins { background: linear-gradient(180deg, var(--surface), #ece4d8); }
+.travel-biome-volcano, .travel-biome-hell { background: linear-gradient(180deg, var(--surface), #f4dccc); }
+.travel-biome-arcane { background: linear-gradient(180deg, var(--surface), #ece2f0); }
+.travel-biome-village { background: linear-gradient(180deg, var(--surface), #faf2dc); }
+.travel-biome-lair { background: linear-gradient(180deg, var(--surface), #f0d8cc); }
+
+/* === Header con ruta visual === */
+.travel-header-v2 {
+  background: var(--surface-raised);
+  border: 1.5px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 16px 20px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+
+.travel-route-v2 {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+
+.travel-endpoint {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 100px;
+}
+.travel-endpoint-icon {
+  font-size: 32px;
+  line-height: 1;
+  margin-bottom: 4px;
+}
+.travel-endpoint-name {
+  font-size: 13px;
+  font-weight: var(--fw-semi);
+  text-align: center;
+  line-height: 1.2;
+}
+.travel-endpoint-label {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+/* === Ruta visual con hitos === */
+.travel-route-path {
+  position: relative;
+  flex: 1;
+  height: 32px;
+  display: flex;
+  align-items: center;
+}
+.travel-route-line {
+  position: relative;
+  width: 100%;
+  height: 4px;
+  background: var(--surface-sunken);
+  border-radius: 2px;
+  overflow: visible;
+}
+.travel-route-line-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--gold-deep), var(--gold));
+  border-radius: 2px;
+  transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.travel-route-checkpoint {
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 1;
+}
+.travel-route-checkpoint-dot {
+  display: block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 2px solid var(--border);
+  transition: all 0.3s ease;
+}
+.travel-route-checkpoint.is-passed .travel-route-checkpoint-dot {
+  background: var(--gold);
+  border-color: var(--gold-deep);
+  box-shadow: 0 0 8px rgba(212, 164, 55, 0.5);
+}
+.travel-route-marker {
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 2;
+  transition: left 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.travel-route-marker-icon {
+  display: inline-block;
+  font-size: 22px;
+  line-height: 1;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
+  animation: walk-bounce 1.2s ease-in-out infinite;
+}
+@keyframes walk-bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-2px); }
+}
+
+.travel-progress-v2 {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  padding-top: 4px;
+}
+
+/* === Body con stage central + sidebar bitácora === */
+.travel-body-v2 {
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  gap: 16px;
+  flex: 1;
+}
+
+@media (max-width: 900px) {
+  .travel-body-v2 {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Stage principal */
+.travel-stage-v2 {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.travel-stage-content {
+  flex: 1;
+  background: var(--surface-raised);
+  border: 1.5px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+}
+
+.travel-stage-empty {
+  text-align: center;
+}
+.travel-stage-icon {
+  font-size: 56px;
+  margin-bottom: 12px;
+  line-height: 1;
+  opacity: 0.7;
+}
+.travel-stage-title {
+  font-size: 17px;
+  font-weight: var(--fw-semi);
+  margin-bottom: 4px;
+}
+.travel-stage-desc {
+  font-size: 13px;
+}
+
+/* Card de evento en stage */
+.travel-stage-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+  padding: 16px 20px;
+  background: var(--surface);
+  border-radius: var(--r-md);
+  border: 1.5px solid var(--border);
+  position: relative;
+}
+.travel-stage-card::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  border-radius: 4px 0 0 4px;
+}
+.travel-stage-card.is-narrative::before { background: var(--gold-deep); }
+.travel-stage-card.is-loot::before { background: #d4a437; }
+.travel-stage-card.is-creature::before { background: #c45530; }
+.travel-stage-card.is-danger::before { background: #8d2818; }
+.travel-stage-card.is-heal::before { background: #5a8a4a; }
+
+.travel-stage-card-icon {
+  font-size: 38px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+.travel-stage-card-content {
+  flex: 1;
+  min-width: 0;
+}
+.travel-stage-card-title {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  font-weight: var(--fw-semi);
+  margin-bottom: 4px;
+}
+.travel-stage-card-text {
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text);
+  font-style: italic;
+}
+
+/* Acciones de viaje */
+.travel-actions-v2 {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.btn-travel-step {
+  flex: 1;
+  padding: 12px 18px;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.btn-travel-step .btn-icon { font-size: 16px; }
+
+/* === Bitácora lateral === */
+.travel-log-v2 {
+  background: var(--surface-raised);
+  border: 1.5px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 12px;
+  max-height: 460px;
+  display: flex;
+  flex-direction: column;
+}
+
+.travel-log-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 4px 10px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 8px;
+}
+.travel-log-title {
+  font-size: 13px;
+  font-weight: var(--fw-semi);
+}
+.travel-log-count {
+  font-size: 11px;
+}
+
+.travel-log-list {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-right: 4px;
+}
+
+.travel-log-empty {
+  text-align: center;
+  padding: 24px 12px;
+  font-size: 12px;
+  font-style: italic;
+}
+
+.travel-log-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 6px 8px;
+  background: var(--surface-sunken);
+  border-radius: var(--r-sm);
+  border-left: 2px solid var(--gold-deep);
+  font-size: 12px;
+  line-height: 1.4;
+}
+.travel-log-icon {
+  font-size: 14px;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.travel-log-text {
+  flex: 1;
+  color: var(--text);
+}
+
+/* === Encounter v2 === */
+.travel-encounter-v2 {
+  background: var(--surface-raised);
+  border: 2px solid #c45530;
+  border-radius: var(--r-md);
+  padding: 20px;
+  box-shadow: 0 4px 16px rgba(196, 85, 48, 0.15);
+}
+.encounter-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+.encounter-icon-big {
+  font-size: 56px;
+  line-height: 1;
+  flex-shrink: 0;
+  filter: drop-shadow(0 4px 8px rgba(0,0,0,0.15));
+}
+.encounter-header-text {
+  flex: 1;
+  min-width: 0;
+}
+.encounter-title-v2 {
+  font-size: 17px;
+  font-weight: var(--fw-bold);
+  margin-bottom: 6px;
+  color: #6a2810;
+}
+.encounter-meta-v2 {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+.pill-cat-weak { background: rgba(138, 138, 120, 0.15); color: #555548; border-color: rgba(138, 138, 120, 0.4); }
+.pill-cat-normal { background: rgba(196, 85, 48, 0.12); color: #6a2810; border-color: rgba(196, 85, 48, 0.4); }
+.pill-cat-strong { background: rgba(212, 106, 32, 0.18); color: #6a3010; border-color: rgba(212, 106, 32, 0.5); }
+.pill-cat-boss { background: rgba(141, 40, 24, 0.2); color: #6a1810; border-color: rgba(141, 40, 24, 0.55); }
+
+.encounter-desc-v2 {
+  font-size: 14px;
+  font-style: italic;
+  color: var(--text-muted);
+  line-height: 1.5;
+  margin: 0 0 16px;
+}
+
+.encounter-actions-v2 {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.encounter-actions-v2 button {
+  padding: 10px 16px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.encounter-actions-v2 .btn-icon { font-size: 14px; }
+.encounter-btn-fight { background: #c45530; color: #fff; border-color: #8d2818; }
+.encounter-btn-fight:hover { background: #d46540; }
+.encounter-btn-tame { background: rgba(107, 142, 35, 0.1); border-color: #6b8e23; color: #4a6a18; }
+.encounter-btn-tame:hover { background: rgba(107, 142, 35, 0.2); }
+
+
+/* ============================================================
+   v1.7.0 — Travel mode selector + auto indicator
+   ============================================================ */
+
+.travel-mode-selector {
+  display: inline-flex;
+  gap: 2px;
+  background: var(--surface-sunken);
+  padding: 3px;
+  border-radius: 18px;
+  border: 1px solid var(--border);
+}
+.travel-mode-btn {
+  background: transparent;
+  border: none;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: var(--fw-medium);
+  color: var(--text-muted);
+  cursor: pointer;
+  border-radius: 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.18s ease;
+}
+.travel-mode-btn:hover:not(.is-selected) {
+  background: rgba(0, 0, 0, 0.04);
+  color: var(--text);
+}
+.travel-mode-btn.is-selected {
+  background: var(--gold-bg);
+  color: var(--gold-text);
+  font-weight: var(--fw-semi);
+  box-shadow: 0 1px 3px rgba(212, 164, 55, 0.2);
+}
+.travel-mode-icon {
+  font-size: 13px;
+  line-height: 1;
+}
+.travel-mode-label {
+  letter-spacing: 0.02em;
+}
+
+/* Selector activo (auto/fast): borde dorado animado sutil */
+.travel-mode-selector.is-active {
+  border-color: var(--gold-deep);
+  box-shadow: 0 0 0 1px var(--gold-bg-soft);
+}
+
+/* === Indicador "avanzando solo" === */
+.travel-auto-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--gold-bg-soft);
+  border: 1px solid var(--gold-deep);
+  border-radius: var(--r-sm);
+  margin-top: 12px;
+  font-size: 12px;
+  color: var(--gold-text);
+  font-weight: var(--fw-medium);
+}
+.travel-auto-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--gold-deep);
+  animation: travel-auto-pulse 1.2s ease-in-out infinite;
+}
+@keyframes travel-auto-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(0.85); }
+}
+.travel-auto-indicator.is-fast {
+  background: linear-gradient(90deg, var(--gold-bg-soft), var(--gold-bg));
+  border-color: var(--gold);
+}
+.travel-auto-indicator.is-fast .travel-auto-dot {
+  animation-duration: 0.4s;
+}
+
+
+/* ============================================================
+   v1.7.1 — Biome loot card visual
+   ============================================================ */
+.travel-stage-card.is-biome-loot::before {
+  background: linear-gradient(180deg, #6b8e23, #d4a437);
+}
+.travel-stage-card.is-biome-loot {
+  background: linear-gradient(135deg, var(--surface), #f7f4e0);
+}
+
+/* ============================================================
+   v1.7.2 — Craft sections (forge/alchemy/enchant agrupadas)
+   ============================================================ */
+.craft-all-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.craft-section-label {
+  font-size: 12px;
+  font-weight: var(--fw-semi);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--gold-text);
+  padding: 12px 4px 6px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 4px;
+  position: sticky;
+  top: 0;
+  background: var(--surface-raised);
+  z-index: 1;
+}
+.craft-section-label:first-child {
+  padding-top: 4px;
+}

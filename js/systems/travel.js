@@ -331,20 +331,179 @@
       if (customEvent) return customEvent;
     }
 
-    // Pesos según si la región destino es safe o combat
+    // v1.7.1: agregamos biome_loot al mix (hallazgos específicos del bioma)
     const weights = isCombat
-      ? { nothing: 0.40, minor_loot: 0.10, creature: 0.40, narrative: 0.10 }
-      : { nothing: 0.55, minor_loot: 0.15, creature: 0.10, narrative: 0.20 };
+      ? { nothing: 0.35, minor_loot: 0.08, biome_loot: 0.12, creature: 0.35, narrative: 0.10 }
+      : { nothing: 0.45, minor_loot: 0.10, biome_loot: 0.15, creature: 0.08, narrative: 0.22 };
 
     const kind = A.Utils.weightedPick(weights);
 
     switch (kind) {
       case 'minor_loot': return resolveLoot(region);
+      case 'biome_loot': return resolveBiomeLoot(region) || resolveLoot(region); // fallback si bioma no tiene pool
       case 'creature': return resolveCreature(region);
       case 'narrative': return resolveNarrative(region);
       case 'nothing':
       default: return null;
     }
+  }
+
+  /**
+   * v1.7.1: Recursos específicos por bioma. Cada bioma tiene un pool de items
+   * con peso de rareza propio.
+   */
+  const BIOME_LOOT_POOLS = {
+    forest: [
+      { itemId: 'hierba_silvestre', weight: 40, qty: [1, 3], msg: 'Recogiste hierbas silvestres del suelo.' },
+      { itemId: 'baya_negra',       weight: 35, qty: [1, 4], msg: 'Encontraste un arbusto con bayas negras maduras.' },
+      { itemId: 'pluma_extraña',    weight: 8,  qty: [1, 1], msg: 'Una pluma de colores raros tirada en el camino.' },
+      { itemId: 'mat_pluma',        weight: 17, qty: [1, 2], msg: 'Plumas comunes en el suelo.' },
+    ],
+    plains: [
+      { itemId: 'espiga_dorada',  weight: 45, qty: [1, 5], msg: 'Tomaste espigas doradas de la pradera.' },
+      { itemId: 'flor_silvestre', weight: 35, qty: [1, 2], msg: 'Recogiste flores silvestres del campo.' },
+      { itemId: 'hierba_silvestre', weight: 20, qty: [1, 3], msg: 'Hierbas comunes al borde del camino.' },
+    ],
+    mountain: [
+      { itemId: 'fragmento_cuarzo', weight: 40, qty: [1, 2], msg: 'Un fragmento de cuarzo entre las rocas.' },
+      { itemId: 'mineral_hierro',   weight: 30, qty: [1, 2], msg: 'Vetas de hierro asomando entre la piedra.' },
+      { itemId: 'mat_cuerno',       weight: 20, qty: [1, 1], msg: 'Un cuerno viejo tirado en un sendero.' },
+      { itemId: 'gema_ignea',       weight: 10, qty: [1, 1], msg: '¡Una gema brillante incrustada en la roca!' },
+    ],
+    desert: [
+      { itemId: 'cactus_carnoso',   weight: 40, qty: [1, 2], msg: 'Cortaste pulpa de un cactus seco.' },
+      { itemId: 'sal_de_dunas',     weight: 30, qty: [1, 4], msg: 'Cristales de sal entre la arena.' },
+      { itemId: 'aguja_escorpion',  weight: 20, qty: [1, 1], msg: 'Un escorpión muerto con la aguja intacta.' },
+      { itemId: 'fragmento_hueso_antiguo', weight: 10, qty: [1, 1], msg: 'Huesos blanqueados de un viajero olvidado.' },
+    ],
+    swamp: [
+      { itemId: 'hongo_pantanoso', weight: 45, qty: [1, 3], msg: 'Hongos creciendo sobre tronco podrido.' },
+      { itemId: 'piel_anfibio',    weight: 25, qty: [1, 1], msg: 'Una rana enorme dejó su piel.' },
+      { itemId: 'hierba_silvestre', weight: 20, qty: [1, 2], msg: 'Hierbas medicinales del pantano.' },
+      { itemId: 'pocion_curacion_menor', weight: 10, qty: [1, 1], msg: 'Una poción olvidada en el barro.' },
+    ],
+    coast: [
+      { itemId: 'concha_iridiscente', weight: 50, qty: [1, 3], msg: 'Conchas que cambian de color al sol.' },
+      { itemId: 'perla_pequeña',      weight: 15, qty: [1, 1], msg: '¡Una perla pequeña entre las conchas!' },
+      { itemId: 'sal_de_dunas',       weight: 25, qty: [1, 3], msg: 'Sal del mar cristalizada en las rocas.' },
+      { itemId: 'moneda_antigua',     weight: 10, qty: [1, 1], msg: 'Una moneda oxidada que trajo la marea.' },
+    ],
+    sea: [
+      { itemId: 'concha_iridiscente', weight: 40, qty: [1, 2], msg: 'El barco pasa sobre un banco de conchas.' },
+      { itemId: 'perla_pequeña',      weight: 20, qty: [1, 1], msg: 'Tu red sube algo brillante: una perla.' },
+      { itemId: 'mat_escama_pez',     weight: 30, qty: [1, 4], msg: 'Escamas de pez quedan en cubierta.' },
+      { itemId: 'fragmento_runa',     weight: 10, qty: [1, 1], msg: 'Un fragmento tallado emerge entre las olas.' },
+    ],
+    cave: [
+      { itemId: 'hongo_luminoso',   weight: 40, qty: [1, 2], msg: 'Hongos que iluminan tu camino.' },
+      { itemId: 'fragmento_cuarzo', weight: 25, qty: [1, 2], msg: 'Cristales en el techo de la cueva.' },
+      { itemId: 'mineral_hierro',   weight: 20, qty: [1, 2], msg: 'Una veta de hierro en la pared.' },
+      { itemId: 'moneda_antigua',   weight: 15, qty: [1, 1], msg: 'Una moneda en una grieta. ¿Quién la dejó?' },
+    ],
+    crypt: [
+      { itemId: 'moneda_antigua',          weight: 35, qty: [1, 2], msg: 'Monedas oxidadas entre los nichos.' },
+      { itemId: 'fragmento_hueso_antiguo', weight: 30, qty: [1, 2], msg: 'Huesos tallados con símbolos antiguos.' },
+      { itemId: 'reliquia_olvidada',       weight: 15, qty: [1, 1], msg: 'Una reliquia que nadie reclamó.' },
+      { itemId: 'hongo_luminoso',          weight: 20, qty: [1, 1], msg: 'Un hongo creciendo entre piedras frías.' },
+    ],
+    graveyard: [
+      { itemId: 'moneda_antigua',          weight: 40, qty: [1, 2], msg: 'Monedas dejadas como ofrenda.' },
+      { itemId: 'fragmento_hueso_antiguo', weight: 30, qty: [1, 1], msg: 'Un hueso tallado a los pies de una tumba.' },
+      { itemId: 'flor_silvestre',          weight: 20, qty: [1, 2], msg: 'Flores marchitas pero aún útiles.' },
+      { itemId: 'reliquia_olvidada',       weight: 10, qty: [1, 1], msg: 'Algo metálico apartado entre las lápidas.' },
+    ],
+    volcano: [
+      { itemId: 'obsidiana',        weight: 40, qty: [1, 2], msg: 'Fragmentos negros de vidrio volcánico.' },
+      { itemId: 'fragmento_lava',   weight: 30, qty: [1, 1], msg: 'Lava endurecida, todavía tibia.' },
+      { itemId: 'gema_ignea',       weight: 15, qty: [1, 1], msg: '¡Una gema ígnea brillando entre la piedra!' },
+      { itemId: 'mineral_hierro',   weight: 15, qty: [1, 1], msg: 'Hierro fundido en formas raras.' },
+    ],
+    hell: [
+      { itemId: 'fragmento_lava',  weight: 35, qty: [1, 2], msg: 'El suelo escupe trozos de roca caliente.' },
+      { itemId: 'gema_ignea',      weight: 25, qty: [1, 1], msg: 'Una gema ardiente entre cenizas.' },
+      { itemId: 'obsidiana',       weight: 20, qty: [1, 2], msg: 'Obsidiana negra como tinta.' },
+      { itemId: 'mat_cola_diablillo', weight: 20, qty: [1, 1], msg: 'Una cola arrancada en una pelea ajena.' },
+    ],
+    ruins: [
+      { itemId: 'fragmento_runa',     weight: 35, qty: [1, 1], msg: 'Una runa rota entre los escombros.' },
+      { itemId: 'reliquia_olvidada',  weight: 25, qty: [1, 1], msg: 'Una reliquia entre piedras caídas.' },
+      { itemId: 'moneda_antigua',     weight: 30, qty: [1, 3], msg: 'Monedas viejas pegadas al barro seco.' },
+      { itemId: 'fragmento_hueso_antiguo', weight: 10, qty: [1, 1], msg: 'Restos humanos entre las ruinas.' },
+    ],
+    arcane: [
+      { itemId: 'cristal_mana',    weight: 40, qty: [1, 1], msg: 'Un cristal vibrante en el aire denso.' },
+      { itemId: 'polvo_arcano',    weight: 35, qty: [1, 3], msg: 'Polvo plateado flotando sin caer.' },
+      { itemId: 'fragmento_runa',  weight: 15, qty: [1, 1], msg: 'Una runa fresca grabada en piedra reciente.' },
+      { itemId: 'gema_ignea',      weight: 10, qty: [1, 1], msg: 'Una gema con magia residual.' },
+    ],
+    lair: [
+      { itemId: 'mat_escama_kobold', weight: 30, qty: [1, 3], msg: 'Escamas dispersas en el suelo.' },
+      { itemId: 'fragmento_hueso_antiguo', weight: 25, qty: [1, 2], msg: 'Huesos de presas anteriores.' },
+      { itemId: 'obsidiana',         weight: 20, qty: [1, 1], msg: 'Un trozo de obsidiana en una pila.' },
+      { itemId: 'gema_ignea',        weight: 15, qty: [1, 1], msg: 'Una gema escondida en el nido.' },
+      { itemId: 'reliquia_olvidada', weight: 10, qty: [1, 1], msg: 'Algo de un aventurero anterior.' },
+    ],
+    abyss: [
+      { itemId: 'cristal_mana',   weight: 30, qty: [1, 1], msg: 'Un cristal flotando en la oscuridad.' },
+      { itemId: 'polvo_arcano',   weight: 30, qty: [1, 2], msg: 'Polvo plateado que se asienta a tus pies.' },
+      { itemId: 'fragmento_hueso_antiguo', weight: 20, qty: [1, 2], msg: 'Huesos antiguos que no pertenecen acá.' },
+      { itemId: 'reliquia_olvidada', weight: 20, qty: [1, 1], msg: 'Algo metálico de un pasado lejano.' },
+    ],
+    village: [
+      { itemId: 'pan',             weight: 40, qty: [1, 2], msg: 'Te regalan pan recién horneado.' },
+      { itemId: 'queso',           weight: 30, qty: [1, 1], msg: 'Un quesero te ofrece una rebanada.' },
+      { itemId: 'flor_silvestre',  weight: 15, qty: [1, 2], msg: 'Un niño te ofrece flores del jardín.' },
+      { itemId: 'coin_copper',     weight: 15, qty: [3, 8], msg: 'Encontraste monedas tiradas en el mercado.' },
+    ],
+  };
+
+  /**
+   * v1.7.1: Resuelve un hallazgo específico del bioma.
+   * Devuelve null si el bioma no tiene pool definido (cae a minor_loot regular).
+   */
+  function resolveBiomeLoot(region) {
+    const biome = region ? region.biome : 'plains';
+    const pool = BIOME_LOOT_POOLS[biome];
+    if (!pool || pool.length === 0) return null;
+
+    // Pick weighted del pool
+    const totalWeight = pool.reduce((sum, e) => sum + (e.weight || 1), 0);
+    let r = Math.random() * totalWeight;
+    let entry = pool[0];
+    for (const e of pool) {
+      r -= (e.weight || 1);
+      if (r <= 0) { entry = e; break; }
+    }
+
+    // Validar que el item existe
+    const itemData = A.Data.getById('items', entry.itemId);
+    if (!itemData) return null;
+
+    // Calcular cantidad
+    const [qMin, qMax] = entry.qty || [1, 1];
+    const qty = qMin + Math.floor(Math.random() * (qMax - qMin + 1));
+
+    // Agregar al inventario
+    const added = A.State.addItem(entry.itemId, qty);
+    if (!added) {
+      // Mochila llena: devolver mensaje informativo en vez de loot
+      return {
+        kind: 'narrative',
+        icon: '🎒',
+        text: `Viste ${itemData.name.toLowerCase()} en el camino pero tu mochila está llena.`,
+        biome,
+      };
+    }
+
+    return {
+      kind: 'biome_loot',
+      itemId: entry.itemId,
+      itemName: itemData.name,
+      icon: itemData.icon || '🎁',
+      qty,
+      biome,
+      text: `${entry.msg} (${itemData.icon || '📦'} ${itemData.name} ×${qty})`,
+    };
   }
 
   function resolveLoot(region) {
@@ -382,28 +541,131 @@
 
   function resolveNarrative(region) {
     const biome = region ? region.biome : 'plains';
+    // v1.6.9: narrativas por bioma expandidas (5+ por bioma) con icons y kinds variados
     const NARRATIVES = {
-      forest: ['El viento mueve las copas y nada se mueve abajo.', 'Encontrás huellas frescas, no humanas.'],
-      plains: ['El camino se extiende vacío hasta el horizonte.', 'Ves el polvo de un jinete a lo lejos. Ya no está cuando mirás de nuevo.'],
-      graveyard: ['El aire huele a tierra removida.', 'Una vela apagada sobre una lápida sin nombre.'],
-      swamp: ['Burbujas suben sin razón a la superficie del agua.', 'El barro guarda tus pisadas más profundo de lo que debería.'],
-      coast: ['Una gaviota grita y vuelve a callar.', 'Olor a sal y madera mojada.'],
-      mountain: ['El eco de algo cayendo, lejos.', 'Encontrás una bota gastada. Solo una.'],
-      desert: ['La arena se mueve aunque no haya viento.', 'Una sombra cruza el sol.'],
-      cave: ['El silencio adentro pesa más que afuera.', 'Sentís una corriente de aire que no debería estar ahí.'],
-      ruins: ['Una pared se sostiene como si la sostuvieran adentro.', 'Hay tallados que ya no se entienden.'],
-      crypt: ['Tus pasos suenan más fuerte de lo que deberían.', 'Algo se cierra a tus espaldas. Cuando girás, está abierto.'],
-      sea: ['El barco cruje contra una ola que no estaba.', 'Un canto lejano. Te tapás los oídos.'],
-      volcano: ['La piedra está caliente al tacto.', 'El humo sube en columnas que parecen mirar.'],
-      hell: ['Algo recuerda tu nombre antes de que lo digas.', 'El cielo rojo no cambia. Te empieza a doler.'],
-      lair: ['Cáscaras del tamaño de un escudo.', 'Marcas de garras en piedra dura.'],
-      abyss: ['La oscuridad responde cuando la mirás.', 'Una luz lejana abajo. Te alejás.'],
-      arcane: ['El aire vibra. Tu piel también.', 'Sentís el zumbido del maná, aunque no lo invoques.'],
-      village: ['Niños riendo en alguna calle.', 'Pan recién horneado en el aire.'],
+      forest: [
+        { text: 'El viento mueve las copas y nada se mueve abajo.', icon: '🍃' },
+        { text: 'Encontrás huellas frescas, no humanas.', icon: '🐾' },
+        { text: 'Una rama cruje a tu derecha. Cuando mirás, no hay nada.', icon: '🌳' },
+        { text: 'Bayas raras crecen entre las raíces. Ninguna tiene nombre conocido.', icon: '🍒' },
+        { text: 'Pájaros que callan al pasar. Vuelven a cantar cuando ya estás lejos.', icon: '🐦' },
+      ],
+      plains: [
+        { text: 'El camino se extiende vacío hasta el horizonte.', icon: '🌾' },
+        { text: 'Ves el polvo de un jinete a lo lejos. Ya no está cuando mirás de nuevo.', icon: '💨' },
+        { text: 'Una piedra marcada con runas. Las runas no significan nada que entiendas.', icon: '🪨' },
+        { text: 'El sol pega fuerte. El silencio también.', icon: '☀️' },
+        { text: 'Encontrás un pañuelo abandonado. Nadie lo reclama.', icon: '🧣' },
+      ],
+      graveyard: [
+        { text: 'El aire huele a tierra removida.', icon: '⚰️' },
+        { text: 'Una vela apagada sobre una lápida sin nombre.', icon: '🕯️' },
+        { text: 'Las flores marchitas tienen los pétalos hacia adentro. No es natural.', icon: '🥀' },
+        { text: 'Pasos detrás tuyo. Te detenés. Los pasos también.', icon: '👻' },
+        { text: 'Un nombre tachado en una piedra. Casi parece el tuyo.', icon: '✒️' },
+      ],
+      swamp: [
+        { text: 'Burbujas suben sin razón a la superficie del agua.', icon: '💧' },
+        { text: 'El barro guarda tus pisadas más profundo de lo que debería.', icon: '🦶' },
+        { text: 'Algo se mueve bajo la superficie. Cuando mirás, no hay nada.', icon: '🐊' },
+        { text: 'El olor a podrido viene en oleadas, después se va, después vuelve.', icon: '🍂' },
+        { text: 'Mosquitos te ignoran. Algo más los está atrayendo.', icon: '🦟' },
+      ],
+      coast: [
+        { text: 'Una gaviota grita y vuelve a callar.', icon: '🌊' },
+        { text: 'Olor a sal y madera mojada.', icon: '🌬️' },
+        { text: 'Las olas dejan algo brillante. Cuando te acercás, ya no está.', icon: '✨' },
+        { text: 'Una botella sin mensaje, llena de arena.', icon: '🍾' },
+        { text: 'Restos de un naufragio que el mar trajo de vuelta.', icon: '⚓' },
+      ],
+      mountain: [
+        { text: 'El eco de algo cayendo, lejos.', icon: '⛰️' },
+        { text: 'Encontrás una bota gastada. Solo una.', icon: '🥾' },
+        { text: 'El aire se vuelve fino. Pensás dos veces lo que pensás.', icon: '🌬️' },
+        { text: 'Un pico nevado refleja el sol como un cristal.', icon: '🏔️' },
+        { text: 'Una avalancha distante. No te llega.', icon: '🌨️' },
+      ],
+      desert: [
+        { text: 'La arena se mueve aunque no haya viento.', icon: '🏜️' },
+        { text: 'Una sombra cruza el sol.', icon: '☀️' },
+        { text: 'Huesos blanqueados de una criatura que no reconocés.', icon: '🦴' },
+        { text: 'El espejismo de una ciudad. Parpadeás y desaparece.', icon: '🌫️' },
+        { text: 'Una caravana abandonada. Las huellas terminan en seco.', icon: '🐪' },
+      ],
+      cave: [
+        { text: 'El silencio adentro pesa más que afuera.', icon: '🕳️' },
+        { text: 'Sentís una corriente de aire que no debería estar ahí.', icon: '💨' },
+        { text: 'Goteo lento desde algún lugar arriba. No ves de dónde.', icon: '💧' },
+        { text: 'Tu antorcha tiembla, pero no hay viento.', icon: '🔥' },
+        { text: 'Pinturas en las paredes. Los dibujos te miran.', icon: '🎨' },
+      ],
+      ruins: [
+        { text: 'Una pared se sostiene como si la sostuvieran adentro.', icon: '🏛️' },
+        { text: 'Hay tallados que ya no se entienden.', icon: '📜' },
+        { text: 'Un altar caído pero limpio. Alguien lo cuida.', icon: '⚱️' },
+        { text: 'Pasos antiguos en el polvo. Recientes.', icon: '👣' },
+        { text: 'Un eco de palabras en una lengua muerta.', icon: '🗣️' },
+      ],
+      crypt: [
+        { text: 'Tus pasos suenan más fuerte de lo que deberían.', icon: '🪦' },
+        { text: 'Algo se cierra a tus espaldas. Cuando girás, está abierto.', icon: '🚪' },
+        { text: 'Polvo flotando en haces de luz que no tienen origen.', icon: '✨' },
+        { text: 'Una placa metálica con tu nombre grabado. La fecha está en blanco.', icon: '🪙' },
+        { text: 'El frío sube por las piedras hasta tus piernas.', icon: '❄️' },
+      ],
+      sea: [
+        { text: 'El barco cruje contra una ola que no estaba.', icon: '⛵' },
+        { text: 'Un canto lejano. Te tapás los oídos.', icon: '🎶' },
+        { text: 'Una sombra enorme bajo el casco. Después nada.', icon: '🐋' },
+        { text: 'El horizonte se inclina, pero nadie más lo nota.', icon: '🌊' },
+        { text: 'Estrellas que no existen en ninguna carta.', icon: '⭐' },
+      ],
+      volcano: [
+        { text: 'La piedra está caliente al tacto.', icon: '🌋' },
+        { text: 'El humo sube en columnas que parecen mirar.', icon: '💨' },
+        { text: 'El suelo vibra cada tanto. Acompasado.', icon: '🪨' },
+        { text: 'Una flor crece sobre lava enfriada. No debería.', icon: '🌺' },
+        { text: 'El aire huele a azufre y a algo vivo.', icon: '🔥' },
+      ],
+      hell: [
+        { text: 'Algo recuerda tu nombre antes de que lo digas.', icon: '👁️' },
+        { text: 'El cielo rojo no cambia. Te empieza a doler.', icon: '🩸' },
+        { text: 'Una voz pregunta cosas que vos no querés responder.', icon: '🗣️' },
+        { text: 'Los recuerdos buenos se sienten lejos. Los malos, cerca.', icon: '💀' },
+        { text: 'Algo te toca el hombro. No hay nadie.', icon: '🤚' },
+      ],
+      lair: [
+        { text: 'Cáscaras del tamaño de un escudo.', icon: '🥚' },
+        { text: 'Marcas de garras en piedra dura.', icon: '🐾' },
+        { text: 'Calor en el aire. Algo respira cerca.', icon: '🐲' },
+        { text: 'Un montículo de huesos limpios. Demasiado limpios.', icon: '🦴' },
+        { text: 'El olor a metal viejo y a algo dulce.', icon: '⚒️' },
+      ],
+      abyss: [
+        { text: 'La oscuridad responde cuando la mirás.', icon: '🕳️' },
+        { text: 'Una luz lejana abajo. Te alejás.', icon: '💡' },
+        { text: 'El piso parece sólido. La sensación de caer no se va.', icon: '⬇️' },
+        { text: 'Tu sombra se queda atrás un instante.', icon: '🌑' },
+      ],
+      arcane: [
+        { text: 'El aire vibra. Tu piel también.', icon: '✨' },
+        { text: 'Sentís el zumbido del maná, aunque no lo invoques.', icon: '🔮' },
+        { text: 'Glifos flotantes que se apagan al pasar.', icon: '📜' },
+        { text: 'El tiempo se siente lento. Después rápido. Después raro.', icon: '⏳' },
+      ],
+      village: [
+        { text: 'Niños riendo en alguna calle.', icon: '👦' },
+        { text: 'Pan recién horneado en el aire.', icon: '🍞' },
+        { text: 'Un mercader te saluda con una inclinación cortés.', icon: '🧑‍🌾' },
+        { text: 'Música suave desde una taberna cercana.', icon: '🎵' },
+        { text: 'Un perro te sigue unos pasos y vuelve a su casa.', icon: '🐕' },
+      ],
     };
     const list = NARRATIVES[biome] || NARRATIVES.plains;
-    const text = A.Utils.randomOf(list);
-    return { kind: 'narrative', text };
+    const choice = A.Utils.randomOf(list);
+    const text = typeof choice === 'string' ? choice : choice.text;
+    const icon = typeof choice === 'string' ? '✨' : (choice.icon || '✨');
+    return { kind: 'narrative', text, icon, biome };
   }
 
   /**
@@ -473,6 +735,8 @@
     canTravelTo,
     canTravelToDetailed,
     evaluateRegionRequirements,
+    // v1.7.1: helper público para explorar (genera biome_loot fuera del flow de travel)
+    resolveBiomeLootStandalone: resolveBiomeLoot,
     neighbors,
     start,
     step,

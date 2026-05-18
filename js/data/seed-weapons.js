@@ -86,6 +86,16 @@
 
     { id:'mjolnir', name:'Mjölnir', type:'weapon', icon:'🔨', damage:'4d8', value:6000, rarity:'legendary', tier:10, weight:8, slots:2, magic:true, statusEffect:{type:'shock',chance:0.50,turns:4,value:5},
       description:'Martillo del dios del trueno. Pesa lo que pesa la fe del que lo levanta. Suelta rayos al impactar.' },
+
+    // === v1.7.2: Armas crafteables con materiales de bioma ===
+    { id:'daga_obsidiana', name:'Daga de obsidiana', type:'weapon', icon:'🗡️', damage:'1d6', value:90, rarity:'uncommon', tier:3, weight:1, statusEffect:{type:'bleed',chance:0.30,turns:3,value:2}, magic:false,
+      description:'Filo de vidrio volcánico, más cortante que el acero pero frágil. Hace sangrar feo.' },
+    { id:'lanza_hueso', name:'Lanza de hueso antiguo', type:'weapon', icon:'🔱', damage:'1d8', value:120, rarity:'uncommon', tier:4, weight:2, magic:false,
+      description:'Asta tallada de un hueso que no se rompe. Liviana y temida.' },
+    { id:'cetro_igneo', name:'Cetro ígneo', type:'weapon', icon:'📜', damage:'2d6', value:380, rarity:'rare', tier:6, weight:2, magic:true, statusEffect:{type:'fire',chance:0.35,turns:3,value:3},
+      description:'Una gema ígnea engarzada en cuarzo. Quema al que toca su luz.' },
+    { id:'arco_pluma', name:'Arco de pluma extraña', type:'weapon', icon:'🏹', damage:'1d8', value:160, rarity:'rare', tier:5, weight:1, magic:false,
+      description:'Empuñadura adornada con plumas que no son de este mundo. Dispara más lejos.' },
   ];
 
   A.Seed = A.Seed || {};

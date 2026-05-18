@@ -43,6 +43,23 @@
       effect:{ type:'buff', stat:'damage', amount:2, duration:5 }, stack:99,
       description:'Sabe a hierro. Las manos tiemblan de poder durante un rato.' },
 
+    // === v1.7.2: Consumibles y amuletos crafteables con materiales de bioma ===
+    { id:'te_de_hierbas', name:'Té de hierbas', type:'item', subtype:'potion', icon:'🍵', value:30, weight:0,
+      healAmount:8, stack:99,
+      description:'Hierbas silvestres hervidas. Calma el cuerpo y cierra heridas leves.' },
+    { id:'pocion_lodo', name:'Poción de lodo curativo', type:'item', subtype:'potion', icon:'🟤', value:55, weight:0,
+      healAmount:14, stack:99,
+      description:'Hongos de pantano macerados. Huele horrible, sana bien.' },
+    { id:'amuleto_fuego', name:'Amuleto de fuego', type:'item', subtype:'material', icon:'🔥', value:450, weight:0, stack:1,
+      description:'Una gema ígnea engarzada en obsidiana. Irradia un calor protector. Permite resistir el calor extremo de zonas volcánicas.' },
+    { id:'talisman_arcano', name:'Talismán arcano', type:'item', subtype:'material', icon:'🔮', value:320, weight:0, stack:1,
+      description:'Cristal de maná atado con polvo arcano. Vibra cerca de la magia antigua.' },
+    { id:'sal_conservante', name:'Carne salada', type:'item', subtype:'food', icon:'🥩', value:18, weight:1,
+      foodValue:12, stack:99,
+      description:'Carne curada con sal de dunas. Dura semanas sin pudrirse.' },
+    { id:'collar_perlas', name:'Collar de perlas', type:'item', subtype:'material', icon:'📿', value:600, weight:0, stack:1,
+      description:'Perlas pequeñas hiladas en hilo de plata. Vale una fortuna en cualquier mercado.' },
+
     // --- Comida ---
     { id:'pan', name:'Pan', type:'item', subtype:'food', icon:'🍞', value:3, weight:0,
       effect:{ type:'food', amount:3 }, stack:99,
@@ -324,6 +341,77 @@
       description:'Termina en punta. Caliente al tacto.' },
     { id:'mat_escama_kobold', name:'Escama de kobold', type:'item', subtype:'material', icon:'🦎', value:7, weight:0, stack:99,
       description:'Pequeña y verdosa. Reflejo opaco.' },
+
+    // === v1.7.1: Recursos por bioma específico ===
+
+    // --- Forest ---
+    { id:'hierba_silvestre', name:'Hierba silvestre', type:'item', subtype:'material', icon:'🌿', value:3, weight:0, stack:99,
+      description:'Hojas resistentes. Sirven para tés y vendajes.' },
+    { id:'baya_negra', name:'Baya negra', type:'item', subtype:'food', icon:'🫐', value:5, weight:0, foodValue:3, stack:99,
+      description:'Dulce y ácida. Mancha los dedos.' },
+    { id:'pluma_extraña', name:'Pluma extraña', type:'item', subtype:'material', icon:'🪶', value:15, weight:0, stack:99,
+      description:'No es de un ave conocida. Brilla un poco con la luz.' },
+
+    // --- Plains ---
+    { id:'espiga_dorada', name:'Espiga dorada', type:'item', subtype:'material', icon:'🌾', value:4, weight:0, stack:99,
+      description:'Grano salvaje. Se puede moler o comer crudo.' },
+    { id:'flor_silvestre', name:'Flor silvestre', type:'item', subtype:'material', icon:'🌼', value:8, weight:0, stack:99,
+      description:'Pétalos blancos. Los herboristas pagan por ellas.' },
+
+    // --- Mountain ---
+    { id:'fragmento_cuarzo', name:'Fragmento de cuarzo', type:'item', subtype:'material', icon:'💠', value:18, weight:1, stack:99,
+      description:'Cristal duro y frío. Se quiebra en seis caras.' },
+    { id:'mineral_hierro', name:'Mineral de hierro', type:'item', subtype:'material', icon:'⛏️', value:25, weight:1, stack:99,
+      description:'Roca oscura con vetas. El herrero lo necesita.' },
+
+    // --- Desert ---
+    { id:'cactus_carnoso', name:'Cactus carnoso', type:'item', subtype:'food', icon:'🌵', value:6, weight:1, foodValue:4, stack:99,
+      description:'Espinoso por fuera, jugoso por dentro. Saca la sed.' },
+    { id:'sal_de_dunas', name:'Sal de dunas', type:'item', subtype:'material', icon:'🧂', value:12, weight:0, stack:99,
+      description:'Cristales blancos. Conserva la carne mucho tiempo.' },
+    { id:'aguja_escorpion', name:'Aguja de escorpión', type:'item', subtype:'material', icon:'🦂', value:30, weight:0, stack:99,
+      description:'Curva y fina. Aún destila algo viscoso.' },
+
+    // --- Swamp ---
+    { id:'hongo_pantanoso', name:'Hongo pantanoso', type:'item', subtype:'material', icon:'🍄', value:14, weight:0, stack:99,
+      description:'Crece donde el agua se pudre. Útil para venenos suaves.' },
+    { id:'piel_anfibio', name:'Piel de anfibio', type:'item', subtype:'material', icon:'🐸', value:20, weight:0, stack:99,
+      description:'Resbalosa. La buscan los alquimistas.' },
+
+    // --- Coast / Sea ---
+    { id:'concha_iridiscente', name:'Concha iridiscente', type:'item', subtype:'material', icon:'🐚', value:22, weight:0, stack:99,
+      description:'Cambia de color según la luz. No suena al oído.' },
+    { id:'perla_pequeña', name:'Perla pequeña', type:'item', subtype:'material', icon:'⚪', value:80, weight:0, stack:99,
+      description:'Redonda y lisa. Vale lo que pesa.' },
+
+    // --- Cave / Crypt ---
+    { id:'hongo_luminoso', name:'Hongo luminoso', type:'item', subtype:'material', icon:'🟢', value:18, weight:0, stack:99,
+      description:'Despide una luz tenue. Crece en piedra oscura.' },
+    { id:'moneda_antigua', name:'Moneda antigua', type:'item', subtype:'material', icon:'🪙', value:50, weight:0, stack:99,
+      description:'Lleva un rostro borrado por los siglos. Algunos coleccionistas pagan caro.' },
+    { id:'fragmento_hueso_antiguo', name:'Fragmento de hueso antiguo', type:'item', subtype:'material', icon:'🦴', value:35, weight:0, stack:99,
+      description:'Liviano y frío. Tallado con símbolos que ya nadie lee.' },
+
+    // --- Volcano ---
+    { id:'obsidiana', name:'Obsidiana', type:'item', subtype:'material', icon:'⬛', value:40, weight:1, stack:99,
+      description:'Vidrio volcánico. Filo natural si se rompe bien.' },
+    { id:'fragmento_lava', name:'Fragmento de lava enfriada', type:'item', subtype:'material', icon:'🟥', value:28, weight:1, stack:99,
+      description:'Aún tibio al tacto. Pesa más de lo que parece.' },
+    { id:'gema_ignea', name:'Gema ígnea', type:'item', subtype:'material', icon:'🔶', value:200, weight:0, stack:99,
+      description:'Roja como brasa, pero fría. Vale una pequeña fortuna.' },
+
+    // --- Ruins ---
+    { id:'fragmento_runa', name:'Fragmento de runa', type:'item', subtype:'material', icon:'🪨', value:45, weight:0, stack:99,
+      description:'Piedra tallada con símbolos. La mitad de algo más grande.' },
+    { id:'reliquia_olvidada', name:'Reliquia olvidada', type:'item', subtype:'material', icon:'⚱️', value:120, weight:1, stack:99,
+      description:'Metálica y pesada. Nadie recuerda para qué servía.' },
+
+    // --- Arcane ---
+    { id:'cristal_mana', name:'Cristal de maná', type:'item', subtype:'material', icon:'🔷', value:60, weight:0, stack:99,
+      description:'Vibra en la mano. Los magos lo usan en talismanes.' },
+    { id:'polvo_arcano', name:'Polvo arcano', type:'item', subtype:'material', icon:'✨', value:35, weight:0, stack:99,
+      description:'Plateado y suave. Una pizca cambia un hechizo.' },
+
   ];
 
   A.Seed = A.Seed || {};

@@ -309,8 +309,20 @@
   }
 
   function renderNpcCraft(npc) {
-    const recipes = A.Crafting.recipesForWorkshop('forge');
-    return renderCraftList(recipes, 'forge');
+    // v1.7.2: el herrero ofrece todas las recetas (forge + alchemy + enchant),
+    // agrupadas visualmente por taller. Antes solo mostraba 'forge'.
+    const forge = A.Crafting.recipesForWorkshop('forge');
+    const alchemy = A.Crafting.recipesForWorkshop('alchemy');
+    const enchant = A.Crafting.recipesForWorkshop('enchant');
+    const all = [...forge, ...alchemy, ...enchant];
+    if (all.length === 0) {
+      return `<div class="muted small">No hay recetas disponibles.</div>`;
+    }
+    const sections = [];
+    if (forge.length) sections.push(`<div class="craft-section-label">⚒️ Forja</div>${renderCraftList(forge, 'forge')}`);
+    if (alchemy.length) sections.push(`<div class="craft-section-label">⚗️ Alquimia</div>${renderCraftList(alchemy, 'alchemy')}`);
+    if (enchant.length) sections.push(`<div class="craft-section-label">✨ Encantamiento</div>${renderCraftList(enchant, 'enchant')}`);
+    return `<div class="craft-all-sections">${sections.join('')}</div>`;
   }
 
   function renderCraftList(recipes, workshopName) {

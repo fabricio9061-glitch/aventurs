@@ -13,6 +13,58 @@
 
   let mainEl = null;
 
+  // v1.7.0: timer del modo auto/rápido
+  let autoStepTimer = null;
+  let autoStepDelay = 2000; // ms entre pasos en modo auto
+
+  function clearAutoStepTimer() {
+    if (autoStepTimer) {
+      clearTimeout(autoStepTimer);
+      autoStepTimer = null;
+    }
+  }
+
+  /**
+   * v1.7.0: Inicia el timer de auto-step si el modo es 'auto' o 'fast'.
+   * Pausa automáticamente al aparecer un evento que requiere decisión.
+   */
+  function scheduleAutoStep() {
+    clearAutoStepTimer();
+    const t = A.State.traveling;
+    if (!t || t.completed) return;
+    const mode = (A.State.prefs && A.State.prefs.travelMode) || 'manual';
+    if (mode === 'manual') return;
+
+    // No avanzar si hay evento sin resolver
+    const lastEvent = t.events[t.events.length - 1];
+    if (lastEvent && lastEvent.kind === 'creature' && !lastEvent.resolved) return;
+
+    const delay = mode === 'fast' ? 500 : 2000; // rápido = 500ms, auto = 2s
+    autoStepDelay = delay;
+    autoStepTimer = setTimeout(() => {
+      autoStepTimer = null;
+      const stillTraveling = A.State.traveling && !A.State.traveling.completed;
+      if (!stillTraveling) return;
+      const result = A.Travel.step();
+      // Re-render
+      render();
+      // Encadenar siguiente paso si corresponde
+      if (result && result.ok) scheduleAutoStep();
+    }, delay);
+  }
+
+  function setTravelMode(mode) {
+    if (!['manual', 'auto', 'fast'].includes(mode)) return;
+    A.State.prefs = A.State.prefs || {};
+    A.State.prefs.travelMode = mode;
+    A.State.persist();
+    if (mode === 'manual') {
+      clearAutoStepTimer();
+    } else {
+      scheduleAutoStep();
+    }
+  }
+
   function render() {
     if (!mainEl) return;
     const w = A.State.world;
@@ -129,6 +181,30 @@
     bindEvents();
   }
 
+  /**
+   * v1.7.0: Selector de modo de viaje (manual / auto / fast)
+   */
+  function renderTravelModeSelector() {
+    const mode = (A.State.prefs && A.State.prefs.travelMode) || 'manual';
+    const isAuto = mode === 'auto' || mode === 'fast';
+    return `
+      <div class="travel-mode-selector ${isAuto ? 'is-active' : ''}" role="group" aria-label="Modo de viaje">
+        <button type="button" class="travel-mode-btn ${mode === 'manual' ? 'is-selected' : ''}" data-travel-mode="manual" title="Manual: avanzás vos haciendo click">
+          <span class="travel-mode-icon">👣</span>
+          <span class="travel-mode-label">Manual</span>
+        </button>
+        <button type="button" class="travel-mode-btn ${mode === 'auto' ? 'is-selected' : ''}" data-travel-mode="auto" title="Auto: avanza solo cada 2s, pausa en eventos">
+          <span class="travel-mode-icon">▶️</span>
+          <span class="travel-mode-label">Auto</span>
+        </button>
+        <button type="button" class="travel-mode-btn ${mode === 'fast' ? 'is-selected' : ''}" data-travel-mode="fast" title="Rápido: avanza solo cada 0.5s">
+          <span class="travel-mode-icon">⏩</span>
+          <span class="travel-mode-label">Rápido</span>
+        </button>
+      </div>
+    `;
+  }
+
   function renderTraveling() {
     const t = A.State.traveling;
     const fromR = A.Data.getById('regions', t.fromId);
@@ -139,40 +215,169 @@
     // Si último evento es una criatura sin resolver, ofrecer opciones
     const pending = lastEvent && lastEvent.kind === 'creature' && !lastEvent.resolved;
 
+    // v1.6.9: bioma del destino para temática visual
+    const targetBiome = (toR && toR.biome) || 'plains';
+
     mainEl.innerHTML = `
-      <section class="travel-view">
-        <header class="travel-header">
-          <div class="travel-route">
-            <span class="travel-from">${fromR ? fromR.icon : '📍'} ${A.Utils.escapeHtml(fromR ? fromR.name : t.fromId)}</span>
-            <span class="travel-arrow-big">→</span>
-            <span class="travel-to">${toR ? toR.icon : '📍'} ${A.Utils.escapeHtml(toR ? toR.name : t.toId)}</span>
+      <section class="travel-view travel-view-v2 travel-biome-${targetBiome}">
+        <header class="travel-header-v2">
+          <div class="travel-route-v2">
+            <div class="travel-endpoint travel-endpoint-from">
+              <div class="travel-endpoint-icon">${fromR ? fromR.icon : '📍'}</div>
+              <div class="travel-endpoint-name">${A.Utils.escapeHtml(fromR ? fromR.name : t.fromId)}</div>
+              <div class="travel-endpoint-label dim">Origen</div>
+            </div>
+            ${renderRoutePath(t)}
+            <div class="travel-endpoint travel-endpoint-to">
+              <div class="travel-endpoint-icon">${toR ? toR.icon : '📍'}</div>
+              <div class="travel-endpoint-name">${A.Utils.escapeHtml(toR ? toR.name : t.toId)}</div>
+              <div class="travel-endpoint-label dim">Destino</div>
+            </div>
+          </div>
+          <div class="travel-progress-v2">
+            <span class="travel-progress-step">Paso ${t.currentStep} de ${t.totalSteps}</span>
+            ${renderTravelModeSelector()}
+            <span class="travel-progress-pct num">${pctNum}%</span>
           </div>
         </header>
 
-        <div class="travel-progress">
-          <div class="travel-progress-meta">
-            <span class="dim">Paso ${t.currentStep} de ${t.totalSteps}</span>
-            <span class="num">${pctNum}%</span>
-          </div>
-          <div class="bar bar-travel"><span style="width:${pctNum}%"></span></div>
+        <div class="travel-body-v2">
+          <main class="travel-stage-v2">
+            ${pending ? renderEncounter(lastEvent) : renderTravelStage(t, lastEvent)}
+          </main>
+          <aside class="travel-log-v2">
+            <div class="travel-log-header">
+              <span class="travel-log-title">📖 Bitácora</span>
+              <span class="travel-log-count dim">${t.events.length} evento${t.events.length === 1 ? '' : 's'}</span>
+            </div>
+            <div class="travel-log-list">
+              ${t.events.length === 0
+                ? `<div class="travel-log-empty muted">Acabás de salir. Avanzá para empezar la bitácora.</div>`
+                : t.events.slice().reverse().map(eventLogRow).join('')}
+            </div>
+          </aside>
         </div>
-
-        ${pending ? renderEncounter(lastEvent) : `
-          <div class="travel-events">
-            ${t.events.length === 0 ? `
-              <div class="muted">El camino está tranquilo. Da el primer paso.</div>
-            ` : t.events.slice().reverse().map(eventRow).join('')}
-          </div>
-
-          <div class="travel-actions">
-            <button class="btn-primary" data-travel-action="step">Avanzar</button>
-            <button class="btn-ghost" data-travel-action="cancel">Volver al origen</button>
-          </div>
-        `}
       </section>
     `;
 
     bindTravelEvents();
+
+    // v1.7.0: si el modo es auto/fast, programar el próximo paso
+    scheduleAutoStep();
+  }
+
+  /**
+   * v1.6.9: Ruta visual con hitos (SVG path con marker de avance)
+   */
+  function renderRoutePath(t) {
+    const totalSteps = t.totalSteps || 1;
+    const currentStep = t.currentStep || 0;
+    const pctNum = (currentStep / totalSteps) * 100;
+    // Generar nodos cada cierta cantidad de pasos (max 5 hitos visuales)
+    const numCheckpoints = Math.min(5, Math.max(2, Math.floor(totalSteps / 3)));
+    const checkpoints = [];
+    for (let i = 1; i < numCheckpoints; i++) {
+      const stepAt = Math.round((totalSteps / numCheckpoints) * i);
+      checkpoints.push({
+        x: (i / numCheckpoints) * 100,
+        passed: currentStep >= stepAt,
+      });
+    }
+    return `
+      <div class="travel-route-path">
+        <div class="travel-route-line">
+          <div class="travel-route-line-fill" style="width: ${pctNum}%"></div>
+          ${checkpoints.map((cp) => `
+            <div class="travel-route-checkpoint ${cp.passed ? 'is-passed' : ''}" style="left: ${cp.x}%">
+              <span class="travel-route-checkpoint-dot"></span>
+            </div>
+          `).join('')}
+          <div class="travel-route-marker" style="left: ${pctNum}%" title="Tu posición">
+            <span class="travel-route-marker-icon">🚶</span>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  /**
+   * v1.6.9: Stage central del viaje. Si hay último evento, lo muestra grande;
+   * si no, muestra el botón "Avanzar" prominente.
+   */
+  function renderTravelStage(t, lastEvent) {
+    const stageContent = lastEvent
+      ? renderStageEvent(lastEvent)
+      : `
+        <div class="travel-stage-empty">
+          <div class="travel-stage-icon">🌅</div>
+          <div class="travel-stage-title">El camino te espera</div>
+          <div class="travel-stage-desc dim">Cada paso te acerca al destino. ¿Qué encontrarás?</div>
+        </div>
+      `;
+    // v1.7.0: si está en modo auto/fast, mostrar indicador de progresión automática
+    const mode = (A.State.prefs && A.State.prefs.travelMode) || 'manual';
+    const autoIndicator = (mode === 'auto' || mode === 'fast')
+      ? `<div class="travel-auto-indicator is-${mode}">
+           <span class="travel-auto-dot"></span>
+           <span class="travel-auto-text">${mode === 'fast' ? '⏩ Avanzando rápido...' : '▶️ Avanzando solo...'}</span>
+         </div>`
+      : '';
+    return `
+      <div class="travel-stage-content">
+        ${stageContent}
+        ${autoIndicator}
+      </div>
+      <div class="travel-actions-v2">
+        <button class="btn-primary btn-travel-step" data-travel-action="step" ${mode !== 'manual' ? 'title="Avanzar manualmente (cancela auto)"' : ''}>
+          <span class="btn-icon">👣</span>
+          <span>Avanzar${mode !== 'manual' ? ' ahora' : ''}</span>
+        </button>
+        <button class="btn-ghost" data-travel-action="cancel">Volver al origen</button>
+      </div>
+    `;
+  }
+
+  /**
+   * v1.6.9: Renderiza el último evento como una "tarjeta de stage" grande.
+   */
+  function renderStageEvent(ev) {
+    const k = ev.kind || 'narrative';
+    const themeMap = {
+      narrative: { icon: ev.icon || '✨', cls: 'is-narrative', title: 'Algo en el camino' },
+      minor_loot: { icon: '💰', cls: 'is-loot', title: '¡Encontraste algo!' },
+      biome_loot: { icon: ev.icon || '🎁', cls: 'is-biome-loot', title: 'Hallazgo del bioma' },
+      creature: { icon: ev.icon || '👹', cls: 'is-creature', title: 'Encuentro' },
+      treasure: { icon: '🎁', cls: 'is-loot', title: 'Tesoro' },
+      damage: { icon: '⚠️', cls: 'is-danger', title: 'Peligro' },
+      heal: { icon: '💚', cls: 'is-heal', title: 'Buen presagio' },
+    };
+    const theme = themeMap[k] || themeMap.narrative;
+    return `
+      <div class="travel-stage-card ${theme.cls}">
+        <div class="travel-stage-card-icon">${theme.icon}</div>
+        <div class="travel-stage-card-content">
+          <div class="travel-stage-card-title">${theme.title}</div>
+          <div class="travel-stage-card-text">${A.Utils.escapeHtml(ev.text || '')}</div>
+        </div>
+      </div>
+    `;
+  }
+
+  /**
+   * v1.6.9: Fila de bitácora (más compacta que la stage, ordenada por inverso)
+   */
+  function eventLogRow(e) {
+    const icons = {
+      minor_loot: '💰', biome_loot: e.icon || '🎁',
+      creature: '👹', narrative: e.icon || '✨', nothing: '·',
+      treasure: '🎁', damage: '⚠️', heal: '💚',
+    };
+    return `
+      <div class="travel-log-row">
+        <span class="travel-log-icon">${icons[e.kind] || (e.icon || '·')}</span>
+        <span class="travel-log-text">${A.Utils.escapeHtml(e.text || '...')}</span>
+      </div>
+    `;
   }
 
   function renderEncounter(ev) {
@@ -180,32 +385,43 @@
     const isGroup = (ev.enemies || []).length > 1;
     const groupSize = (ev.enemies || []).length;
     return `
-      <div class="travel-encounter">
-        <div class="encounter-icon">${ev.icon || '👹'}</div>
-        <div class="encounter-body">
-          <div class="encounter-title">${isGroup ? `Aparecieron ${groupSize} enemigos` : `Apareció ${A.Utils.escapeHtml(ev.enemyName)}`}</div>
-          <div class="encounter-meta dim">
-            ${isGroup ? `<span>${A.Utils.escapeHtml(ev.enemyName)}</span>` : `
-              <span class="pill pill-tier">Tier ${ev.tier}</span>
-              <span class="pill">${categoryLabel(ev.category)}</span>
-              ${ev.tameable ? `<span class="pill pill-tameable">Domable</span>` : ''}
-            `}
+      <div class="travel-encounter travel-encounter-v2">
+        <div class="encounter-header">
+          <div class="encounter-icon-big">${ev.icon || '👹'}</div>
+          <div class="encounter-header-text">
+            <div class="encounter-title-v2">${isGroup ? `Aparecieron ${groupSize} enemigos` : `Apareció ${A.Utils.escapeHtml(ev.enemyName)}`}</div>
+            <div class="encounter-meta-v2">
+              ${isGroup ? `<span class="dim">${A.Utils.escapeHtml(ev.enemyName)}</span>` : `
+                <span class="pill pill-tier">Tier ${ev.tier}</span>
+                <span class="pill pill-cat-${ev.category || 'normal'}">${categoryLabel(ev.category)}</span>
+                ${ev.tameable ? `<span class="pill pill-tameable">🐾 Domable</span>` : ''}
+              `}
+            </div>
           </div>
-          <p class="encounter-desc">${isGroup
-            ? 'Vienen juntos por el camino. Mejor decidir rápido.'
-            : (enemy && enemy.tameable
-              ? 'Te observa con curiosidad. Quizás puedas acercarte sin pelear.'
-              : 'No parece dispuesto a parlamentar.')}</p>
-          <div class="encounter-actions">
-            <button class="btn-primary" data-travel-action="fight" data-enemy-id="${A.Utils.escapeHtml(ev.enemyId)}">Pelear</button>
-            ${!isGroup && enemy && enemy.tameable && !A.State.player.pet ? `
-              <button class="btn-secondary" data-travel-action="tame" data-enemy-id="${A.Utils.escapeHtml(ev.enemyId)}">Intentar domar</button>
-            ` : ''}
-            ${(() => {
-              const odds = calculateAvoidOdds(ev);
-              return `<button class="btn-ghost" data-travel-action="avoid" title="D20+${odds.speedBonus} vs DC ${odds.dc}">Evitar (${odds.chancePct}%)</button>`;
-            })()}
-          </div>
+        </div>
+        <p class="encounter-desc-v2">${isGroup
+          ? 'Vienen juntos por el camino. Mejor decidir rápido.'
+          : (enemy && enemy.tameable
+            ? 'Te observa con curiosidad. Quizás puedas acercarte sin pelear.'
+            : 'No parece dispuesto a parlamentar.')}</p>
+        <div class="encounter-actions-v2">
+          <button class="btn-primary encounter-btn-fight" data-travel-action="fight" data-enemy-id="${A.Utils.escapeHtml(ev.enemyId)}">
+            <span class="btn-icon">⚔️</span>
+            <span>Pelear</span>
+          </button>
+          ${!isGroup && enemy && enemy.tameable && !A.State.player.pet ? `
+            <button class="btn-secondary encounter-btn-tame" data-travel-action="tame" data-enemy-id="${A.Utils.escapeHtml(ev.enemyId)}">
+              <span class="btn-icon">🐾</span>
+              <span>Intentar domar</span>
+            </button>
+          ` : ''}
+          ${(() => {
+            const odds = calculateAvoidOdds(ev);
+            return `<button class="btn-ghost encounter-btn-avoid" data-travel-action="avoid" title="D20+${odds.speedBonus} vs DC ${odds.dc}">
+              <span class="btn-icon">💨</span>
+              <span>Evitar (${odds.chancePct}%)</span>
+            </button>`;
+          })()}
         </div>
       </div>
     `;
@@ -373,11 +589,24 @@
   }
 
   function bindTravelEvents() {
+    // v1.7.0: bind del selector de modo
+    mainEl.querySelectorAll('[data-travel-mode]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const mode = btn.dataset.travelMode;
+        setTravelMode(mode);
+        render(); // re-render para actualizar el selector visual
+      });
+    });
+
     mainEl.querySelectorAll('[data-travel-action]').forEach((btn) => {
       btn.addEventListener('click', () => {
+        // v1.7.0: cualquier acción manual cancela el timer de auto
+        clearAutoStepTimer();
         const action = btn.dataset.travelAction;
         if (action === 'step') {
           A.Travel.step();
+          // Re-render se hace via Bus, pero también iniciamos próximo auto-step
+          setTimeout(scheduleAutoStep, 100);
         } else if (action === 'cancel') {
           A.Travel.cancel();
         } else if (action === 'avoid') {
@@ -562,20 +791,29 @@
         ];
         A.State.addChronicle({ type: 'note', text: trackMessages[Math.floor(Math.random() * trackMessages.length)] });
       } else if (r < 0.86) {
-        // 12%: recurso menor / hierba / fruta
-        const resourceItems = ['pan', 'queso', 'manzana', 'fruta_silvestre', 'hierba_curativa'];
-        const validItems = resourceItems.filter((id) => A.Data.getById('items', id));
-        if (validItems.length > 0) {
-          const itemId = validItems[Math.floor(Math.random() * validItems.length)];
-          const item = A.Data.getById('items', itemId);
-          const ok = A.State.addItem(itemId, 1);
-          if (ok) {
-            A.State.addChronicle({ type: 'loot', text: `Encontraste ${item.icon || ''} ${item.name} en el camino.` });
-          } else {
-            A.State.addChronicle({ type: 'note', text: 'Encontraste algo útil pero no entró en tu mochila.' });
-          }
+        // 12%: v1.7.1: recurso del bioma de la región actual (usa el mismo pool de travel)
+        const region = A.Data.getById('regions', A.State.world.regionId);
+        const biomeResult = A.Travel.resolveBiomeLootStandalone
+          ? A.Travel.resolveBiomeLootStandalone(region)
+          : null;
+        if (biomeResult && biomeResult.kind === 'biome_loot') {
+          A.State.addChronicle({ type: 'loot', text: biomeResult.text });
+        } else if (biomeResult && biomeResult.kind === 'narrative') {
+          // Mochila llena
+          A.State.addChronicle({ type: 'note', text: biomeResult.text });
         } else {
-          A.State.addChronicle({ type: 'note', text: 'Recorriste la zona, sin novedad.' });
+          // Fallback: item genérico
+          const resourceItems = ['pan', 'queso', 'manzana', 'fruta_silvestre', 'hierba_curativa'];
+          const validItems = resourceItems.filter((id) => A.Data.getById('items', id));
+          if (validItems.length > 0) {
+            const itemId = validItems[Math.floor(Math.random() * validItems.length)];
+            const item = A.Data.getById('items', itemId);
+            const ok = A.State.addItem(itemId, 1);
+            if (ok) A.State.addChronicle({ type: 'loot', text: `Encontraste ${item.icon || ''} ${item.name} en el camino.` });
+            else A.State.addChronicle({ type: 'note', text: 'Encontraste algo útil pero no entró en tu mochila.' });
+          } else {
+            A.State.addChronicle({ type: 'note', text: 'Recorriste la zona, sin novedad.' });
+          }
         }
       } else {
         // 14%: nada útil (viento, paisaje, etc)
@@ -620,6 +858,8 @@
       render();
     },
     unmount() {
+      // v1.7.0: limpiar timer de auto-step al cambiar de vista
+      clearAutoStepTimer();
       if (mainEl) mainEl.innerHTML = '';
     },
   };

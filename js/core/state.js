@@ -30,6 +30,8 @@
     traveling: null,
     ui: { activeTab: 'world', openModal: null, modalPayload: null, showMap: false },
     chronicles: [],
+    // v1.7.0: preferencias persistentes del jugador
+    prefs: { travelMode: 'manual' },
 
     // ---------- Lifecycle ----------
 
@@ -53,6 +55,9 @@
         State.traveling = data.traveling || null;
         State.ui = data.ui || { activeTab: 'world', openModal: null, modalPayload: null };
         State.chronicles = data.chronicles || [];
+        // v1.7.0: prefs (default si no existe en save viejo)
+        State.prefs = data.prefs || { travelMode: 'manual' };
+        if (!State.prefs.travelMode) State.prefs.travelMode = 'manual';
         State._migrate();
         A.Bus.emit('state:loaded');
         return true;
@@ -154,6 +159,7 @@
           traveling: State.traveling,
           ui: State.ui,
           chronicles: State.chronicles,
+          prefs: State.prefs || { travelMode: 'manual' },
         };
         localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
         A.Bus.emit('state:saved');

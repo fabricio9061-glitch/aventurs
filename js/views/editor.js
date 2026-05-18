@@ -42,6 +42,86 @@
     { key: 'recipes', label: 'Recetas', icon: '⚒️' },
   ];
 
+  // v1.6.8: Iconografía centralizada para campos del editor
+  const FIELD_ICONS = {
+    name: '📛', icon: '🎨', description: '📝',
+    damage: '⚔️', health: '❤️', maxHp: '❤️', hp: '❤️',
+    armor: '🛡️', defense: '🛡️',
+    speed: '⚡', dodge: '💨', precision: '🎯',
+    mana: '✦', maxMana: '✦', manaCost: '✦',
+    value: '🪙', price: '🪙',
+    weight: '⚖️', slots: '📦',
+    rarity: '💎', tier: '🏷️', category: '🏷️',
+    chance: '🎲', qtyMin: '📉', qtyMax: '📈',
+    range: '🏹', radius: '⭕',
+    duration: '⏱️', cooldown: '⏳', turns: '⏱️',
+    drops: '💰', loot: '💰', coinLoot: '🪙',
+    family: '👥', tags: '🏷️', subtype: '🔖',
+    biome: '🌲', regions: '🗺️', distance: '📏',
+    foodValue: '🍞', healAmount: '💚', heal: '💚', hungerAmount: '🍞',
+    type: '🔖', element: '✨',
+    bleed: '🩸', poison: '☠️', fire: '🔥', cold: '❄️', shock: '⚡', blind: '🌫️', silence: '🤐',
+    requirements: '📋', minLevel: '⭐', requiredItems: '📦', requiredRegions: '🗺️',
+    spawn: '🎯', encounter: '⚔️',
+  };
+
+  // v1.6.8: Tema de rareza con colores
+  const RARITY_THEMES = {
+    common:    { label: 'Común',      color: '#a89060', bg: '#f4f0e6', border: '#a89060', icon: '⚪' },
+    uncommon:  { label: 'Poco común', color: '#5a8a4a', bg: '#eef4e6', border: '#5a8a4a', icon: '🟢' },
+    rare:      { label: 'Raro',       color: '#3a78c4', bg: '#e6eef9', border: '#3a78c4', icon: '🔵' },
+    epic:      { label: 'Épico',      color: '#8050a0', bg: '#f0e6f4', border: '#8050a0', icon: '🟣' },
+    legendary: { label: 'Legendario', color: '#d4a437', bg: '#fcf4d8', border: '#d4a437', icon: '🟡' },
+    cursed:    { label: 'Maldito',    color: '#8d2818', bg: '#f4dcd8', border: '#8d2818', icon: '🔴' },
+  };
+
+  function rarityTheme(r) {
+    return RARITY_THEMES[r] || RARITY_THEMES.common;
+  }
+
+  /**
+   * v1.6.8: Devuelve icono específico para un arma según su tipo/subtype
+   * (basado en nombre o subtype). Si no encuentra, usa el icono del item o default.
+   */
+  function autoWeaponIcon(weapon) {
+    if (!weapon) return '⚔️';
+    if (weapon.icon) return weapon.icon;
+    const n = (weapon.name || weapon.id || '').toLowerCase();
+    if (/daga|cuchillo|puñal/.test(n)) return '🗡️';
+    if (/espada|sable|cimitarra|katana/.test(n)) return '⚔️';
+    if (/hacha/.test(n)) return '🪓';
+    if (/arco|ballesta/.test(n)) return '🏹';
+    if (/maza|martillo|maza/.test(n)) return '🔨';
+    if (/baston|bastón|caduceo/.test(n)) return '🪄';
+    if (/lanza/.test(n)) return '🔱';
+    if (/cetro/.test(n)) return '📜';
+    if (/garrote|porra/.test(n)) return '🏏';
+    return '⚔️';
+  }
+
+  /**
+   * v1.6.8: Devuelve un badge HTML pequeño con icono de efecto y color temático.
+   */
+  function effectBadgeHtml(type, value, turns) {
+    const themes = {
+      bleed:   { icon: '🩸', label: 'Sangrado', color: '#a83828' },
+      poison:  { icon: '☠️', label: 'Veneno',   color: '#5a8a4a' },
+      fire:    { icon: '🔥', label: 'Fuego',    color: '#c45530' },
+      cold:    { icon: '❄️', label: 'Hielo',    color: '#3a78c4' },
+      shock:   { icon: '⚡', label: 'Aturdir',  color: '#d4a437' },
+      blind:   { icon: '🌫️', label: 'Ceguera',  color: '#605870' },
+      silence: { icon: '🤐', label: 'Silencio', color: '#8050a0' },
+      lifesteal: { icon: '✨', label: 'Robo de vida', color: '#a83898' },
+    };
+    const t = themes[type] || { icon: '✨', label: type, color: '#605870' };
+    const meta = (value != null ? `${value}` : '') + (turns != null ? ` · ${turns}t` : '');
+    return `<span class="effect-badge-v2" style="--effect-color: ${t.color}" title="${A.Utils.escapeHtml(t.label)}${meta ? ' (' + meta + ')' : ''}">
+      <span class="effect-badge-icon">${t.icon}</span>
+      <span class="effect-badge-label">${t.label}</span>
+      ${meta ? `<span class="effect-badge-meta">${meta}</span>` : ''}
+    </span>`;
+  }
+
   function mount(container) {
     host = container;
     prevHostHtml = host.innerHTML;
@@ -177,13 +257,27 @@
               </div>
             ` : ''}
             <div class="list-items">
-              ${filtered.map((e) => `
-                <button class="list-item ${e.id === activeId ? 'is-active' : ''} ${e._source === 'editor' ? 'is-edited' : ''}"
-                        data-id="${A.Utils.escapeHtml(e.id)}">
-                  <div class="list-item-name">${A.Utils.escapeHtml(e.name || '(sin nombre)')}</div>
-                  <div class="list-item-meta dim">${A.Utils.escapeHtml(e.id)}${e._source === 'editor' ? ' · editado' : ''}</div>
+              ${filtered.map((e) => {
+                const itemIcon = e.icon || (activeType === 'weapons' ? autoWeaponIcon(e) : (TYPES.find((t) => t.key === activeType) || {}).icon || '📦');
+                const r = e.rarity ? rarityTheme(e.rarity) : null;
+                const tierBadge = e.tier ? `<span class="list-item-tier">T${e.tier}</span>` : '';
+                const rarityDot = r ? `<span class="list-item-rarity-dot" style="background: ${r.color}" title="${r.label}"></span>` : '';
+                return `
+                <button class="list-item list-item-v2 ${e.id === activeId ? 'is-active' : ''} ${e._source === 'editor' ? 'is-edited' : ''}"
+                        data-id="${A.Utils.escapeHtml(e.id)}"
+                        ${r ? `style="--list-rarity: ${r.color}"` : ''}>
+                  <span class="list-item-icon">${itemIcon}</span>
+                  <div class="list-item-content">
+                    <div class="list-item-name">${A.Utils.escapeHtml(e.name || '(sin nombre)')} ${rarityDot}</div>
+                    <div class="list-item-meta dim">
+                      ${tierBadge}
+                      <span class="list-item-id-text">${A.Utils.escapeHtml(e.id)}</span>
+                      ${e._source === 'editor' ? '<span class="list-item-edited">editado</span>' : ''}
+                    </div>
+                  </div>
                 </button>
-              `).join('') || '<div class="muted small">Vacío.</div>'}
+                `;
+              }).join('') || '<div class="muted small">Vacío.</div>'}
             </div>
           </section>
 
@@ -353,6 +447,10 @@
       case 'pets': body = formPets(e); break;
       case 'bags': body = formBags(e); break;
     }
+
+    // v1.6.8: Preview compacto en tiempo real (RPG card)
+    const preview = renderEditorPreview(e);
+
     return `
       <div class="detail-toolbar">
         <button class="btn-primary" data-editor-action="save" ${dirty ? '' : 'disabled'}>Guardar</button>
@@ -360,16 +458,342 @@
         <button class="btn-secondary" data-editor-action="duplicate">Duplicar</button>
         <button class="btn-danger" data-editor-action="delete">Eliminar</button>
       </div>
+      ${preview}
       <form class="editor-form">
         ${body}
       </form>
     `;
   }
 
+  /**
+   * v1.6.8: Renderiza una "tarjeta RPG" de preview arriba del editor.
+   * Muestra cómo se vería el item en el juego.
+   */
+  /**
+   * v1.6.8: Refresca solo el .editor-preview en tiempo real sin re-renderizar
+   * todo el form (mantiene foco en el input que se está editando).
+   */
+  function refreshEditorPreview() {
+    if (!editingDraft || !host) return;
+    const previewEl = host.querySelector('.editor-preview');
+    if (!previewEl) return;
+    const newPreview = renderEditorPreview(editingDraft);
+    if (!newPreview) return;
+    // Reemplazar solo el contenido del preview existente
+    const tempContainer = document.createElement('div');
+    tempContainer.innerHTML = newPreview;
+    const newEl = tempContainer.firstElementChild;
+    if (newEl) {
+      previewEl.replaceWith(newEl);
+    }
+  }
+
+  function renderEditorPreview(e) {
+    if (!e) return '';
+    const t = activeType;
+
+    if (t === 'weapons') return previewWeapon(e);
+    if (t === 'armors') return previewArmor(e);
+    if (t === 'items') return previewItem(e);
+    if (t === 'spells') return previewSpell(e);
+    if (t === 'enemies') return previewEnemy(e);
+    return ''; // Sin preview para regions/races/npcs/recipes/pets/bags por ahora
+  }
+
+  function previewWeapon(e) {
+    const r = rarityTheme(e.rarity || 'common');
+    const icon = e.icon || autoWeaponIcon(e);
+    const eff = e.statusEffect;
+    const range = A.Utils.diceRange ? A.Utils.diceRange(e.damage || '1d4') : null;
+    return `
+      <div class="editor-preview editor-preview-rpg" style="--r-color: ${r.color}; --r-bg: ${r.bg}; --r-border: ${r.border};">
+        <div class="rpg-card-header">
+          <div class="rpg-card-icon">${icon}</div>
+          <div class="rpg-card-title-block">
+            <div class="rpg-card-name" style="color: ${r.color}">${A.Utils.escapeHtml(e.name || 'Sin nombre')}</div>
+            <div class="rpg-card-subtitle">
+              <span class="rpg-rarity-pill" style="background: ${r.bg}; color: ${r.color}; border-color: ${r.border}">${r.icon} ${r.label}</span>
+              ${e.tier ? `<span class="rpg-tier-pill">🏷️ T${e.tier}</span>` : ''}
+              ${e.magic ? `<span class="rpg-magic-pill">✨ Mágica</span>` : ''}
+            </div>
+          </div>
+        </div>
+        <div class="rpg-card-stats">
+          <div class="rpg-stat">
+            <span class="rpg-stat-icon">⚔️</span>
+            <div class="rpg-stat-info">
+              <span class="rpg-stat-label">Daño</span>
+              <span class="rpg-stat-val">${A.Utils.escapeHtml(e.damage || '—')}${range ? ` <span class="rpg-stat-range dim">(${range.min}-${range.max})</span>` : ''}</span>
+            </div>
+          </div>
+          ${e.value != null ? `
+            <div class="rpg-stat">
+              <span class="rpg-stat-icon">🪙</span>
+              <div class="rpg-stat-info">
+                <span class="rpg-stat-label">Valor</span>
+                <span class="rpg-stat-val">${e.value}</span>
+              </div>
+            </div>
+          ` : ''}
+          ${e.weight != null ? `
+            <div class="rpg-stat">
+              <span class="rpg-stat-icon">⚖️</span>
+              <div class="rpg-stat-info">
+                <span class="rpg-stat-label">Peso</span>
+                <span class="rpg-stat-val">${e.weight}</span>
+              </div>
+            </div>
+          ` : ''}
+          <div class="rpg-stat">
+            <span class="rpg-stat-icon">📦</span>
+            <div class="rpg-stat-info">
+              <span class="rpg-stat-label">Slots</span>
+              <span class="rpg-stat-val">${e.slots || 1}</span>
+            </div>
+          </div>
+        </div>
+        ${eff && eff.type ? `
+          <div class="rpg-card-effects">
+            ${effectBadgeHtml(eff.type, eff.value, eff.turns)}
+            ${eff.chance != null ? `<span class="rpg-effect-chance dim">${Math.round(eff.chance * 100)}%</span>` : ''}
+          </div>
+        ` : ''}
+        ${e.description ? `<div class="rpg-card-desc">${A.Utils.escapeHtml(e.description)}</div>` : ''}
+      </div>
+    `;
+  }
+
+  function previewArmor(e) {
+    const r = rarityTheme(e.rarity || 'common');
+    return `
+      <div class="editor-preview editor-preview-rpg" style="--r-color: ${r.color}; --r-bg: ${r.bg}; --r-border: ${r.border};">
+        <div class="rpg-card-header">
+          <div class="rpg-card-icon">${e.icon || '🛡️'}</div>
+          <div class="rpg-card-title-block">
+            <div class="rpg-card-name" style="color: ${r.color}">${A.Utils.escapeHtml(e.name || 'Sin nombre')}</div>
+            <div class="rpg-card-subtitle">
+              <span class="rpg-rarity-pill" style="background: ${r.bg}; color: ${r.color}; border-color: ${r.border}">${r.icon} ${r.label}</span>
+              ${e.tier ? `<span class="rpg-tier-pill">🏷️ T${e.tier}</span>` : ''}
+            </div>
+          </div>
+        </div>
+        <div class="rpg-card-stats">
+          <div class="rpg-stat">
+            <span class="rpg-stat-icon">🛡️</span>
+            <div class="rpg-stat-info">
+              <span class="rpg-stat-label">Defensa</span>
+              <span class="rpg-stat-val">${e.defense || 0}</span>
+            </div>
+          </div>
+          ${e.weight != null ? `
+            <div class="rpg-stat">
+              <span class="rpg-stat-icon">⚖️</span>
+              <div class="rpg-stat-info">
+                <span class="rpg-stat-label">Peso</span>
+                <span class="rpg-stat-val">${e.weight}</span>
+              </div>
+            </div>
+          ` : ''}
+          ${e.value != null ? `
+            <div class="rpg-stat">
+              <span class="rpg-stat-icon">🪙</span>
+              <div class="rpg-stat-info">
+                <span class="rpg-stat-label">Valor</span>
+                <span class="rpg-stat-val">${e.value}</span>
+              </div>
+            </div>
+          ` : ''}
+        </div>
+        ${e.description ? `<div class="rpg-card-desc">${A.Utils.escapeHtml(e.description)}</div>` : ''}
+      </div>
+    `;
+  }
+
+  function previewItem(e) {
+    const r = rarityTheme(e.rarity || 'common');
+    return `
+      <div class="editor-preview editor-preview-rpg" style="--r-color: ${r.color}; --r-bg: ${r.bg}; --r-border: ${r.border};">
+        <div class="rpg-card-header">
+          <div class="rpg-card-icon">${e.icon || '📦'}</div>
+          <div class="rpg-card-title-block">
+            <div class="rpg-card-name" style="color: ${r.color}">${A.Utils.escapeHtml(e.name || 'Sin nombre')}</div>
+            <div class="rpg-card-subtitle">
+              <span class="rpg-rarity-pill" style="background: ${r.bg}; color: ${r.color}; border-color: ${r.border}">${r.icon} ${r.label}</span>
+              ${e.subtype ? `<span class="rpg-tier-pill">🔖 ${A.Utils.escapeHtml(e.subtype)}</span>` : ''}
+            </div>
+          </div>
+        </div>
+        <div class="rpg-card-stats">
+          ${e.foodValue ? `
+            <div class="rpg-stat">
+              <span class="rpg-stat-icon">🍞</span>
+              <div class="rpg-stat-info">
+                <span class="rpg-stat-label">Comida</span>
+                <span class="rpg-stat-val">+${e.foodValue}</span>
+              </div>
+            </div>
+          ` : ''}
+          ${e.healAmount ? `
+            <div class="rpg-stat">
+              <span class="rpg-stat-icon">💚</span>
+              <div class="rpg-stat-info">
+                <span class="rpg-stat-label">Salud</span>
+                <span class="rpg-stat-val">+${e.healAmount}</span>
+              </div>
+            </div>
+          ` : ''}
+          ${e.manaAmount ? `
+            <div class="rpg-stat">
+              <span class="rpg-stat-icon">✦</span>
+              <div class="rpg-stat-info">
+                <span class="rpg-stat-label">Maná</span>
+                <span class="rpg-stat-val">+${e.manaAmount}</span>
+              </div>
+            </div>
+          ` : ''}
+          ${e.value != null ? `
+            <div class="rpg-stat">
+              <span class="rpg-stat-icon">🪙</span>
+              <div class="rpg-stat-info">
+                <span class="rpg-stat-label">Valor</span>
+                <span class="rpg-stat-val">${e.value}</span>
+              </div>
+            </div>
+          ` : ''}
+        </div>
+        ${e.description ? `<div class="rpg-card-desc">${A.Utils.escapeHtml(e.description)}</div>` : ''}
+      </div>
+    `;
+  }
+
+  function previewSpell(e) {
+    return `
+      <div class="editor-preview editor-preview-rpg editor-preview-magic">
+        <div class="rpg-card-header">
+          <div class="rpg-card-icon">${e.icon || '✨'}</div>
+          <div class="rpg-card-title-block">
+            <div class="rpg-card-name" style="color: #5050a0">${A.Utils.escapeHtml(e.name || 'Sin nombre')}</div>
+            <div class="rpg-card-subtitle">
+              <span class="rpg-rarity-pill" style="background: #f0e6f4; color: #5050a0; border-color: #5050a0">✨ Hechizo</span>
+              ${e.tier ? `<span class="rpg-tier-pill">🏷️ T${e.tier}</span>` : ''}
+              ${e.school ? `<span class="rpg-tier-pill">📜 ${A.Utils.escapeHtml(e.school)}</span>` : ''}
+            </div>
+          </div>
+        </div>
+        <div class="rpg-card-stats">
+          ${e.damage ? `
+            <div class="rpg-stat">
+              <span class="rpg-stat-icon">⚔️</span>
+              <div class="rpg-stat-info">
+                <span class="rpg-stat-label">Daño</span>
+                <span class="rpg-stat-val">${A.Utils.escapeHtml(e.damage)}</span>
+              </div>
+            </div>
+          ` : ''}
+          ${e.manaCost != null ? `
+            <div class="rpg-stat">
+              <span class="rpg-stat-icon">✦</span>
+              <div class="rpg-stat-info">
+                <span class="rpg-stat-label">Maná</span>
+                <span class="rpg-stat-val">${e.manaCost}</span>
+              </div>
+            </div>
+          ` : ''}
+        </div>
+        ${e.description ? `<div class="rpg-card-desc">${A.Utils.escapeHtml(e.description)}</div>` : ''}
+      </div>
+    `;
+  }
+
+  function previewEnemy(e) {
+    const catColors = {
+      weak: { color: '#555548', bg: '#eeeae0', border: '#8a8a78' },
+      normal: { color: '#6a2810', bg: '#fcebe6', border: '#c45530' },
+      strong: { color: '#6a3010', bg: '#fdf3e6', border: '#d46a20' },
+      boss: { color: '#6a1810', bg: '#fceae6', border: '#8d2818' },
+    };
+    const c = catColors[e.category] || catColors.normal;
+    return `
+      <div class="editor-preview editor-preview-rpg" style="--r-color: ${c.color}; --r-bg: ${c.bg}; --r-border: ${c.border};">
+        <div class="rpg-card-header">
+          <div class="rpg-card-icon">${e.icon || '👹'}</div>
+          <div class="rpg-card-title-block">
+            <div class="rpg-card-name" style="color: ${c.color}">${A.Utils.escapeHtml(e.name || 'Sin nombre')}</div>
+            <div class="rpg-card-subtitle">
+              <span class="rpg-rarity-pill" style="background: ${c.bg}; color: ${c.color}; border-color: ${c.border}">${(e.category || 'normal').toUpperCase()}</span>
+              ${e.tier ? `<span class="rpg-tier-pill">🏷️ T${e.tier}</span>` : ''}
+              ${(e.family || []).length ? `<span class="rpg-tier-pill">👥 ${A.Utils.escapeHtml((e.family || []).join(', '))}</span>` : ''}
+            </div>
+          </div>
+        </div>
+        <div class="rpg-card-stats">
+          <div class="rpg-stat">
+            <span class="rpg-stat-icon">❤️</span>
+            <div class="rpg-stat-info">
+              <span class="rpg-stat-label">Salud</span>
+              <span class="rpg-stat-val">${e.health || 0}</span>
+            </div>
+          </div>
+          <div class="rpg-stat">
+            <span class="rpg-stat-icon">⚔️</span>
+            <div class="rpg-stat-info">
+              <span class="rpg-stat-label">Daño</span>
+              <span class="rpg-stat-val">${A.Utils.escapeHtml(e.damage || '—')}</span>
+            </div>
+          </div>
+          <div class="rpg-stat">
+            <span class="rpg-stat-icon">🛡️</span>
+            <div class="rpg-stat-info">
+              <span class="rpg-stat-label">Armadura</span>
+              <span class="rpg-stat-val">${e.armor || 0}</span>
+            </div>
+          </div>
+          <div class="rpg-stat">
+            <span class="rpg-stat-icon">⚡</span>
+            <div class="rpg-stat-info">
+              <span class="rpg-stat-label">Velocidad</span>
+              <span class="rpg-stat-val">${e.speed || 0}</span>
+            </div>
+          </div>
+        </div>
+        ${(e.drops || []).length ? `<div class="rpg-card-desc dim">💰 ${(e.drops || []).length} drops · ${e.tameable ? '🐾 domable' : ''}</div>` : ''}
+      </div>
+    `;
+  }
+
   // ---------- Forms ----------
 
+  /**
+   * v1.6.8: row con icono automático según el campo.
+   * Detecta el data-field del HTML interno y le pone el emoji correspondiente.
+   */
   function row(label, html) {
-    return `<div class="form-row"><label>${A.Utils.escapeHtml(label)}</label>${html}</div>`;
+    // Detectar el data-field para asignar icono
+    const fieldMatch = html.match(/data-field="([^"]+)"/);
+    let icon = '';
+    if (fieldMatch) {
+      // Tomar la última parte del path (eg "spawn.min" → "min", "unlockConditions.minLevel" → "minLevel")
+      const fieldKey = fieldMatch[1].split('.').pop();
+      icon = FIELD_ICONS[fieldKey] || '';
+      // Caso especial: nombre por etiqueta visible
+      if (!icon) {
+        const labelKey = String(label).toLowerCase();
+        if (/daño|damage/.test(labelKey)) icon = '⚔️';
+        else if (/salud|health/.test(labelKey)) icon = '❤️';
+        else if (/maná|mana/.test(labelKey)) icon = '✦';
+        else if (/armadura|armor/.test(labelKey)) icon = '🛡️';
+        else if (/velocidad|speed/.test(labelKey)) icon = '⚡';
+        else if (/esquiva|dodge/.test(labelKey)) icon = '💨';
+        else if (/peso|weight/.test(labelKey)) icon = '⚖️';
+        else if (/valor|precio|price/.test(labelKey)) icon = '🪙';
+        else if (/rareza|rarity/.test(labelKey)) icon = '💎';
+        else if (/tier/.test(labelKey)) icon = '🏷️';
+        else if (/efecto|effect/.test(labelKey)) icon = '✨';
+        else if (/duración|duration|turnos|turns/.test(labelKey)) icon = '⏱️';
+      }
+    }
+    const iconHtml = icon ? `<span class="form-row-icon">${icon}</span>` : '';
+    return `<div class="form-row">${iconHtml}<label>${A.Utils.escapeHtml(label)}</label>${html}</div>`;
   }
 
   function inp(field, value, type = 'text', extra = '') {
@@ -1160,13 +1584,27 @@
           const t = filterText.toLowerCase();
           return (e.name || '').toLowerCase().includes(t) || (e.id || '').toLowerCase().includes(t);
         });
-        list.innerHTML = filtered.map((e) => `
-          <button class="list-item ${e.id === activeId ? 'is-active' : ''} ${e._source === 'editor' ? 'is-edited' : ''}"
-                  data-id="${A.Utils.escapeHtml(e.id)}">
-            <div class="list-item-name">${A.Utils.escapeHtml(e.name || '(sin nombre)')}</div>
-            <div class="list-item-meta dim">${A.Utils.escapeHtml(e.id)}${e._source === 'editor' ? ' · editado' : ''}</div>
+        list.innerHTML = filtered.map((e) => {
+          const itemIcon = e.icon || (activeType === 'weapons' ? autoWeaponIcon(e) : (TYPES.find((t) => t.key === activeType) || {}).icon || '📦');
+          const r = e.rarity ? rarityTheme(e.rarity) : null;
+          const tierBadge = e.tier ? `<span class="list-item-tier">T${e.tier}</span>` : '';
+          const rarityDot = r ? `<span class="list-item-rarity-dot" style="background: ${r.color}" title="${r.label}"></span>` : '';
+          return `
+          <button class="list-item list-item-v2 ${e.id === activeId ? 'is-active' : ''} ${e._source === 'editor' ? 'is-edited' : ''}"
+                  data-id="${A.Utils.escapeHtml(e.id)}"
+                  ${r ? `style="--list-rarity: ${r.color}"` : ''}>
+            <span class="list-item-icon">${itemIcon}</span>
+            <div class="list-item-content">
+              <div class="list-item-name">${A.Utils.escapeHtml(e.name || '(sin nombre)')} ${rarityDot}</div>
+              <div class="list-item-meta dim">
+                ${tierBadge}
+                <span class="list-item-id-text">${A.Utils.escapeHtml(e.id)}</span>
+                ${e._source === 'editor' ? '<span class="list-item-edited">editado</span>' : ''}
+              </div>
+            </div>
           </button>
-        `).join('') || '<div class="muted small">Vacío.</div>';
+          `;
+        }).join('') || '<div class="muted small">Vacío.</div>';
         list.querySelectorAll('[data-id]').forEach((b) => {
           b.addEventListener('click', () => selectEntity(b.dataset.id));
         });
@@ -1268,6 +1706,10 @@
         // Habilitar botón guardar
         const saveBtn = host.querySelector('[data-editor-action="save"]');
         if (saveBtn) saveBtn.disabled = false;
+        const discardBtn = host.querySelector('[data-editor-action="discard"]');
+        if (discardBtn) discardBtn.disabled = false;
+        // v1.6.8: refrescar preview en tiempo real (sin perder foco del input)
+        refreshEditorPreview();
       };
       el.addEventListener('input', handler);
       el.addEventListener('change', handler);

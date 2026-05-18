@@ -195,6 +195,11 @@
       distance: 3,
       icon: '🌋',
       description: 'La montaña respira humo y la piedra está caliente al tacto. Pocos vuelven de aquí, y los que vuelven hablan poco.',
+      unlockConditions: {
+        minLevel: 8,
+        requiredItems: ['amuleto_fuego'],
+        warningText: 'El calor extremo te mataría sin protección. Necesitás un Amuleto de fuego para soportarlo.',
+      },
       events: [{ type: 'damage', chance: 18, amount: '2d4', effect: 'Una columna de vapor te quema' }, { type: 'find', chance: 10, reward: 'mat_gema_arcana' }],
       encounter: { minEnemies: 1, maxEnemies: 1, allowMixed: false, spawnWeights: { weak: 5, normal: 25, strong: 45, boss: 25 } },
     },
