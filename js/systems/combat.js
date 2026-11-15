@@ -1,46 +1,62 @@
 /* ============================================================
-   Aventurs — Combat system (v1.3.0 — multi-enemigo)
+   Aventurs — Combat system (v1.8.0 — reglas unificadas)
 
-   Estado de combate (A.State.combat):
-     {
-       enemies: [ { instanceId, id, name, icon, hp, maxHp, damage,
-                    armor, speed, difficulty, category, tier,
-                    family[], tags[] } ],
-       targetInstanceId: string | null,    // a quién apunta el jugador
-       turn: 'player' | 'enemy',
-       round: number,
-       log: [ { ts, type, text } ],
-       result: null | 'victory' | 'defeat' | 'flee',
-       fromTravel: bool,
-     }
+   Orden de turnos:
+     - Al empezar se arma la iniciativa por VELOCIDAD (jugador, mascota
+       y cada enemigo). Empates: D20 entre los empatados.
+     - Cada ronda actúan todos en ese orden. Los caídos se saltean.
+     - Si te emboscan (falló evitar el encuentro), los enemigos van primero.
+
+   Al empezar el turno de cada combatiente:
+     - Sangrado / veneno / fuego le hacen daño.
+     - Choque eléctrico: 35% de quedar aturdido y perder el turno.
+     - Se descuenta 1 turno a cada efecto.
+
+   Ataque (jugador, mascota y enemigos usan la MISMA regla):
+     D20 + ataque >= defensa del objetivo -> pega.
+     1 natural = falla. 20 natural = crítico (daño x2, no se puede evitar).
+     Daño = dados - armadura (mínimo 1 si pega).
+     Frío: -2 defensa y -1 ataque. Ceguera: -4 ataque.
+
+   Hechizos: no se esquivan, la armadura cuenta la mitad, suman poder mágico.
+
+   Mascota:
+     - Ataca al mismo enemigo que vos (si cae, al que tenga menos vida).
+     - Los enemigos le pegan a ella 30% de las veces.
+     - A 0 de vida queda inconsciente: no actúa ni gana XP ese combate.
+       Despierta con una poción o descansando (ver js/systems/tame.js).
+     - Con hambre (saciedad 0) pega la mitad.
 
    API:
-     start({ enemies | enemyId | regionId, fromTravel })
-     setTarget(instanceId)
-     playerAttack()                       (usa target actual)
-     playerSpell(spellId)
-     playerUseItem(itemId)
-     playerFlee()
-     finish()
-
-   Selección de objetivo:
-     - Si la player no eligió uno, autoselecciona el primer enemigo vivo.
-     - Si el target actual murió, salta al siguiente vivo.
+     start({ enemies | enemyId | regionId, fromTravel, ambush })
+     setTarget(instanceId), getTarget(), aliveEnemies()
+     playerAttack(), playerSpell(spellId), playerUseItem(itemId)
+     playerTame(instanceId), playerFlee(), finish()
    ============================================================ */
 
 (function (A) {
   'use strict';
 
   function State() { return A.State; }
+  function B() { return A.Balance; }
 
-  // ---------- Iniciar combate ----------
+  const STUN_CHANCE = 0.35;
+  const PET_TARGET_CHANCE = 0.30;
 
-  /**
-   * Inicia combate con uno de estos modos:
-   *   - { enemies: [instances...], fromTravel? }   (instancias prearmadas)
-   *   - { enemyId: 'rata', fromTravel? }           (un solo enemigo, compat con encuentros viejos)
-   *   - { regionId: 'xxx', fromTravel? }           (genera grupo via Encounter)
-   */
+  // Efectos que meten los enemigos según sus tags
+  const TAG_EFFECTS = {
+    poison: { type: 'poison', turns: 3 },
+    disease: { type: 'poison', turns: 3 },
+    fire: { type: 'fire', turns: 2 },
+    ice: { type: 'cold', turns: 2 },
+    acid: { type: 'bleed', turns: 2 },
+  };
+  const TAG_EFFECT_CHANCE = 0.25;
+
+  // ============================================================
+  // Inicio
+  // ============================================================
+
   function start(opts = {}) {
     let instances = null;
 
@@ -49,86 +65,41 @@
     } else if (opts.enemyId) {
       const enemyData = A.Data.getById('enemies', opts.enemyId);
       if (!enemyData) return false;
-      instances = [{
-        instanceId: 'e_' + Date.now().toString(36),
-        id: enemyData.id,
-        name: enemyData.name,
-        icon: enemyData.icon,
-        hp: enemyData.health,
-        maxHp: enemyData.health,
-        damage: enemyData.damage,
-        armor: enemyData.armor,
-        speed: enemyData.speed,
-        difficulty: enemyData.difficulty,
-        category: enemyData.category,
-        tier: enemyData.tier,
-        family: enemyData.family || [],
-        tags: enemyData.tags || [],
-      }];
+      instances = [A.Encounter.spawnInstance(enemyData)];
     } else if (opts.regionId) {
       instances = A.Encounter.generate(opts.regionId);
     }
-
     if (!instances || instances.length === 0) return false;
 
-    // Asignar letras (A, B, C...) si hay múltiples del mismo id
+    // Instancias viejas (partidas guardadas) pueden no tener attack/difficulty
+    for (const inst of instances) normalizeInstance(inst);
     assignLabels(instances);
 
-    // ---- Calcular iniciativa ----
-    // El orden lo determina la VELOCIDAD pura. Solo cuando hay empate de velocidad
-    // entre 2+ combatientes, esos combatientes tiran d20 entre sí para desempatar.
     const p = State().player;
+    p.effects = [];
+    if (p.pet) p.pet.effects = [];
+
     const initiative = [];
-    const playerEffSpeed = effectivePlayerSpeed(p);
-    initiative.push({
-      kind: 'player',
-      id: 'player',
-      name: p.name,
-      speed: playerEffSpeed,
-      tieRoll: 0, // se asigna abajo si hay empate
-    });
+    initiative.push({ kind: 'player', id: 'player', name: p.name, speed: effectivePlayerSpeed(p), tieRoll: 0 });
     if (p.pet && p.pet.health > 0) {
-      initiative.push({
-        kind: 'pet',
-        id: 'pet',
-        name: p.pet.name,
-        speed: p.pet.speed || 10,
-        tieRoll: 0,
-      });
+      initiative.push({ kind: 'pet', id: 'pet', name: p.pet.name, speed: p.pet.speed || 10, tieRoll: 0 });
     }
     for (const inst of instances) {
-      initiative.push({
-        kind: 'enemy',
-        id: inst.instanceId,
-        name: inst.displayName,
-        speed: inst.speed || 10,
-        tieRoll: 0,
-      });
+      initiative.push({ kind: 'enemy', id: inst.instanceId, name: inst.displayName, speed: inst.speed || 10, tieRoll: 0 });
     }
 
-    // Detectar empates: agrupar por speed
+    // Empates de velocidad: D20 entre los empatados
     const bySpeed = {};
-    for (const a of initiative) {
-      if (!bySpeed[a.speed]) bySpeed[a.speed] = [];
-      bySpeed[a.speed].push(a);
-    }
-    // Asignar tieRoll a los empatados
-    const tieGroups = []; // para loguear
-    for (const speedKey of Object.keys(bySpeed)) {
-      const group = bySpeed[speedKey];
+    for (const a of initiative) (bySpeed[a.speed] = bySpeed[a.speed] || []).push(a);
+    const tieGroups = [];
+    for (const key of Object.keys(bySpeed)) {
+      const group = bySpeed[key];
       if (group.length > 1) {
-        for (const a of group) {
-          a.tieRoll = A.Utils.dice(20);
-        }
-        tieGroups.push({ speed: parseInt(speedKey, 10), members: group });
+        for (const a of group) a.tieRoll = A.Utils.dice(20);
+        tieGroups.push({ speed: Number(key), members: group });
       }
     }
-
-    // Ordenar: speed desc, luego tieRoll desc
-    initiative.sort((a, b) => {
-      if (b.speed !== a.speed) return b.speed - a.speed;
-      return b.tieRoll - a.tieRoll;
-    });
+    initiative.sort((a, b) => (b.speed - a.speed) || (b.tieRoll - a.tieRoll));
 
     const combat = {
       enemies: instances,
@@ -136,47 +107,40 @@
       round: 1,
       initiative,
       currentActorIdx: 0,
+      turnStartedFor: null,
       log: [],
       result: null,
       fromTravel: !!opts.fromTravel,
       ambush: !!opts.ambush,
     };
 
-    // v1.6.4: Si fue emboscada (avoid fallido), los enemigos arrancan primero.
-    // Reordenamos initiative para poner al primer enemigo en posición 0.
     if (combat.ambush) {
       const firstEnemyIdx = initiative.findIndex((e) => e.kind === 'enemy');
-      if (firstEnemyIdx > 0) {
-        const reordered = initiative.slice(firstEnemyIdx).concat(initiative.slice(0, firstEnemyIdx));
-        combat.initiative = reordered;
-      }
+      if (firstEnemyIdx > 0) combat.initiative = initiative.slice(firstEnemyIdx).concat(initiative.slice(0, firstEnemyIdx));
     }
-
-    // Para compatibilidad con código que mira c.turn, derivamos
     combat.turn = currentTurnKind(combat);
-
     State().combat = combat;
 
     addLog(combat, 'system', { text: `Comienza el combate contra ${A.Encounter.describeGroup(instances)}.` });
-    if (combat.ambush) {
-      addLog(combat, 'system', { text: '⚠️ Te emboscaron. Los enemigos atacan primero.' });
-    }
+    if (combat.ambush) addLog(combat, 'system', { text: '⚠️ Te emboscaron. Los enemigos atacan primero.' });
     addLog(combat, 'system', { text: `Orden por velocidad: ${combat.initiative.map((i) => `${i.name} (vel ${i.speed})`).join(' → ')}` });
-    // Si hubo empates, loguear el desempate por d20
     for (const tg of tieGroups) {
-      const desc = tg.members
-        .map((m) => `${m.name}: ${m.tieRoll}`)
-        .join(', ');
-      addLog(combat, 'system', { text: `⚖️ Empate de velocidad ${tg.speed} → desempate D20: ${desc}` });
+      addLog(combat, 'system', { text: `⚖️ Empate de velocidad ${tg.speed} → desempate D20: ${tg.members.map((m) => `${m.name}: ${m.tieRoll}`).join(', ')}` });
     }
     addTurnHeader(combat, 1);
 
     A.Bus.emit('combat:started', { count: instances.length });
     State().persist();
-
-    // Si el primer turno NO es del jugador, ejecutar automaticamente
     setTimeout(() => advanceIfNotPlayer(), 600);
     return true;
+  }
+
+  function normalizeInstance(inst) {
+    const cat = B().CATEGORY[inst.category] || B().CATEGORY.normal;
+    if (inst.attack == null) inst.attack = Math.max(0, B().Enemy.attack(inst.tier) + cat.atk);
+    if (inst.difficulty == null) inst.difficulty = B().Enemy.defense(inst.tier) + cat.def;
+    if (!inst.effects) inst.effects = [];
+    if (!inst.displayName) inst.displayName = inst.name;
   }
 
   function currentTurnKind(combat) {
@@ -187,96 +151,92 @@
   function isPlayerTurn(combat) {
     if (!combat || !combat.initiative) return false;
     const cur = combat.initiative[combat.currentActorIdx];
-    return cur && cur.kind === 'player';
+    return !!cur && cur.kind === 'player';
   }
 
-  /**
-   * Calcula la velocidad efectiva del jugador, descontando el peso del equipo.
-   *   speed_efectiva = stats.speed - sum(weight de equipos)
-   * Mínimo 1.
-   */
+  // ============================================================
+  // Stats derivados
+  // ============================================================
+
+  function playerStats() { return B().playerCombatStats(State().player); }
+
+  /** Velocidad efectiva del jugador (resta el peso del equipo que pase de 4). */
   function effectivePlayerSpeed(player) {
     if (!player) return 10;
-    let speed = player.stats.speed || 10;
-    let totalWeight = 0;
-    if (player.equipment.weapon) {
-      const w = A.Data.getById('weapons', player.equipment.weapon);
-      if (w && w.weight) totalWeight += w.weight;
-    }
-    if (player.equipment.armor) {
-      const a = A.Data.getById('armors', player.equipment.armor);
-      if (a && a.weight) totalWeight += a.weight;
-    }
-    return Math.max(1, speed - totalWeight);
+    return B().playerCombatStats(player).speed;
+  }
+
+  function petStats(pet) {
+    const fx = B().statusMods(pet);
+    return {
+      attack: (pet.attack != null ? pet.attack : B().Pet.attack(pet.level || 1)) - fx.attackPenalty,
+      defense: 8 + (pet.dodge || 0) - fx.defensePenalty,
+      armor: pet.armor || 0,
+    };
+  }
+
+  function enemyStats(inst) {
+    const fx = B().statusMods(inst);
+    return {
+      attack: (inst.attack || 0) - fx.attackPenalty,
+      defense: (inst.difficulty || 10) - fx.defensePenalty,
+      armor: inst.armor || 0,
+    };
   }
 
   /**
-   * v1.6.7: Compone el daño del jugador como SUMA de:
-   *   1. Daño racial base (de la raza, default '1d3' si no está definido)
-   *   2. Daño del arma equipada (si tiene)
-   *   3. Modificador plano de stats.damage (bonus de raza/buff)
-   *
-   * El arma SUMA, no reemplaza. Esto solo aplica al jugador, NO a enemigos.
-   *
-   * Devuelve { expression, components, range }
-   *   expression: string para tirar con rollDiceCompound, ej "1d3 + 1d4"
-   *   components: array para mostrar el desglose en UI
-   *   range: { min, max }
+   * Daño del jugador: arma (o puños 1d3) + bonus de daño.
+   * Devuelve { expression, components, range }.
    */
   function composePlayerDamage(player) {
     if (!player) return { expression: '1d3', components: [], range: { min: 1, max: 3 } };
+    const st = B().playerCombatStats(player);
     const components = [];
-
-    // 1. Daño racial base
-    const race = A.Data.getById('races', player.raceId);
-    const racialDmg = (race && race.baseDamage) || '1d3';
-    components.push({
-      source: 'race',
-      label: race ? race.name : 'Base',
-      expr: racialDmg,
-      icon: race ? race.icon : '✊',
-    });
-
-    // 2. Arma equipada
-    if (player.equipment && player.equipment.weapon) {
-      const w = A.Data.getById('weapons', player.equipment.weapon);
-      if (w && w.damage) {
-        components.push({
-          source: 'weapon',
-          label: w.name,
-          expr: w.damage,
-          icon: w.icon || '⚔️',
-        });
-      }
+    if (st.weapon && st.weapon.damage) {
+      components.push({ source: 'weapon', label: st.weapon.name, expr: st.weapon.damage, icon: st.weapon.icon || '⚔️' });
+    } else {
+      components.push({ source: 'race', label: 'Puños', expr: '1d3', icon: '✊' });
     }
-
-    // 3. Bonus plano de stats.damage (si > 0)
-    if (player.stats && player.stats.damage > 0) {
-      components.push({
-        source: 'modifier',
-        label: 'Bonus stat',
-        expr: `+${player.stats.damage}`,
-        icon: '✨',
-      });
-    }
-
-    // Construir expresión: une con ' + ' pero limpia cualquier '+ +' que quede
+    if (st.damageBonus > 0) components.push({ source: 'modifier', label: 'Bonus de daño', expr: `+${st.damageBonus}`, icon: '✨' });
     let expression = components.map((c) => c.expr).join(' + ');
-    // Si algún componente ya empieza con '+' (ej: "+2"), evitar el "+ +"
+    if (st.damageBonus < 0) expression += ` - ${Math.abs(st.damageBonus)}`;
     expression = expression.replace(/\+\s*\+/g, '+').replace(/\s+/g, ' ').trim();
-    const range = A.Utils.diceRange(expression);
-    return { expression, components, range };
+    const range = A.Utils.diceRange(expression.replace(/ - \d+$/, ''));
+    if (st.damageBonus < 0) { range.min = Math.max(1, range.min + st.damageBonus); range.max = Math.max(1, range.max + st.damageBonus); }
+    return { expression, components, range, bonus: st.damageBonus };
   }
 
+  function rollPlayerDamage(player) {
+    const composed = composePlayerDamage(player);
+    const positive = composed.expression.replace(/ - \d+$/, '');
+    const res = A.Utils.rollDiceCompound(positive);
+    let total = res.total;
+    if (composed.bonus < 0) total = Math.max(1, total + composed.bonus);
+    return { total, composed, res };
+  }
+
+  /** Tirada única de ataque. */
+  function attackRoll(attack, defense) {
+    const roll = A.Utils.dice(20);
+    const total = roll + attack;
+    const fumble = roll === 1;
+    const crit = roll === 20;
+    const hit = crit || (!fumble && total >= defense);
+    return { roll, total, fumble, crit, hit };
+  }
+
+  function rollDamage(notationOrNumber) {
+    if (typeof notationOrNumber === 'number') return notationOrNumber;
+    if (typeof notationOrNumber !== 'string') return 1;
+    return A.Utils.rollDice(notationOrNumber);
+  }
+
+  /** Si pega, el daño final es como mínimo 1. */
+  function mitigate(raw, armor) { return Math.max(1, raw - (armor || 0)); }
+
   // ============================================================
-  // Status effects (sangrado, veneno, fuego, frío, eléctrico)
+  // Efectos de estado
   // ============================================================
-  // Modelo: cada combatiente tiene .effects = [{type, turns, value, source}]
-  //   - bleed: daño por turno, ACUMULA stacks (cada stack añade su value)
-  //   - poison: daño por turno, ACUMULA stacks
-  //   - fire: daño por turno, NO acumula (refresh el efecto)
-  //   - cold: reduce dodge en `value` puntos mientras dure
-  //   - shock: probabilidad de aturdir (perder turno)
 
   function applyStatus(target, type, opts = {}) {
     if (!target) return;
@@ -284,19 +244,8 @@
     const turns = opts.turns || 3;
     const value = opts.value || 1;
     const source = opts.source || 'unknown';
-
-    if (type === 'fire') {
-      // Refresh, no stack
-      const existing = target.effects.find((e) => e.type === 'fire');
-      if (existing) {
-        existing.turns = Math.max(existing.turns, turns);
-        existing.value = Math.max(existing.value, value);
-        return;
-      }
-    }
-
-    if (type === 'cold' || type === 'shock' || type === 'blind' || type === 'silence') {
-      // Refresh, no stack
+    if (type !== 'bleed' && type !== 'poison') {
+      // fuego, frío, choque, ceguera, silencio: se refrescan, no se acumulan
       const existing = target.effects.find((e) => e.type === type);
       if (existing) {
         existing.turns = Math.max(existing.turns, turns);
@@ -304,8 +253,6 @@
         return;
       }
     }
-
-    // bleed y poison: stack
     target.effects.push({ type, turns, value, source });
   }
 
@@ -314,141 +261,93 @@
     target.effects = target.effects.filter((e) => e.type !== type);
   }
 
-  /**
-   * Aplica efectos de tick por turno. Llamado al final del turno del enemigo
-   * (afecta al jugador) y al final del turno del jugador (afecta a enemigos).
-   */
-  function processStatusTickOnPlayer(c) {
-    const p = State().player;
-    if (!p || p.hp <= 0) return;
-    if (!p.effects) p.effects = [];
-    let totalDamage = 0;
-    const effectLogs = [];
-
-    for (const ef of p.effects) {
-      ef.turns -= 1;
-      if (ef.type === 'bleed' || ef.type === 'poison' || ef.type === 'fire') {
-        totalDamage += ef.value;
-        effectLogs.push({ type: ef.type, value: ef.value });
-      }
-    }
-    p.effects = p.effects.filter((e) => e.turns > 0);
-
-    if (totalDamage > 0) {
-      A.State.damagePlayer(totalDamage);
-      const summary = effectLogs
-        .map((e) => `${effectLabel(e.type)} ${e.value}`)
-        .join(', ');
-      addLog(c, 'system', {
-        text: `Efectos: ${summary}. -${totalDamage} salud (HP ${p.hp}/${p.maxHp})`,
-      });
-    }
-  }
-
-  function processStatusTickOnEnemy(c, enemy) {
-    if (!enemy || enemy.hp <= 0) return;
-    if (!enemy.effects) enemy.effects = [];
-    let totalDamage = 0;
-    const effectLogs = [];
-
-    for (const ef of enemy.effects) {
-      ef.turns -= 1;
-      if (ef.type === 'bleed' || ef.type === 'poison' || ef.type === 'fire') {
-        totalDamage += ef.value;
-        effectLogs.push({ type: ef.type, value: ef.value });
-      }
-    }
-    enemy.effects = enemy.effects.filter((e) => e.turns > 0);
-
-    if (totalDamage > 0) {
-      enemy.hp = Math.max(0, enemy.hp - totalDamage);
-      const summary = effectLogs
-        .map((e) => `${effectLabel(e.type)} ${e.value}`)
-        .join(', ');
-      addLog(c, 'system', {
-        text: `${enemy.displayName} sufre ${summary} (-${totalDamage}, HP ${enemy.hp}/${enemy.maxHp})`,
-      });
-      if (enemy.hp <= 0) {
-        addLog(c, 'system', { text: `${enemy.displayName} cayó por los efectos.` });
-      }
-    }
-  }
-
   function effectLabel(type) {
     return ({
-      bleed: '🩸 sangrado',
-      poison: '☠️ veneno',
-      fire: '🔥 fuego',
-      cold: '❄️ frío',
-      shock: '⚡ choque',
-      blind: '🌫️ ceguera',
-      silence: '🤐 silencio',
+      bleed: '🩸 sangrado', poison: '☠️ veneno', fire: '🔥 fuego', cold: '❄️ frío',
+      shock: '⚡ choque', blind: '🌫️ ceguera', silence: '🤐 silencio',
     })[type] || type;
   }
 
-  /**
-   * Aplica un efecto al impactar (probabilístico) según el arma o hechizo.
-   * Se llama desde playerAttack o spell cast.
-   */
-  function maybeInflictStatusOnHit(weapon, target) {
-    if (!weapon || !target) return;
-    // weapon.statusEffect = { type, chance, turns, value }
-    const eff = weapon.statusEffect;
-    if (!eff) return;
+  /** Arma o hechizo con statusEffect: chance de aplicarlo al pegar. */
+  function maybeInflictStatusOnHit(source, target, c) {
+    if (!source || !target || !source.statusEffect) return;
+    const eff = source.statusEffect;
     if (Math.random() > (eff.chance || 0)) return;
-    applyStatus(target, eff.type, {
-      turns: eff.turns || 3,
-      value: eff.value || 1,
-      source: weapon.id,
-    });
+    applyStatus(target, eff.type, { turns: eff.turns || 3, value: eff.value || 1, source: source.id });
+    if (c) addLog(c, 'system', { text: `${targetName(target)} sufre ${effectLabel(eff.type)}.` });
+  }
+
+  function targetName(t) {
+    if (!t) return '';
+    if (t === State().player) return t.name;
+    return t.displayName || t.name;
   }
 
   /**
-   * Tira el daño de un enemigo. Acepta:
-   *  - notación de dados ('1d6', '2d4+1')
-   *  - número (legacy fallback)
+   * Procesa los efectos al empezar el turno de un combatiente.
+   * Devuelve { skip: true } si queda aturdido o muere.
    */
-  function rollDamage(notationOrNumber) {
-    if (typeof notationOrNumber === 'number') return notationOrNumber;
-    if (typeof notationOrNumber !== 'string') return 1;
-    return A.Utils.rollDice(notationOrNumber);
+  function startOfTurn(c, kind, entity) {
+    if (!entity || !entity.effects || entity.effects.length === 0) return { skip: false };
+    let dmg = 0;
+    const parts = [];
+    let stunned = false;
+    for (const ef of entity.effects) {
+      if (ef.type === 'bleed' || ef.type === 'poison' || ef.type === 'fire') {
+        dmg += ef.value;
+        parts.push(`${effectLabel(ef.type)} ${ef.value}`);
+      }
+      if (ef.type === 'shock' && Math.random() < STUN_CHANCE) stunned = true;
+      ef.turns -= 1;
+    }
+    entity.effects = entity.effects.filter((e) => e.turns > 0);
+
+    const name = targetName(entity);
+    if (dmg > 0) {
+      if (kind === 'player') {
+        A.State.damagePlayer(dmg);
+        addLog(c, 'system', { text: `Efectos: ${parts.join(', ')}. -${dmg} salud (HP ${entity.hp}/${entity.maxHp})` });
+        if (entity.hp <= 0) return { skip: true, died: true };
+      } else if (kind === 'pet') {
+        entity.health = Math.max(0, entity.health - dmg);
+        addLog(c, 'system', { text: `${name} sufre ${parts.join(', ')} (-${dmg}, HP ${entity.health}/${entity.maxHealth})` });
+        if (entity.health <= 0) { petKnockedOut(c, entity); return { skip: true }; }
+      } else {
+        entity.hp = Math.max(0, entity.hp - dmg);
+        addLog(c, 'system', { text: `${name} sufre ${parts.join(', ')} (-${dmg}, HP ${entity.hp}/${entity.maxHp})` });
+        if (entity.hp <= 0) { addLog(c, 'system', { text: `${name} cayó por los efectos.`, killed: name }); return { skip: true }; }
+      }
+    }
+    if (stunned) {
+      addLog(c, 'system', { text: kind === 'player' ? '⚡ Estás aturdido y perdés el turno.' : `⚡ ${name} está aturdido y pierde el turno.` });
+      return { skip: true };
+    }
+    return { skip: false };
   }
 
-  /**
-   * Calcula el bonus de ataque del enemigo a partir de su daño.
-   * Para dados, usamos el "máximo posible" / 4 como bonus.
-   */
-  function computeAtkBonus(damageNotation) {
-    if (typeof damageNotation === 'number') return Math.floor(damageNotation / 4);
-    if (typeof damageNotation !== 'string') return 0;
-    // Parse "NdM+K"
-    const match = damageNotation.match(/^(\d+)d(\d+)(?:\+(\d+))?$/);
-    if (!match) return 0;
-    const dice = parseInt(match[1], 10);
-    const sides = parseInt(match[2], 10);
-    const bonus = parseInt(match[3] || '0', 10);
-    const maxDmg = dice * sides + bonus;
-    return Math.floor(maxDmg / 4);
-  }
+  // ============================================================
+  // Flujo de turnos
+  // ============================================================
 
   function addTurnHeader(c, n) {
     addLog(c, 'turn-header', { text: `── Turno ${n} ──`, turnNumber: n });
   }
 
-  /**
-   * Avanza al siguiente actor vivo. Si no es el jugador, ejecuta su turno.
-   * Si es el jugador, queda esperando input.
-   */
+  function checkEnd() {
+    const c = State().combat;
+    if (!c || c.result) return true;
+    if (aliveEnemies().length === 0) { onVictory(); A.Bus.emit('combat:ended', { result: 'victory' }); return true; }
+    if (State().player.hp <= 0) { onDefeat(); A.Bus.emit('combat:ended', { result: 'defeat' }); return true; }
+    return false;
+  }
+
   function advanceIfNotPlayer() {
     const c = State().combat;
     if (!c || c.result) return;
-    // Verificar fin de combate
-    if (aliveEnemies().length === 0) { onVictory(); A.Bus.emit('combat:ended', { result: 'victory' }); return; }
-    if (State().player.hp <= 0) { onDefeat(); A.Bus.emit('combat:ended', { result: 'defeat' }); return; }
+    if (checkEnd()) return;
 
     const cur = c.initiative[c.currentActorIdx];
     if (!cur) {
-      // Ronda terminada: nueva ronda
       c.round += 1;
       c.currentActorIdx = 0;
       addTurnHeader(c, c.round);
@@ -458,22 +357,29 @@
       return;
     }
 
-    // Saltear actores muertos
+    // Saltear caídos
+    let entity = null;
     if (cur.kind === 'enemy') {
-      const inst = c.enemies.find((e) => e.instanceId === cur.id);
-      if (!inst || inst.hp <= 0) {
-        c.currentActorIdx += 1;
-        return advanceIfNotPlayer();
-      }
+      entity = c.enemies.find((e) => e.instanceId === cur.id);
+      if (!entity || entity.hp <= 0) { c.currentActorIdx += 1; return advanceIfNotPlayer(); }
     } else if (cur.kind === 'pet') {
-      if (!State().player.pet || State().player.pet.health <= 0) {
-        c.currentActorIdx += 1;
-        return advanceIfNotPlayer();
-      }
-    } else if (cur.kind === 'player') {
-      if (State().player.hp <= 0) {
-        c.currentActorIdx += 1;
-        return advanceIfNotPlayer();
+      entity = State().player.pet;
+      if (!entity || entity.health <= 0) { c.currentActorIdx += 1; return advanceIfNotPlayer(); }
+    } else {
+      entity = State().player;
+      if (entity.hp <= 0) { c.currentActorIdx += 1; return advanceIfNotPlayer(); }
+    }
+
+    // Efectos al inicio del turno (una sola vez por turno)
+    const turnKey = `${c.round}:${c.currentActorIdx}`;
+    if (c.turnStartedFor !== turnKey) {
+      c.turnStartedFor = turnKey;
+      const st = startOfTurn(c, cur.kind, entity);
+      if (checkEnd()) return;
+      if (st.skip) {
+        A.Bus.emit('combat:action', { actor: cur.kind });
+        nextActor();
+        return;
       }
     }
 
@@ -481,42 +387,28 @@
     State().persist();
     A.Bus.emit('combat:turn', { actor: cur.kind, round: c.round });
 
-    if (cur.kind === 'enemy') {
-      const inst = c.enemies.find((e) => e.instanceId === cur.id);
-      setTimeout(() => executeEnemyAction(inst), 700);
-    } else if (cur.kind === 'pet') {
-      setTimeout(() => executePetAction(), 600);
-    }
-    // Si es player, queda esperando input. Las funciones playerAttack/spell/etc llaman
-    // a afterPlayerAction() que avanza el índice.
+    if (cur.kind === 'enemy') setTimeout(() => executeEnemyAction(entity), 700);
+    else if (cur.kind === 'pet') setTimeout(() => executePetAction(), 600);
+    // Jugador: espera input
   }
 
   function nextActor() {
     const c = State().combat;
     if (!c) return;
     c.currentActorIdx += 1;
-    // Si superó el array, advanceIfNotPlayer va a iniciar nueva ronda
-    if (c.currentActorIdx >= c.initiative.length) {
-      c.currentActorIdx = c.initiative.length; // (queda fuera del array para que advance arranque ronda)
-    }
+    if (c.currentActorIdx >= c.initiative.length) c.currentActorIdx = c.initiative.length;
     setTimeout(() => advanceIfNotPlayer(), 400);
   }
 
-  /**
-   * Si hay varios enemigos del mismo tipo, ponerles letra (Lobo A, Lobo B...).
-   */
   function assignLabels(instances) {
     const counts = {};
-    for (const e of instances) {
-      counts[e.id] = (counts[e.id] || 0) + 1;
-    }
+    for (const e of instances) counts[e.id] = (counts[e.id] || 0) + 1;
     const idx = {};
     for (const e of instances) {
       if (counts[e.id] > 1) {
         idx[e.id] = (idx[e.id] || 0) + 1;
-        const letter = String.fromCharCode(64 + idx[e.id]); // A, B, C...
-        e.label = letter;
-        e.displayName = `${e.name} ${letter}`;
+        e.label = String.fromCharCode(64 + idx[e.id]);
+        e.displayName = `${e.name} ${e.label}`;
       } else {
         e.label = '';
         e.displayName = e.name;
@@ -524,7 +416,9 @@
     }
   }
 
-  // ---------- Targeting ----------
+  // ============================================================
+  // Objetivo
+  // ============================================================
 
   function setTarget(instanceId) {
     const c = State().combat;
@@ -542,7 +436,6 @@
     if (!c) return null;
     let t = c.enemies.find((e) => e.instanceId === c.targetInstanceId && e.hp > 0);
     if (!t) {
-      // El target murió o no existe: autoseleccionar el primer vivo
       t = c.enemies.find((e) => e.hp > 0);
       if (t) c.targetInstanceId = t.instanceId;
     }
@@ -555,99 +448,59 @@
     return c.enemies.filter((e) => e.hp > 0);
   }
 
-  // ---------- Acciones del jugador ----------
+  // ============================================================
+  // Acciones del jugador
+  // ============================================================
 
   function playerAttack() {
     const c = State().combat;
     if (!c || c.result || !isPlayerTurn(c)) return;
     const target = getTarget();
-    if (!target) { onVictory(); return; }
+    if (!target) { checkEnd(); return; }
     const p = State().player;
-    const precBonus = Math.floor((p.stats.precision || 0) / 2);
-    const roll = A.Utils.dice(20);
-    const total = roll + precBonus;
+    const st = playerStats();
+    const es = enemyStats(target);
+    const r = attackRoll(st.attack, es.defense);
+    const weaponName = st.weapon ? st.weapon.name : 'puños';
 
-    // Modelo simplificado: 1 = fumble (falla), 20 = crítico (no esquivable),
-    // resto = el defensor intenta esquivar con d20+(dodge/2) ≥ 12
-    if (roll === 1) {
+    if (!r.hit) {
       addLog(c, 'player', {
-        text: `Atacaste a ${target.displayName} pero fallaste por completo`,
-        actor: p.name, target: target.displayName, actorIcon: '🗡️',
-        roll, bonus: precBonus, total,
-        result: 'fumble',
+        text: r.fumble ? `Atacaste a ${target.displayName} pero fallaste por completo` : `${target.displayName} esquivó tu ataque`,
+        actor: p.name, target: target.displayName, actorIcon: '🗡️', weapon: weaponName,
+        roll: r.roll, bonus: st.attack, total: r.total, vs: es.defense, vsLabel: 'defensa',
+        result: r.fumble ? 'fumble' : 'evaded',
       });
     } else {
-      const weaponId = p.equipment.weapon;
-      const weapon = weaponId ? A.Data.getById('weapons', weaponId) : null;
-      // v1.6.7: daño compuesto (racial + arma + bonus stat)
-      const composed = composePlayerDamage(p);
-      const damageDice = composed.expression;
-      const isCrit = roll === 20;
-
-      // El defensor intenta esquivar (excepto en críticos)
-      const enemyDodgeStat = target.dodge || 0;
-      const dodgeBonus = Math.floor(enemyDodgeStat / 2);
-      const dodgeRoll = A.Utils.dice(20);
-      const dodgeTotal = dodgeRoll + dodgeBonus;
-      const dodgeDifficulty = 12;
-      const enemyEvades = !isCrit && dodgeTotal >= dodgeDifficulty;
-
-      if (enemyEvades) {
-        addLog(c, 'player', {
-          text: `${target.displayName} esquivó tu ataque`,
-          actor: p.name, target: target.displayName, actorIcon: '🗡️',
-          weapon: weapon ? weapon.name : 'puños',
-          roll, bonus: precBonus, total,
-          dodgeRoll, dodgeBonus, dodgeTotal, dodgeVs: dodgeDifficulty,
-          result: 'evaded',
-        });
-      } else {
-        // v1.6.7: tirada compuesta con desglose por componente
-        const compoundResult = A.Utils.rollDiceCompound(composed.expression);
-        let rawDmg = compoundResult.total;
-        if (isCrit) rawDmg *= 2;
-        const targetArmor = target.armor || 0;
-        const finalDmg = Math.max(0, rawDmg - targetArmor);
-        target.hp = Math.max(0, target.hp - finalDmg);
-        addLog(c, 'player', {
-          text: isCrit ? `¡Golpe crítico a ${target.displayName}!` : `Atacaste a ${target.displayName}`,
-          actor: p.name, target: target.displayName, actorIcon: '🗡️',
-          weapon: weapon ? weapon.name : 'puños',
-          damageDice,
-          damageBreakdown: composed.components.map((cmp, i) => ({
-            label: cmp.label,
-            expr: cmp.expr,
-            rolled: compoundResult.components[i] ? compoundResult.components[i].rolled : 0,
-            icon: cmp.icon,
-          })),
-          roll, bonus: precBonus, total,
-          dodgeRoll: isCrit ? null : dodgeRoll, dodgeTotal: isCrit ? null : dodgeTotal, dodgeVs: dodgeDifficulty,
-          rawDmg, targetArmor, dmg: finalDmg, hpAfter: target.hp, hpMax: target.maxHp,
-          result: isCrit ? 'crit' : (finalDmg === 0 ? 'blocked' : 'hit'),
-        });
-
-        if (finalDmg > 0 && weapon) {
-          maybeInflictStatusOnHit(weapon, target);
-        }
-
-        if (target.hp <= 0) {
-          addLog(c, 'system', { text: `${target.displayName} cayó.`, killed: target.displayName });
-          maybeDropEquippedWeapon(c, target);
-        }
+      const dmgRoll = rollPlayerDamage(p);
+      let rawDmg = dmgRoll.total;
+      if (r.crit) rawDmg *= 2;
+      const finalDmg = mitigate(rawDmg, es.armor);
+      target.hp = Math.max(0, target.hp - finalDmg);
+      addLog(c, 'player', {
+        text: r.crit ? `¡Golpe crítico a ${target.displayName}!` : `Atacaste a ${target.displayName}`,
+        actor: p.name, target: target.displayName, actorIcon: '🗡️', weapon: weaponName,
+        damageDice: dmgRoll.composed.expression,
+        damageBreakdown: dmgRoll.composed.components.map((cmp, i) => ({
+          label: cmp.label, expr: cmp.expr,
+          rolled: dmgRoll.res.components && dmgRoll.res.components[i] ? dmgRoll.res.components[i].rolled : 0,
+          icon: cmp.icon,
+        })),
+        roll: r.roll, bonus: st.attack, total: r.total, vs: es.defense, vsLabel: 'defensa',
+        rawDmg, targetArmor: es.armor, dmg: finalDmg, hpAfter: target.hp, hpMax: target.maxHp,
+        result: r.crit ? 'crit' : 'hit',
+      });
+      if (target.hp > 0) maybeInflictStatusOnHit(st.weapon, target, c);
+      if (target.hp <= 0) {
+        addLog(c, 'system', { text: `${target.displayName} cayó.`, killed: target.displayName });
+        maybeDropEquippedWeapon(c, target);
       }
     }
-
-    if (target && target.hp > 0) processStatusTickOnEnemy(c, target);
     afterPlayerAction();
   }
 
-  /**
-   * Si el enemigo es humanoide y tenía un arma equipada (equippedWeapon),
-   * tirar probabilidad de drop. Lo llamamos al matarlo.
-   */
   function maybeDropEquippedWeapon(c, enemy) {
     if (!enemy.equippedWeapon) return;
-    if (Math.random() > 0.20) return; // 20% de drop
+    if (Math.random() > 0.20) return;
     const ok = A.State.addItem(enemy.equippedWeapon, 1);
     if (ok) {
       const w = A.Data.getById('weapons', enemy.equippedWeapon);
@@ -660,43 +513,44 @@
     if (!c || c.result || !isPlayerTurn(c)) return;
     const p = State().player;
     if (!p.hasMagic) return;
-
     const spell = A.Data.getById('spells', spellId);
-    if (!spell) return;
-    if (!(p.spells || []).includes(spellId)) return;
+    if (!spell || !(p.spells || []).includes(spellId)) return;
+    if ((p.effects || []).some((e) => e.type === 'silence')) {
+      addLog(c, 'system', { text: '🤐 Estás silenciado: no podés lanzar hechizos.' });
+      return;
+    }
     if (p.mana < spell.manaCost) {
-      addLog(c, 'system', `Maná insuficiente para ${spell.name}.`);
+      addLog(c, 'system', { text: `Maná insuficiente para ${spell.name}.` });
       return;
     }
     A.State.setMana(p.mana - spell.manaCost);
+    const power = playerStats().spellPower;
 
     if (spell.heal) {
-      const heal = A.Utils.rollDice(spell.heal);
+      const heal = A.Utils.rollDice(spell.heal) + power;
+      const before = p.hp;
       A.State.healHp(heal);
-      addLog(c, 'player', `Lanzaste ${spell.name} y recuperaste ${heal} de salud.`);
+      addLog(c, 'player', { text: `Lanzaste ${spell.name} y recuperaste ${p.hp - before} de salud.` });
     } else if (spell.damage) {
-      // Si el hechizo es de área, daña a todos los enemigos vivos
       const targets = spell.area ? aliveEnemies() : [getTarget()].filter(Boolean);
       for (const t of targets) {
-        const rawDmg = A.Utils.rollDice(spell.damage);
-        const targetArmor = t.armor || 0;
-        // Hechizos: misma reducción de armadura
-        const finalDmg = Math.max(0, rawDmg - targetArmor);
+        const rawDmg = A.Utils.rollDice(spell.damage) + power;
+        const armor = Math.floor((t.armor || 0) / 2);
+        const finalDmg = mitigate(rawDmg, armor);
         t.hp = Math.max(0, t.hp - finalDmg);
         addLog(c, 'player', {
           text: `${spell.name} hiere a ${t.displayName}`,
-          actor: p.name, target: t.displayName,
-          roll: rawDmg, bonus: 0, total: rawDmg, vs: targetArmor, vsLabel: 'Armadura',
-          rawDmg, targetArmor, dmg: finalDmg, hpAfter: t.hp, hpMax: t.maxHp,
-          spell: spell.name,
-          result: finalDmg === 0 ? 'blocked' : 'hit',
+          actor: p.name, target: t.displayName, actorIcon: spell.icon || '✨',
+          rawDmg, targetArmor: armor, dmg: finalDmg, hpAfter: t.hp, hpMax: t.maxHp,
+          damageDice: power ? `${spell.damage}+${power}` : spell.damage,
+          spell: spell.name, result: 'hit',
         });
-        if (t.hp <= 0) addLog(c, 'system', { text: `${t.displayName} cayó.` });
+        if (t.hp > 0) maybeInflictStatusOnHit(spell, t, c);
+        if (t.hp <= 0) addLog(c, 'system', { text: `${t.displayName} cayó.`, killed: t.displayName });
       }
     } else {
-      addLog(c, 'player', `Lanzaste ${spell.name}.`);
+      addLog(c, 'player', { text: `Lanzaste ${spell.name}.` });
     }
-
     afterPlayerAction();
   }
 
@@ -707,38 +561,49 @@
     if (!item) return;
     const slot = State().player.inventory.find((s) => s.itemId === itemId);
     if (!slot) return;
-
     const before = State().player.hp;
     const beforeMana = State().player.mana;
     const used = A.Inventory.use(itemId);
     if (!used) return;
-
     const hpDelta = State().player.hp - before;
     const manaDelta = State().player.mana - beforeMana;
     let text = `Usaste ${item.name}.`;
     if (hpDelta > 0) text += ` (+${hpDelta} salud)`;
     if (manaDelta > 0) text += ` (+${manaDelta} maná)`;
     addLog(c, 'player', text);
+    afterPlayerAction();
+  }
 
-    afterPlayerAction({ skipPet: true });
+  /**
+   * Intentar domar desde el combate. Usa el turno: si falla, siguen los enemigos.
+   * Solo se puede con el último enemigo en pie.
+   */
+  function playerTame(instanceId) {
+    const c = State().combat;
+    if (!c || c.result || !isPlayerTurn(c) || !A.Tame) return null;
+    const inst = c.enemies.find((e) => e.instanceId === instanceId && e.hp > 0);
+    if (!inst) return null;
+    const result = A.Tame.attempt(inst.id, instanceId);
+    if (result && result.success) {
+      endCombatTamed(instanceId);
+      return result;
+    }
+    addLog(c, 'player', { text: result && result.reason ? `No se pudo domar (${A.Tame.reasonText(result.reason)}).` : `${inst.displayName} rechaza la comida y te ataca.` });
+    if (!result || result.itemConsumed) afterPlayerAction();
+    return result;
   }
 
   function playerFlee() {
     const c = State().combat;
     if (!c || c.result || !isPlayerTurn(c)) return;
-
-    // Inicializar contador de intentos en el combate si no está
     if (c.fleeAttempts === undefined) c.fleeAttempts = 0;
-
     if (c.fleeAttempts >= 2) {
       addLog(c, 'system', { text: 'Ya intentaste huir 2 veces. No podés volver a intentarlo.' });
       return;
     }
-
     c.fleeAttempts += 1;
     const p = State().player;
     const fastest = Math.max(...aliveEnemies().map((e) => e.speed || 10));
-    // Dificultad de huida: 10 + (speed enemigo más rápido - speed jugador efectiva), capeado 8-18
     const playerSpeed = effectivePlayerSpeed(p);
     const fleeDC = Math.max(8, Math.min(18, 10 + (fastest - playerSpeed)));
     const fleeRoll = A.Utils.dice(20);
@@ -748,396 +613,305 @@
     if (fleeTotal >= fleeDC) {
       addLog(c, 'system', {
         text: `Lograste escapar (intento ${c.fleeAttempts}/2).`,
-        roll: fleeRoll, bonus: fleeBonus, total: fleeTotal, vs: fleeDC, vsLabel: 'DC huida',
-        result: 'hit',
+        roll: fleeRoll, bonus: fleeBonus, total: fleeTotal, vs: fleeDC, vsLabel: 'DC huida', result: 'hit',
       });
       c.result = 'flee';
       A.Bus.emit('combat:ended', { result: 'flee' });
       State().persist();
-    } else {
-      // Fallaste: log + el enemigo más rápido te pega gratis
-      const remaining = 2 - c.fleeAttempts;
-      addLog(c, 'system', {
-        text: `Intento de huida fallido (${c.fleeAttempts}/2). ${remaining > 0 ? 'Te queda 1 intento.' : 'No podés volver a intentar.'}`,
-        roll: fleeRoll, bonus: fleeBonus, total: fleeTotal, vs: fleeDC, vsLabel: 'DC huida',
-        result: 'miss',
-      });
-      // Enemigo más rápido pega
-      const fastestEnemy = aliveEnemies().reduce((a, b) => ((b.speed || 0) > (a.speed || 0) ? b : a));
-      if (fastestEnemy) {
-        addLog(c, 'system', { text: `${fastestEnemy.displayName} aprovecha tu fallo y te ataca.` });
-        executeFreeAttack(fastestEnemy);
-      }
-      // Avanzar al siguiente actor (perdés turno)
-      if (p.hp <= 0) { onDefeat(); A.Bus.emit('combat:ended', { result: 'defeat' }); return; }
-      afterPlayerAction();
+      return;
     }
-  }
-
-  /**
-   * Ataque "gratis" de un enemigo, sin pasar por la cola de iniciativa.
-   * Usado cuando el jugador falla huir.
-   */
-  function executeFreeAttack(enemy) {
-    const c = State().combat;
-    if (!c || c.result) return;
-    const p = State().player;
-    const equipArmor = p.equipment.armor ? A.Data.getById('armors', p.equipment.armor) : null;
-    const playerArmor = (p.stats.armor || 0) + (equipArmor ? equipArmor.defense : 0);
-    const damageNotation = enemy.damage;
-    const rawDmg = rollDamage(damageNotation);
-    const finalDmg = Math.max(0, rawDmg - playerArmor);
-    if (finalDmg > 0) A.State.damagePlayer(finalDmg);
-    addLog(c, 'enemy', {
-      text: `${enemy.displayName} te golpea por la huida fallida`,
-      actor: enemy.displayName, target: p.name,
-      rawDmg, targetArmor: playerArmor, dmg: finalDmg,
-      hpAfter: p.hp, hpMax: p.maxHp,
-      damageDice: damageNotation,
-      result: finalDmg === 0 ? 'blocked' : 'hit',
+    const remaining = 2 - c.fleeAttempts;
+    addLog(c, 'system', {
+      text: `Intento de huida fallido (${c.fleeAttempts}/2). ${remaining > 0 ? 'Te queda 1 intento.' : 'No podés volver a intentar.'}`,
+      roll: fleeRoll, bonus: fleeBonus, total: fleeTotal, vs: fleeDC, vsLabel: 'DC huida', result: 'miss',
     });
+    const fastestEnemy = aliveEnemies().reduce((a, b) => ((b.speed || 0) > (a.speed || 0) ? b : a));
+    if (fastestEnemy) {
+      addLog(c, 'system', { text: `${fastestEnemy.displayName} aprovecha tu fallo y te ataca.` });
+      enemyStrike(c, fastestEnemy, { forcePlayer: true, free: true });
+    }
+    if (p.hp <= 0) { onDefeat(); A.Bus.emit('combat:ended', { result: 'defeat' }); return; }
+    afterPlayerAction();
   }
-
-  // ---------- Después de la acción del jugador ----------
 
   function afterPlayerAction() {
     const c = State().combat;
     if (!c) return;
     State().persist();
-    // Forzar re-render del view para que se vea la acción del jugador ANTES
-    // de avanzar al siguiente actor (especialmente importante si era el último turno
-    // y se va a agregar un turn-header nueva ronda)
     A.Bus.emit('combat:action', { actor: 'player' });
-    if (aliveEnemies().length === 0) { onVictory(); A.Bus.emit('combat:ended', { result: 'victory' }); return; }
+    if (checkEnd()) return;
     nextActor();
   }
 
-  /**
-   * Acción de la mascota. La invoca advanceIfNotPlayer cuando el actor actual es 'pet'.
-   */
+  // ============================================================
+  // Mascota
+  // ============================================================
+
+  function petKnockedOut(c, pet) {
+    pet.health = 0;
+    pet.effects = [];
+    addLog(c, 'system', { text: `${pet.name} cayó inconsciente. Despierta con una poción o descansando.` });
+    A.Bus.emit('pet:knocked-out', { name: pet.name });
+  }
+
+  /** Elige objetivo: el mismo que el jugador; si no está vivo, el de menos vida. */
+  function petTarget() {
+    const alive = aliveEnemies();
+    if (!alive.length) return null;
+    const c = State().combat;
+    const focus = alive.find((e) => e.instanceId === c.targetInstanceId);
+    if (focus) return focus;
+    return alive.slice().sort((a, b) => a.hp - b.hp)[0];
+  }
+
   function executePetAction() {
     const c = State().combat;
     if (!c || c.result) return;
     const pet = State().player.pet;
     if (!pet || pet.health <= 0) { nextActor(); return; }
-    const alive = aliveEnemies();
-    if (alive.length === 0) { nextActor(); return; }
-    const target = alive[Math.floor(Math.random() * alive.length)];
-    const targetDodge = target.dodge || 0;
-    const targetArmor = target.armor || 0;
+    const target = petTarget();
+    if (!target) { nextActor(); return; }
+    const ps = petStats(pet);
+    const es = enemyStats(target);
+    const r = attackRoll(ps.attack, es.defense);
     const petIcon = pet.icon || '🐾';
-    const roll = A.Utils.dice(20);
+    const hungry = (pet.food != null && pet.food <= 0);
 
-    if (roll === 1) {
+    if (!r.hit) {
       addLog(c, 'pet', {
-        text: `${pet.name} ataca a ${target.displayName} pero falla`,
+        text: r.fumble ? `${pet.name} ataca a ${target.displayName} pero falla` : `${target.displayName} esquivó el ataque de ${pet.name}`,
         actor: pet.name, target: target.displayName, actorIcon: petIcon,
-        roll, bonus: 0, total: roll,
-        result: 'fumble',
+        roll: r.roll, bonus: ps.attack, total: r.total, vs: es.defense, vsLabel: 'defensa',
+        result: r.fumble ? 'fumble' : 'evaded',
       });
     } else {
-      const isCrit = roll === 20;
-      const dodgeBonus = Math.floor(targetDodge / 2);
-      const dodgeRoll = A.Utils.dice(20);
-      const dodgeTotal = dodgeRoll + dodgeBonus;
-      const dodgeDifficulty = 12;
-      const evaded = !isCrit && dodgeTotal >= dodgeDifficulty;
-
-      if (evaded) {
-        addLog(c, 'pet', {
-          text: `${target.displayName} esquivó el ataque de ${pet.name}`,
-          actor: pet.name, target: target.displayName, actorIcon: petIcon,
-          roll, bonus: 0, total: roll,
-          dodgeRoll, dodgeBonus, dodgeTotal, dodgeVs: dodgeDifficulty,
-          result: 'evaded',
-        });
-      } else {
-        let rawDmg = rollDamage(pet.damage);
-        if (isCrit) rawDmg *= 2;
-        const finalDmg = Math.max(0, rawDmg - targetArmor);
-        target.hp = Math.max(0, target.hp - finalDmg);
-        addLog(c, 'pet', {
-          text: isCrit ? `${pet.name} golpea CRÍTICO a ${target.displayName}` : `${pet.name} ataca a ${target.displayName}`,
-          actor: pet.name, target: target.displayName, actorIcon: petIcon,
-          damageDice: pet.damage,
-          roll, bonus: 0, total: roll,
-          dodgeRoll: isCrit ? null : dodgeRoll, dodgeTotal: isCrit ? null : dodgeTotal, dodgeVs: dodgeDifficulty,
-          rawDmg, targetArmor, dmg: finalDmg, hpAfter: target.hp, hpMax: target.maxHp,
-          result: isCrit ? 'crit' : (finalDmg === 0 ? 'blocked' : 'hit'),
-        });
-        if (target.hp <= 0) addLog(c, 'system', { text: `${target.displayName} cayó por la mascota.` });
-      }
+      let rawDmg = rollDamage(pet.damage);
+      if (r.crit) rawDmg *= 2;
+      if (hungry) rawDmg = Math.max(1, Math.floor(rawDmg / 2));
+      const finalDmg = mitigate(rawDmg, es.armor);
+      target.hp = Math.max(0, target.hp - finalDmg);
+      addLog(c, 'pet', {
+        text: (r.crit ? `${pet.name} golpea CRÍTICO a ${target.displayName}` : `${pet.name} ataca a ${target.displayName}`) + (hungry ? ' (con hambre, pega la mitad)' : ''),
+        actor: pet.name, target: target.displayName, actorIcon: petIcon, damageDice: pet.damage,
+        roll: r.roll, bonus: ps.attack, total: r.total, vs: es.defense, vsLabel: 'defensa',
+        rawDmg, targetArmor: es.armor, dmg: finalDmg, hpAfter: target.hp, hpMax: target.maxHp,
+        result: r.crit ? 'crit' : 'hit',
+      });
+      if (target.hp <= 0) addLog(c, 'system', { text: `${target.displayName} cayó por la mascota.`, killed: target.displayName });
     }
+    State().persist();
+    A.Bus.emit('combat:action', { actor: 'pet' });
+    if (checkEnd()) return;
     nextActor();
   }
 
-  // alias legacy
-  function petTurn() { executePetAction(); }
+  // ============================================================
+  // Enemigos
+  // ============================================================
 
-  // ---------- Turno del enemigo (un enemigo individual) ----------
+  /**
+   * Un golpe de un enemigo. forcePlayer: no puede elegir a la mascota.
+   */
+  function enemyStrike(c, enemy, opts = {}) {
+    const p = State().player;
+    const pet = p.pet;
+    const targetPet = !opts.forcePlayer && pet && pet.health > 0 && Math.random() < PET_TARGET_CHANCE;
+    const es = enemyStats(enemy);
+    let defense, armor, targetName;
+    if (targetPet) {
+      const ps = petStats(pet);
+      defense = ps.defense; armor = ps.armor; targetName = pet.name;
+    } else {
+      const st = playerStats();
+      defense = st.defense; armor = st.armor; targetName = p.name;
+    }
+    const r = attackRoll(es.attack, defense);
+    const enemyIcon = enemy.icon || '👹';
+    const damageNotation = enemy.damage;
+
+    if (!r.hit) {
+      addLog(c, 'enemy', {
+        text: r.fumble ? `${enemy.displayName} ataca a ${targetName} pero falla por completo` : `${enemy.displayName} ataca pero ${targetName} esquiva`,
+        actor: enemy.displayName, target: targetName, actorIcon: enemyIcon,
+        roll: r.roll, bonus: es.attack, total: r.total, vs: defense, vsLabel: 'defensa',
+        result: r.fumble ? 'fumble' : 'evaded',
+      });
+      return;
+    }
+    let rawDmg = rollDamage(damageNotation);
+    if (r.crit) rawDmg *= 2;
+    const finalDmg = mitigate(rawDmg, armor);
+    const victim = targetPet ? pet : p;
+    if (targetPet) {
+      pet.health = Math.max(0, pet.health - finalDmg);
+    } else {
+      A.State.damagePlayer(finalDmg);
+    }
+    addLog(c, 'enemy', {
+      text: opts.free ? `${enemy.displayName} te golpea por la huida fallida`
+        : r.crit ? `${enemy.displayName} golpea CRÍTICO a ${targetName}`
+        : targetPet ? `${enemy.displayName} hiere a ${pet.name}` : `${enemy.displayName} te hiere`,
+      actor: enemy.displayName, target: targetName, actorIcon: enemyIcon, damageDice: damageNotation,
+      roll: r.roll, bonus: es.attack, total: r.total, vs: defense, vsLabel: 'defensa',
+      rawDmg, targetArmor: armor, dmg: finalDmg,
+      hpAfter: targetPet ? pet.health : p.hp, hpMax: targetPet ? pet.maxHealth : p.maxHp,
+      result: r.crit ? 'crit' : 'hit',
+    });
+    // Efectos por tags del enemigo (veneno, fuego, hielo, ácido)
+    if (targetPet ? pet.health > 0 : p.hp > 0) {
+      for (const tag of enemy.tags || []) {
+        const te = TAG_EFFECTS[tag];
+        if (te && Math.random() < TAG_EFFECT_CHANCE) {
+          applyStatus(victim, te.type, { turns: te.turns, value: 1 + Math.floor(((enemy.tier || 1) - 1) / 3), source: enemy.id });
+          addLog(c, 'system', { text: `${targetName} sufre ${effectLabel(te.type)}.` });
+          break;
+        }
+      }
+    }
+    if (targetPet && pet.health <= 0) petKnockedOut(c, pet);
+  }
 
   function executeEnemyAction(enemy) {
     const c = State().combat;
     if (!c || c.result) return;
     if (!enemy || enemy.hp <= 0) { nextActor(); return; }
-
-    const p = State().player;
-    const equipArmor = p.equipment.armor ? A.Data.getById('armors', p.equipment.armor) : null;
-    const playerArmor = (p.stats.armor || 0) + (equipArmor ? equipArmor.defense : 0);
-
-    const damageNotation = enemy.damage;
-    const enemyAtkBonus = computeAtkBonus(damageNotation);
-    const pet = p.pet;
-    const targetPet = pet && pet.health > 0 && Math.random() < 0.4;
-    const targetArmor = targetPet ? (pet.armor || 0) : playerArmor;
-    const targetName = targetPet ? pet.name : p.name;
-    const targetDodge = targetPet ? (pet.dodge || 0) : (p.stats.dodge || 0);
-    const enemyIcon = enemy.icon || '👹';
-
-    const roll = A.Utils.dice(20);
-    const total = roll + enemyAtkBonus;
-
-    // Modelo simplificado: 1 = fumble, 20 = crítico, defensor esquiva con d20+(dodge/2) ≥ 12
-    if (roll === 1) {
-      addLog(c, 'enemy', {
-        text: `${enemy.displayName} ataca a ${targetName} pero falla por completo`,
-        actor: enemy.displayName, target: targetName, actorIcon: enemyIcon,
-        roll, bonus: enemyAtkBonus, total,
-        result: 'fumble',
-      });
-    } else {
-      // El defensor intenta esquivar (excepto en críticos)
-      const isCrit = roll === 20;
-      const dodgeBonus = Math.floor(targetDodge / 2);
-      const dodgeRoll = A.Utils.dice(20);
-      const dodgeTotal = dodgeRoll + dodgeBonus;
-      const dodgeDifficulty = 12;
-      const evaded = !isCrit && dodgeTotal >= dodgeDifficulty;
-
-      if (evaded) {
-        addLog(c, 'enemy', {
-          text: `${enemy.displayName} ataca pero ${targetName} esquiva`,
-          actor: enemy.displayName, target: targetName, actorIcon: enemyIcon,
-          roll, bonus: enemyAtkBonus, total,
-          dodgeRoll, dodgeBonus, dodgeTotal, dodgeVs: dodgeDifficulty,
-          result: 'evaded',
-        });
-      } else {
-        let rawDmg = rollDamage(damageNotation);
-        if (isCrit) rawDmg *= 2;
-        const finalDmg = Math.max(0, rawDmg - targetArmor);
-        if (targetPet) {
-          pet.health = Math.max(0, pet.health - finalDmg);
-          addLog(c, 'enemy', {
-            text: isCrit ? `${enemy.displayName} golpea CRÍTICO a ${pet.name}` : `${enemy.displayName} hiere a ${pet.name}`,
-            actor: enemy.displayName, target: pet.name, actorIcon: enemyIcon,
-            roll, bonus: enemyAtkBonus, total,
-            dodgeRoll: isCrit ? null : dodgeRoll, dodgeTotal: isCrit ? null : dodgeTotal, dodgeVs: dodgeDifficulty,
-            rawDmg, targetArmor, dmg: finalDmg, hpAfter: pet.health, hpMax: pet.maxHealth,
-            damageDice: damageNotation,
-            result: isCrit ? 'crit' : (finalDmg === 0 ? 'blocked' : 'hit'),
-          });
-          if (pet.health <= 0) {
-            // v1.5.9: la mascota queda en 0 HP, no se elimina.
-            // El jugador puede curarla con poción o descansar para recuperarla.
-            pet.health = 0;
-            addLog(c, 'system', { text: `${pet.name} cayó inconsciente.` });
-            A.Bus.emit('pet:knocked-out', { name: pet.name });
-          }
-        } else {
-          if (finalDmg > 0) A.State.damagePlayer(finalDmg);
-          addLog(c, 'enemy', {
-            text: isCrit ? `${enemy.displayName} golpea CRÍTICO a ${p.name}` : `${enemy.displayName} te hiere`,
-            actor: enemy.displayName, target: p.name, actorIcon: enemyIcon,
-            roll, bonus: enemyAtkBonus, total,
-            dodgeRoll: isCrit ? null : dodgeRoll, dodgeTotal: isCrit ? null : dodgeTotal, dodgeVs: dodgeDifficulty,
-            rawDmg, targetArmor, dmg: finalDmg, hpAfter: p.hp, hpMax: p.maxHp,
-            damageDice: damageNotation,
-            result: isCrit ? 'crit' : (finalDmg === 0 ? 'blocked' : 'hit'),
-          });
-        }
-      }
-    }
-
-    // Procesar efectos de estado al final del turno del enemigo (ej: sangrado en player)
-    processStatusTickOnPlayer(c);
-
-    if (p.hp <= 0) { onDefeat(); A.Bus.emit('combat:ended', { result: 'defeat' }); return; }
+    enemyStrike(c, enemy);
+    State().persist();
+    A.Bus.emit('combat:action', { actor: 'enemy' });
+    if (checkEnd()) return;
     nextActor();
   }
 
-  // alias legacy
-  function enemyTurn() {
-    const c = State().combat;
-    if (!c) return;
-    const cur = c.initiative[c.currentActorIdx];
-    if (cur && cur.kind === 'enemy') {
-      const inst = c.enemies.find((e) => e.instanceId === cur.id);
-      if (inst) executeEnemyAction(inst);
-    }
-  }
+  // ============================================================
+  // Resultado
+  // ============================================================
 
-  // ---------- Resultado ----------
-
-  function onVictory() {
-    const c = State().combat;
-    if (!c) return;
-    c.result = 'victory';
-
-    // v1.5.9: combatir avanza 1 unidad de tiempo
-    if (A.Time) A.Time.advance(1, 'combat');
-    // v1.6.2: combatir consume hambre
-    if (A.Survival) A.Survival.applyTurnTick('combat');
-
-    // XP: suma de todos los enemigos vencidos
+  /** XP, subida de nivel, XP de mascota y loot de los enemigos indicados. */
+  function grantRewards(c, defeated) {
+    const p = A.State.player;
     let totalXp = 0;
-    for (const e of c.enemies) {
-      const catBonus = ({ weak: 1, normal: 2, strong: 5, boss: 15 })[e.category] || 2;
-      totalXp += (e.tier || 1) * 5 + (e.tier || 1) * catBonus;
-    }
-    A.State.player.xp = (A.State.player.xp || 0) + totalXp;
-    addLog(c, 'system', { text: `Ganaste ${totalXp} XP.` });
-    A.Bus.emit('player:xp-changed', { current: A.State.player.xp });
-
-    // Level up
-    const xpForNext = 50 * (A.State.player.level + 1) * (A.State.player.level + 1);
-    if (A.State.player.xp >= xpForNext) {
-      A.State.player.level += 1;
-      A.State.player.maxHp += 5;
-      A.State.player.hp = A.State.player.maxHp;
-      if (A.State.player.hasMagic) {
-        A.State.player.maxMana += 3;
-        A.State.player.mana = A.State.player.maxMana;
+    for (const e of defeated) totalXp += A.Progression.xpForEnemy(e);
+    if (totalXp > 0) {
+      p.xp = (p.xp || 0) + totalXp;
+      addLog(c, 'system', { text: `Ganaste ${totalXp} XP.` });
+      A.Bus.emit('player:xp-changed', { current: p.xp, toNext: A.Progression.xpForLevel(p.level + 1) });
+      for (const lv of A.Progression.checkLevelUp(p)) {
+        addLog(c, 'system', { text: `¡Subiste al nivel ${lv.level}! ${lv.text}. Te recuperás por completo.` });
+        A.State.addChronicle({ type: 'system', text: `¡Subiste al nivel ${lv.level}! ${lv.text}.` });
+        A.Bus.emit('player:leveled', { newLevel: lv.level });
       }
-      addLog(c, 'system', { text: `¡Subiste al nivel ${A.State.player.level}! Te recuperas por completo.` });
-      A.Bus.emit('player:leveled', { newLevel: A.State.player.level });
     }
 
-    // v1.5.9: La mascota también gana XP si participó (estaba viva al menos al inicio).
-    // Sube de nivel con thresholds más simples.
-    const pet = A.State.player.pet;
-    if (pet) {
-      const petXp = Math.floor(totalXp * 0.5); // mascota gana 50% de la XP del player
-      pet.xp = (pet.xp || 0) + petXp;
-      pet.level = pet.level || 1;
-      pet.xpNeeded = pet.xpNeeded || pet.level * 30;
+    // Mascota: gana la mitad de la XP si terminó consciente
+    const pet = p.pet;
+    if (pet && pet.health > 0 && totalXp > 0 && A.Tame && A.Tame.addPetXp) {
+      const petXp = Math.floor(totalXp / 2);
       addLog(c, 'system', { text: `${pet.name} ganó ${petXp} XP.` });
-      // Level up de la mascota
-      while (pet.xp >= pet.xpNeeded) {
-        pet.xp -= pet.xpNeeded;
-        pet.level += 1;
-        pet.maxHealth = (pet.maxHealth || 12) + 3;
-        pet.health = pet.maxHealth; // se recupera al subir nivel
-        pet.xpNeeded = pet.level * 30;
-        addLog(c, 'system', { text: `¡${pet.name} subió al nivel ${pet.level}! +3 salud máxima.` });
-        A.Bus.emit('pet:leveled', { name: pet.name, level: pet.level });
-      }
+      for (const msg of A.Tame.addPetXp(pet, petXp)) addLog(c, 'system', { text: msg });
     }
 
-    // Loot: monedas (acumular total) y drops (agrupar por itemId)
+    // Loot
     let totalCoins = 0;
-    const aggregatedDrops = {}; // { itemId: { item, qty } }
-
-    for (const inst of c.enemies) {
+    const aggregated = {};
+    for (const inst of defeated) {
       const enemyData = A.Data.getById('enemies', inst.id);
       if (!enemyData) continue;
-      // v1.6.1: coinLoot ya fue migrado a drops como coin_copper en Data.init().
-      // Solo procesamos drops unificados.
       for (const d of enemyData.drops || []) {
-        if (Math.random() < (d.chance || 0)) {
-          const qMin = Math.max(1, d.qtyMin || 1);
-          const qMax = Math.max(qMin, d.qtyMax || qMin);
-          const dropQty = qMin + Math.floor(Math.random() * (qMax - qMin + 1));
-          // Si el drop es un coin_copper, contabilizar como totalCoins
-          // (la moneda igual entra al inventario, pero la línea queda más prolija)
-          if (d.itemId === 'coin_copper') {
-            totalCoins += dropQty;
-          }
-          const ok = A.State.addItem(d.itemId, dropQty);
-          const item = A.Data.getById('items', d.itemId)
-                    || A.Data.getById('weapons', d.itemId)
-                    || A.Data.getById('armors', d.itemId);
-          if (ok && item && d.itemId !== 'coin_copper') {
-            if (!aggregatedDrops[d.itemId]) aggregatedDrops[d.itemId] = { item, qty: 0 };
-            aggregatedDrops[d.itemId].qty += dropQty;
-          } else if (!ok) {
-            addLog(c, 'loot', { text: `Hubo botín pero no entró en la mochila.` });
-          }
+        if (Math.random() >= (d.chance || 0)) continue;
+        const qMin = Math.max(1, d.qtyMin || 1);
+        const qMax = Math.max(qMin, d.qtyMax || qMin);
+        const qty = qMin + Math.floor(Math.random() * (qMax - qMin + 1));
+        if (d.itemId === 'coin_copper') {
+          totalCoins += qty;
+          if (A.Currency && A.Currency.add) A.Currency.add(qty); else A.State.addItem(d.itemId, qty);
+          continue;
+        }
+        const ok = A.State.addItem(d.itemId, qty);
+        const item = A.Inventory.resolveData ? A.Inventory.resolveData(d.itemId) : A.Data.getById('items', d.itemId);
+        if (ok && item) {
+          if (!aggregated[d.itemId]) aggregated[d.itemId] = { item, qty: 0 };
+          aggregated[d.itemId].qty += qty;
+        } else if (!ok) {
+          addLog(c, 'loot', { text: 'Hubo botín pero no entró en la mochila.' });
         }
       }
     }
-    if (totalCoins > 0) {
-      // v1.6.1: el coin_copper ya entró al inventario vía addItem (es un drop normal).
-      // Solo logeamos para el feedback del jugador.
-      addLog(c, 'loot', { text: `Recogiste ${A.Currency.formatPrice(totalCoins)}.` });
-    }
-    // Mostrar drops agregados como una sola línea
-    const dropList = Object.values(aggregatedDrops);
+    if (totalCoins > 0) addLog(c, 'loot', { text: `Recogiste ${A.Currency.formatPrice(totalCoins)}.` });
+    const dropList = Object.values(aggregated);
     if (dropList.length > 0) {
-      const dropStr = dropList.map((d) =>
-        d.qty > 1 ? `${d.item.icon} ${d.item.name} ×${d.qty}` : `${d.item.icon} ${d.item.name}`
-      ).join(', ');
-      addLog(c, 'loot', { text: `Botín: ${dropStr}` });
+      addLog(c, 'loot', { text: `Botín: ${dropList.map((d) => (d.qty > 1 ? `${d.item.icon} ${d.item.name} ×${d.qty}` : `${d.item.icon} ${d.item.name}`)).join(', ')}` });
     }
+    return totalXp;
+  }
 
-    // Incrementar contador de región
+  function onVictory() {
+    const c = State().combat;
+    if (!c || c.result) return;
+    c.result = 'victory';
+    if (A.Time) A.Time.advance(1, 'combat');
+    if (A.Survival) A.Survival.applyTurnTick('combat');
+    if (A.Tame && A.Tame.consumePetFood) A.Tame.consumePetFood(1);
+
+    const totalXp = grantRewards(c, c.enemies);
+
     if (A.State.world && A.State.world.regionId) {
       A.State.incrementRegionEncounters(A.State.world.regionId);
-      const total = A.State.encountersInRegion(A.State.world.regionId);
-      addLog(c, 'system', { text: `Encuentros completados aquí: ${total}.` });
+      addLog(c, 'system', { text: `Encuentros completados aquí: ${A.State.encountersInRegion(A.State.world.regionId)}.` });
     }
-
-    A.State.addChronicle({
-      type: 'combat',
-      text: `Venciste a ${A.Encounter.describeGroup(c.enemies)} (+${totalXp} XP).`,
-    });
+    A.State.addChronicle({ type: 'combat', text: `Venciste a ${A.Encounter.describeGroup(c.enemies)} (+${totalXp} XP).` });
     A.Bus.emit('combat:ended', { result: 'victory', xp: totalXp });
+    State().persist();
+  }
+
+  /** Terminó porque domaste al último enemigo: recompensa por los que cayeron. */
+  function endCombatTamed(instanceId) {
+    const c = State().combat;
+    if (!c || c.result) return;
+    c.result = 'tamed';
+    if (A.Time) A.Time.advance(1, 'combat');
+    const defeated = c.enemies.filter((e) => e.hp <= 0 && e.instanceId !== instanceId);
+    const xp = grantRewards(c, defeated);
+    const tamed = c.enemies.find((e) => e.instanceId === instanceId);
+    addLog(c, 'system', { text: `${tamed ? tamed.name : 'La criatura'} ahora te acompaña.` });
+    if (xp > 0) A.State.addChronicle({ type: 'combat', text: `Combate terminado al domar (+${xp} XP).` });
+    A.Bus.emit('combat:ended', { result: 'tamed', xp });
     State().persist();
   }
 
   function onDefeat() {
     const c = State().combat;
-    if (!c) return;
+    if (!c || c.result) return;
     c.result = 'defeat';
-    addLog(c, 'system', `Caíste en combate.`);
-    A.State.player.hp = 1;
-    A.State.player.mana = Math.floor(A.State.player.maxMana / 2);
+    addLog(c, 'system', { text: 'Caíste en combate.' });
+    const p = A.State.player;
+    p.hp = 1;
+    p.mana = Math.floor(p.maxMana / 2);
+    p.effects = [];
     A.State.world.regionId = 'pueblo_inicial';
     A.State.traveling = null;
-    A.State.addChronicle({
-      type: 'combat',
-      text: `Caíste contra ${A.Encounter.describeGroup(c.enemies)}. Despertás de vuelta en el pueblo.`,
-    });
+    A.State.addChronicle({ type: 'combat', text: `Caíste contra ${A.Encounter.describeGroup(c.enemies)}. Despertás de vuelta en el pueblo.` });
     A.Bus.emit('combat:ended', { result: 'defeat' });
     State().persist();
   }
 
   function finish() {
+    const p = State().player;
+    if (p) {
+      p.effects = [];
+      if (p.pet) p.pet.effects = [];
+    }
     State().combat = null;
     State().persist();
   }
 
-  // ---------- Helpers ----------
+  // ============================================================
+  // Helpers
+  // ============================================================
 
-  /**
-   * Agrega una entrada al log. Soporta dos formatos:
-   *   addLog(c, type, text)              // simple
-   *   addLog(c, type, { text, roll, vs, total, result, dmg, target })
-   *     roll: número del d20 (para animación)
-   *     vs: dificultad o AC contra la que se tiró
-   *     total: roll + bonus (si hay)
-   *     result: 'hit' | 'miss' | 'crit' | 'fumble'
-   *     dmg: daño infligido (si aplica)
-   *     target: nombre del objetivo (display)
-   *     text: línea principal del log
-   */
   function addLog(c, type, payload) {
     const entry = { ts: Date.now(), type };
-    if (typeof payload === 'string') {
-      entry.text = payload;
-    } else {
-      Object.assign(entry, payload);
-    }
+    if (typeof payload === 'string') entry.text = payload;
+    else Object.assign(entry, payload);
     c.log.push(entry);
     A.Bus.emit('combat:action', entry);
   }
@@ -1156,6 +930,12 @@
     });
   }
 
+  /** Para la UI: chance de pegarle a un enemigo (0..1). */
+  function hitChanceVs(instance) {
+    if (!instance) return 0;
+    return B().hitChance(playerStats().attack, enemyStats(instance).defense);
+  }
+
   A.Combat = {
     start,
     finish,
@@ -1165,7 +945,9 @@
     playerAttack,
     playerSpell,
     playerUseItem,
+    playerTame,
     playerFlee,
+    endCombatTamed,
     availableSpells,
     availableItems,
     effectivePlayerSpeed,
@@ -1173,5 +955,6 @@
     applyStatus,
     removeStatus,
     effectLabel,
+    hitChanceVs,
   };
 })(window.Aventurs);

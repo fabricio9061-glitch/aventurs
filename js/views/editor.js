@@ -3,7 +3,8 @@
    Toma toda la pantalla. Permite editar todos los seeds + overrides.
 
    Tipos editables:
-     regions, races, weapons, armors, items, enemies, npcs, spells, recipes, pets
+     regions, races, weapons, armors, items, bags, enemies, npcs, spells, recipes
+     (las mascotas son enemigos con tameable:true)
 
    Por entidad:
      - Sidebar lista filtrable por nombre
@@ -182,7 +183,7 @@
             throw new Error('Archivo no es un objeto JSON válido');
           }
           // Validar al menos una colección esperada
-          const valid = ['regions', 'races', 'weapons', 'armors', 'items', 'enemies', 'spells', 'recipes', 'npcs', 'pets', 'bags', '_deleted'];
+          const valid = ['regions', 'races', 'weapons', 'armors', 'items', 'enemies', 'spells', 'recipes', 'npcs', 'bags', '_deleted'];
           const found = Object.keys(data).filter((k) => valid.includes(k));
           if (found.length === 0) {
             throw new Error('Archivo no parece un export válido del editor');
@@ -209,7 +210,7 @@
     const filtered = list.filter((e) => {
       if (!filterText) return true;
       const t = filterText.toLowerCase();
-      return (e.name || '').toLowerCase().includes(t) || (e.id || '').toLowerCase().includes(t);
+      return (e.name || '').toLowerCase().includes(t) || (e.id || '').toLowerCase().includes(t) || (t.startsWith('domab') && !!e.tameable);
     });
 
     const validation = A.Validate.run();
@@ -403,7 +404,7 @@
         return { ...base, type: 'safe', biome: 'plains', tier: [1, 2], connections: [], distance: 1, icon: '📍', description: '',
                  encounter: { minEnemies: 1, maxEnemies: 2, allowMixed: true, spawnWeights: { weak: 40, normal: 40, strong: 15, boss: 5 } } };
       case 'races':
-        return { ...base, icon: '👤', combatType: 'hybrid', bonuses: { hp: 0, mana: 0, speed: 0, precision: 0, armor: 0, damage: 0, dodge: 0 }, description: '' };
+        return { ...base, icon: '👤', combatType: 'hybrid', magic: true, bonuses: { hp: 0, mana: 0, speed: 0, precision: 0, armor: 0, damage: 0, dodge: 0 }, description: '' };
       case 'weapons':
         return { ...base, type: 'weapon', icon: '⚔️', damage: '1d4', value: 10, rarity: 'common', tier: 1, weight: 1, magic: false, description: '' };
       case 'armors':
@@ -414,15 +415,13 @@
         return { ...base, icon: '👹', family: ['humanoid'], category: 'normal', tier: 1, tags: [], biome: ['plains'],
                  health: 10, damage: 2, difficulty: 8, armor: 0, speed: 8, drops: [], regions: [],
                  spawn: { min: 1, max: 1, weight: 1.0, groupable: true },
-                 tameable: false, tameItem: '', autoLoot: true };
+                 attack: 1, tameable: false, tameItem: 'carne_cruda', autoLoot: true };
       case 'npcs':
         return { ...base, role: 'merchant', region: 'pueblo_inicial', icon: '🧑', dialog: [''], sells: [], teaches: [], services: {} };
       case 'spells':
         return { ...base, icon: '✨', damage: '1d4', manaCost: 2, tier: 1, school: 'arcane', description: '' };
       case 'recipes':
         return { ...base, ingredients: [], result: '', workshop: 'forge', tier: 1, description: '' };
-      case 'pets':
-        return { ...base, icon: '🐾', species: 'beast', tier: 1, health: 10, damage: 2, speed: 8, armor: 0, tameDifficulty: 20, description: '' };
       case 'bags':
         return { ...base, icon: '🎒', slots: 10, value: 0, rarity: 'common', tier: 1, description: '' };
       default:
@@ -444,7 +443,6 @@
       case 'npcs': body = formNpcs(e); break;
       case 'spells': body = formSpells(e); break;
       case 'recipes': body = formRecipes(e); break;
-      case 'pets': body = formPets(e); break;
       case 'bags': body = formBags(e); break;
     }
 
@@ -643,7 +641,7 @@
       icon: e.icon || '👤', name: e.name, accent: 'var(--gold-deep)',
       pills: [
         e.combatType ? { text: e.combatType } : null,
-        e.baseDamage ? { text: `daño ${e.baseDamage}` } : null,
+        { text: (e.magic !== undefined ? e.magic : e.combatType !== 'warrior') ? '✦ magia' : 'sin magia' },
       ].filter(Boolean),
       stats: [
         b.hp ? { icon: '❤️', value: (b.hp > 0 ? '+' : '') + b.hp } : null,
@@ -1176,7 +1174,7 @@
       row('Tipo de combate', sel('combatType', e.combatType, [
         {value:'warrior',label:'Guerrero'},{value:'mage',label:'Mago'},{value:'hybrid',label:'Híbrido'},
       ])),
-      row('Probabilidad magia (0-1, solo hybrid)', inp('magicChance', e.magicChance ?? 0.4, 'number', 'min="0" max="1" step="0.05"')),
+      row('Usa magia (empieza con Chispa)', chk('magic', e.magic !== undefined ? e.magic : e.combatType !== 'warrior')),
       row('Bonus HP', inp('bonuses.hp', e.bonuses.hp, 'number')),
       row('Bonus Maná', inp('bonuses.mana', e.bonuses.mana, 'number')),
       row('Bonus Velocidad', inp('bonuses.speed', e.bonuses.speed, 'number')),
@@ -1188,10 +1186,51 @@
     ].join('');
   }
 
-  function formWeapons(e) {
+  /**
+   * v1.8.0: Sección de efecto de estado (armas y hechizos usan la misma).
+   * Lo que hace cada efecto en combate está en js/systems/combat.js.
+   */
+  function effectSection(e, title) {
     e.statusEffect = e.statusEffect || null;
     const eff = e.statusEffect || { type: '', chance: 0, turns: 0, value: 0 };
     const hasEffect = !!e.statusEffect;
+    return `<div class="form-section">
+        <div class="form-section-header">
+          <span class="form-section-icon">✨</span>
+          <span class="form-section-title">${title}</span>
+          <label class="weapon-effect-toggle form-section-toggle">
+            <input type="checkbox" data-weapon-effect-toggle ${hasEffect ? 'checked' : ''}>
+            <span>${hasEffect ? 'Activo' : 'Sin efecto'}</span>
+          </label>
+        </div>
+        <div class="form-section-body weapon-effect-fields ${hasEffect ? '' : 'is-disabled'}">
+          <div class="form-grid-2">
+            ${row('Tipo', sel('statusEffect.type', eff.type, [
+              {value:'bleed', label:'🩸 Sangrado (daño por turno, acumula)'},
+              {value:'poison', label:'☠️ Veneno (daño por turno, acumula)'},
+              {value:'fire', label:'🔥 Fuego (daño por turno, no acumula)'},
+              {value:'cold', label:'❄️ Frío (-2 defensa y -1 ataque)'},
+              {value:'shock', label:'⚡ Choque (35% de perder el turno)'},
+              {value:'blind', label:'🌫️ Ceguera (-4 al ataque)'},
+            ]))}
+            ${row('Probabilidad (0–1)', inp('statusEffect.chance', eff.chance, 'number', 'min="0" max="1" step="0.05"'))}
+            ${row('Turnos', inp('statusEffect.turns', eff.turns, 'number', 'min="1" max="10"'))}
+            ${row('Valor (daño por turno)', inp('statusEffect.value', eff.value, 'number', 'min="0" max="20"'))}
+          </div>
+          <div class="dim small form-section-hint">
+            💡 Se aplica cuando el golpe acierta. Probabilidad 0.20 = 20% por golpe. El daño por turno se cobra al empezar el turno del afectado.
+          </div>
+        </div>
+      </div>`;
+  }
+
+  function tameFoodOptions() {
+    const foods = (A.Data.items || []).filter((i) => i.subtype === 'tame');
+    if (!foods.length) return [{ value: 'carne_cruda', label: 'Carne cruda' }];
+    return foods.map((i) => ({ value: i.id, label: `${i.icon || ''} ${i.name}` }));
+  }
+
+  function formWeapons(e) {
     return [
       section('Identidad', '🆔', [
         row('ID', inp('id', e.id)),
@@ -1210,33 +1249,7 @@
         row('Peso', inp('weight', e.weight, 'number')),
         row('Slots', inp('slots', e.slots ?? 1, 'number', 'min="1" max="3"')),
       ].join(''), 3),
-      `<div class="form-section">
-        <div class="form-section-header">
-          <span class="form-section-icon">✨</span>
-          <span class="form-section-title">Efecto al impactar</span>
-          <label class="weapon-effect-toggle form-section-toggle">
-            <input type="checkbox" data-weapon-effect-toggle ${hasEffect ? 'checked' : ''}>
-            <span>${hasEffect ? 'Activo' : 'Sin efecto'}</span>
-          </label>
-        </div>
-        <div class="form-section-body weapon-effect-fields ${hasEffect ? '' : 'is-disabled'}">
-          <div class="form-grid-2">
-            ${row('Tipo', sel('statusEffect.type', eff.type, [
-              {value:'bleed', label:'🩸 Sangrado (HP)'},
-              {value:'fire', label:'🔥 Fuego (HP, refresh)'},
-              {value:'cold', label:'❄️ Frío (slow, refresh)'},
-              {value:'shock', label:'⚡ Aturdir (skip turn, refresh)'},
-              {value:'poison', label:'☠️ Veneno (HP, acumula)'},
-            ]))}
-            ${row('Probabilidad (0–1)', inp('statusEffect.chance', eff.chance, 'number', 'min="0" max="1" step="0.05"'))}
-            ${row('Turnos', inp('statusEffect.turns', eff.turns, 'number', 'min="1" max="10"'))}
-            ${row('Valor (daño/turno o intensidad)', inp('statusEffect.value', eff.value, 'number', 'min="0" max="20"'))}
-          </div>
-          <div class="dim small form-section-hint">
-            💡 Sangrado/Veneno: daño por turno = "valor". Fuego/Frío/Aturdir: efecto refresh (no acumula). Probabilidad 0.20 = 20% por golpe.
-          </div>
-        </div>
-      </div>`,
+      effectSection(e, 'Efecto al impactar'),
       section('Descripción', '📝', row('Texto', txt('description', e.description, 3)), 1),
     ].join('');
   }
@@ -1250,7 +1263,8 @@
         row('Mágica', chk('magic', e.magic)),
       ].join(''), 2),
       section('Defensa', '🛡️', [
-        row('Defensa', inp('defense', e.defense, 'number')),
+        row('Defensa (resta daño)', inp('defense', e.defense, 'number')),
+        row('Esquiva extra', inp('dodge', e.dodge || 0, 'number', 'min="0" max="5"')),
         row('Tier', inp('tier', e.tier, 'number', 'min="1" max="10"')),
         row('Rareza', sel('rarity', e.rarity, [
           {value:'common',label:'Común'},{value:'uncommon',label:'Poco común'},{value:'rare',label:'Raro'},
@@ -1406,7 +1420,6 @@
         row('Category', sel('category', e.category, [
           {value:'weak',label:'Débil'},{value:'normal',label:'Normal'},{value:'strong',label:'Fuerte'},{value:'boss',label:'Jefe'},
         ])),
-        row('Domable', chk('tameable', e.tameable)),
       ].join(''), 3),
       section('Clasificación', '🏷️', [
         row('Family (csv)', arr('family', e.family)),
@@ -1416,7 +1429,8 @@
       section('Stats de combate', '⚔️', [
         row('Salud', inp('health', e.health, 'number')),
         row('Daño (dados o número)', inp('damage', e.damage, 'text', 'placeholder="1d6+1"')),
-        row('Dificultad', inp('difficulty', e.difficulty, 'number')),
+        row('Ataque (bonus al D20)', inp('attack', e.attack ?? '', 'number', 'min="0" max="15"')),
+        row('Defensa (D20 a superar)', inp('difficulty', e.difficulty, 'number')),
         row('Armadura', inp('armor', e.armor, 'number')),
         row('Velocidad', inp('speed', e.speed, 'number')),
         row('Esquiva', inp('dodge', e.dodge ?? Math.max(0, Math.floor((e.speed || 10) / 4)), 'number')),
@@ -1426,9 +1440,13 @@
         row('Spawn max', inp('spawn.max', (e.spawn||{}).max ?? 1, 'number', 'min="1" max="8"')),
         row('Spawn weight', inp('spawn.weight', (e.spawn||{}).weight ?? 1.0, 'number', 'min="0" max="5" step="0.1"')),
         row('Agrupable', chk('spawn.groupable', (e.spawn||{}).groupable !== false)),
-        row('Item para domar (id)', inp('tameItem', e.tameItem || '', 'text')),
         row('AutoLoot habilitado', chk('autoLoot', e.autoLoot)),
       ].join(''), 3),
+      section('Domesticación', '🐾', [
+        row('Domable', chk('tameable', e.tameable)),
+        row('Comida para domar (y la que come)', sel('tameItem', e.tameItem || 'carne_cruda', tameFoodOptions())),
+        `<div class="dim small form-section-hint">💡 Solo se puede domar si su tier es menor o igual a tu nivel, no es jefe y no es inteligente (humanoide, demonio, no-muerto, arcano o dragón). Carne = carnívoro, pescado = come pescado, semillas = herbívoro.</div>`,
+      ].join(''), 2),
       section('Regiones', '🗺️', row('Regiones', tagsField('regions', e.regions, 'regions', 'Buscar región...')), 1),
       `<div class="form-section">
         <div class="form-section-header">
@@ -1497,19 +1515,25 @@
 
   function formSpells(e) {
     return [
-      row('ID', inp('id', e.id)),
-      row('Nombre', inp('name', e.name)),
-      row('Icono', inp('icon', e.icon)),
-      row('Daño (opcional, notación)', inp('damage', e.damage || '')),
-      row('Cura (opcional, notación)', inp('heal', e.heal || '')),
-      row('Costo de maná', inp('manaCost', e.manaCost, 'number')),
-      row('Tier', inp('tier', e.tier, 'number', 'min="1" max="10"')),
-      row('Escuela', sel('school', e.school, [
-        {value:'arcane',label:'Arcana'},{value:'fire',label:'Fuego'},{value:'ice',label:'Hielo'},
-        {value:'holy',label:'Sagrada'},{value:'shadow',label:'Sombras'},{value:'nature',label:'Naturaleza'},
-      ])),
-      row('Área', chk('area', e.area)),
-      row('Descripción', txt('description', e.description, 3)),
+      section('Identidad', '🆔', [
+        row('ID', inp('id', e.id)),
+        row('Nombre', inp('name', e.name)),
+        row('Icono', inp('icon', e.icon)),
+        row('Escuela', sel('school', e.school, [
+          {value:'arcane',label:'Arcana'},{value:'fire',label:'Fuego'},{value:'ice',label:'Hielo'},
+          {value:'holy',label:'Sagrada'},{value:'shadow',label:'Sombras'},{value:'nature',label:'Naturaleza'},
+        ])),
+      ].join(''), 2),
+      section('Poder', '✨', [
+        row('Daño (notación, opcional)', inp('damage', e.damage || '', 'text', 'placeholder="1d6"')),
+        row('Cura (notación, opcional)', inp('heal', e.heal || '', 'text', 'placeholder="2d6+2"')),
+        row('Costo de maná', inp('manaCost', e.manaCost, 'number')),
+        row('Tier', inp('tier', e.tier, 'number', 'min="1" max="10"')),
+        row('Área (pega a todos)', chk('area', e.area)),
+      ].join(''), 3),
+      effectSection(e, 'Efecto en el objetivo'),
+      `<div class="dim small form-section-hint">💡 Los hechizos no se esquivan y la armadura cuenta la mitad. Suman poder mágico: +1 cada 2 niveles del jugador y más con arma mágica.</div>`,
+      section('Descripción', '📝', row('Texto', txt('description', e.description, 3)), 1),
     ].join('');
   }
 
@@ -1524,23 +1548,6 @@
         {value:'forge',label:'Herrería'},{value:'alchemy',label:'Alquimia'},{value:'enchant',label:'Encantamiento'},
       ])),
       row('Tier', inp('tier', e.tier, 'number', 'min="1" max="10"')),
-      row('Descripción', txt('description', e.description, 3)),
-    ].join('');
-  }
-
-  function formPets(e) {
-    return [
-      row('ID', inp('id', e.id)),
-      row('Nombre', inp('name', e.name)),
-      row('Icono', inp('icon', e.icon)),
-      row('Especie', inp('species', e.species)),
-      row('Tier', inp('tier', e.tier, 'number', 'min="1" max="10"')),
-      row('Salud', inp('health', e.health, 'number')),
-      row('Daño', inp('damage', e.damage, 'number')),
-      row('Velocidad', inp('speed', e.speed, 'number')),
-      row('Armadura', inp('armor', e.armor, 'number')),
-      row('Dificultad de doma', inp('tameDifficulty', e.tameDifficulty, 'number')),
-      row('Comida requerida (id)', inp('requiredFood', e.requiredFood)),
       row('Descripción', txt('description', e.description, 3)),
     ].join('');
   }
@@ -1585,7 +1592,7 @@
         const filtered = currentList().filter((e) => {
           if (!filterText) return true;
           const t = filterText.toLowerCase();
-          return (e.name || '').toLowerCase().includes(t) || (e.id || '').toLowerCase().includes(t);
+          return (e.name || '').toLowerCase().includes(t) || (e.id || '').toLowerCase().includes(t) || (t.startsWith('domab') && !!e.tameable);
         });
         list.innerHTML = filtered.map((e) => {
           const itemIcon = e.icon || (activeType === 'weapons' ? autoWeaponIcon(e) : (TYPES.find((t) => t.key === activeType) || {}).icon || '📦');

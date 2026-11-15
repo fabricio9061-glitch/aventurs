@@ -89,6 +89,8 @@
   function spellPrice(spellId) {
     const spell = A.Data.getById('spells', spellId);
     if (!spell) return 0;
+    // v1.8.0: precio acorde a la economía (ver Balance.Economy.spellPrice)
+    if (A.Balance) return A.Balance.Economy.spellPrice(spell);
     return Math.max(50, (spell.tier || 1) * 100);
   }
 

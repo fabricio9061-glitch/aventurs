@@ -214,8 +214,10 @@
       damage: enemyData.damage, // v1.6.7: enemigos tienen un único campo damage final
       armor: enemyData.armor || 0,
       speed: enemyData.speed || 10,
-      dodge: enemyData.dodge || Math.max(0, Math.floor((enemyData.speed || 10) / 4)),
-      difficulty: enemyData.difficulty,
+      // v1.8.0: attack = bonus al D20 cuando ataca; difficulty = su defensa.
+      // Si el enemigo viene de una versión vieja del editor sin estos campos, se calculan.
+      attack: enemyData.attack != null ? enemyData.attack : defaultAttack(enemyData),
+      difficulty: enemyData.difficulty != null ? enemyData.difficulty : defaultDefense(enemyData),
       category: enemyData.category,
       tier: enemyData.tier,
       family: (enemyData.family || []).slice(),
@@ -229,7 +231,7 @@
     // no tienen damage definido. El daño compuesto NO aplica a enemigos: si se equipa,
     // el arma reemplaza el damage (no suma como en el jugador).
     const shouldAutoEquip = inst.family.includes('humanoid') &&
-      (inst.equipmentEnabled === true || !inst.damage);
+      (enemyData.equipmentEnabled === true || !inst.damage);
 
     if (shouldAutoEquip) {
       const equipped = pickHumanoidEquipment(inst);
@@ -309,10 +311,25 @@
     return parts.join(', ');
   }
 
+  function defaultAttack(e) {
+    const B = A.Balance;
+    if (!B) return 1;
+    const cat = B.CATEGORY[e.category] || B.CATEGORY.normal;
+    return Math.max(0, B.Enemy.attack(e.tier) + cat.atk);
+  }
+
+  function defaultDefense(e) {
+    const B = A.Balance;
+    if (!B) return 10;
+    const cat = B.CATEGORY[e.category] || B.CATEGORY.normal;
+    return B.Enemy.defense(e.tier) + cat.def;
+  }
+
   A.Encounter = {
     generate,
     configFor,
     describeGroup,
+    spawnInstance,
     DEFAULT_ENCOUNTER,
   };
 })(window.Aventurs);

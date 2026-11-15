@@ -103,6 +103,7 @@
                 ${isSafeRegion ? 'Zona segura' : 'Zona de combate'}
               </span>
               <span class="pill pill-tier">Tier ${region.tier[0]}–${region.tier[1]}</span>
+              ${region.unlockConditions && region.unlockConditions.minLevel ? `<span class="dim">· Nivel ${region.unlockConditions.minLevel}+</span>` : ''}
               <span class="dim">${biomeLabel(region.biome)}</span>
               ${encountersHere > 0 ? `<span class="dim">· ${encountersHere} encuentros aquí</span>` : ''}
             </div>
@@ -409,7 +410,7 @@
             <span class="btn-icon">⚔️</span>
             <span>Pelear</span>
           </button>
-          ${!isGroup && enemy && enemy.tameable && !A.State.player.pet ? `
+          ${!isGroup && enemy && enemy.tameable && !A.State.player.pet && A.Tame && ['ok', 'missing-item'].includes(A.Tame.canTame(enemy.id).ok ? 'ok' : A.Tame.canTame(enemy.id).reason) ? `
             <button class="btn-secondary encounter-btn-tame" data-travel-action="tame" data-enemy-id="${A.Utils.escapeHtml(ev.enemyId)}">
               <span class="btn-icon">🐾</span>
               <span>Intentar domar</span>
@@ -726,6 +727,12 @@
       A.State.healHp(heal);
       const recovered = p.hp - before;
       let restNote = `Descansaste durante la noche. +${recovered} salud.`;
+      // v1.8.0: la mascota también descansa (recupera la mitad y despierta)
+      if (p.pet && p.pet.maxHealth) {
+        const petBefore = p.pet.health;
+        p.pet.health = Math.min(p.pet.maxHealth, p.pet.health + Math.ceil(p.pet.maxHealth * healMult));
+        if (p.pet.health > petBefore) restNote += ` ${p.pet.name} ${petBefore <= 0 ? 'despertó y ' : ''}recuperó ${p.pet.health - petBefore} de vida.`;
+      }
       if (A.Survival && A.Survival.getStatus().penalties.restPenalty) {
         restNote += ` Tu hambre te impide descansar bien.`;
       }

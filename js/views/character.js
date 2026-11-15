@@ -93,13 +93,13 @@
    * v1.6.3: Preview grande de la raza seleccionada (columna izquierda).
    */
   function renderRacePreview(race, stats, theme) {
-    // v1.6.7: Mostrar la composición esperada al equipar un arma
-    const racialDmg = (race && race.baseDamage) || (stats.damage > 0 ? `1d3+${stats.damage}` : '1d3');
-    const baseDmg = racialDmg;
+    // v1.8.0: todas las razas arrancan con Daga + Túnica de cuero
+    const hasMagic = A.Seed.raceHasMagic ? A.Seed.raceHasMagic(race.id) : race.combatType !== 'warrior';
+    const startDmg = stats.damage > 0 ? `1d4+${stats.damage}` : '1d4';
     // Barras visuales: estimadas a partir de stats típicos
     const bars = [
       { label: 'Salud', val: stats.maxHp, max: 30, color: '#c4513a' },
-      { label: 'Maná', val: stats.maxMana, max: 25, color: '#3a78c4' },
+      { label: 'Maná', val: hasMagic ? stats.maxMana : 0, max: 25, color: '#3a78c4' },
       { label: 'Velocidad', val: stats.speed, max: 18, color: '#7a9c3a' },
       { label: 'Armadura', val: stats.armor, max: 8, color: '#8d6a30' },
       { label: 'Esquiva', val: stats.dodge, max: 10, color: '#a87838' },
@@ -123,11 +123,19 @@
 
         <div class="race-preview-extras">
           <div class="race-extra-row">
-            <span class="dim">Daño racial base:</span>
-            <span class="num">${baseDmg}</span>
+            <span class="dim">Precisión:</span>
+            <span class="num">+${stats.precision}</span>
+          </div>
+          <div class="race-extra-row">
+            <span class="dim">Magia:</span>
+            <span>${hasMagic ? 'Sí (empieza sabiendo Chispa)' : 'No'}</span>
+          </div>
+          <div class="race-extra-row">
+            <span class="dim">Daño inicial (daga):</span>
+            <span class="num">${startDmg}</span>
           </div>
           <div class="race-extra-row dim small">
-            <span>Las armas suman a este valor (no lo reemplazan).</span>
+            <span>Todas las razas tienen el mismo poder total, repartido distinto.</span>
           </div>
         </div>
       </div>

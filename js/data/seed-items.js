@@ -24,30 +24,30 @@
       description:'Pesada y brillante. La paga de un mes para un guardia, el precio de un buen caballo.' },
 
     // --- Pociones y curativos ---
-    { id:'pocion_curacion_menor', name:'Poción de curación menor', type:'item', subtype:'potion', icon:'🧪', value:30, weight:1,
+    { id:'pocion_curacion_menor', name:'Poción de curación menor', type:'item', subtype:'potion', icon:'🧪', value:15, weight:1,
       effect:{ type:'heal', amount:'1d8+2' }, stack:99,
       description:'Líquido rojo y dulzón. Cierra heridas pequeñas.' },
-    { id:'pocion_curacion', name:'Poción de curación', type:'item', subtype:'potion', icon:'🧪', value:120, weight:1,
+    { id:'pocion_curacion', name:'Poción de curación', type:'item', subtype:'potion', icon:'🧪', value:45, weight:1,
       effect:{ type:'heal', amount:'2d8+4' }, stack:99,
       description:'Brilla suavemente al moverla. Funciona en heridas serias.' },
-    { id:'pocion_mana_menor', name:'Poción de maná menor', type:'item', subtype:'potion', icon:'🧪', value:35, weight:1,
+    { id:'pocion_mana_menor', name:'Poción de maná menor', type:'item', subtype:'potion', icon:'🧪', value:15, weight:1,
       effect:{ type:'mana', amount:'1d6+2' }, stack:99,
       description:'Azul como agua de glaciar. Restaura un poco de maná.' },
-    { id:'pocion_mana', name:'Poción de maná', type:'item', subtype:'potion', icon:'🧪', value:140, weight:1,
+    { id:'pocion_mana', name:'Poción de maná', type:'item', subtype:'potion', icon:'🧪', value:50, weight:1,
       effect:{ type:'mana', amount:'2d6+4' }, stack:99,
       description:'Frío al tacto incluso en verano. Restaura maná considerable.' },
-    { id:'antidoto', name:'Antídoto', type:'item', subtype:'potion', icon:'🧪', value:50, weight:1,
+    { id:'antidoto', name:'Antídoto', type:'item', subtype:'potion', icon:'🧪', value:15, weight:1,
       effect:{ type:'cure', status:'poison' }, stack:99,
       description:'Verde y amargo. Limpia el veneno de la sangre.' },
-    { id:'elixir_fuerza', name:'Elixir de fuerza', type:'item', subtype:'potion', icon:'🧪', value:200, weight:1,
+    { id:'elixir_fuerza', name:'Elixir de fuerza', type:'item', subtype:'potion', icon:'🧪', value:70, weight:1,
       effect:{ type:'buff', stat:'damage', amount:2, duration:5 }, stack:99,
       description:'Sabe a hierro. Las manos tiemblan de poder durante un rato.' },
 
     // === v1.7.2: Consumibles y amuletos crafteables con materiales de bioma ===
-    { id:'te_de_hierbas', name:'Té de hierbas', type:'item', subtype:'potion', icon:'🍵', value:30, weight:0,
+    { id:'te_de_hierbas', name:'Té de hierbas', type:'item', subtype:'potion', icon:'🍵', value:10, weight:0,
       healAmount:8, stack:99,
       description:'Hierbas silvestres hervidas. Calma el cuerpo y cierra heridas leves.' },
-    { id:'pocion_lodo', name:'Poción de lodo curativo', type:'item', subtype:'potion', icon:'🟤', value:55, weight:0,
+    { id:'pocion_lodo', name:'Poción de lodo curativo', type:'item', subtype:'potion', icon:'🟤', value:20, weight:0,
       healAmount:14, stack:99,
       description:'Hongos de pantano macerados. Huele horrible, sana bien.' },
     { id:'amuleto_fuego', name:'Amuleto de fuego', type:'item', subtype:'material', icon:'🔥', value:450, weight:0, stack:1,
@@ -72,7 +72,7 @@
       description:'Salada y dura. Sostiene a un hombre días enteros.' },
 
     // --- Pergaminos / Misc ---
-    { id:'pergamino_escape', name:'Pergamino de escape', type:'item', subtype:'scroll', icon:'📜', value:100, weight:0,
+    { id:'pergamino_escape', name:'Pergamino de escape', type:'item', subtype:'scroll', icon:'📜', value:40, weight:0,
       effect:{ type:'escape' }, stack:10,
       description:'Al romperlo, el aire se cierra a tu alrededor y te lleva lejos del peligro.' },
     { id:'linterna', name:'Linterna', type:'item', subtype:'misc', icon:'🔦', value:25, weight:1,
@@ -131,16 +131,16 @@
     // --- Bolsas como items (v1.5.1) ---
     // Los items con subtype 'bag' se "usan" para equipar la bolsa correspondiente.
     // Los recibís como drop de enemigos o comprándolos a NPCs.
-    { id:'item_bag_reforzada', name:'Mochila reforzada', type:'item', subtype:'bag', icon:'🎒', value:200, weight:0, stack:1,
+    { id:'item_bag_reforzada', name:'Mochila reforzada', type:'item', subtype:'bag', icon:'🎒', value:90, weight:0, stack:1,
       equipsBag:'bag_reforzada',
       description:'Cuero curtido sobre lona. 14 espacios. Úsala para reemplazar tu mochila actual.' },
-    { id:'item_bag_large', name:'Mochila grande', type:'item', subtype:'bag', icon:'🎒', value:500, weight:0, stack:1,
+    { id:'item_bag_large', name:'Mochila grande', type:'item', subtype:'bag', icon:'🎒', value:250, weight:0, stack:1,
       equipsBag:'bag_large',
       description:'Una buena bolsa. 16 espacios. Úsala para reemplazar tu mochila actual.' },
-    { id:'item_bag_advanced', name:'Mochila avanzada', type:'item', subtype:'bag', icon:'🎒', value:1500, weight:0, stack:1,
+    { id:'item_bag_advanced', name:'Mochila avanzada', type:'item', subtype:'bag', icon:'🎒', value:700, weight:0, stack:1,
       equipsBag:'bag_advanced',
       description:'Cosida con cuero de bestia y broches de hierro. 24 espacios. Úsala para reemplazar tu mochila actual.' },
-    { id:'item_bag_arcane', name:'Mochila arcana', type:'item', subtype:'bag', icon:'🎒', value:5000, weight:0, stack:1,
+    { id:'item_bag_arcane', name:'Mochila arcana', type:'item', subtype:'bag', icon:'🎒', value:2000, weight:0, stack:1,
       equipsBag:'bag_arcane',
       description:'Por dentro es más grande que por fuera. 32 espacios. Solo magos saben cómo se hacen.' },
 

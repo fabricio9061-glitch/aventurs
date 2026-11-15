@@ -509,6 +509,10 @@
     const tags = (e.tags || []).map(escapeChip).join(' ');
     const canTame = !!e.tameable;
     const havePet = !!A.State.player.pet;
+    // v1.8.0: requisitos reales de domesticación (nivel, jefe, inteligencia)
+    const tameCheck = canTame && A.Tame ? A.Tame.canTame(e.id) : null;
+    const tameBlocked = tameCheck && !tameCheck.ok && !['missing-item', 'already-have-pet'].includes(tameCheck.reason);
+    const diet = canTame && A.Tame ? A.Tame.dietInfo(e) : null;
     const body = `
       <div class="creature-modal">
         <div class="creature-modal-header">
@@ -525,6 +529,8 @@
         <div class="creature-stats">
           <div class="stat-row"><span class="dim">Salud</span><span class="num">${e.health}</span></div>
           <div class="stat-row"><span class="dim">Daño</span><span class="num">${e.damage}</span></div>
+          <div class="stat-row"><span class="dim">Ataque</span><span class="num">+${e.attack != null ? e.attack : '?'}</span></div>
+          <div class="stat-row"><span class="dim">Defensa</span><span class="num">${e.difficulty != null ? e.difficulty : '?'}</span></div>
           <div class="stat-row"><span class="dim">Armadura</span><span class="num">${e.armor}</span></div>
           <div class="stat-row"><span class="dim">Velocidad</span><span class="num">${e.speed}</span></div>
         </div>
@@ -532,11 +538,13 @@
         ${tags ? `<div class="creature-chips">${tags}</div>` : ''}
         <div class="creature-actions">
           <button class="btn-primary" data-creature-action="fight" data-enemy-id="${A.Utils.escapeHtml(e.id)}">Pelear</button>
-          ${canTame && !havePet ? `
+          ${canTame && !havePet && !tameBlocked ? `
             <button class="btn-secondary" data-creature-action="tame" data-enemy-id="${A.Utils.escapeHtml(e.id)}">
               Intentar domar
             </button>
           ` : ''}
+          ${tameBlocked ? `<span class="muted small">No se puede domar: ${A.Utils.escapeHtml(A.Tame.reasonText(tameCheck.reason))}${tameCheck.requiredLevel ? ` (nivel ${tameCheck.requiredLevel})` : ''}.</span>` : ''}
+          ${diet ? `<span class="muted small">Come: ${A.Utils.escapeHtml(diet.eats)}.</span>` : ''}
           ${canTame && havePet ? `
             <span class="muted small">Ya tienes una mascota. Liberá a ${A.Utils.escapeHtml(A.State.player.pet.name)} antes de domar otra.</span>
           ` : ''}
@@ -593,8 +601,11 @@
     const item = A.Data.getById('items', itemId);
     const have = (A.State.player.inventory || []).find((s) => s.itemId === itemId);
     const haveQty = have ? have.qty : 0;
-    const canDo = haveQty > 0;
+    const check = A.Tame.canTame(e.id);
+    const blocked = !check.ok && check.reason !== 'missing-item';
+    const canDo = haveQty > 0 && !blocked;
     const chancePct = Math.round(A.Tame.chanceFor(e) * 100);
+    const diet = A.Tame.dietInfo(e);
 
     const body = `
       <div class="tame-modal">
@@ -613,7 +624,12 @@
             <span class="dim">Probabilidad:</span>
             <span class="num">${chancePct}%</span>
           </div>
-          <div class="muted small">El item se consume al intentar, hayas tenido suerte o no.</div>
+          <div class="tame-info-row">
+            <span class="dim">Como mascota come:</span>
+            <span>${A.Utils.escapeHtml(diet.eats)}</span>
+          </div>
+          ${blocked ? `<div class="danger small">No se puede: ${A.Utils.escapeHtml(A.Tame.reasonText(check.reason))}${check.requiredLevel ? ` (necesitás nivel ${check.requiredLevel})` : ''}.</div>` : ''}
+          <div class="muted small">El item se consume al intentar, hayas tenido suerte o no. En combate es más fácil si la criatura está herida.</div>
         </div>
         <div class="tame-actions">
           <button class="btn-primary" data-tame-action="attempt" data-enemy-id="${A.Utils.escapeHtml(e.id)}" data-from-travel="${fromTravel ? '1' : '0'}" ${canDo ? '' : 'disabled'}>Intentar (consume 1 ${A.Utils.escapeHtml(item ? item.name : itemId)})</button>

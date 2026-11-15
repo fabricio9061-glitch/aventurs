@@ -6875,3 +6875,9 @@
 .craft-section-label:first-child {
   padding-top: 4px;
 }
+
+/* ============================================================
+   v1.8.0 — Saciedad de la mascota
+   ============================================================ */
+.bar-food > span { background: linear-gradient(90deg, #8d6a30 0%, #c4a850 100%); }
+.pet-card-actions .btn-mini[disabled] { opacity: 0.5; cursor: not-allowed; }

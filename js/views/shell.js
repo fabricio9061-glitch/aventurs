@@ -67,7 +67,7 @@
         </div>
 
         <footer class="shell-footer">
-          <span class="version-pill">v1.7.5</span>
+          <span class="version-pill">v1.8.0</span>
         </footer>
       </div>
     `;
@@ -170,13 +170,18 @@
     const xp = pet.xp || 0;
     const xpNeeded = pet.xpNeeded || (lvl * 30);
     const isKO = pet.health <= 0;
+    // v1.8.0: saciedad y dieta
+    const food = pet.food != null ? pet.food : 10;
+    const maxFood = pet.maxFood || 10;
+    const diet = A.Tame && A.Tame.dietInfo ? A.Tame.dietInfo(pet) : null;
+    const hungry = food <= 0;
     return `
       <div class="pet-card-sidebar ${isKO ? 'is-ko' : ''}">
         <div class="pet-card-header">
           <span class="pet-icon">${pet.icon || '🐾'}</span>
           <div class="pet-card-id">
             <div class="pet-card-name">${A.Utils.escapeHtml(pet.name)}</div>
-            <div class="pet-card-meta dim">Nv ${lvl}${isKO ? ' · inconsciente' : ''}</div>
+            <div class="pet-card-meta dim">Nv ${lvl}${isKO ? ' · inconsciente' : ''}${hungry && !isKO ? ' · con hambre' : ''}</div>
           </div>
         </div>
         <div class="pet-card-bars">
@@ -190,10 +195,16 @@
             <span class="bar-val num">${xp}/${xpNeeded}</span>
           </div>
           <div class="bar bar-xp"><span style="width:${pct(xp, xpNeeded)}%"></span></div>
+          <div class="bar-row">
+            <span class="bar-label">Saciedad</span>
+            <span class="bar-val num">${food}/${maxFood}</span>
+          </div>
+          <div class="bar bar-food"><span style="width:${pct(food, maxFood)}%"></span></div>
+          ${diet ? `<div class="pet-card-meta dim small">Come: ${A.Utils.escapeHtml(diet.eats)}</div>` : ''}
         </div>
         <div class="pet-card-actions">
-          <button class="btn-mini" data-pet-action="heal" title="Usar poción del inventario">💊 Curar</button>
-          <button class="btn-mini" data-pet-action="feed" title="Usar comida del inventario">🍖 Alimentar</button>
+          <button class="btn-mini" data-pet-action="heal" title="Usar una poción de curación (también la despierta)">💊 Curar</button>
+          <button class="btn-mini" data-pet-action="feed" title="Darle comida de su dieta" ${isKO ? 'disabled' : ''}>🍖 Alimentar</button>
         </div>
       </div>
     `;
@@ -429,56 +440,15 @@
    * - feed: busca items con foodValue (subtype:'food').
    */
   function handlePetAction(action) {
+    // v1.8.0: la lógica vive en A.Tame (curar despierta; alimentar usa su dieta)
     const p = A.State.player;
-    if (!p || !p.pet) return;
-    const pet = p.pet;
-
-    if (action === 'heal') {
-      // Buscar poción en inventario
-      const slot = p.inventory.find((s) => {
-        const it = A.Inventory.resolveData(s.itemId);
-        return it && (it.subtype === 'potion' || (it.healAmount > 0));
-      });
-      if (!slot) {
-        A.State.addChronicle({ type: 'note', text: `No tenés pociones para curar a ${pet.name}.` });
-        renderSidebar();
-        return;
-      }
-      const it = A.Inventory.resolveData(slot.itemId);
-      const healAmount = it.healAmount || 10;
-      const before = pet.health;
-      pet.health = Math.min(pet.maxHealth, pet.health + healAmount);
-      const recovered = pet.health - before;
-      // Consumir 1
-      slot.qty -= 1;
-      if (slot.qty <= 0) p.inventory.splice(p.inventory.indexOf(slot), 1);
-      A.State.addChronicle({ type: 'note', text: `Curaste a ${pet.name} con ${it.name}. +${recovered} salud.` });
-      A.State.persist();
-      A.Bus.emit('inventory:changed');
-      renderSidebar();
-    } else if (action === 'feed') {
-      const slot = p.inventory.find((s) => {
-        const it = A.Inventory.resolveData(s.itemId);
-        return it && (it.subtype === 'food' || it.foodValue > 0);
-      });
-      if (!slot) {
-        A.State.addChronicle({ type: 'note', text: `No tenés comida para ${pet.name}.` });
-        renderSidebar();
-        return;
-      }
-      const it = A.Inventory.resolveData(slot.itemId);
-      const healAmount = (it.foodValue || 1) * 2; // food da 2 HP por foodValue
-      const before = pet.health;
-      pet.health = Math.min(pet.maxHealth, pet.health + healAmount);
-      const recovered = pet.health - before;
-      slot.qty -= 1;
-      if (slot.qty <= 0) p.inventory.splice(p.inventory.indexOf(slot), 1);
-      A.State.addChronicle({ type: 'note', text: `Le diste ${it.name} a ${pet.name}. ${recovered > 0 ? `+${recovered} salud.` : 'Quedó satisfecha.'}` });
-      A.State.persist();
-      A.Bus.emit('inventory:changed');
-      renderSidebar();
-    }
+    if (!p || !p.pet || !A.Tame) return;
+    const res = action === 'heal' ? A.Tame.healWithPotion() : A.Tame.feed();
+    if (res && !res.ok) A.State.addChronicle({ type: 'note', text: res.text });
+    A.Bus.emit('inventory:changed');
+    renderSidebar();
   }
+
 
   function handleAction(action) {
     if (action === 'editor') A.Views.Editor.mount(rootEl);
@@ -511,6 +481,8 @@
   }
 
   function xpForLevel(lvl) {
+    // v1.8.0: misma curva que el juego (js/core/balance.js)
+    if (A.Progression) return A.Progression.xpForLevel(lvl);
     return 50 * lvl * lvl;
   }
 

@@ -13,11 +13,11 @@
 
   const STORAGE_KEY = 'aventurs:content';
 
-  const COLLECTIONS = ['regions', 'races', 'weapons', 'armors', 'items', 'enemies', 'spells', 'recipes', 'npcs', 'pets', 'bags'];
+  const COLLECTIONS = ['regions', 'races', 'weapons', 'armors', 'items', 'enemies', 'spells', 'recipes', 'npcs', 'bags'];
 
   const Data = {
     regions: [], races: [], weapons: [], armors: [], items: [],
-    enemies: [], spells: [], recipes: [], npcs: [], pets: [], bags: [],
+    enemies: [], spells: [], recipes: [], npcs: [], bags: [],
 
     init() {
       const overrides = Data._loadOverrides();

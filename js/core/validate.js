@@ -62,6 +62,38 @@
       if (!e.tier || e.tier < 1 || e.tier > 99) {
         out.push({ level: 'warn', collection: 'enemies', entityId: e.id, msg: `"${e.name}" sin tier válido.` });
       }
+      // v1.8.0: coherencia de domesticación
+      if (e.tameable) {
+        const smart = (e.family || []).some((f) => ['humanoid', 'demon', 'undead', 'arcane', 'dragon'].includes(f));
+        if (e.category === 'boss' || smart) {
+          out.push({ level: 'warn', collection: 'enemies', entityId: e.id, msg: `"${e.name}" está marcado como domable pero es ${e.category === 'boss' ? 'un jefe' : 'inteligente'}: nunca se va a poder domar.` });
+        }
+        if (e.tameItem && !itemIds.has(e.tameItem)) {
+          out.push({ level: 'error', collection: 'enemies', entityId: e.id, msg: `"${e.name}" pide para domar un item inexistente "${e.tameItem}".` });
+        }
+      }
+      // v1.8.0: el enemigo tiene que poder aparecer en alguna de sus regiones (tier dentro del rango)
+      const fits = (e.regions || []).some((rid) => {
+        const r = D.regions.find((x) => x.id === rid);
+        return r && Array.isArray(r.tier) && e.tier >= r.tier[0] && e.tier <= r.tier[1];
+      });
+      if ((e.regions || []).length && !fits) {
+        out.push({ level: 'warn', collection: 'enemies', entityId: e.id, msg: `"${e.name}" (tier ${e.tier}) no entra en el rango de tier de ninguna de sus regiones: nunca aparece.` });
+      }
+    }
+
+    // v1.8.0: regiones de combate sin enemigos posibles
+    for (const region of D.regions) {
+      if (region.type !== 'combat' || !Array.isArray(region.tier)) continue;
+      const count = D.enemies.filter((e) => (e.regions || []).includes(region.id) && e.tier >= region.tier[0] && e.tier <= region.tier[1]).length;
+      if (count === 0) {
+        out.push({ level: 'error', collection: 'regions', entityId: region.id, msg: `"${region.name}" no tiene enemigos de su tier: no habrá encuentros.` });
+      }
+      for (const iid of ((region.unlockConditions || {}).requiredItems || [])) {
+        if (!itemIds.has(iid)) {
+          out.push({ level: 'error', collection: 'regions', entityId: region.id, msg: `"${region.name}" pide un item inexistente "${iid}".` });
+        }
+      }
     }
 
     // ---------- NPCs ----------

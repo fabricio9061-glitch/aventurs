@@ -1,30 +1,19 @@
 /* ============================================================
-   Aventurs — Travel system (progresivo)
+   Aventurs — Travel system (v1.8.0)
 
-   Funcionamiento:
-     - start(targetId): inicia un viaje desde la región actual.
-       Define totalSteps según distance del destino (2..4).
-       Guarda en State.traveling.
-       Emite travel:started.
+   Cómo funciona un viaje:
+     - start(targetId): solo a regiones conectadas y si cumplís sus
+       requisitos (nivel mínimo, items, regiones visitadas).
+       Calcula los pasos con calculateTravelSteps (3 a 12, ida = vuelta).
+     - step(): avanza un paso. Cada 2 pasos se come 1 de comida y la
+       mascota pierde 1 de saciedad. En cada paso puede pasar algo:
+         - criatura (28% hacia zonas peligrosas): combate o domar
+         - hallazgos del bioma, monedas (según el tier) o narrativa
+       El último paso es la llegada (sin evento).
+     - cancel(): volvés a la región de origen.
 
-     - step(): avanza un paso. Resuelve un evento aleatorio.
-       Emite travel:step y travel:event si aplica.
-       Si currentStep alcanza totalSteps, completa el viaje:
-         - mueve al jugador al destino
-         - limpia State.traveling
-         - emite travel:completed.
-
-     - cancel(): cancela el viaje (vuelve al origen). Solo permitido
-       si no hay enemigo bloqueando (no implementado en Fase 1, siempre
-       se puede cancelar).
-
-   Eventos (resolveEvent es llamado internamente por step):
-     - nothing       (45%) -> sin texto
-     - minor_loot    (15%) -> 1d10 cobre
-     - creature      (30%) -> { enemyId } - aparece criatura. Si tameable,
-                              opciones evitar/intentar domar. Si no
-                              tameable, solo evitar (Fase 1 sin combate).
-     - narrative     (10%) -> flavor text contextual al bioma
+   Progresión del mapa: cada región pide un nivel mínimo igual al tier
+   más bajo de sus enemigos (ver js/data/seed-regions.js).
    ============================================================ */
 
 (function (A) {
@@ -157,61 +146,45 @@
   }
 
   /**
-   * Inicia viaje a targetId.
-   * Devuelve { ok: bool, error?: string, traveling? }
+   * v1.8.0: Pasos de una ruta. Es SIMÉTRICO: ir de A a B tarda lo mismo que de B a A.
+   *   base      = 2 + 2 × distancia de la ruta (la mayor de las dos regiones: 1..3)
+   *   terreno   = el más difícil de los dos: montaña/volcán +2, desierto/pantano +1,
+   *               llanura/camino -1
+   *   carga     = mochila al 70% +1, al 90% +2
+   *   velocidad = la real (con el peso del equipo): 14+ -1, 7 o menos +1
+   * Resultado entre 3 y 12 pasos. Se come 1 de comida cada 2 pasos.
    */
-  /**
-   * v1.6.2: Calcula pasos dinámicos según múltiples factores:
-   * - distance del destino (1-5)
-   * - tipo de bioma del target (montaña, volcán = más lento)
-   * - peso de la mochila / cantidad de items
-   * - velocidad del personaje (más rápido = menos pasos)
-   *
-   * Devuelve un número de pasos balanceado, pero ya no "fijo a 4".
-   */
-  function calculateTravelSteps(target) {
-    const distance = clamp(target.distance || 1, 1, 5);
-    // Base: distancia × 4 (antes era ×2). Distancia 1 = 4 pasos, 5 = 20.
-    let steps = distance * 4;
+  function terrainCost(region) {
+    const biome = region ? region.biome : '';
+    const biomeStr = (Array.isArray(biome) ? biome.join(',') : String(biome || '')).toLowerCase();
+    if (/montaña|mountain|volcán|volcano|nieve|snow/.test(biomeStr)) return 2;
+    if (/desierto|desert|pantano|swamp/.test(biomeStr)) return 1;
+    if (/camino|road|llanura|plains/.test(biomeStr)) return -1;
+    return 0;
+  }
 
-    // Modificador por bioma del destino
-    const biome = target.biome || '';
-    const biomeStr = Array.isArray(biome) ? biome.join(',') : String(biome);
-    if (/montaña|mountain|volcán|volcano|nieve|snow/.test(biomeStr.toLowerCase())) {
-      steps += distance * 2; // montañas son lentas
-    } else if (/desierto|desert|pantano|swamp/.test(biomeStr.toLowerCase())) {
-      steps += distance; // desiertos/pantanos algo lentos
-    } else if (/camino|road|llanura|plains/.test(biomeStr.toLowerCase())) {
-      steps -= 1; // caminos son más rápidos
-    }
+  function calculateTravelSteps(target, from) {
+    const origin = from || A.Data.getById('regions', State().world && State().world.regionId);
+    const routeDistance = clamp(Math.max(target.distance || 1, (origin && origin.distance) || 1), 1, 3);
+    let steps = 2 + 2 * routeDistance;
+    steps += Math.max(terrainCost(target), terrainCost(origin));
 
-    // Modificador por tier (zonas de mayor tier = más peligrosas/lejanas)
-    const tier = Array.isArray(target.tier) ? target.tier[0] : (target.tier || 1);
-    if (tier >= 5) steps += 4;
-    else if (tier >= 3) steps += 2;
-
-    // Modificador por peso de la mochila
     const player = A.State && A.State.player;
     if (player && Array.isArray(player.inventory)) {
       const usedSlots = A.State.inventoryUsedSlots ? A.State.inventoryUsedSlots() : player.inventory.length;
       const bag = A.Data.getById('bags', player.bagId || 'bag_basic');
       const totalSlots = bag ? bag.slots : 10;
       const fillPct = (usedSlots / totalSlots) * 100;
-      if (fillPct >= 90) steps += 3;       // muy cargado
-      else if (fillPct >= 70) steps += 2;
-      else if (fillPct >= 50) steps += 1;
+      if (fillPct >= 90) steps += 2;
+      else if (fillPct >= 70) steps += 1;
     }
-
-    // Modificador por velocidad del jugador
-    if (player && player.stats && player.stats.speed) {
-      const speed = player.stats.speed;
-      if (speed >= 18) steps -= 2;        // muy rápido
-      else if (speed >= 14) steps -= 1;
-      else if (speed <= 6) steps += 2;    // muy lento
+    if (player && player.stats && A.Balance) {
+      const speed = A.Balance.playerCombatStats(player).speed;
+      if (speed >= 14) steps -= 1;
+      else if (speed <= 7) steps += 1;
     }
-
-    // Clamp al final: mínimo 3, máximo 60
-    return Math.max(3, Math.min(60, steps));
+    const T = (A.Balance && A.Balance.Travel) || { STEPS_MIN: 3, STEPS_MAX: 12 };
+    return Math.max(T.STEPS_MIN, Math.min(T.STEPS_MAX, steps));
   }
 
   function start(targetId) {
@@ -332,9 +305,15 @@
     }
 
     // v1.7.1: agregamos biome_loot al mix (hallazgos específicos del bioma)
+    // v1.8.0: la chance de encuentro sale de Balance.Travel. Si el destino es seguro
+    // pero venís de una zona peligrosa, los encuentros salen de la zona de origen.
+    const fromCombat = fromRegion && fromRegion.type === 'combat';
+    const TB = (A.Balance && A.Balance.Travel && A.Balance.Travel.CREATURE_CHANCE) || { combat: 0.28, safe: 0.06 };
+    const creature = isCombat ? TB.combat : (fromCombat ? TB.combat * 0.6 : TB.safe);
+    const rest = 1 - creature;
     const weights = isCombat
-      ? { nothing: 0.35, minor_loot: 0.08, biome_loot: 0.12, creature: 0.35, narrative: 0.10 }
-      : { nothing: 0.45, minor_loot: 0.10, biome_loot: 0.15, creature: 0.08, narrative: 0.22 };
+      ? { nothing: rest * 0.50, minor_loot: rest * 0.12, biome_loot: rest * 0.20, creature, narrative: rest * 0.18 }
+      : { nothing: rest * 0.48, minor_loot: rest * 0.11, biome_loot: rest * 0.16, creature, narrative: rest * 0.25 };
 
     const kind = A.Utils.weightedPick(weights);
 
@@ -507,7 +486,10 @@
   }
 
   function resolveLoot(region) {
-    const amount = 1 + Math.floor(Math.random() * 10);
+    // v1.8.0: monedas encontradas acordes al tier de la zona
+    const tier = region && Array.isArray(region.tier) ? region.tier[0] : 1;
+    const maxCoins = A.Balance ? Math.max(3, Math.round(A.Balance.Economy.coinBase(tier) * 2)) : 10;
+    const amount = 1 + Math.floor(Math.random() * maxCoins);
     A.Currency.add(amount);
     return {
       kind: 'minor_loot',
@@ -517,9 +499,11 @@
   }
 
   function resolveCreature(region) {
-    const targetId = State().traveling.toId;
-    // Generar grupo de enemigos via Encounter (respeta encounter config de la región)
-    const group = A.Encounter.generate(targetId);
+    const t = State().traveling;
+    const target = A.Data.getById('regions', t.toId);
+    // v1.8.0: si el destino es seguro, la criatura sale de la región de origen
+    const sourceId = target && target.type === 'combat' ? t.toId : t.fromId;
+    const group = A.Encounter.generate(sourceId);
     if (!group || group.length === 0) return null;
 
     // El primer enemigo del grupo determina el ícono y nombre principales
@@ -743,6 +727,7 @@
     cancel,
     complete,
     resolveEvent,
+    calculateTravelSteps,
     travel, // legacy alias
   };
 })(window.Aventurs);

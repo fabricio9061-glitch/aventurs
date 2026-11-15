@@ -8,7 +8,8 @@
      - Validar si los stats actuales están "lejos" del esperado
      - Recalibrar masivamente (botón "Re-balancear todos")
 
-   Fórmulas (simples, fáciles de tunear):
+   v1.8.0: las fórmulas viven en js/core/balance.js (misma curva que el juego).
+   Lo de abajo es el respaldo viejo si Balance no estuviera cargado:
      base por tier: HP = 8 * tier, dmg = 2 * tier, diff = 6 + tier/2
      mod por category: weak x0.6, normal x1.0, strong x1.5, boss x2.5
      mod por family:
@@ -110,25 +111,35 @@
     return Number(notation) || 0;
   }
 
-  function suggestEnemyStats({ tier = 1, category = 'normal', family = [] } = {}) {
+  /**
+   * v1.8.0: usa la MISMA curva que el juego (js/core/balance.js), así lo que
+   * sugiere el editor coincide con el balance real.
+   */
+  function suggestEnemyStats({ tier = 1, category = 'normal', family = [], speed } = {}) {
+    if (A.Balance) {
+      const st = A.Balance.enemyStats(tier, category);
+      const fm = familyMods(family);
+      return {
+        health: st.health,
+        damage: st.damage,
+        damageAvg: st.damageAvg,
+        attack: st.attack,
+        difficulty: st.difficulty,
+        armor: st.armor + Math.min(2, Math.round(fm.armor / 3)),
+        speed: speed || (8 + Math.floor(Math.max(1, tier) / 3) + fm.speed),
+      };
+    }
     const t = Math.max(1, Math.min(10, tier));
-    const baseHp = 8 * t;
-    const baseDmg = 2 * t;
-    const baseDiff = 6 + Math.floor(t / 2);
-    const baseArmor = Math.floor(t / 3);
-    const baseSpeed = 8 + Math.floor(t / 3);
-
     const mult = CATEGORY_MULT[category] || 1;
     const fm = familyMods(family);
-
-    const dmgAvg = baseDmg * mult * fm.dmg;
+    const dmgAvg = 2 * t * mult * fm.dmg;
     return {
-      health: Math.round(baseHp * mult * fm.hp),
-      damage: damageToNotation(dmgAvg), // notación de dados, no número plano
-      damageAvg: dmgAvg,                // por si lo necesitan internamente
-      difficulty: Math.max(6, Math.min(20, baseDiff + fm.diff)),
-      armor: baseArmor + fm.armor,
-      speed: baseSpeed + fm.speed,
+      health: Math.round(8 * t * mult * fm.hp),
+      damage: damageToNotation(dmgAvg),
+      damageAvg: dmgAvg,
+      difficulty: Math.max(6, Math.min(20, 6 + Math.floor(t / 2) + fm.diff)),
+      armor: Math.floor(t / 3) + fm.armor,
+      speed: 8 + Math.floor(t / 3) + fm.speed,
     };
   }
 
@@ -139,7 +150,7 @@
   function auditEnemy(enemy) {
     const sug = suggestEnemyStats(enemy);
     const out = [];
-    const fields = ['health', 'damage', 'difficulty', 'armor', 'speed'];
+    const fields = ['health', 'damage', 'attack', 'difficulty', 'armor'];
     for (const f of fields) {
       const cur = enemy[f] ?? 0;
       // Para damage comparamos promedios de la notación
@@ -175,9 +186,9 @@
     const fields = [
       { key: 'health', label: 'Salud (HP)' },
       { key: 'damage', label: 'Daño' },
-      { key: 'difficulty', label: 'Dificultad' },
+      { key: 'attack', label: 'Ataque' },
+      { key: 'difficulty', label: 'Defensa' },
       { key: 'armor', label: 'Armadura' },
-      { key: 'speed', label: 'Velocidad' },
     ];
     for (const f of fields) {
       const cur = enemy[f.key];
@@ -222,7 +233,8 @@
   /**
    * Sugiere stats de items según tier y rarity.
    */
-  function suggestItemValue({ tier = 1, rarity = 'common' } = {}) {
+  function suggestItemValue({ tier = 1, rarity = 'common', type } = {}) {
+    if (A.Balance) return A.Balance.Economy.gearPrice(tier, rarity, type === 'armor' ? 'armor' : 'weapon');
     const t = Math.max(1, Math.min(10, tier));
     const rarMult = { common: 1, uncommon: 3, rare: 8, epic: 25, legendary: 80 }[rarity] || 1;
     return Math.round(20 * t * rarMult);

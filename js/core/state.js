@@ -141,8 +141,15 @@
         }
       }
 
-      if (!p.schemaVersion || p.schemaVersion < 15) {
-        p.schemaVersion = 15;
+      // v1.8.0: mascota con dieta, saciedad y stats por nivel; contador de pasos
+      if (p.pet && !p.pet.profile && A.Tame && A.Tame.upgradeLegacyPet) {
+        A.Tame.upgradeLegacyPet(p.pet);
+        dirty = true;
+      }
+      if (typeof p.travelSteps === 'undefined') { p.travelSteps = 0; dirty = true; }
+
+      if (!p.schemaVersion || p.schemaVersion < 16) {
+        p.schemaVersion = 16;
         dirty = true;
       }
       if (dirty) {
@@ -218,15 +225,18 @@
           damage: stats.damage,
           dodge: stats.dodge,
         },
-        equipment: { weapon: null, armor: null },
+        // v1.8.0: todas las razas arrancan con el MISMO equipo (justo para todos).
+        // Los que usan magia arrancan sabiendo Chispa.
+        equipment: { weapon: 'daga', armor: 'tunica_cuero' },
         inventory: [
           { itemId: 'pocion_curacion_menor', qty: 2 },
-          { itemId: 'pan', qty: 2 },
+          { itemId: 'pan', qty: 3 },
           { itemId: 'carne_cruda', qty: 2 },
-          { itemId: 'coin_copper', qty: 50 }, // 50 cobre inicial
+          { itemId: 'coin_copper', qty: 30 },
         ],
-        spells: [],
-        schemaVersion: 15,
+        spells: hasMagic ? ['chispa'] : [],
+        travelSteps: 0,
+        schemaVersion: 16,
       };
 
       State.world = {
@@ -289,6 +299,8 @@
       if (!State.player) return;
       State.setHp(State.player.maxHp);
       State.setMana(State.player.maxMana);
+      // v1.8.0: descansar también cura, despierta y alimenta a la mascota
+      if (State.player.pet && A.Tame && A.Tame.restPet) A.Tame.restPet();
     },
 
     // ---------- Travel ----------
@@ -448,6 +460,13 @@
      */
     consumeFoodForStep() {
       if (!State.player) return;
+      // v1.8.0: se come 1 cada 2 pasos (Balance.Travel.STEPS_PER_FOOD).
+      // La mascota también gasta saciedad al viajar.
+      const p = State.player;
+      p.travelSteps = (p.travelSteps || 0) + 1;
+      if (A.Tame && A.Tame.onTravelStep) A.Tame.onTravelStep(p.travelSteps);
+      const every = (A.Balance && A.Balance.Travel.STEPS_PER_FOOD) || 1;
+      if (p.travelSteps % every !== 0) return;
       if (A.Survival && typeof A.Survival.applyTurnTick === 'function') {
         A.Survival.applyTurnTick('travel-step');
         return;

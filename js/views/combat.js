@@ -153,7 +153,7 @@
     const effSpeed = A.Combat.effectivePlayerSpeed ? A.Combat.effectivePlayerSpeed(p) : baseSpeed;
     const speedDelta = effSpeed - baseSpeed;
     const speedLabel = speedDelta < 0 ? `${effSpeed}<span class="ally-stat-delta">${speedDelta}</span>` : `${effSpeed}`;
-    const xpToNext = 50 * (p.level + 1) * (p.level + 1);
+    const xpToNext = A.Progression ? A.Progression.xpForLevel(p.level + 1) : 50 * (p.level + 1) * (p.level + 1);
     const hpPct = pct(p.hp, p.maxHp);
     const hpColorClass = hpPct < 25 ? 'is-critical' : hpPct < 50 ? 'is-warning' : '';
 
@@ -336,10 +336,11 @@
       if (enemyData && enemyData.tameable) {
         const check = A.Tame.canTame(enemyData.id, onlyOne.instanceId);
         if (check.ok) {
+          // v1.8.0: la chance sube cuanto más herida está la criatura
           tameInfo = {
             enemyId: enemyData.id,
             instanceId: onlyOne.instanceId,
-            chance: A.Tame.chanceFor ? Math.round(A.Tame.chanceFor(enemyData) * 100) : null,
+            chance: Math.round(A.Tame.chanceFor(enemyData, onlyOne) * 100),
             requiredItem: check.requiredItemId,
           };
         } else if (check.reason === 'missing-item') {
@@ -355,6 +356,11 @@
           tameInfo = {
             disabled: true,
             tooltip: 'Esta criatura ya desconfía de vos',
+          };
+        } else if (check.reason === 'level-too-low') {
+          tameInfo = {
+            disabled: true,
+            tooltip: `Necesitás nivel ${check.requiredLevel} para domarla`,
           };
         }
       }
@@ -397,9 +403,11 @@
     const c = A.State.combat;
     const isVictory = c.result === 'victory';
     const isDefeat = c.result === 'defeat';
-    const title = isVictory ? '¡Victoria!' : isDefeat ? 'Caíste...' : 'Escapaste';
-    const icon = isVictory ? '🏆' : isDefeat ? '💀' : '🏃';
-    const subtitle = isVictory ? `Venciste el encuentro.`
+    const isTamed = c.result === 'tamed';
+    const title = isTamed ? '¡Domesticada!' : isVictory ? '¡Victoria!' : isDefeat ? 'Caíste...' : 'Escapaste';
+    const icon = isTamed ? '🐾' : isVictory ? '🏆' : isDefeat ? '💀' : '🏃';
+    const subtitle = isTamed ? `Tenés una nueva mascota. Alimentala con lo que come y descansá para curarla.`
+                  : isVictory ? `Venciste el encuentro.`
                   : isDefeat ? `Despertás en el pueblo. Necesitas curarte.`
                   : `Lograste escapar.`;
 
@@ -454,12 +462,13 @@
 
     // 1) Tirada de impacto
     if (entry.roll) {
-      const totalPart = entry.bonus ? ` +${entry.bonus} = <strong>${entry.total}</strong>` : '';
+      const totalPart = entry.bonus ? ` ${entry.bonus > 0 ? '+' : '−'}${Math.abs(entry.bonus)} = <strong>${entry.total}</strong>` : '';
+      const vsPart = entry.vs != null ? ` vs ${A.Utils.escapeHtml(entry.vsLabel || 'defensa')} <strong>${entry.vs}</strong>` : '';
       parts.push(`
         <div class="log-line log-sub">
           <span class="log-tree">├─</span>
           <span class="die-pill" title="Dado de impacto">${entry.roll}</span>
-          <span class="log-text">Ataque: D20=<strong>${entry.roll}</strong>${totalPart}</span>
+          <span class="log-text">D20=<strong>${entry.roll}</strong>${totalPart}${vsPart}</span>
         </div>
       `);
     }
@@ -483,7 +492,7 @@
         <div class="log-line log-sub result-crit">
           <span class="log-tree">├─</span>
           <span class="log-icon">★</span>
-          <span class="log-text">¡Crítico! Daño x2 (no se puede esquivar)</span>
+          <span class="log-text">¡Crítico! Daño x2 (pega siempre)</span>
         </div>
       `);
     } else if (entry.result === 'fumble') {
@@ -578,24 +587,16 @@
         else if (action === 'show-full-log') A.State.openModal('combat-full-log');
         else if (action === 'tame') {
           // v1.6.4: Domesticación contextual desde combate
-          const enemyId = b.dataset.tameEnemyId;
+          // v1.8.0: domar usa tu turno; si falla, siguen los enemigos
           const instanceId = b.dataset.tameInstanceId;
-          if (enemyId && A.Tame) {
-            const result = A.Tame.attempt(enemyId, instanceId);
-            if (result && result.success) {
-              // Se domó: el combate termina (la mascota ya está asignada al player)
-              A.Combat.endCombatTamed && A.Combat.endCombatTamed();
-              if (!A.Combat.endCombatTamed) {
-                // Fallback: forzar fin del combate
-                if (A.State.combat) A.State.combat.result = 'tamed';
-                A.Bus.emit('combat:ended', { result: 'tamed' });
-              }
-            }
+          if (instanceId && A.Combat.playerTame) {
+            A.Combat.playerTame(instanceId);
             render();
           }
         }
         else if (action === 'finish') {
-          const wasVictory = A.State.combat && A.State.combat.result === 'victory';
+          const res = A.State.combat && A.State.combat.result;
+          const wasVictory = res === 'victory' || res === 'tamed';
           const fromTravel = A.State.combat && A.State.combat.fromTravel;
           A.Combat.finish();
           if (wasVictory && fromTravel && A.State.traveling) A.Travel.step();
