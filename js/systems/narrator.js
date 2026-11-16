@@ -298,6 +298,10 @@
       if (fx.actor === 'player') {
         const w = playerWeapon();
         Object.assign(v, { e: enemyNoun(targetInst), E: cap(enemyNoun(targetInst)), w: w.noun });
+        // v2.1.1: golpe fuerte del guerrero
+        if (entry.power && entry.result === 'crit') return { text: fill(pick(['¡Golpe fuerte y crítico! Tu {w} cae con todo sobre {e}: {d} de daño.', '¡Golpe fuerte y crítico! Partís la guardia de {e}: {d} de daño.']), v), tone: 'crit' };
+        if (entry.power && entry.result === 'hit') return { text: fill(pick(['¡Golpe fuerte! Tu {w} cae con todo sobre {e}: {d} de daño.', '¡Golpe fuerte! Cargás todo tu peso contra {e}: {d} de daño.', '¡Golpe fuerte! {E} recibe el golpe de lleno: {d} de daño.']), v), tone: 'crit' };
+        if (entry.power && entry.result !== 'fumble') return { text: fill(pick(['Cargás un golpe fuerte, pero {e} lo esquiva.', 'Tu golpe fuerte pasa de largo: {e} se agachó a tiempo.']), v), tone: 'neutral' };
         if (entry.result === 'crit' && entry.passive === 'golpe_gigante') return { text: fill(pick(['¡Golpe de gigante! Tu {w} aplasta a {e}: {d} de daño.', '¡Golpe de gigante! Descargás todo tu peso sobre {e}: {d} de daño.']), v), tone: 'crit' };
         if (entry.result === 'crit' && entry.passive === 'ojo_certero') return { text: fill(pick(['¡Ojo certero! Le das a {e} justo donde duele: {d} de daño.', '¡Ojo certero! Encontrás el hueco en la guardia de {e}: {d} de daño.']), v), tone: 'crit' };
         if (entry.result === 'crit') return { text: fill(pick(PLAYER_CRIT), v), tone: 'crit' };
@@ -411,6 +415,7 @@
     if (fx.kind === 'reward') {
       if (fx.xp) return { text: `Ganás ${fx.xp} de experiencia.`, tone: 'good' };
       if (fx.mana) return { text: `Respirás hondo y recuperás ${fx.mana} de maná.`, tone: 'good' };
+      if (fx.hp) return { text: `Te vendás las heridas y recuperás ${fx.hp} de vida.`, tone: 'good' };
       if (fx.coins) return { text: `Juntás ${coinsInWords(fx.coins)}.`, tone: 'good' };
       if (fx.items && fx.items.length) {
         const list = fx.items.map((it) => {

@@ -253,7 +253,7 @@
     const isFlee = entry.fx && entry.fx.kind === 'flee';
     if (isFlee) return entry.result === 'hit' ? { cls: 'hit', text: '¡Escapás!' } : { cls: 'miss', text: 'No lográs huir' };
     if (entry.result === 'crit') return { cls: 'crit', text: '¡Crítico!' };
-    if (entry.result === 'hit') return { cls: 'hit', text: '¡Impacto!' };
+    if (entry.result === 'hit') return entry.power ? { cls: 'crit', text: '¡Golpe fuerte!' } : { cls: 'hit', text: '¡Impacto!' };
     if (entry.result === 'fumble') return { cls: 'fumble', text: '¡Pifia!' };
     return { cls: 'miss', text: 'Esquiva' };
   }

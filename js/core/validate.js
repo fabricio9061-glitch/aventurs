@@ -10,7 +10,7 @@
 (function (A) {
   'use strict';
 
-  function run() {
+  function run(opts = {}) {
     const out = [];
     const D = A.Data;
     if (!D) return out;
@@ -140,7 +140,37 @@
       }
     }
 
-    if (out.length) {
+    // ---------- v2.2: misiones y escenas ----------
+    const npcIds = new Set(D.npcs.map((n) => n.id));
+    const enemyIds = new Set(D.enemies.map((e) => e.id));
+    const anyItem = (id) => itemIds.has(id) || !!D.weapons.find((w) => w.id === id) || !!D.armors.find((a) => a.id === id);
+    const questIds = new Set((D.quests || []).map((q) => q.id));
+    for (const q of D.quests || []) {
+      const name = q.title || q.id;
+      if (q.giver && !npcIds.has(q.giver)) out.push({ level: 'error', collection: 'quests', entityId: q.id, msg: `"${name}" la da alguien que no existe ("${q.giver}").` });
+      if (!Array.isArray(q.objectives) || !q.objectives.length) out.push({ level: 'warn', collection: 'quests', entityId: q.id, msg: `"${name}" no tiene objetivos: se cumple sola.` });
+      for (const o of q.objectives || []) {
+        if (o.type === 'kill') {
+          for (const id of (Array.isArray(o.enemy) ? o.enemy : [o.enemy])) if (!enemyIds.has(id)) out.push({ level: 'error', collection: 'quests', entityId: q.id, msg: `"${name}" pide derrotar una criatura que no existe ("${id}").` });
+        }
+        if ((o.type === 'collect' || o.type === 'have') && !anyItem(o.item)) out.push({ level: 'error', collection: 'quests', entityId: q.id, msg: `"${name}" pide un objeto que no existe ("${o.item}").` });
+        if ((o.type === 'explore' || o.type === 'visit') && !regionIds.has(o.region)) out.push({ level: 'error', collection: 'quests', entityId: q.id, msg: `"${name}" manda a un lugar que no existe ("${o.region}").` });
+        if (o.type === 'talk' && !npcIds.has(o.npc)) out.push({ level: 'error', collection: 'quests', entityId: q.id, msg: `"${name}" pide hablar con alguien que no existe ("${o.npc}").` });
+      }
+      for (const [id] of ((q.reward || {}).items || [])) if (!anyItem(id)) out.push({ level: 'error', collection: 'quests', entityId: q.id, msg: `"${name}" da de premio un objeto que no existe ("${id}").` });
+      if (q.requires && !questIds.has(q.requires)) out.push({ level: 'error', collection: 'quests', entityId: q.id, msg: `"${name}" espera una misión que no existe ("${q.requires}").` });
+      if (q.next && !questIds.has(q.next)) out.push({ level: 'error', collection: 'quests', entityId: q.id, msg: `"${name}" sigue con una misión que no existe ("${q.next}").` });
+    }
+    for (const ev of D.events || []) {
+      const name = ev.title || ev.id;
+      if (!Array.isArray(ev.options) || !ev.options.length) out.push({ level: 'error', collection: 'events', entityId: ev.id, msg: `"${name}" no tiene opciones para elegir.` });
+      for (const o of ev.options || []) {
+        for (const r of [o.ok, o.fail]) for (const it of (r && r.items) || []) if (!anyItem(it[0])) out.push({ level: 'error', collection: 'events', entityId: ev.id, msg: `"${name}" da un objeto que no existe ("${it[0]}").` });
+      }
+      for (const rid of ev.regions || []) if (!regionIds.has(rid)) out.push({ level: 'error', collection: 'events', entityId: ev.id, msg: `"${name}" es de un lugar que no existe ("${rid}").` });
+    }
+
+    if (out.length && !opts.quiet) {
       console.warn('[Validate] Avisos:', out);
     }
     return out;

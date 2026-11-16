@@ -156,7 +156,8 @@
      * así que compensan con más vida; los magos con más maná).
      */
     gainsForLevel(newLevel, hasMagic, combatType) {
-      const HP_BY_TYPE = { warrior: 6, hybrid: 6, mage: 4 };
+      // v2.1.1: el guerrero es el que más aguanta
+      const HP_BY_TYPE = { warrior: 7, hybrid: 6, mage: 4 };
       return {
         maxHp: HP_BY_TYPE[combatType] || 6,
         precision: 1,
@@ -215,6 +216,26 @@
   function classOf(p) {
     const race = p && A.Data && A.Data.getById ? A.Data.getById('races', p.raceId) : null;
     return (race && race.combatType) || 'hybrid';
+  }
+
+  /**
+   * v2.1.1: Golpe fuerte de los guerreros (su "hechizo"): doble daño,
+   * y después hay que esperar unos turnos. null si no es guerrero.
+   */
+  const WARRIOR_POWER = { mult: 2, cooldown: 4 };
+  function warriorPower(p) {
+    return classOf(p) === 'warrior' ? { ...WARRIOR_POWER } : null;
+  }
+
+  /**
+   * v2.1.1: vida que se recupera al ganar una pelea (parte de la vida máxima).
+   * Por ahora ninguna clase la trae de base; una raza puede tenerla (hpRegen.win).
+   */
+  function hpRegenOf(p) {
+    if (!p) return { win: 0 };
+    const race = A.Data && A.Data.getById ? A.Data.getById('races', p.raceId) : null;
+    if (race && race.hpRegen && typeof race.hpRegen.win === 'number') return { win: race.hpRegen.win };
+    return { win: 0 };
   }
 
   function weaponFit(p, weapon) {
@@ -379,6 +400,8 @@
     playerCombatStats,
     weaponFit,
     manaRegenOf,
+    hpRegenOf,
+    warriorPower,
     spellPowerOf,
     classOf,
     statusMods,

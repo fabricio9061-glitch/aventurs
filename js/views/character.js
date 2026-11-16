@@ -26,10 +26,10 @@
     { type: 'mage', name: 'Magos', desc: 'Magia en cada turno: el maná les vuelve solo' },
   ];
 
-  const TYPE_LINE = { hybrid: 'Híbrido · arma y algo de magia', warrior: 'Guerrero · maestría con armas', mage: 'Mago · el maná le vuelve solo' };
+  const TYPE_LINE = { hybrid: 'Híbrido · arma y algo de magia', warrior: 'Guerrero · golpe fuerte y mucha vida', mage: 'Mago · el maná le vuelve solo' };
   const TYPE_KIT = {
     hybrid: 'Usa cualquier arma sin problema. Su maná no vuelve solo: lo recupera con pociones o durmiendo, así que sus hechizos son para los momentos clave.',
-    warrior: 'Maestría: +1 de daño con cualquier arma (+2 desde el nivel 5) y +1 de precisión con armas pesadas.',
+    warrior: 'Golpe fuerte: doble daño, una vez cada 4 turnos. Maestría: +1 de daño con cualquier arma (+2 desde el nivel 5) y +1 de precisión con armas pesadas. Es el que más vida gana al subir de nivel.',
     mage: 'Vive de la magia. Las armas pesadas le quitan 3 de precisión, y es el más frágil de todos.',
   };
 

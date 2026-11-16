@@ -19,7 +19,8 @@
 (function (A) {
   'use strict';
 
-  function list() { return (A.Seed && A.Seed.quests) || []; }
+  // v2.2: las misiones también se pueden editar (Data.quests = juego + cambios del editor)
+  function list() { return (A.Data && A.Data.quests && A.Data.quests.length ? A.Data.quests : (A.Seed && A.Seed.quests)) || []; }
   function get(id) { return list().find((q) => q.id === id) || null; }
   function player() { return A.State.player; }
 

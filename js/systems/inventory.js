@@ -88,6 +88,7 @@
     p.equipment[slotName] = null;
     A.State.addItem(equippedId, 1);
     A.Bus.emit('inventory:unequipped', { slot: slotName, itemId: equippedId });
+    A.Bus.emit('inventory:changed');
     A.State.persist();
     return true;
   }

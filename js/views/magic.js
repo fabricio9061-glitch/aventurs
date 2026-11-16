@@ -62,7 +62,7 @@
         <div class="spell-icon">${A.ItemSprites && A.ItemSprites.spellIcon ? A.ItemSprites.spellIcon(s, { size: 32 }) : ''}</div>
         <div class="spell-name">${A.Utils.escapeHtml(s.name)}</div>
         <div class="spell-value num">${value}</div>
-        <div class="spell-cost dim">Maná ${cost}${cost < s.manaCost ? ` <s>${s.manaCost}</s>` : ''} · T${s.tier}</div>
+        <div class="spell-cost dim">Maná ${cost}${cost < s.manaCost ? ` <s>${s.manaCost}</s>` : ''} · Nivel ${s.tier}</div>
         <p class="spell-desc">${A.Utils.escapeHtml(s.description || '')}</p>
       </div>
     `;

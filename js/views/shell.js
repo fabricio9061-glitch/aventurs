@@ -69,7 +69,7 @@
         </div>
 
         <footer class="shell-footer">
-          <span class="version-pill">v2.1.0</span>
+          <span class="version-pill">v2.2.0</span>
         </footer>
       </div>
     `;

@@ -82,7 +82,8 @@
    * Genera un grupo de enemigos para la región dada.
    * Devuelve array de instancias (puede estar vacío si no hay candidatos).
    */
-  function generate(regionId) {
+  /** opts.level: nivel a usar en vez del tuyo (lo usa el editor para probar zonas). */
+  function generate(regionId, opts = {}) {
     const conf = configFor(regionId);
     if (!conf) return [];
     const { region, cfg } = conf;
@@ -93,7 +94,7 @@
     // Cantidad de enemigos
     // v2.1: mientras no llegues al tier más alto de la zona, los grupos son de uno menos
     const topTier = (region.tier && region.tier[1]) || 1;
-    const lvlNow = playerLevel();
+    const lvlNow = opts.level != null ? opts.level : playerLevel();
     const maxE = Math.max(cfg.minEnemies || 1, (cfg.maxEnemies || 1) - (lvlNow < topTier && (cfg.maxEnemies || 1) > 2 ? 1 : 0));
     const count = randInt(cfg.minEnemies || 1, maxE);
     if (count <= 0) return [];
@@ -107,8 +108,8 @@
 
     // Pesos por categoría desde la región (filtrar sólo categorías con candidatos)
     // v2.1: cada categoría pesa según qué tan accesibles son sus criaturas para tu nivel
-    const lvl = playerLevel();
-    targetsCache = questTargets();
+    const lvl = opts.level != null ? opts.level : playerLevel();
+    targetsCache = opts.level != null ? new Set() : questTargets();
     const sw = cfg.spawnWeights || {};
     const catWeights = {};
     for (const cat of ['weak', 'normal', 'strong', 'boss']) {

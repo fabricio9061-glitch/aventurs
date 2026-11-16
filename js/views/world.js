@@ -431,7 +431,7 @@
             <div class="encounter-title-v2">${isGroup ? `Aparecieron ${groupSize} enemigos` : `Apareció ${A.Utils.escapeHtml(ev.enemyName)}`}</div>
             <div class="encounter-meta-v2">
               ${isGroup ? `<span class="dim">${A.Utils.escapeHtml(ev.enemyName)}</span>` : `
-                <span class="pill pill-tier">Tier ${ev.tier}</span>
+                <span class="pill pill-tier">Nivel ${ev.tier}</span>
                 <span class="pill pill-cat-${ev.category || 'normal'}">${categoryLabel(ev.category)}</span>
                 ${enemy && A.ItemSprites && A.ItemSprites.dcBadge ? A.ItemSprites.dcBadge(enemy.difficulty != null ? enemy.difficulty : 10, { size: 26 }) : ''}
                 ${ev.tameable ? `<span class="pill pill-tameable">${icon('paw', 14)} Domable</span>` : ''}
@@ -569,7 +569,7 @@
           <div class="travel-name">${A.Utils.escapeHtml(n.name)}</div>
           <div class="travel-meta">
             <span class="pill ${dangerClass}">${dangerLabel}</span>
-            <span class="pill pill-tier">T${n.tier[0]}–${n.tier[1]}</span>
+            <span class="pill pill-tier">Nivel ${n.tier[0]}${n.tier[1] !== n.tier[0] ? `–${n.tier[1]}` : ''}</span>
             <span class="dim">${dist === 1 ? 'Cerca' : dist === 2 ? 'Medio camino' : 'Lejos'}</span>
             ${enemiesCount ? `<span class="dim">· ${enemiesCount} criaturas</span>` : ''}
           </div>

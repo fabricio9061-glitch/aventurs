@@ -254,7 +254,10 @@
   function eventsFor(region) {
     const all = (A.Data.events && A.Data.events.length ? A.Data.events : (A.Seed.events || []));
     const recent = new Set(recentList());
-    const fits = all.filter((e) => (e.biomes || ['any']).some((b) => b === 'any' || b === region.biome));
+    // v2.2: una escena puede ser de zonas puntuales (regions) además de biomas
+    const fits = all.filter((e) => (Array.isArray(e.regions) && e.regions.length
+      ? e.regions.includes(region.id)
+      : (e.biomes || ['any']).some((b) => b === 'any' || b === region.biome)));
     const fresh = fits.filter((e) => !recent.has(e.id));
     return fresh.length ? fresh : fits;
   }
@@ -386,8 +389,8 @@
   }
 
   function buildScene(region) {
-    // 1) Eventos cargados a mano en el editor (los del juego base ya son escenas)
-    if (region._source === 'editor' && Array.isArray(region.events)) {
+    // 1) Sucesos cargados a mano en el editor (los del juego base ya son escenas)
+    if (region._source === 'editor' && (!region._patched || region._patched.includes('events')) && Array.isArray(region.events)) {
       for (const ev of region.events) {
         if (Math.random() * 100 < (ev.chance || 0)) {
           const sc = customScene(region, ev);

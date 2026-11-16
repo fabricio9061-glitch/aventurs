@@ -15,9 +15,9 @@ aventurs/
 │   ├── tokens.css          Variables visuales
 │   ├── base.css            Reset + tipografía
 │   ├── game.css            Estilos del juego (shell, sidebar, tabs, modales)
-│   ├── editor.css          Estilos del editor admin
 │   ├── theme.css           Tema "Mezcla" (v1.9.0)
-│   └── v2.css              Pantallas de la v2.0 (escenas, tienda, diario, mapa): va última
+│   ├── v2.css              Pantallas de la v2.0 (escenas, tienda, diario, mapa)
+│   └── editor2.css         Editor del mundo (v2.2)
 ├── js/
 │   ├── core/
 │   │   ├── utils.js        Dados, clamp, escapeHtml, etc.
@@ -25,20 +25,20 @@ aventurs/
 │   │   ├── balance.js      TODAS las fórmulas de balance (v1.8.0)
 │   │   ├── sprites.js      Dibujos pixel art 32×32 de criaturas y personajes (v1.9.0)
 │   │   ├── item-sprites.js Dibujos pixel art 32×32 de ítems e íconos de interfaz (v1.9.1)
-│   │   ├── data.js         Loader de seeds + merge con overrides del editor
+│   │   ├── data.js         Loader de seeds + cambios del editor (parches por id)
 │   │   ├── state.js        Estado de partida + persistencia
-│   │   ├── validate.js     Chequeos de coherencia (refs, regiones vacías, domables)
-│   │   └── auto/
-│   │       ├── autobalance.js    Sugerencias del editor (usa balance.js)
-│   │       └── autoloot.js       Sugerencias de drops por familia/tags
+│   │   └── validate.js     Chequeos de coherencia (refs, regiones vacías, misiones, escenas)
 │   ├── data/               Seeds: races, regions, enemies, items, weapons,
 │   │                       armors, spells, recipes, npcs, bags,
 │   │                       events (escenas al explorar), quests (misiones)
 │   ├── systems/            Combat, Encounter, Travel, Tame (mascotas),
 │   │                       Inventory, Currency, Crafting, NPC,
 │   │                       Explore (escenas y descanso), Quests (misiones)
+│   ├── editor/             Editor del mundo (v2.2): ed-core (guardado por parches),
+│   │                       ed-fields (campos), ed-schema (qué se edita de cada cosa),
+│   │                       ed-panels, ed-sim (prueba de combate), ed-map, ed-view
 │   ├── views/              Shell, Character, World, Map, Inventory, Magic,
-│   │                       Chronicles, Combat, Modals, Editor
+│   │                       Chronicles, Combat, Modals
 │   │                       combat-fx.js: dado D20 y animaciones de combate
 │   │                       ui-kit.js, event.js, npc.js, journal.js (v2.0)
 │   └── app.js              Bootstrap
@@ -121,7 +121,7 @@ en `css/theme.css`.
 - 204 ítems (armas, armaduras, pociones, comida, materiales, gemas, llaves, mochilas)
 
 Un enemigo o ítem nuevo del editor recibe dibujo automático (por familia/tags o por
-palabras del nombre). En el editor de enemigos, la sección *Apariencia* permite copiar
+palabras del nombre). En el editor de criaturas, la sección *Apariencia* permite copiar
 la forma de otra criatura y cambiar colores.
 
 **Combate**: el D20 rueda en el centro de la arena y cae en el número real (dorado en
@@ -208,7 +208,37 @@ Explorar siempre hace pasar algo (`js/systems/explore.js` + `js/data/seed-events
 - Diario de viaje: misiones y crónicas agrupadas por día y lugar (las líneas repetidas
   se cuentan con ×N).
 - En el celular, una franja arriba con vida, maná, comida y dinero.
-- Sin emojis en el juego (el editor todavía los usa para cargar íconos).
+- Sin emojis en el juego (desde la v2.2, tampoco en el editor).
+
+## Versión 2.2: editor del mundo nuevo
+
+El editor se rehizo de cero (`js/editor/`, `css/editor2.css`). Se abre con el botón
+**Editor** de arriba (o desde la creación de personaje).
+
+- **Pantalla**: tipos a la izquierda, lista con buscador y filtros en el medio, ficha a la
+  derecha. En el celular se ve una por vez, con flecha para volver.
+- **Qué se edita**: zonas y pueblos, escenas, criaturas, habitantes, razas, misiones,
+  objetos, armas, armaduras, mochilas, recetas y hechizos. Las misiones y las escenas
+  ahora también se pueden cambiar (`Data.quests`, `Data.events`).
+- **Campos claros**: cada número dice para qué sirve; los dados muestran su rango
+  ("1d8+1: de 2 a 9"); para elegir criaturas, objetos o lugares se usa una lista con
+  buscador y dibujitos, sin escribir códigos.
+- **Guardar**: la ficha es un borrador; nada cambia en el juego hasta tocar **Guardar**
+  (o Ctrl+S). Se guarda **solo lo que cambiaste** (un parche por cosa): lo que no tocaste
+  se sigue actualizando con cada versión nueva del juego.
+- **Cambios**: lista de todo lo que cambiaste, dato por dato, con "Volver al original".
+  Los cambios del editor viejo (copias completas) se marcan para revisarlos.
+- **Revisar**: problemas del mundo (zonas sin criaturas, caminos o misiones que apuntan a
+  cosas que no existen...). Tocás uno y se abre la ficha.
+- **Mapa**: arrastrá lugares para moverlos, uní o separá caminos, creá una zona nueva
+  tocando el mapa. Los caminos siempre van en las dos direcciones.
+- **Prueba de combate**: en cada criatura, cientos de peleas rápidas contra un aventurero
+  humano de prueba del nivel que elijas; dice cuánto gana y si es pareja con las criaturas
+  del juego del mismo tipo. En las zonas, lo mismo con las peleas típicas de la zona.
+- **Zonas**: en la ficha se ven y se cambian las criaturas que viven ahí y los habitantes.
+- **Escenas por lugar**: una escena puede ser de lugares puntuales (`regions`), no solo de
+  un paisaje.
+- **Exportar / Importar**: un archivo `.json` con tus cambios, para pasarlos a otra compu.
 
 ## Versión 2.1
 
@@ -232,7 +262,7 @@ Explorar siempre hace pasar algo (`js/systems/explore.js` + `js/data/seed-events
 
 ### Clases y maná
 - **Guerreros**: sin magia; maestría con armas (+1 de daño, +2 desde nivel 5, +3 desde
-  nivel 9) y +1 de precisión con armas pesadas. +6 de vida por nivel.
+  nivel 9), +1 de precisión con armas pesadas y Golpe fuerte (v2.1.1). +7 de vida por nivel.
 - **Magos** (Gnomo, Alienígena, Infernal, Ángel): el maná les vuelve solo, en cada turno
   (desde la segunda ronda) y al ganar. Cada raza recupera distinto (`manaRegen` en la
   raza): Gnomo 1 por turno, Alienígena 2 (Mente expansiva), Infernal 1, Ángel 1. Poder
@@ -245,6 +275,16 @@ Explorar siempre hace pasar algo (`js/systems/explore.js` + `js/data/seed-events
   (Dracónido), Descarga (Gnomo), Rayo de plasma (Alienígena), Ascua infernal
   (Infernal) y Luz sagrada (Ángel). No se venden ni se enseñan.
 - Los hechizos de curación suman solo la mitad del poder mágico.
+
+### v2.1.1: guerreros y equipo
+- **Golpe fuerte** (solo guerreros): un botón en combate que ataca con el doble de
+  daño. Después hay que esperar 4 turnos para volver a usarlo (`Balance.warriorPower`).
+- Los guerreros ganan **+7 de vida por nivel** (híbridos 6, magos 4).
+- Con esto los guerreros terminan las peleas con tanta vida como los magos y las
+  ganan más rápido (medido con `tools/simulador.js`).
+- Ya se puede **quitar el arma y la armadura**: tocá la pieza en la barra lateral y
+  elegí "Quitar" (vuelve a la mochila).
+- Las armaduras muestran "Armadura" (lo que se resta de cada golpe) y "Nivel" en vez de "Tier".
 
 ### Números claros
 - "Ataque" ahora se llama **Precisión**: lo que se suma al dado de 20 para acertar.

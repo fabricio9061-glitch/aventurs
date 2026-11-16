@@ -135,7 +135,7 @@
     }
     // Armadura: mostrar defensa
     else if (A.Data.getById('armors', itemId)) {
-      mainBadge = `<span class="item-stat-pill item-stat-pill-def" title="Defensa">${pxi('shield', 14)} ${data.defense || 0}</span>`;
+      mainBadge = `<span class="item-stat-pill item-stat-pill-def" title="Armadura: se resta de cada golpe">${pxi('shield', 14)} ${data.defense || 0}</span>`;
     }
     // Bolsa: slots
     else if (data.subtype === 'bag') {
@@ -267,7 +267,7 @@
                   <div class="learn-icon">${A.ItemSprites ? A.ItemSprites.spellIcon(s, { size: 28 }) : ''}</div>
                   <div class="learn-info">
                     <div class="learn-name">${A.Utils.escapeHtml(s.name)}</div>
-                    <div class="learn-meta dim">${dmgStr}${dmgStr ? ' · ' : ''}Maná ${s.manaCost} · T${s.tier}</div>
+                    <div class="learn-meta dim">${dmgStr}${dmgStr ? ' · ' : ''}Maná ${s.manaCost} · Nivel ${s.tier}</div>
                     <div class="learn-desc dim">${A.Utils.escapeHtml(s.description || '')}</div>
                   </div>
                   <div class="learn-price num">${price}c</div>
@@ -375,22 +375,27 @@
 
   // ---------- Item Detail ----------
 
-  function renderItemDetail({ itemId }) {
+  function renderItemDetail({ itemId, equipped }) {
     const data = A.Inventory.resolveData(itemId);
     if (!data) return modalShell('Item', `<p class="muted">No encontrado.</p>`);
 
     const kind = A.Inventory.classifyItem(itemId);
     const slot = A.State.player.inventory.find((s) => s.itemId === itemId);
     const qty = slot ? slot.qty : 0;
+    // v2.1.1: abierto desde lo que tenés puesto (o no está en la mochila): se puede quitar
+    const eq = A.State.player.equipment || {};
+    const isWorn = (kind === 'weapon' && eq.weapon === itemId) || (kind === 'armor' && eq.armor === itemId);
+    const wornView = isWorn && (!!equipped || !slot);
 
     let stats = '';
     const slotsLine = data.slots && data.slots > 1
       ? `<div class="detail-stat"><span class="dim">Slots</span><span class="num">${data.slots} (voluminoso)</span></div>`
       : '';
     if (kind === 'weapon') {
+      const rg = A.Balance && A.Balance.rangeOf ? A.Balance.rangeOf(data.damage) : null;
       stats = `
-        <div class="detail-stat"><span class="dim">Daño</span><span class="num">${data.damage}</span></div>
-        <div class="detail-stat"><span class="dim">Tier</span><span class="num">${data.tier}</span></div>
+        <div class="detail-stat"><span class="dim">Daño</span><span class="num">${data.damage}${rg ? ` <span class="dim">(de ${rg.min} a ${rg.max})</span>` : ''}</span></div>
+        <div class="detail-stat"><span class="dim">Nivel</span><span class="num">${data.tier}</span></div>
         <div class="detail-stat"><span class="dim">Rareza</span><span>${rarityLabel(data.rarity)}</span></div>
         ${data.magic ? `<div class="detail-stat"><span class="dim">Mágica</span><span>Sí (potencia tus hechizos)</span></div>` : ''}
         ${(data.weight || 0) >= 4 ? `<div class="detail-stat"><span class="dim">Peso</span><span>Pesada</span></div>` : ''}
@@ -404,10 +409,12 @@
       `;
     } else if (kind === 'armor') {
       stats = `
-        <div class="detail-stat"><span class="dim">Defensa</span><span class="num">+${data.defense}</span></div>
-        <div class="detail-stat"><span class="dim">Tier</span><span class="num">${data.tier}</span></div>
+        <div class="detail-stat"><span class="dim">Armadura</span><span class="num">+${data.defense || 0}</span></div>
+        ${data.dodge ? `<div class="detail-stat"><span class="dim">Esquiva</span><span class="num">${data.dodge > 0 ? '+' : ''}${data.dodge}</span></div>` : ''}
+        <div class="detail-stat"><span class="dim">Nivel</span><span class="num">${data.tier}</span></div>
         <div class="detail-stat"><span class="dim">Rareza</span><span>${rarityLabel(data.rarity)}</span></div>
         ${slotsLine}
+        <div class="class-note is-good">${pxi('shield', 14)}<span>La armadura se resta de cada golpe que recibís${data.dodge ? '; la esquiva sube tu defensa' : ''}.</span></div>
       `;
     } else if (kind === 'consumable' && data.effect) {
       const ef = data.effect;
@@ -422,7 +429,8 @@
 
     const actions = [];
     if (kind === 'weapon' || kind === 'armor') {
-      actions.push(`<button class="btn-primary" data-detail-action="equip">Equipar</button>`);
+      if (wornView) actions.push(`<button class="btn-primary" data-detail-action="unequip">Quitar</button>`);
+      else actions.push(`<button class="btn-primary" data-detail-action="equip">Equipar</button>`);
     }
     if (kind === 'consumable') {
       actions.push(`<button class="btn-primary" data-detail-action="use">Usar</button>`);
@@ -434,7 +442,7 @@
     if (kind === 'bag') {
       actions.push(`<button class="btn-primary" data-detail-action="use">Equipar mochila</button>`);
     }
-    actions.push(`<button class="btn-danger" data-detail-action="drop">Tirar</button>`);
+    if (!wornView) actions.push(`<button class="btn-danger" data-detail-action="drop">Tirar</button>`);
 
     const body = `
       <div class="item-modal">
@@ -442,7 +450,7 @@
           <div class="item-modal-icon">${(A.ItemSprites ? A.ItemSprites.html(data, { size: 72 }) : '')}</div>
           <div>
             <div class="item-modal-name">${A.Utils.escapeHtml(data.name)}</div>
-            <div class="item-modal-meta dim">${kindLabel(kind)}${qty > 1 ? ` · ×${qty}` : ''}</div>
+            <div class="item-modal-meta dim">${kindLabel(kind)}${wornView ? ' · la tenés puesta' : ''}${qty > 1 ? ` · ×${qty}` : ''}</div>
           </div>
         </div>
         <p class="item-modal-desc">${A.Utils.escapeHtml(data.description || '')}</p>
@@ -483,7 +491,7 @@
         <p>Cada vez que explorás pasa algo: aparece una criatura (y elegís cómo encararla) o te toca una escena con dos o tres caminos. Explorar hace pasar el tiempo y da hambre.</p>
 
         <h3>Clases</h3>
-        <p><b>Guerreros</b>: sin magia, pero con maestría en armas (más daño a medida que suben de nivel). <b>Magos</b>: viven de la magia; el maná les vuelve solo, un poco en cada turno y otro poco al ganar (cada raza recupera distinto), pero son frágiles y las armas pesadas les quitan precisión. <b>Híbridos</b>: usan cualquier arma y algo de magia, pero su maná no vuelve solo: pociones o dormir. Cada raza con magia nace con su propio hechizo.</p>
+        <p><b>Guerreros</b>: sin magia, pero son los que más vida tienen, pegan más fuerte con cualquier arma y tienen el <b>Golpe fuerte</b>: un ataque con el doble de daño que se puede usar una vez cada 4 turnos. <b>Magos</b>: viven de la magia; el maná les vuelve solo, un poco en cada turno y otro poco al ganar (cada raza recupera distinto), pero son frágiles y las armas pesadas les quitan precisión. <b>Híbridos</b>: usan cualquier arma y algo de magia, pero su maná no vuelve solo: pociones o dormir. Cada raza con magia nace con su propio hechizo.</p>
 
         <h3>Descansar</h3>
         <p>De día, un rato de descanso te recupera un poco y pasa la tarde. De noche dormís hasta la mañana; al raso, algo puede acercarse. En la posada dormís seguro y te recuperás del todo.</p>
@@ -546,7 +554,7 @@
           <div>
             <div class="creature-modal-name">${A.Utils.escapeHtml(e.name)}</div>
             <div class="creature-modal-meta dim">
-              <span class="pill pill-tier">Tier ${e.tier}</span>
+              <span class="pill pill-tier">Nivel ${e.tier}</span>
               <span class="pill">${categoryLabel(e.category)}</span>
               ${canTame ? `<span class="pill pill-tameable">Domable</span>` : ''}
             </div>
@@ -614,7 +622,7 @@
               <span class="creature-list-info">
                 <span class="creature-list-name">${A.Utils.escapeHtml(e.name)}</span>
                 <span class="creature-list-meta dim">
-                  Tier ${e.tier} · ${categoryLabel(e.category)}${e.tameable ? ' · domable' : ''}
+                  Nivel ${e.tier} · ${categoryLabel(e.category)}${e.tameable ? ' · domable' : ''}
                 </span>
               </span>
               ${A.ItemSprites && A.ItemSprites.dcBadge ? A.ItemSprites.dcBadge(e.difficulty != null ? e.difficulty : 10, { size: 30 }) : ''}
@@ -962,7 +970,7 @@
           <div class="travel-modal-name">${A.Utils.escapeHtml(n.name)}</div>
           <div class="travel-modal-meta">
             <span class="pill ${dangerClass}">${dangerLabel}</span>
-            <span class="pill pill-tier">T${n.tier[0]}–${n.tier[1]}</span>
+            <span class="pill pill-tier">Nivel ${n.tier[0]}${n.tier[1] !== n.tier[0] ? `–${n.tier[1]}` : ''}</span>
             <span class="dim small">${distLabel}</span>
             ${enemiesCount ? `<span class="dim small">· ${enemiesCount} criaturas</span>` : ''}
           </div>
@@ -1312,6 +1320,15 @@
   function onItemAction(action, itemId) {
     if (action === 'equip') {
       A.Inventory.equip(itemId);
+      A.State.closeModal();
+    } else if (action === 'unequip') {
+      // v2.1.1: quitarse el arma o la armadura (vuelve a la mochila)
+      const kind = A.Inventory.classifyItem(itemId);
+      const ok = A.Inventory.unequip(kind === 'weapon' ? 'weapon' : 'armor');
+      if (ok) {
+        const d = A.Inventory.resolveData(itemId);
+        A.State.addChronicle({ type: 'item', text: `Te sacaste ${d ? d.name.toLowerCase() : 'el equipo'} y lo guardaste en la mochila.` });
+      }
       A.State.closeModal();
     } else if (action === 'use') {
       A.Inventory.use(itemId);

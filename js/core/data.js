@@ -6,6 +6,12 @@
    los overrides del editor (localStorage:aventurs:content).
 
    Las vistas y systems leen siempre Data.regions, Data.weapons, etc.
+
+   v2.2: el editor guarda solo lo que cambiaste (un "parche" por id).
+   Al cargar, cada parche se aplica sobre la versión del juego: lo que
+   no tocaste se sigue actualizando con cada versión nueva. Un campo en
+   null en el parche quiere decir "sacar este campo".
+   Los cambios del editor viejo (copias completas) siguen funcionando igual.
    ============================================================ */
 
 (function (A) {
@@ -13,11 +19,11 @@
 
   const STORAGE_KEY = 'aventurs:content';
 
-  const COLLECTIONS = ['regions', 'races', 'weapons', 'armors', 'items', 'enemies', 'spells', 'recipes', 'npcs', 'bags'];
+  const COLLECTIONS = ['regions', 'races', 'weapons', 'armors', 'items', 'enemies', 'spells', 'recipes', 'npcs', 'bags', 'quests', 'events'];
 
   const Data = {
     regions: [], races: [], weapons: [], armors: [], items: [],
-    enemies: [], spells: [], recipes: [], npcs: [], bags: [],
+    enemies: [], spells: [], recipes: [], npcs: [], bags: [], quests: [], events: [],
 
     init() {
       const overrides = Data._loadOverrides();
@@ -38,13 +44,12 @@
         const byId = new Map();
         for (const e of seedList) byId.set(e.id, e);
         for (const e of overrideList) {
-          // v1.9.2: una raza editada antes de que existieran las pasivas conserva la suya
+          // v2.2: el cambio se aplica encima de la versión del juego (lo que no tocaste se hereda)
           const base = byId.get(e.id);
-          if (key === 'races' && base && base.passive && e.passive === undefined) e.passive = base.passive;
-          // v2.1: lo que el editor todavía no conoce se hereda del juego base
-          const INHERIT = { races: ['startSpell', 'manaRegen'], regions: ['pos', 'labelAt'], npcs: ['look', 'roleName'], spells: ['racial', 'selfHeal'] };
-          if (base) for (const f of INHERIT[key] || []) if (e[f] === undefined && base[f] !== undefined) e[f] = base[f];
-          byId.set(e.id, e);
+          const merged = base ? { ...base, ...e, _source: 'editor' } : e;
+          for (const k of Object.keys(e)) if (e[k] === null) delete merged[k];
+          merged._patched = Object.keys(e).filter((k) => k !== 'id' && k !== '_source');
+          byId.set(e.id, merged);
         }
 
         // Items eliminados desde el editor se marcan en overrides._deleted[key]
@@ -156,6 +161,12 @@
      */
     npcsInRegion(regionId) {
       return Data.npcs.filter((n) => n.region === regionId);
+    },
+
+    /** La versión del juego (sin cambios del editor) de una entidad. */
+    seedOf(collection, id) {
+      const list = (A.Seed && A.Seed[collection]) || [];
+      return list.find((e) => e.id === id) || null;
     },
 
     /**

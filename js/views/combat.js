@@ -359,7 +359,7 @@
       kind: 'enemy', key, targetId: e.instanceId, clickable: true, i: idx + 2,
       cat, isTarget: isTarget && !dead, isActive, dead,
       name: e.displayName, title: dead ? `${e.displayName} (caído)` : `${e.displayName}: tocá para apuntarle`,
-      badges: `<span class="cb-badge" title="Nivel de peligro">T${e.tier}</span>${catBadge}`,
+      badges: `<span class="cb-badge" title="Nivel de peligro">Nv ${e.tier}</span>${catBadge}`,
       sprite: A.Sprites ? A.Sprites.html(e, { size: 128 }) : '',
       hp, hpMax: e.maxHp, barCls: 'bar-enemy-hp',
       sub: null,
@@ -454,11 +454,11 @@
    * v2.1: en tu turno se explica el golpe con los números de ESTA pelea:
    * con cuánto acertás (precisión) y cuánta vida sacás (daño).
    */
-  function damageRangeVs(p, target) {
+  function damageRangeVs(p, target, mult = 1) {
     try {
       const r = A.Combat.composePlayerDamage(p).range;
       const arm = (target && target.armor) || 0;
-      return { min: Math.max(1, r.min - arm), max: Math.max(1, r.max - arm) };
+      return { min: Math.max(1, r.min * mult - arm), max: Math.max(1, r.max * mult - arm) };
     } catch (err) { return null; }
   }
   const rangeTxt = (r) => (r.min === r.max ? `${r.min}` : `${r.min}&nbsp;a&nbsp;${r.max}`);
@@ -485,6 +485,7 @@
     const hit = target && A.Combat.hitChanceVs ? A.Combat.hitChanceVs(target) : null;
     const need = target ? neededRoll((target.difficulty || 10) - mods(target).defensePenalty) : null;
     const dmgRange = target ? damageRangeVs(p, target) : null;
+    const power = A.Combat.powerInfo ? A.Combat.powerInfo() : null;
     const attackIcon = p.equipment && p.equipment.weapon && A.ItemSprites
       ? A.ItemSprites.html(p.equipment.weapon, { size: 32 }) : icon('fist', 32);
     const off = !ready;
@@ -509,6 +510,13 @@
             hint: need != null ? `Acierto ${hit != null ? `${Math.round(hit * 100)}% ` : ''}(${need}+)` : '',
             hint2: dmgRange ? `Daño ${rangeTxt(dmgRange)}` : '',
           })}
+          ${power ? btn('power', icon('swords', 32), 'Golpe fuerte', {
+            cls: power.ready ? 'is-power' : '',
+            disabled: off || !power.ready,
+            title: power.ready ? `Un ataque con el doble de daño. Después tenés que esperar ${power.cooldown - 1} turnos.` : 'Todavía no: se recarga un turno por vez',
+            hint: power.ready ? (target ? `Daño ${rangeTxt(damageRangeVs(p, target, power.mult))}` : 'Doble daño') : `Listo en ${power.wait} turno${power.wait === 1 ? '' : 's'}`,
+            hint2: power.ready ? 'Doble daño' : '',
+          }) : ''}
           ${p.hasMagic ? btn('spell', icon('spell', 32), 'Hechizo', {
             disabled: off || spells.length === 0,
             title: spells.length === 0 ? 'No conocés hechizos' : 'Lanzar un hechizo',
@@ -572,6 +580,7 @@
       if (fx.levelUp) return icon('up', 32);
       if (fx.coins) return icon('coin', 32);
       if (fx.mana) return icon('spell', 32);
+      if (fx.hp) return icon('heart', 32);
       if (fx.items && fx.items[0] && A.ItemSprites) return A.ItemSprites.html(fx.items[0].itemId, { size: 32 });
       return icon('xp', 32);
     }
@@ -646,6 +655,7 @@
       if (fx.coins) coins += fx.coins;
       if (fx.levelUp) chips.push(`<span class="cb-chip is-gold">${icon('up', 32)}<span>¡Nivel <b>${fx.levelUp}</b>!</span></span>`);
       if (fx.mana) chips.push(`<span class="cb-chip">${icon('spell', 32)}<span><b>+${fx.mana}</b> de maná</span></span>`);
+      if (fx.hp) chips.push(`<span class="cb-chip">${icon('heart', 32)}<span><b>+${fx.hp}</b> de vida</span></span>`);
       if (fx.petXp && A.State.player.pet) chips.push(`<span class="cb-chip">${A.Sprites ? A.Sprites.petHtml(A.State.player.pet, { size: 32 }) : ''}<span><b>+${fx.petXp}</b> para ${esc(A.State.player.pet.name)}</span></span>`);
       for (const it of fx.items || []) {
         const d = A.Inventory && A.Inventory.resolveData ? A.Inventory.resolveData(it.itemId) : null;
@@ -718,6 +728,9 @@
       const ready = c && !c.result && isPlayerTurnLocal(c) && revealedLog(c).length === (c.log || []).length;
       if (ready) A.Combat.playerAttack();
       else { queuedAction = queuedAction === 'attack' ? null : 'attack'; render(); }
+    } else if (action === 'power') {
+      const ready = c && !c.result && isPlayerTurnLocal(c) && revealedLog(c).length === (c.log || []).length;
+      if (ready && A.Combat.playerPowerAttack) A.Combat.playerPowerAttack();
     } else if (action === 'flee') A.Combat.playerFlee();
     else if (action === 'spell') A.State.openModal('combat-spell');
     else if (action === 'item') A.State.openModal('combat-item');

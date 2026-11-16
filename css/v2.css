@@ -1123,3 +1123,17 @@ button.sb-eq:hover { transform: translateY(-2px); border-color: #a8833a; }
 
 /* Combate: el botón de atacar dice con cuánto acertás y cuánto daño hacés */
 .cb-btn-hint.is-2 { margin-top: -1px; }
+
+/* ============================================================
+   12. Golpe fuerte del guerrero (v2.1.1)
+   ============================================================ */
+.cb-btn.is-power {
+  background: linear-gradient(180deg, #e8906a 0%, #c0583a 52%, #8e3a22 100%);
+  border-color: #6a2414;
+  color: #fff4e6;
+  box-shadow: 0 3px 0 #4e1a0e, 0 6px 16px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 220, 200, 0.6);
+}
+.cb-btn.is-power .combat-action-label { color: #fff4e6; }
+.cb-btn.is-power .cb-btn-hint { color: #ffe2cc; }
+.cb-btn.is-power .cb-btn-icon { background: radial-gradient(ellipse at 50% 60%, rgba(255, 220, 190, 0.55), transparent 70%); }
+.detail-stats .class-note { grid-column: 1 / -1; }

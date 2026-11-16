@@ -459,7 +459,11 @@
     const turnKey = `${c.round}:${c.currentActorIdx}`;
     if (c.turnStartedFor !== turnKey) {
       c.turnStartedFor = turnKey;
-      if (cur.kind === 'player') playerTurnPassives(c, entity);
+      if (cur.kind === 'player') {
+        // v2.1.1: el golpe fuerte se recarga un turno por vez
+        if (c.powerCd > 0) c.powerCd -= 1;
+        playerTurnPassives(c, entity);
+      }
       const st = startOfTurn(c, cur.kind, entity);
       if (checkEnd()) return;
       if (st.skip) {
@@ -551,12 +555,31 @@
   // Acciones del jugador
   // ============================================================
 
-  function playerAttack() {
+  function playerAttack() { doPlayerAttack(false); }
+
+  /** v2.1.1: Golpe fuerte (guerreros): doble daño y después unos turnos de espera. */
+  function powerInfo() {
+    const c = State().combat;
+    const p = State().player;
+    const info = B().warriorPower ? B().warriorPower(p) : null;
+    if (!info) return null;
+    const wait = c && c.powerCd > 0 ? c.powerCd : 0;
+    return { ...info, wait, ready: wait === 0 };
+  }
+  function playerPowerAttack() {
+    const info = powerInfo();
+    if (!info || !info.ready) return;
+    doPlayerAttack(true);
+  }
+
+  function doPlayerAttack(power) {
     const c = State().combat;
     if (!c || c.result || !isPlayerTurn(c)) return;
     const target = getTarget();
     if (!target) { checkEnd(); return; }
     const p = State().player;
+    const pw = power ? (B().warriorPower ? B().warriorPower(p) : null) : null;
+    if (pw) c.powerCd = pw.cooldown;
     const st = playerStats();
     const es = enemyStats(target);
     const r = attackRoll(st.attack, es.defense, playerRollOpts(p));
@@ -565,7 +588,8 @@
 
     if (!r.hit) {
       addLog(c, 'player', {
-        text: r.fumble ? `Atacaste a ${target.displayName} pero fallaste por completo` : `${target.displayName} esquivó tu ataque`,
+        power: !!pw,
+        text: r.fumble ? `Atacaste a ${target.displayName} pero fallaste por completo` : `${target.displayName} esquivó tu ${pw ? 'golpe fuerte' : 'ataque'}`,
         actor: p.name, target: target.displayName, actorIcon: '', weapon: weaponName,
         roll: r.roll, bonus: st.attack, total: r.total, vs: es.defense, vsLabel: 'defensa',
         result: r.fumble ? 'fumble' : 'evaded',
@@ -574,6 +598,7 @@
     } else {
       const dmgRoll = rollPlayerDamage(p);
       let rawDmg = dmgRoll.total;
+      if (pw) rawDmg *= pw.mult;
       if (r.crit) rawDmg *= P() ? P().critMult(p) : 2;
       const finalDmg = mitigate(rawDmg, es.armor);
       target.hp = Math.max(0, target.hp - finalDmg);
@@ -582,7 +607,8 @@
       else if (r.crit && r.roll < 20) passive = 'ojo_certero';
       addLog(c, 'player', {
         passive,
-        text: r.crit ? `¡Golpe crítico a ${target.displayName}!` : `Atacaste a ${target.displayName}`,
+        power: !!pw,
+        text: r.crit ? `¡Golpe crítico${pw ? ' y fuerte' : ''} a ${target.displayName}!` : (pw ? `¡Golpe fuerte a ${target.displayName}!` : `Atacaste a ${target.displayName}`),
         actor: p.name, target: target.displayName, actorIcon: '', weapon: weaponName,
         damageDice: dmgRoll.composed.expression,
         damageBreakdown: dmgRoll.composed.components.map((cmp, i) => ({
@@ -1012,6 +1038,13 @@
       A.State.setMana(Math.min(pw.maxMana, pw.mana + Math.max(1, Math.round(pw.maxMana * winShare))));
       if (pw.mana > before) addLog(c, 'system', { text: `Recuperás ${pw.mana - before} de maná.`, fx: { kind: 'reward', mana: pw.mana - before } });
     }
+    // v2.1.1: los guerreros tienen aguante: al ganar recuperan parte de la vida
+    const hpShare = B().hpRegenOf ? B().hpRegenOf(pw).win : 0;
+    if (hpShare > 0 && pw.hp > 0 && pw.hp < pw.maxHp) {
+      const before = pw.hp;
+      A.State.healHp(Math.max(1, Math.round(pw.maxHp * hpShare)));
+      if (pw.hp > before) addLog(c, 'system', { text: `Recuperás ${pw.hp - before} de vida.`, fx: { kind: 'reward', hp: pw.hp - before } });
+    }
 
     if (A.State.world && A.State.world.regionId) {
       A.State.incrementRegionEncounters(A.State.world.regionId);
@@ -1119,6 +1152,8 @@
     getTarget,
     aliveEnemies,
     playerAttack,
+    playerPowerAttack,
+    powerInfo,
     playerSpell,
     playerUseItem,
     playerTame,
