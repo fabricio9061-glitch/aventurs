@@ -4,13 +4,15 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Aventurs</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ctext y=%22.9em%22 font-size=%2290%22%3E%E2%9A%94%EF%B8%8F%3C/text%3E%3C/svg%3E">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=EB+Garamond:ital,wght@0,500;1,400;1,500&family=Inter:wght@400;500;600;700&display=swap">
   <link rel="stylesheet" href="css/tokens.css">
   <link rel="stylesheet" href="css/base.css">
   <link rel="stylesheet" href="css/game.css">
   <link rel="stylesheet" href="css/editor.css">
+  <link rel="stylesheet" href="css/theme.css">
 </head>
 <body>
   <div id="app"></div>
@@ -19,6 +21,8 @@
   <script src="js/core/utils.js"></script>
   <script src="js/core/bus.js"></script>
   <script src="js/core/balance.js"></script>
+  <script src="js/core/sprites.js"></script>
+  <script src="js/core/item-sprites.js"></script>
 
   <!-- Seeds: deben cargar antes que data.js (que los lee) -->
   <script src="js/data/seed-races.js"></script>
@@ -47,6 +51,7 @@
   <script src="js/systems/currency.js"></script>
   <script src="js/systems/inventory.js"></script>
   <script src="js/systems/encounter.js"></script>
+  <script src="js/systems/narrator.js"></script>
   <script src="js/systems/combat.js"></script>
   <script src="js/systems/travel.js"></script>
   <script src="js/systems/tame.js"></script>
@@ -62,6 +67,7 @@
   <script src="js/views/inventory.js"></script>
   <script src="js/views/magic.js"></script>
   <script src="js/views/chronicles.js"></script>
+  <script src="js/views/combat-fx.js"></script>
   <script src="js/views/combat.js"></script>
   <script src="js/views/map.js"></script>
   <script src="js/views/modals.js"></script>

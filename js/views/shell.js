@@ -67,7 +67,7 @@
         </div>
 
         <footer class="shell-footer">
-          <span class="version-pill">v1.8.0</span>
+          <span class="version-pill">v1.9.1</span>
         </footer>
       </div>
     `;
@@ -97,7 +97,7 @@
     sidebarEl.innerHTML = `
       <div class="sidebar-card">
         <div class="char-header">
-          <div class="char-avatar">${race ? race.icon : '👤'}</div>
+          <div class="char-avatar">${A.Sprites ? A.Sprites.heroFor(p, { size: 52 }) : (race ? race.icon : '👤')}</div>
           <div class="char-id">
             <div class="char-name-row">
               <span class="char-name">${A.Utils.escapeHtml(p.name)}</span>
@@ -178,7 +178,7 @@
     return `
       <div class="pet-card-sidebar ${isKO ? 'is-ko' : ''}">
         <div class="pet-card-header">
-          <span class="pet-icon">${pet.icon || '🐾'}</span>
+          <span class="pet-icon">${A.Sprites ? A.Sprites.petHtml(pet, { size: 40 }) : (pet.icon || '🐾')}</span>
           <div class="pet-card-id">
             <div class="pet-card-name">${A.Utils.escapeHtml(pet.name)}</div>
             <div class="pet-card-meta dim">Nv ${lvl}${isKO ? ' · inconsciente' : ''}${hungry && !isKO ? ' · con hambre' : ''}</div>
@@ -225,7 +225,7 @@
       <button class="equip-mini equip-mini-clickable" ${dataAttr} title="${A.Utils.escapeHtml(equipped.name)}">
         <div class="equip-mini-label dim">${label}</div>
         <div class="equip-mini-body">
-          <span class="equip-mini-icon">${equipped.icon || '⚔️'}</span>
+          <span class="equip-mini-icon">${(A.ItemSprites ? A.ItemSprites.html(equipped, { size: 30 }) : (equipped.icon || '⚔️'))}</span>
           <span class="equip-mini-name">${A.Utils.escapeHtml(equipped.name)}</span>
         </div>
         <div class="equip-mini-stat num">${stat}</div>
@@ -246,7 +246,7 @@
     let occupied = 0;
     for (const slot of items) {
       const data = A.Inventory.resolveData(slot.itemId);
-      const icon = data ? (data.icon || '📦') : '📦';
+      const icon = data ? (A.ItemSprites ? A.ItemSprites.html(data, { size: 34 }) : (data.icon || '📦')) : '📦';
       const qty = slot.qty > 1 ? `<span class="bag-side-qty num">${slot.qty}</span>` : '';
       const itemSlots = A.State.itemSlots(slot.itemId);
       const spanClass = itemSlots > 1 ? 'is-large' : '';
@@ -298,6 +298,8 @@
       A.Views.Combat.mount(mainEl);
       return;
     }
+    // v1.9.0: al salir del combate se desmonta (corta sus timers y animaciones)
+    if (A.Views.Combat && A.Views.Combat.isMounted && A.Views.Combat.isMounted()) A.Views.Combat.unmount();
     // Mapa pantalla completa
     if (A.State.ui.showMap) {
       if (shellBody) {

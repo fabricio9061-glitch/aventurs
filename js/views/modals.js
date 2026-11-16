@@ -178,7 +178,7 @@
                 const statBadge = renderItemStatBadge(it.data, it.id);
                 return `
                 <div class="shop-row ${it.canPay ? '' : 'is-disabled'}">
-                  <div class="shop-row-icon">${it.data.icon || '📦'}</div>
+                  <div class="shop-row-icon">${(A.ItemSprites ? A.ItemSprites.html(it.data, { size: 36 }) : (it.data.icon || '📦'))}</div>
                   <div class="shop-row-info">
                     <div class="shop-row-name">
                       ${A.Utils.escapeHtml(it.data.name)}
@@ -220,7 +220,7 @@
                 }
                 return `
                   <div class="shop-row">
-                    <div class="shop-row-icon">${d.icon || '📦'}</div>
+                    <div class="shop-row-icon">${(A.ItemSprites ? A.ItemSprites.html(d, { size: 36 }) : (d.icon || '📦'))}</div>
                     <div class="shop-row-info">
                       <div class="shop-row-name">${A.Utils.escapeHtml(d.name)}<span class="dim num">${qtyStr}</span></div>
                       <div class="shop-row-desc dim">${A.Currency.formatPrice(priceEach)} c/u</div>
@@ -354,7 +354,7 @@
                     const slot = A.State.player.inventory.find((s) => s.itemId === ing.itemId);
                     const have = slot ? slot.qty : 0;
                     const ok = have >= ing.qty;
-                    return `<span class="ingredient ${ok ? 'is-ok' : 'is-missing'}">${d ? d.icon : '·'} ${A.Utils.escapeHtml(d ? d.name : ing.itemId)} <span class="num">${have}/${ing.qty}</span></span>`;
+                    return `<span class="ingredient ${ok ? 'is-ok' : 'is-missing'}">${d ? (A.ItemSprites ? A.ItemSprites.html(d, { size: 18 }) : (d.icon)) : '·'} ${A.Utils.escapeHtml(d ? d.name : ing.itemId)} <span class="num">${have}/${ing.qty}</span></span>`;
                   }).join('')}
                 </div>
                 <button class="btn-mini" data-craft="${A.Utils.escapeHtml(r.id)}" ${check.ok ? '' : 'disabled'}>Crear</button>
@@ -425,7 +425,7 @@
     const body = `
       <div class="item-modal">
         <div class="item-modal-header">
-          <div class="item-modal-icon">${data.icon || '📦'}</div>
+          <div class="item-modal-icon">${(A.ItemSprites ? A.ItemSprites.html(data, { size: 72 }) : (data.icon || '📦'))}</div>
           <div>
             <div class="item-modal-name">${A.Utils.escapeHtml(data.name)}</div>
             <div class="item-modal-meta dim">${kindLabel(kind)}${qty > 1 ? ` · ×${qty}` : ''}</div>
@@ -516,7 +516,7 @@
     const body = `
       <div class="creature-modal">
         <div class="creature-modal-header">
-          <div class="creature-modal-icon">${e.icon || '👹'}</div>
+          <div class="creature-modal-icon">${A.Sprites ? A.Sprites.html(e, { size: 80 }) : (e.icon || '👹')}</div>
           <div>
             <div class="creature-modal-name">${A.Utils.escapeHtml(e.name)}</div>
             <div class="creature-modal-meta dim">
@@ -576,7 +576,7 @@
         <div class="creature-list">
           ${enemies.map((e) => `
             <button class="creature-list-row" data-creature="${A.Utils.escapeHtml(e.id)}">
-              <span class="creature-list-icon">${e.icon || '👹'}</span>
+              <span class="creature-list-icon">${A.Sprites ? A.Sprites.html(e, { size: 36 }) : (e.icon || '👹')}</span>
               <span class="creature-list-info">
                 <span class="creature-list-name">${A.Utils.escapeHtml(e.name)}</span>
                 <span class="creature-list-meta dim">
@@ -609,7 +609,7 @@
 
     const body = `
       <div class="tame-modal">
-        <div class="tame-icon">${e.icon || '🐾'}</div>
+        <div class="tame-icon">${A.Sprites ? A.Sprites.html(e, { size: 88 }) : (e.icon || '🐾')}</div>
         <p class="tame-text">
           ${canDo
             ? `Te acercas a ${A.Utils.escapeHtml(e.name)} con ${A.Utils.escapeHtml(item ? item.name : itemId)} en la mano.`
@@ -618,7 +618,7 @@
         <div class="tame-info">
           <div class="tame-info-row">
             <span class="dim">Necesitas:</span>
-            <span>${item ? item.icon : '📦'} ${A.Utils.escapeHtml(item ? item.name : itemId)} ${haveQty > 0 ? `<span class="num dim">(tenés ${haveQty})</span>` : '<span class="num danger">(no tenés)</span>'}</span>
+            <span>${item ? (A.ItemSprites ? A.ItemSprites.html(item, { size: 20 }) : (item.icon)) : '📦'} ${A.Utils.escapeHtml(item ? item.name : itemId)} ${haveQty > 0 ? `<span class="num dim">(tenés ${haveQty})</span>` : '<span class="num danger">(no tenés)</span>'}</span>
           </div>
           <div class="tame-info-row">
             <span class="dim">Probabilidad:</span>
@@ -655,7 +655,7 @@
     const body = `
       <div class="item-modal">
         <div class="item-modal-header">
-          <div class="item-modal-icon">${bag.icon || '🎒'}</div>
+          <div class="item-modal-icon">${(A.ItemSprites ? A.ItemSprites.html(bag, { size: 72 }) : (bag.icon || '🎒'))}</div>
           <div>
             <div class="item-modal-name">${A.Utils.escapeHtml(bag.name)}</div>
             <div class="item-modal-meta dim">Mochila · ${bag.slots} espacios</div>
@@ -943,37 +943,13 @@
 
   function renderCombatFullLog() {
     const c = A.State.combat;
-    if (!c || !c.log) return modalShell('Historial', '<p class="muted">Sin combate activo.</p>');
-    const out = [];
-    for (const e of c.log) {
-      if (e.type === 'turn-header') {
-        out.push(`<div class="combat-log-divider">${A.Utils.escapeHtml(e.text)}</div>`);
-      } else {
-        const icon = e.actorIcon || ({ player: '🗡️', enemy: '👹', pet: '🐾', loot: '💰', system: '·' })[e.type] || '·';
-        const text = A.Utils.escapeHtml(e.text || '');
-        let detail = '';
-        if (e.roll) detail += `<span class="dim small">D20=${e.roll}${e.bonus ? '+' + e.bonus : ''}</span>`;
-        if (e.dodgeRoll != null) detail += ` <span class="dim small">esq D20=${e.dodgeTotal}/${e.dodgeVs || 12}</span>`;
-        if (e.dmg) detail += ` <span class="num small">−${e.dmg} HP</span>`;
-        out.push(`
-          <div class="combat-fulllog-row is-${e.type}">
-            <span class="combat-fulllog-icon">${icon}</span>
-            <span class="combat-fulllog-text">${text}</span>
-            ${detail ? `<span class="combat-fulllog-detail">${detail}</span>` : ''}
-          </div>
-        `);
-      }
-    }
-    return modalShell('Historial de combate', `<div class="combat-fulllog-modal">${out.join('')}</div>`);
+    if (!c || !c.log) return modalShell('Crónica del combate', '<p class="muted">Sin combate activo.</p>');
+    // v1.9.1: misma crónica en prosa que la pantalla de combate, con las tiradas
+    const body = A.Views.Combat && A.Views.Combat.chronicleHtml
+      ? A.Views.Combat.chronicleHtml(c.log, { rolls: true, combat: c })
+      : c.log.map((e) => `<div class="cb-line"><span class="cb-line-body">${A.Utils.escapeHtml(e.text || '')}</span></div>`).join('');
+    return modalShell('Crónica del combate', `<div class="combat-fulllog-modal cb-chronicle">${body}</div>`);
   }
-
-  // ---------- Magic ----------
-
-  function renderMagic() {
-    return modalShell('Grimorio', A.Views.Magic.renderHtml());
-  }
-
-  // ---------- Combat: elegir hechizo ----------
 
   function renderCombatSpell() {
     const spells = A.Combat.availableSpells();
@@ -992,7 +968,7 @@
             const can = p.mana >= s.manaCost;
             return `
               <button class="combat-spell-row ${can ? '' : 'is-disabled'}" data-cast-spell="${A.Utils.escapeHtml(s.id)}" ${can ? '' : 'disabled'}>
-                <span class="combat-spell-icon">${s.icon || '✨'}</span>
+                <span class="combat-spell-icon">${A.ItemSprites && A.ItemSprites.spellIcon ? A.ItemSprites.spellIcon(s, { size: 32 }) : ''}</span>
                 <span class="combat-spell-info">
                   <span class="combat-spell-name">${A.Utils.escapeHtml(s.name)}</span>
                   <span class="combat-spell-meta dim">${s.damage ? `${s.damage} daño` : s.heal ? `${s.heal} cura` : ''} · Maná ${s.manaCost}</span>
@@ -1021,7 +997,7 @@
             if (!data) return '';
             return `
               <button class="combat-item-row" data-use-item="${A.Utils.escapeHtml(s.itemId)}">
-                <span class="combat-item-icon">${data.icon || '🧪'}</span>
+                <span class="combat-item-icon">${A.ItemSprites ? A.ItemSprites.html(data, { size: 32 }) : ''}</span>
                 <span class="combat-item-info">
                   <span class="combat-item-name">${A.Utils.escapeHtml(data.name)} <span class="dim">×${s.qty}</span></span>
                   <span class="combat-item-meta dim">${A.Utils.escapeHtml(data.description || '')}</span>

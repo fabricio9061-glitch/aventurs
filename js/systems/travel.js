@@ -188,9 +188,12 @@
   }
 
   function start(targetId) {
-    if (!canTravelTo(targetId)) {
-      return { ok: false, error: 'No se puede viajar a esa región desde aquí.' };
+    // v1.8.0: devolver el motivo real (nivel, items, ya viajando, sin camino)
+    const check = canTravelToDetailed(targetId);
+    if (!check.ok) {
+      return { ok: false, error: check.error || 'No se puede viajar a esa región desde aquí.', locked: !!check.locked };
     }
+    if (A.State.combat) return { ok: false, error: 'Estás en combate.' };
     const target = A.Data.getById('regions', targetId);
     if (!target) return { ok: false, error: 'Región inválida.' };
 

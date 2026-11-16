@@ -26,6 +26,12 @@
     undead:    { primary: '#3a3848', accent: '#605870', tag: 'No-muerto' },
   };
 
+  // v1.9.0: retrato en pixel art de la raza (si no hay sprite, el emoji)
+  function raceSprite(race, size) {
+    if (A.Sprites && A.Sprites.heroHtml) return A.Sprites.heroHtml(race.id, { size, weapon: 'dagger' });
+    return race.icon;
+  }
+
   function themeForRace(raceId) {
     return RACE_THEMES[raceId] || RACE_THEMES[raceId.toLowerCase()] || { primary: '#a89060', accent: '#d4a437', tag: 'Híbrido' };
   }
@@ -41,7 +47,7 @@
       <div class="char-page char-page-v2">
         <header class="char-header-bar">
           <div class="brand-mini">
-            <span>⚔️</span><span>Aventurs</span>
+            <span class="brand-icon">⚔️</span><span class="brand-name">Aventurs</span>
           </div>
           <button class="btn-ghost" data-action="open-editor">Editor</button>
         </header>
@@ -106,7 +112,7 @@
     ];
     return `
       <div class="race-preview-content">
-        <div class="race-preview-icon">${race.icon}</div>
+        <div class="race-preview-icon">${raceSprite(race, 128)}</div>
         <div class="race-preview-name">${A.Utils.escapeHtml(race.name)}</div>
         <div class="race-preview-type">${theme.tag} · ${typeLabel(race.combatType)}</div>
         <p class="race-preview-desc">${A.Utils.escapeHtml(race.description)}</p>
@@ -149,7 +155,7 @@
     return `
       <button class="race-card race-card-v2 ${isSel ? 'is-selected' : ''}" data-race="${race.id}"
               style="--race-primary: ${theme.primary}; --race-accent: ${theme.accent};">
-        <div class="race-icon">${race.icon}</div>
+        <div class="race-icon">${raceSprite(race, 56)}</div>
         <div class="race-name">${A.Utils.escapeHtml(race.name)}</div>
         <div class="race-tag">${theme.tag}</div>
         <div class="race-mini-stats num">
@@ -169,7 +175,7 @@
       : '1d3';
     return `
       <div class="char-summary">
-        <div class="char-summary-icon">${race.icon}</div>
+        <div class="char-summary-icon">${raceSprite(race, 48)}</div>
         <div class="char-summary-info">
           <div class="char-summary-name">${A.Utils.escapeHtml(race.name)}</div>
           <div class="char-summary-type dim">${typeLabel(race.combatType)}</div>

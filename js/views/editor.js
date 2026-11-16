@@ -259,7 +259,9 @@
             ` : ''}
             <div class="list-items">
               ${filtered.map((e) => {
-                const itemIcon = e.icon || (activeType === 'weapons' ? autoWeaponIcon(e) : (TYPES.find((t) => t.key === activeType) || {}).icon || '📦');
+                const itemIcon = activeType === 'enemies' && A.Sprites ? A.Sprites.html(e, { size: 28 })
+                  : (['weapons', 'armors', 'items', 'bags'].includes(activeType) && A.ItemSprites) ? A.ItemSprites.html({ ...e, type: e.type || (activeType === 'weapons' ? 'weapon' : activeType === 'armors' ? 'armor' : e.type) }, { size: 28 })
+                  : (e.icon || (activeType === 'weapons' ? autoWeaponIcon(e) : (TYPES.find((t) => t.key === activeType) || {}).icon || '📦'));
                 const r = e.rarity ? rarityTheme(e.rarity) : null;
                 const tierBadge = e.tier ? `<span class="list-item-tier">T${e.tier}</span>` : '';
                 const rarityDot = r ? `<span class="list-item-rarity-dot" style="background: ${r.color}" title="${r.label}"></span>` : '';
@@ -486,6 +488,11 @@
     if (newEl) {
       previewEl.replaceWith(newEl);
     }
+    // v1.9.0: el dibujo de la sección "Apariencia" también se actualiza en vivo
+    const spr = host.querySelector('.sprite-editor-preview');
+    if (spr && activeType === 'enemies' && A.Sprites) {
+      spr.innerHTML = A.Sprites.html(editingDraft, { size: 96 }) + A.Sprites.html(editingDraft, { size: 48, flip: true });
+    }
   }
 
   function renderEditorPreview(e) {
@@ -528,7 +535,7 @@
 
   function previewWeapon(e) {
     const r = rarityTheme(e.rarity || 'common');
-    const icon = e.icon || autoWeaponIcon(e);
+    const icon = A.ItemSprites ? A.ItemSprites.html({ ...e, type: 'weapon' }, { size: 56 }) : (e.icon || autoWeaponIcon(e));
     const eff = e.statusEffect;
     const range = A.Utils.diceRange ? A.Utils.diceRange(e.damage || '1d4') : null;
     return compactHeader({
@@ -551,7 +558,7 @@
   function previewArmor(e) {
     const r = rarityTheme(e.rarity || 'common');
     return compactHeader({
-      icon: e.icon || '🛡️', name: e.name, accent: r.color,
+      icon: A.ItemSprites ? A.ItemSprites.html({ ...e, type: 'armor' }, { size: 56 }) : (e.icon || '🛡️'), name: e.name, accent: r.color,
       pills: [
         { text: `${r.icon} ${r.label}`, style: `background:${r.bg};color:${r.color};border-color:${r.border}` },
         e.tier ? { text: `T${e.tier}` } : null,
@@ -567,7 +574,7 @@
   function previewItem(e) {
     const r = rarityTheme(e.rarity || 'common');
     return compactHeader({
-      icon: e.icon || '📦', name: e.name, accent: r.color,
+      icon: A.ItemSprites ? A.ItemSprites.html(e, { size: 56 }) : (e.icon || '📦'), name: e.name, accent: r.color,
       pills: [
         { text: `${r.icon} ${r.label}`, style: `background:${r.bg};color:${r.color};border-color:${r.border}` },
         e.subtype ? { text: e.subtype } : null,
@@ -603,7 +610,7 @@
     };
     const c = catColors[e.category] || catColors.normal;
     return compactHeader({
-      icon: e.icon || '👹', name: e.name, accent: c,
+      icon: A.Sprites ? A.Sprites.html(e, { size: 56 }) : (e.icon || '👹'), name: e.name, accent: c,
       pills: [
         { text: (e.category || 'normal').toUpperCase(), style: `color:${c};border-color:${c}` },
         e.tier ? { text: `T${e.tier}` } : null,
@@ -899,7 +906,7 @@
                   <div class="region-enemies-tier-content">
                     ${list.map((en) => `
                       <span class="region-enemy-tag ${tierOk ? '' : 'is-mismatch'}" title="${en.category || ''}">
-                        <span>${en.icon || '👹'}</span>
+                        <span>${A.Sprites ? A.Sprites.html(en, { size: 20 }) : (en.icon || '👹')}</span>
                         <span>${A.Utils.escapeHtml(en.name)}</span>
                         <span class="cat-pill cat-${en.category || 'normal'}">${en.category || 'norm'}</span>
                       </span>
@@ -982,7 +989,7 @@
                 <div class="region-enemy-list">
                   ${assigned.map((en) => `
                     <div class="region-enemy-row ${en.tier >= tierMin && en.tier <= tierMax ? 'is-ok' : 'is-mismatch'}">
-                      <span class="region-enemy-icon">${en.icon || '👹'}</span>
+                      <span class="region-enemy-icon">${A.Sprites ? A.Sprites.html(en, { size: 24 }) : (en.icon || '👹')}</span>
                       <span class="region-enemy-name">${A.Utils.escapeHtml(en.name)}</span>
                       <span class="region-enemy-tier">T${en.tier}</span>
                       <span class="region-enemy-cat dim">${en.category || ''}</span>
@@ -1015,7 +1022,7 @@
                 <div class="region-enemy-list" id="region-enemy-candidates">
                   ${candidates.map((en) => `
                     <div class="region-enemy-row" data-enemy-name="${A.Utils.escapeHtml((en.name||'').toLowerCase())}">
-                      <span class="region-enemy-icon">${en.icon || '👹'}</span>
+                      <span class="region-enemy-icon">${A.Sprites ? A.Sprites.html(en, { size: 24 }) : (en.icon || '👹')}</span>
                       <span class="region-enemy-name">${A.Utils.escapeHtml(en.name)}</span>
                       <span class="region-enemy-tier">T${en.tier}</span>
                       <span class="region-enemy-cat dim">${en.category || ''}</span>
@@ -1319,7 +1326,7 @@
 
     const dropsHtml = itemDatalistHtml + (e.drops || []).map((d, i) => {
       const item = A.Inventory.resolveData(d.itemId);
-      const itemIcon = item ? (item.icon || '📦') : '⚠️';
+      const itemIcon = item ? (A.ItemSprites ? A.ItemSprites.html(item, { size: 24 }) : (item.icon || '📦')) : '⚠️';
       const itemName = item ? item.name : '(no existe)';
       const chancePct = Math.round((d.chance || 0) * 100);
       const isAuto = d.source === 'auto';
@@ -1355,7 +1362,7 @@
 
     const sugHtml = suggested.length ? suggested.map((s) => {
       const item = A.Inventory.resolveData(s.itemId);
-      const icon = item ? (item.icon || '📦') : '📦';
+      const icon = item ? (A.ItemSprites ? A.ItemSprites.html(item, { size: 24 }) : (item.icon || '📦')) : '📦';
       const name = item ? item.name : s.itemId;
       const kindBadge = item ?
         (item.type === 'weapon' ? '<span class="drop-kind-badge drop-kind-weapon" title="Arma">⚔️</span>'
@@ -1426,6 +1433,7 @@
         row('Tags (csv)', arr('tags', e.tags)),
         row('Biome (csv)', arr('biome', e.biome)),
       ].join(''), 1),
+      spriteSection(e),
       section('Stats de combate', '⚔️', [
         row('Salud', inp('health', e.health, 'number')),
         row('Daño (dados o número)', inp('damage', e.damage, 'text', 'placeholder="1d6+1"')),
@@ -1487,6 +1495,28 @@
         </div>
       </div>`,
     ].join('');
+  }
+
+  /**
+   * v1.9.0: apariencia en pixel art. Por defecto sale sola según la especie
+   * (o la familia/tags si es un enemigo nuevo); acá se puede cambiar.
+   */
+  function spriteSection(e) {
+    if (!A.Sprites || !A.Sprites.shapeOptions) return '';
+    const cur = A.Sprites.colorsFor(e);
+    const sp = e.sprite || {};
+    const humanoid = cur.t === 'humanoid';
+    const opts = [{ value: '', label: `Automático (${A.Sprites.shapeLabel({ ...e, sprite: null })})` }].concat(A.Sprites.shapeOptions());
+    const color = (field, label, value) => row(label, `<input class="form-input form-color" data-field="sprite.${field}" type="color" value="${A.Utils.escapeHtml(value)}">`);
+    return section('Apariencia (pixel art)', '🎨', [
+      `<div class="sprite-editor-preview">${A.Sprites.html(e, { size: 96 })}${A.Sprites.html(e, { size: 48, flip: true })}</div>`,
+      row('Forma', sel('sprite.t', sp.t || '', opts)),
+      color('b', humanoid ? 'Piel' : 'Color principal', cur.b),
+      color('c', humanoid ? 'Ropa' : 'Color secundario', cur.c),
+      color('e', 'Ojos', cur.e),
+      color('a', 'Detalles (cuernos, pico, cinturón)', cur.a),
+      `<div class="dim small form-section-hint">💡 Cada enemigo tiene su dibujo en 32×32. Si creás uno nuevo, se arma solo según su familia y tags; acá podés copiar la forma de otra criatura y cambiar los colores. La mascota usa el mismo dibujo, mirando hacia el otro lado. ${e.sprite ? '<button type="button" class="btn-mini" data-editor-action="sprite-reset">↺ Volver a la apariencia automática</button>' : ''}</div>`,
+    ].join(''), 3);
   }
 
   function formNpcs(e) {
@@ -1595,7 +1625,9 @@
           return (e.name || '').toLowerCase().includes(t) || (e.id || '').toLowerCase().includes(t) || (t.startsWith('domab') && !!e.tameable);
         });
         list.innerHTML = filtered.map((e) => {
-          const itemIcon = e.icon || (activeType === 'weapons' ? autoWeaponIcon(e) : (TYPES.find((t) => t.key === activeType) || {}).icon || '📦');
+          const itemIcon = activeType === 'enemies' && A.Sprites ? A.Sprites.html(e, { size: 28 })
+                  : (['weapons', 'armors', 'items', 'bags'].includes(activeType) && A.ItemSprites) ? A.ItemSprites.html({ ...e, type: e.type || (activeType === 'weapons' ? 'weapon' : activeType === 'armors' ? 'armor' : e.type) }, { size: 28 })
+                  : (e.icon || (activeType === 'weapons' ? autoWeaponIcon(e) : (TYPES.find((t) => t.key === activeType) || {}).icon || '📦'));
           const r = e.rarity ? rarityTheme(e.rarity) : null;
           const tierBadge = e.tier ? `<span class="list-item-tier">T${e.tier}</span>` : '';
           const rarityDot = r ? `<span class="list-item-rarity-dot" style="background: ${r.color}" title="${r.label}"></span>` : '';
@@ -1650,6 +1682,8 @@
             if (confirm('¿Eliminar este elemento? Si era del seed original, queda oculto.')) deleteEntity();
           } else if (a === 'duplicate') {
             duplicateEntity();
+          } else if (a === 'sprite-reset') {
+            if (editingDraft) { delete editingDraft.sprite; dirty = true; render(); }
           } else if (a === 'show-validation') {
             alert(A.Validate.run().map((v) => `[${v.level}] ${v.collection}/${v.entityId}: ${v.msg}`).join('\n') || 'Sin avisos.');
           } else if (a === 'audit-all-enemies') {
@@ -2021,7 +2055,7 @@
                 const cls = `audit-wizard-list-item ${i === cursor ? 'is-active' : ''} ${i < cursor ? 'is-done' : ''} ${hasCritical ? 'has-critical' : ''}`;
                 return `
                   <button class="${cls}" data-audit-jump="${i}">
-                    <span class="audit-wizard-list-icon">${it.enemy.icon || '👹'}</span>
+                    <span class="audit-wizard-list-icon">${A.Sprites ? A.Sprites.html(it.enemy, { size: 24 }) : (it.enemy.icon || '👹')}</span>
                     <span class="audit-wizard-list-name">${A.Utils.escapeHtml(it.enemy.name || it.enemy.id)}</span>
                     <span class="audit-wizard-list-badge ab-${hasCritical ? 'critical' : 'warning'}">${numIssues}</span>
                   </button>
@@ -2032,7 +2066,7 @@
 
           <main class="audit-wizard-main">
             <div class="audit-wizard-enemy-header audit-wizard-enemy-header-v2">
-              <span class="audit-wizard-enemy-icon">${enemy.icon || '👹'}</span>
+              <span class="audit-wizard-enemy-icon">${A.Sprites ? A.Sprites.html(enemy, { size: 48 }) : (enemy.icon || '👹')}</span>
               <div class="audit-wizard-enemy-id">
                 <h3 class="audit-wizard-enemy-name">${A.Utils.escapeHtml(enemy.name || enemy.id)}</h3>
                 <div class="audit-wizard-enemy-meta dim">
@@ -2088,7 +2122,7 @@
               const manualRows = manualDrops.map((d, i) => {
                 const item = A.Inventory.resolveData(d.itemId);
                 const name = item ? item.name : d.itemId;
-                const icon = item ? (item.icon || '📦') : '📦';
+                const icon = item ? (A.ItemSprites ? A.ItemSprites.html(item, { size: 24 }) : (item.icon || '📦')) : '📦';
                 const chancePct = Math.round((d.chance || 0) * 100);
                 const isAuto = d.source === 'auto';
                 const qtyMin = d.qtyMin || 1;
@@ -2122,7 +2156,7 @@
               const sugRows = drops.map((d) => {
                 const item = A.Inventory.resolveData(d.itemId);
                 const name = item ? item.name : d.itemId;
-                const icon = item ? (item.icon || '📦') : '📦';
+                const icon = item ? (A.ItemSprites ? A.ItemSprites.html(item, { size: 24 }) : (item.icon || '📦')) : '📦';
                 const kindBadge = item ?
                   (item.type === 'weapon' ? '<span class="drop-kind-badge drop-kind-weapon" title="Arma">⚔️</span>'
                   : item.type === 'armor' ? '<span class="drop-kind-badge drop-kind-armor" title="Armadura">🛡️</span>'
@@ -2157,7 +2191,7 @@
                 ${blacklist.map((id) => {
                   const item = A.Inventory.resolveData(id);
                   const name = item ? item.name : id;
-                  const icon = item ? (item.icon || '📦') : '📦';
+                  const icon = item ? (A.ItemSprites ? A.ItemSprites.html(item, { size: 24 }) : (item.icon || '📦')) : '📦';
                   return `
                     <div class="drop-row-v2 is-blacklist">
                       <span class="drop-row-icon">${icon}</span>

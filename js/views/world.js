@@ -32,6 +32,8 @@
     clearAutoStepTimer();
     const t = A.State.traveling;
     if (!t || t.completed) return;
+    // v1.8.0: nunca avanzar el viaje solo mientras hay un combate o un modal abierto
+    if (A.State.combat || (A.State.ui && A.State.ui.openModal)) return;
     const mode = (A.State.prefs && A.State.prefs.travelMode) || 'manual';
     if (mode === 'manual') return;
 
@@ -44,7 +46,7 @@
     autoStepTimer = setTimeout(() => {
       autoStepTimer = null;
       const stillTraveling = A.State.traveling && !A.State.traveling.completed;
-      if (!stillTraveling) return;
+      if (!stillTraveling || A.State.combat) return;
       const result = A.Travel.step();
       // Re-render
       render();
@@ -163,7 +165,7 @@
             <div class="creature-strip">
               ${enemies.slice(0, 8).map((e) => `
                 <button class="creature-chip" data-creature="${A.Utils.escapeHtml(e.id)}" title="${A.Utils.escapeHtml(e.name)} · Tier ${e.tier} · ${e.category}">
-                  <span class="creature-icon">${e.icon || '👹'}</span>
+                  <span class="creature-icon">${enemySprite(e, 32)}</span>
                   <span>${A.Utils.escapeHtml(e.name)}</span>
                 </button>
               `).join('')}
@@ -347,7 +349,7 @@
       narrative: { icon: ev.icon || '✨', cls: 'is-narrative', title: 'Algo en el camino' },
       minor_loot: { icon: '💰', cls: 'is-loot', title: '¡Encontraste algo!' },
       biome_loot: { icon: ev.icon || '🎁', cls: 'is-biome-loot', title: 'Hallazgo del bioma' },
-      creature: { icon: ev.icon || '👹', cls: 'is-creature', title: 'Encuentro' },
+      creature: { icon: ev.enemyId ? enemySprite(ev.enemyId, 48) : (ev.icon || '👹'), cls: 'is-creature', title: 'Encuentro' },
       treasure: { icon: '🎁', cls: 'is-loot', title: 'Tesoro' },
       damage: { icon: '⚠️', cls: 'is-danger', title: 'Peligro' },
       heal: { icon: '💚', cls: 'is-heal', title: 'Buen presagio' },
@@ -370,7 +372,7 @@
   function eventLogRow(e) {
     const icons = {
       minor_loot: '💰', biome_loot: e.icon || '🎁',
-      creature: '👹', narrative: e.icon || '✨', nothing: '·',
+      creature: e.enemyId ? enemySprite(e.enemyId, 20) : '👹', narrative: e.icon || '✨', nothing: '·',
       treasure: '🎁', damage: '⚠️', heal: '💚',
     };
     return `
@@ -381,6 +383,20 @@
     `;
   }
 
+  // v1.9.0: sprites en pixel art en lugar de emojis
+  function enemySprite(enemyOrId, size) {
+    if (A.Sprites) return A.Sprites.html(enemyOrId, { size });
+    const e = typeof enemyOrId === 'string' ? A.Data.getById('enemies', enemyOrId) : enemyOrId;
+    return (e && e.icon) || '👹';
+  }
+
+  function encounterSprites(ev) {
+    const list = (ev.enemies && ev.enemies.length) ? ev.enemies : [ev.enemyId];
+    const shown = list.slice(0, 4);
+    const size = shown.length === 1 ? 72 : shown.length === 2 ? 56 : 44;
+    return shown.map((x) => enemySprite(x, size)).join('') + (list.length > 4 ? `<span class="encounter-more">+${list.length - 4}</span>` : '');
+  }
+
   function renderEncounter(ev) {
     const enemy = A.Data.getById('enemies', ev.enemyId);
     const isGroup = (ev.enemies || []).length > 1;
@@ -388,7 +404,7 @@
     return `
       <div class="travel-encounter travel-encounter-v2">
         <div class="encounter-header">
-          <div class="encounter-icon-big">${ev.icon || '👹'}</div>
+          <div class="encounter-icon-big ${isGroup ? 'is-group' : ''}">${encounterSprites(ev)}</div>
           <div class="encounter-header-text">
             <div class="encounter-title-v2">${isGroup ? `Aparecieron ${groupSize} enemigos` : `Apareció ${A.Utils.escapeHtml(ev.enemyName)}`}</div>
             <div class="encounter-meta-v2">
@@ -670,7 +686,10 @@
   function onTravel(targetId) {
     const result = A.Travel.start(targetId);
     if (!result.ok && result.error) {
-      console.warn('[Travel]', result.error);
+      // v1.8.0: antes el error solo iba a la consola y parecía que "no pasaba nada"
+      if (result.locked) { onTravelLocked(targetId); return; }
+      // v1.9.1: el aviso alcanza; no se guarda el error en las crónicas
+      A.State.openModal('confirm', { title: 'No podés viajar', body: result.error });
     }
   }
 

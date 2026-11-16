@@ -53,6 +53,38 @@
   };
   const TAG_EFFECT_CHANCE = 0.25;
 
+  // Ritmo del combate (ms). Dan tiempo a que se vea el dado y el golpe.
+  const ENEMY_DELAY = 900;
+  const PET_DELAY = 800;
+  const NEXT_DELAY = 300;
+
+  /** Clave que usa la vista para ubicar a cada combatiente (animaciones). */
+  function fxKey(entity) {
+    if (!entity) return null;
+    if (entity === State().player) return 'player';
+    if (State().player && entity === State().player.pet) return 'pet';
+    return entity.instanceId ? `enemy:${entity.instanceId}` : null;
+  }
+
+  /** Elemento visual del hechizo (para el color del destello). */
+  function spellElement(spell) {
+    if (!spell) return 'arcane';
+    if (spell.statusEffect && spell.statusEffect.type) {
+      const t = spell.statusEffect.type;
+      if (t === 'fire') return 'fire';
+      if (t === 'cold') return 'ice';
+      if (t === 'shock') return 'shock';
+      if (t === 'poison') return 'poison';
+    }
+    const txt = `${spell.id || ''} ${spell.name || ''}`.toLowerCase();
+    if (/fuego|llama|ígne|igne|bola|fire/.test(txt)) return 'fire';
+    if (/hielo|escarcha|frío|frio|ice/.test(txt)) return 'ice';
+    if (/rayo|chispa|trueno|eléctr|electr/.test(txt)) return 'shock';
+    if (/veneno|ácido|acido|toxi/.test(txt)) return 'poison';
+    if (/luz|sagrad|divin/.test(txt)) return 'holy';
+    return 'arcane';
+  }
+
   // ============================================================
   // Inicio
   // ============================================================
@@ -121,17 +153,17 @@
     combat.turn = currentTurnKind(combat);
     State().combat = combat;
 
-    addLog(combat, 'system', { text: `Comienza el combate contra ${A.Encounter.describeGroup(instances)}.` });
-    if (combat.ambush) addLog(combat, 'system', { text: '⚠️ Te emboscaron. Los enemigos atacan primero.' });
+    addLog(combat, 'system', { text: `Comienza el combate contra ${A.Encounter.describeGroup(instances)}.`, fx: { kind: 'start', group: A.Encounter.describeGroup(instances), ambush: combat.ambush } });
+    if (combat.ambush) addLog(combat, 'system', { text: 'Te emboscaron. Los enemigos atacan primero.' });
     addLog(combat, 'system', { text: `Orden por velocidad: ${combat.initiative.map((i) => `${i.name} (vel ${i.speed})`).join(' → ')}` });
     for (const tg of tieGroups) {
-      addLog(combat, 'system', { text: `⚖️ Empate de velocidad ${tg.speed} → desempate D20: ${tg.members.map((m) => `${m.name}: ${m.tieRoll}`).join(', ')}` });
+      addLog(combat, 'system', { text: `Empate de velocidad ${tg.speed}, desempate con D20: ${tg.members.map((m) => `${m.name}: ${m.tieRoll}`).join(', ')}` });
     }
     addTurnHeader(combat, 1);
 
     A.Bus.emit('combat:started', { count: instances.length });
     State().persist();
-    setTimeout(() => advanceIfNotPlayer(), 600);
+    setTimeout(() => advanceIfNotPlayer(), 500);
     return true;
   }
 
@@ -263,8 +295,8 @@
 
   function effectLabel(type) {
     return ({
-      bleed: '🩸 sangrado', poison: '☠️ veneno', fire: '🔥 fuego', cold: '❄️ frío',
-      shock: '⚡ choque', blind: '🌫️ ceguera', silence: '🤐 silencio',
+      bleed: 'sangrado', poison: 'veneno', fire: 'fuego', cold: 'frío',
+      shock: 'choque', blind: 'ceguera', silence: 'silencio',
     })[type] || type;
   }
 
@@ -274,7 +306,7 @@
     const eff = source.statusEffect;
     if (Math.random() > (eff.chance || 0)) return;
     applyStatus(target, eff.type, { turns: eff.turns || 3, value: eff.value || 1, source: source.id });
-    if (c) addLog(c, 'system', { text: `${targetName(target)} sufre ${effectLabel(eff.type)}.` });
+    if (c) addLog(c, 'system', { text: `${targetName(target)} sufre ${effectLabel(eff.type)}.`, fx: { kind: 'status', target: fxKey(target), effect: eff.type } });
   }
 
   function targetName(t) {
@@ -290,11 +322,13 @@
   function startOfTurn(c, kind, entity) {
     if (!entity || !entity.effects || entity.effects.length === 0) return { skip: false };
     let dmg = 0;
+    let tickType = null;
     const parts = [];
     let stunned = false;
     for (const ef of entity.effects) {
       if (ef.type === 'bleed' || ef.type === 'poison' || ef.type === 'fire') {
         dmg += ef.value;
+        if (!tickType) tickType = ef.type;
         parts.push(`${effectLabel(ef.type)} ${ef.value}`);
       }
       if (ef.type === 'shock' && Math.random() < STUN_CHANCE) stunned = true;
@@ -306,20 +340,20 @@
     if (dmg > 0) {
       if (kind === 'player') {
         A.State.damagePlayer(dmg);
-        addLog(c, 'system', { text: `Efectos: ${parts.join(', ')}. -${dmg} salud (HP ${entity.hp}/${entity.maxHp})` });
+        addLog(c, 'system', { text: `Efectos: ${parts.join(', ')}. -${dmg} salud (HP ${entity.hp}/${entity.maxHp})`, fx: { kind: 'tick', target: 'player', amount: dmg, effect: tickType } });
         if (entity.hp <= 0) return { skip: true, died: true };
       } else if (kind === 'pet') {
         entity.health = Math.max(0, entity.health - dmg);
-        addLog(c, 'system', { text: `${name} sufre ${parts.join(', ')} (-${dmg}, HP ${entity.health}/${entity.maxHealth})` });
+        addLog(c, 'system', { text: `${name} sufre ${parts.join(', ')} (-${dmg}, HP ${entity.health}/${entity.maxHealth})`, fx: { kind: 'tick', target: 'pet', amount: dmg, effect: tickType } });
         if (entity.health <= 0) { petKnockedOut(c, entity); return { skip: true }; }
       } else {
         entity.hp = Math.max(0, entity.hp - dmg);
-        addLog(c, 'system', { text: `${name} sufre ${parts.join(', ')} (-${dmg}, HP ${entity.hp}/${entity.maxHp})` });
-        if (entity.hp <= 0) { addLog(c, 'system', { text: `${name} cayó por los efectos.`, killed: name }); return { skip: true }; }
+        addLog(c, 'system', { text: `${name} sufre ${parts.join(', ')} (-${dmg}, HP ${entity.hp}/${entity.maxHp})`, fx: { kind: 'tick', target: fxKey(entity), amount: dmg, effect: tickType } });
+        if (entity.hp <= 0) { addLog(c, 'system', { text: `${name} cayó por los efectos.`, killed: name, fx: { kind: 'death', target: fxKey(entity) } }); return { skip: true }; }
       }
     }
     if (stunned) {
-      addLog(c, 'system', { text: kind === 'player' ? '⚡ Estás aturdido y perdés el turno.' : `⚡ ${name} está aturdido y pierde el turno.` });
+      addLog(c, 'system', { text: kind === 'player' ? 'Estás aturdido y perdés el turno.' : `${name} está aturdido y pierde el turno.`, fx: { kind: 'stun', target: kind === 'player' ? 'player' : kind === 'pet' ? 'pet' : fxKey(entity) } });
       return { skip: true };
     }
     return { skip: false };
@@ -353,7 +387,7 @@
       addTurnHeader(c, c.round);
       State().persist();
       A.Bus.emit('combat:turn', { round: c.round });
-      setTimeout(() => advanceIfNotPlayer(), 600);
+      setTimeout(() => advanceIfNotPlayer(), 350);
       return;
     }
 
@@ -387,8 +421,9 @@
     State().persist();
     A.Bus.emit('combat:turn', { actor: cur.kind, round: c.round });
 
-    if (cur.kind === 'enemy') setTimeout(() => executeEnemyAction(entity), 700);
-    else if (cur.kind === 'pet') setTimeout(() => executePetAction(), 600);
+    // Pausas pensadas para que se vea el dado y el golpe de cada uno
+    if (cur.kind === 'enemy') setTimeout(() => executeEnemyAction(entity), ENEMY_DELAY);
+    else if (cur.kind === 'pet') setTimeout(() => executePetAction(), PET_DELAY);
     // Jugador: espera input
   }
 
@@ -397,7 +432,7 @@
     if (!c) return;
     c.currentActorIdx += 1;
     if (c.currentActorIdx >= c.initiative.length) c.currentActorIdx = c.initiative.length;
-    setTimeout(() => advanceIfNotPlayer(), 400);
+    setTimeout(() => advanceIfNotPlayer(), NEXT_DELAY);
   }
 
   function assignLabels(instances) {
@@ -469,6 +504,7 @@
         actor: p.name, target: target.displayName, actorIcon: '🗡️', weapon: weaponName,
         roll: r.roll, bonus: st.attack, total: r.total, vs: es.defense, vsLabel: 'defensa',
         result: r.fumble ? 'fumble' : 'evaded',
+        fx: { kind: 'attack', actor: 'player', target: fxKey(target) },
       });
     } else {
       const dmgRoll = rollPlayerDamage(p);
@@ -488,10 +524,11 @@
         roll: r.roll, bonus: st.attack, total: r.total, vs: es.defense, vsLabel: 'defensa',
         rawDmg, targetArmor: es.armor, dmg: finalDmg, hpAfter: target.hp, hpMax: target.maxHp,
         result: r.crit ? 'crit' : 'hit',
+        fx: { kind: 'attack', actor: 'player', target: fxKey(target) },
       });
       if (target.hp > 0) maybeInflictStatusOnHit(st.weapon, target, c);
       if (target.hp <= 0) {
-        addLog(c, 'system', { text: `${target.displayName} cayó.`, killed: target.displayName });
+        addLog(c, 'system', { text: `${target.displayName} cayó.`, killed: target.displayName, fx: { kind: 'death', target: fxKey(target) } });
         maybeDropEquippedWeapon(c, target);
       }
     }
@@ -504,7 +541,7 @@
     const ok = A.State.addItem(enemy.equippedWeapon, 1);
     if (ok) {
       const w = A.Data.getById('weapons', enemy.equippedWeapon);
-      if (w) addLog(c, 'loot', { text: `Recogiste ${w.name} de ${enemy.displayName}.` });
+      if (w) addLog(c, 'loot', { text: `Recogiste ${w.name} de ${enemy.displayName}.`, fx: { kind: 'reward', items: [{ itemId: w.id, qty: 1 }] } });
     }
   }
 
@@ -516,11 +553,11 @@
     const spell = A.Data.getById('spells', spellId);
     if (!spell || !(p.spells || []).includes(spellId)) return;
     if ((p.effects || []).some((e) => e.type === 'silence')) {
-      addLog(c, 'system', { text: '🤐 Estás silenciado: no podés lanzar hechizos.' });
+      addLog(c, 'system', { text: 'Estás silenciado: no podés lanzar hechizos.', fx: { kind: 'note' } });
       return;
     }
     if (p.mana < spell.manaCost) {
-      addLog(c, 'system', { text: `Maná insuficiente para ${spell.name}.` });
+      addLog(c, 'system', { text: `No te alcanza el maná para ${spell.name}.`, fx: { kind: 'note' } });
       return;
     }
     A.State.setMana(p.mana - spell.manaCost);
@@ -530,7 +567,7 @@
       const heal = A.Utils.rollDice(spell.heal) + power;
       const before = p.hp;
       A.State.healHp(heal);
-      addLog(c, 'player', { text: `Lanzaste ${spell.name} y recuperaste ${p.hp - before} de salud.` });
+      addLog(c, 'player', { text: `Lanzaste ${spell.name} y recuperaste ${p.hp - before} de salud.`, fx: { kind: 'heal', actor: 'player', target: 'player', amount: p.hp - before, icon: spell.icon || '✨' } });
     } else if (spell.damage) {
       const targets = spell.area ? aliveEnemies() : [getTarget()].filter(Boolean);
       for (const t of targets) {
@@ -544,12 +581,13 @@
           rawDmg, targetArmor: armor, dmg: finalDmg, hpAfter: t.hp, hpMax: t.maxHp,
           damageDice: power ? `${spell.damage}+${power}` : spell.damage,
           spell: spell.name, result: 'hit',
+          fx: { kind: 'spell', actor: 'player', target: fxKey(t), element: spellElement(spell), icon: spell.icon || '✨' },
         });
         if (t.hp > 0) maybeInflictStatusOnHit(spell, t, c);
-        if (t.hp <= 0) addLog(c, 'system', { text: `${t.displayName} cayó.`, killed: t.displayName });
+        if (t.hp <= 0) addLog(c, 'system', { text: `${t.displayName} cayó.`, killed: t.displayName, fx: { kind: 'death', target: fxKey(t) } });
       }
     } else {
-      addLog(c, 'player', { text: `Lanzaste ${spell.name}.` });
+      addLog(c, 'player', { text: `Lanzaste ${spell.name}.`, fx: { kind: 'cast', actor: 'player', icon: spell.icon || '✨' } });
     }
     afterPlayerAction();
   }
@@ -570,7 +608,7 @@
     let text = `Usaste ${item.name}.`;
     if (hpDelta > 0) text += ` (+${hpDelta} salud)`;
     if (manaDelta > 0) text += ` (+${manaDelta} maná)`;
-    addLog(c, 'player', text);
+    addLog(c, 'player', { text, fx: { kind: 'heal', actor: 'player', target: 'player', amount: hpDelta, mana: manaDelta, icon: item.icon || '🧪' } });
     afterPlayerAction();
   }
 
@@ -588,7 +626,10 @@
       endCombatTamed(instanceId);
       return result;
     }
-    addLog(c, 'player', { text: result && result.reason ? `No se pudo domar (${A.Tame.reasonText(result.reason)}).` : `${inst.displayName} rechaza la comida y te ataca.` });
+    addLog(c, 'player', {
+      text: result && result.reason ? `No se pudo domar (${A.Tame.reasonText(result.reason)}).` : `${inst.displayName} rechaza la comida y te ataca.`,
+      fx: result && result.reason ? { kind: 'note' } : { kind: 'tame-fail', target: fxKey(inst) },
+    });
     if (!result || result.itemConsumed) afterPlayerAction();
     return result;
   }
@@ -598,7 +639,7 @@
     if (!c || c.result || !isPlayerTurn(c)) return;
     if (c.fleeAttempts === undefined) c.fleeAttempts = 0;
     if (c.fleeAttempts >= 2) {
-      addLog(c, 'system', { text: 'Ya intentaste huir 2 veces. No podés volver a intentarlo.' });
+      addLog(c, 'system', { text: 'Ya intentaste huir dos veces: no hay escapatoria.', fx: { kind: 'note' } });
       return;
     }
     c.fleeAttempts += 1;
@@ -614,6 +655,7 @@
       addLog(c, 'system', {
         text: `Lograste escapar (intento ${c.fleeAttempts}/2).`,
         roll: fleeRoll, bonus: fleeBonus, total: fleeTotal, vs: fleeDC, vsLabel: 'DC huida', result: 'hit',
+        fx: { kind: 'flee', actor: 'player' },
       });
       c.result = 'flee';
       A.Bus.emit('combat:ended', { result: 'flee' });
@@ -624,6 +666,7 @@
     addLog(c, 'system', {
       text: `Intento de huida fallido (${c.fleeAttempts}/2). ${remaining > 0 ? 'Te queda 1 intento.' : 'No podés volver a intentar.'}`,
       roll: fleeRoll, bonus: fleeBonus, total: fleeTotal, vs: fleeDC, vsLabel: 'DC huida', result: 'miss',
+      fx: { kind: 'flee', actor: 'player' },
     });
     const fastestEnemy = aliveEnemies().reduce((a, b) => ((b.speed || 0) > (a.speed || 0) ? b : a));
     if (fastestEnemy) {
@@ -650,7 +693,7 @@
   function petKnockedOut(c, pet) {
     pet.health = 0;
     pet.effects = [];
-    addLog(c, 'system', { text: `${pet.name} cayó inconsciente. Despierta con una poción o descansando.` });
+    addLog(c, 'system', { text: `${pet.name} cayó inconsciente. Despierta con una poción o descansando.`, fx: { kind: 'death', target: 'pet' } });
     A.Bus.emit('pet:knocked-out', { name: pet.name });
   }
 
@@ -683,6 +726,7 @@
         actor: pet.name, target: target.displayName, actorIcon: petIcon,
         roll: r.roll, bonus: ps.attack, total: r.total, vs: es.defense, vsLabel: 'defensa',
         result: r.fumble ? 'fumble' : 'evaded',
+        fx: { kind: 'attack', actor: 'pet', target: fxKey(target) },
       });
     } else {
       let rawDmg = rollDamage(pet.damage);
@@ -696,8 +740,9 @@
         roll: r.roll, bonus: ps.attack, total: r.total, vs: es.defense, vsLabel: 'defensa',
         rawDmg, targetArmor: es.armor, dmg: finalDmg, hpAfter: target.hp, hpMax: target.maxHp,
         result: r.crit ? 'crit' : 'hit',
+        fx: { kind: 'attack', actor: 'pet', target: fxKey(target) },
       });
-      if (target.hp <= 0) addLog(c, 'system', { text: `${target.displayName} cayó por la mascota.`, killed: target.displayName });
+      if (target.hp <= 0) addLog(c, 'system', { text: `${target.displayName} cayó por la mascota.`, killed: target.displayName, fx: { kind: 'death', target: fxKey(target) } });
     }
     State().persist();
     A.Bus.emit('combat:action', { actor: 'pet' });
@@ -735,6 +780,7 @@
         actor: enemy.displayName, target: targetName, actorIcon: enemyIcon,
         roll: r.roll, bonus: es.attack, total: r.total, vs: defense, vsLabel: 'defensa',
         result: r.fumble ? 'fumble' : 'evaded',
+        fx: { kind: 'attack', actor: fxKey(enemy), target: targetPet ? 'pet' : 'player' },
       });
       return;
     }
@@ -756,6 +802,7 @@
       rawDmg, targetArmor: armor, dmg: finalDmg,
       hpAfter: targetPet ? pet.health : p.hp, hpMax: targetPet ? pet.maxHealth : p.maxHp,
       result: r.crit ? 'crit' : 'hit',
+      fx: { kind: 'attack', actor: fxKey(enemy), target: targetPet ? 'pet' : 'player' },
     });
     // Efectos por tags del enemigo (veneno, fuego, hielo, ácido)
     if (targetPet ? pet.health > 0 : p.hp > 0) {
@@ -763,7 +810,7 @@
         const te = TAG_EFFECTS[tag];
         if (te && Math.random() < TAG_EFFECT_CHANCE) {
           applyStatus(victim, te.type, { turns: te.turns, value: 1 + Math.floor(((enemy.tier || 1) - 1) / 3), source: enemy.id });
-          addLog(c, 'system', { text: `${targetName} sufre ${effectLabel(te.type)}.` });
+          addLog(c, 'system', { text: `${targetName} sufre ${effectLabel(te.type)}.`, fx: { kind: 'status', target: targetPet ? 'pet' : 'player', effect: te.type } });
           break;
         }
       }
@@ -793,10 +840,10 @@
     for (const e of defeated) totalXp += A.Progression.xpForEnemy(e);
     if (totalXp > 0) {
       p.xp = (p.xp || 0) + totalXp;
-      addLog(c, 'system', { text: `Ganaste ${totalXp} XP.` });
+      addLog(c, 'system', { text: `Ganaste ${totalXp} XP.`, fx: { kind: 'reward', xp: totalXp } });
       A.Bus.emit('player:xp-changed', { current: p.xp, toNext: A.Progression.xpForLevel(p.level + 1) });
       for (const lv of A.Progression.checkLevelUp(p)) {
-        addLog(c, 'system', { text: `¡Subiste al nivel ${lv.level}! ${lv.text}. Te recuperás por completo.` });
+        addLog(c, 'system', { text: `¡Subiste al nivel ${lv.level}! ${lv.text}. Te recuperás por completo.`, fx: { kind: 'reward', levelUp: lv.level } });
         A.State.addChronicle({ type: 'system', text: `¡Subiste al nivel ${lv.level}! ${lv.text}.` });
         A.Bus.emit('player:leveled', { newLevel: lv.level });
       }
@@ -806,8 +853,8 @@
     const pet = p.pet;
     if (pet && pet.health > 0 && totalXp > 0 && A.Tame && A.Tame.addPetXp) {
       const petXp = Math.floor(totalXp / 2);
-      addLog(c, 'system', { text: `${pet.name} ganó ${petXp} XP.` });
-      for (const msg of A.Tame.addPetXp(pet, petXp)) addLog(c, 'system', { text: msg });
+      addLog(c, 'system', { text: `${pet.name} ganó ${petXp} XP.`, fx: { kind: 'reward', petXp } });
+      for (const msg of A.Tame.addPetXp(pet, petXp)) addLog(c, 'system', { text: msg, fx: { kind: 'note' } });
     }
 
     // Loot
@@ -836,10 +883,13 @@
         }
       }
     }
-    if (totalCoins > 0) addLog(c, 'loot', { text: `Recogiste ${A.Currency.formatPrice(totalCoins)}.` });
+    if (totalCoins > 0) addLog(c, 'loot', { text: `Recogiste ${A.Narrator ? A.Narrator.coinsInWords(totalCoins) : A.Currency.formatPrice(totalCoins)}.`, fx: { kind: 'reward', coins: totalCoins } });
     const dropList = Object.values(aggregated);
     if (dropList.length > 0) {
-      addLog(c, 'loot', { text: `Botín: ${dropList.map((d) => (d.qty > 1 ? `${d.item.icon} ${d.item.name} ×${d.qty}` : `${d.item.icon} ${d.item.name}`)).join(', ')}` });
+      addLog(c, 'loot', {
+        text: `Botín: ${dropList.map((d) => (d.qty > 1 ? `${d.item.name} ×${d.qty}` : d.item.name)).join(', ')}`,
+        fx: { kind: 'reward', items: dropList.map((d) => ({ itemId: d.item.id, qty: d.qty })) },
+      });
     }
     return totalXp;
   }
@@ -872,7 +922,7 @@
     const defeated = c.enemies.filter((e) => e.hp <= 0 && e.instanceId !== instanceId);
     const xp = grantRewards(c, defeated);
     const tamed = c.enemies.find((e) => e.instanceId === instanceId);
-    addLog(c, 'system', { text: `${tamed ? tamed.name : 'La criatura'} ahora te acompaña.` });
+    addLog(c, 'system', { text: `${tamed ? tamed.name : 'La criatura'} ahora te acompaña.`, fx: tamed ? { kind: 'tamed', target: fxKey(tamed) } : undefined });
     if (xp > 0) A.State.addChronicle({ type: 'combat', text: `Combate terminado al domar (+${xp} XP).` });
     A.Bus.emit('combat:ended', { result: 'tamed', xp });
     State().persist();
@@ -882,7 +932,7 @@
     const c = State().combat;
     if (!c || c.result) return;
     c.result = 'defeat';
-    addLog(c, 'system', { text: 'Caíste en combate.' });
+    addLog(c, 'system', { text: 'Caíste en combate.', fx: { kind: 'defeat' } });
     const p = A.State.player;
     p.hp = 1;
     p.mana = Math.floor(p.maxMana / 2);
@@ -912,8 +962,23 @@
     const entry = { ts: Date.now(), type };
     if (typeof payload === 'string') entry.text = payload;
     else Object.assign(entry, payload);
+    // v1.9.1: el narrador cuenta la acción con palabras (se elige una sola vez)
+    if (A.Narrator) {
+      try { entry.say = A.Narrator.say(entry, c); } catch (err) { entry.say = null; }
+    }
+    // v1.9.1: foto de la vida de todos después de esta acción. La vista la usa
+    // para no adelantar el resultado mientras el dado todavía rueda.
+    entry._hp = hpSnapshot(c);
     c.log.push(entry);
     A.Bus.emit('combat:action', entry);
+  }
+
+  function hpSnapshot(c) {
+    const p = State().player;
+    const snap = { player: p.hp, mana: p.mana };
+    if (p.pet) snap.pet = p.pet.health;
+    for (const e of c.enemies || []) snap[fxKey(e)] = e.hp;
+    return snap;
   }
 
   function availableSpells() {

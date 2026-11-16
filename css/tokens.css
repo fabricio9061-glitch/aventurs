@@ -1,56 +1,74 @@
 /* ============================================================
-   Aventurs — Design Tokens (v1.5.3)
-   Identidad visual: light parchment cálido, Inter sans-serif
+   Aventurs — Design Tokens (v1.9.0)
+   Identidad visual "Mezcla":
+     - fondo oscuro de taberna/mazmorra
+     - tarjetas de pergamino con tinta oscura
+     - dorado envejecido para lo importante
+     - títulos medievales (Cinzel), texto legible (Inter)
+   Las "zonas oscuras" (cabecera, arena de combate, mapa nocturno)
+   redefinen estos mismos tokens: ver .dark-zone en theme.css.
    ============================================================ */
 
 :root {
-  /* ---------- Superficies ---------- */
-  --bg: #f5efe0;
-  --bg-deep: #ede5d0;
-  --surface: #fdfaf1;
-  --surface-raised: #ffffff;
-  --surface-sunken: #efe7d3;
+  /* ---------- Superficies (pergamino) ---------- */
+  --bg: #15100b;               /* fondo de la página (oscuro) */
+  --bg-deep: #0d0906;
+  --surface: #f2e5c6;          /* pergamino */
+  --surface-raised: #f9f0da;
+  --surface-sunken: #e7d6b0;
 
   /* ---------- Bordes ---------- */
-  --border: #e3dac4;
-  --border-strong: #cdc1a3;
-  --border-soft: #efe9d8;
-  --border-w: 0.5px;
+  --border: #cdb68a;
+  --border-strong: #a8894f;
+  --border-soft: #e2d2ab;
+  --border-w: 1px;
 
-  /* ---------- Texto ---------- */
-  --text: #2a2418;
-  --text-muted: #6b5e48;
-  --text-dim: #8a7c63;
-  --text-faint: #b3a78a;
+  /* ---------- Texto (tinta) ---------- */
+  --text: #2b2014;
+  --text-muted: #6b5434;
+  --text-dim: #85704d;
+  --text-faint: #a8936c;
 
-  /* ---------- Acentos dorados ---------- */
-  --gold: #c89432;
-  --gold-deep: #a37418;
-  --gold-bg: #f7ebcc;
-  --gold-bg-soft: #fbf3df;
-  --gold-text: #8c6912;
+  /* ---------- Dorado ---------- */
+  --gold: #c9a24a;
+  --gold-deep: #94691c;
+  --gold-bg: #f0d999;
+  --gold-bg-soft: #f6e8c6;
+  --gold-text: #7a5410;
+  --gold-bright: #f2cf73;
 
   /* ---------- Estados ---------- */
-  --hp: #c4592b;
-  --hp-bg: #f7e4d4;
-  --mana: #3d70a8;
-  --mana-bg: #e2eaf3;
-  --xp: #d4a437;
-  --xp-bg: #faecc8;
-  --food: #b87a3a;
-  --food-bg: #f3dfc1;
+  --hp: #b8432a;
+  --hp-bg: #e8ccb4;
+  --mana: #3a67a6;
+  --mana-bg: #d4dbe6;
+  --xp: #c48f22;
+  --xp-bg: #eedcaa;
+  --food: #a86a2c;
+  --food-bg: #ead3ae;
   --danger: #9c2828;
-  --success: #466f1e;
-  --warning: #855314;
+  --success: #4a6e1e;
+  --warning: #8a5512;
+
+  /* ---------- Zona oscura (cabecera, arena, paneles nocturnos) ---------- */
+  --night: #1d1610;
+  --night-raised: #2a2017;
+  --night-sunken: #120d09;
+  --night-border: #4a3a26;
+  --night-border-strong: #6e5634;
+  --night-text: #f1e4c6;
+  --night-text-muted: #c4ae86;
+  --night-text-dim: #9a8562;
 
   /* ---------- Sombras ---------- */
-  --shadow-sm: 0 1px 2px rgba(74, 60, 40, 0.06);
-  --shadow-md: 0 2px 6px rgba(74, 60, 40, 0.08), 0 1px 2px rgba(74, 60, 40, 0.04);
-  --shadow-lg: 0 4px 14px rgba(74, 60, 40, 0.12), 0 2px 6px rgba(74, 60, 40, 0.06);
-  --shadow-inset: inset 0 1px 2px rgba(74, 60, 40, 0.04);
+  --shadow-sm: 0 1px 2px rgba(20, 12, 4, 0.18);
+  --shadow-md: 0 3px 10px rgba(10, 6, 2, 0.28), 0 1px 3px rgba(10, 6, 2, 0.2);
+  --shadow-lg: 0 10px 30px rgba(5, 3, 1, 0.45), 0 2px 8px rgba(5, 3, 1, 0.3);
+  --shadow-inset: inset 0 1px 3px rgba(60, 40, 15, 0.18);
 
   /* ---------- Tipografía ---------- */
   --font: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-display: 'Cinzel', 'Trajan Pro', Georgia, 'Times New Roman', serif;
 
   --fs-xs: 11px;
   --fs-sm: 13px;
@@ -64,6 +82,7 @@
   --fw-normal: 400;
   --fw-medium: 500;
   --fw-semi: 600;
+  --fw-bold: 700;
 
   --lh-tight: 1.25;
   --lh-base: 1.5;
@@ -90,10 +109,10 @@
 
   /* ---------- Layout ---------- */
   --container-max: 1320px;
-  --sidebar-w: 290px;
+  --sidebar-w: 300px;
   --chronicles-w: 270px;
 
-  /* ---------- Transitions ---------- */
+  /* ---------- Transiciones ---------- */
   --t-fast: 100ms ease;
   --t-base: 160ms ease;
   --t-slow: 240ms ease;

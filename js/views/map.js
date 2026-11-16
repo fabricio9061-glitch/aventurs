@@ -200,44 +200,37 @@
     mainEl.querySelectorAll('[data-action="back-from-map"]').forEach((b) => {
       b.addEventListener('click', () => closeMap());
     });
-    // Click en nodos clickables (vecinos)
-    mainEl.querySelectorAll('[data-clickable="1"][data-map-region]').forEach((g) => {
+    // v1.8.0: clic en CUALQUIER nodo del mapa.
+    //   - Vecino: intenta viajar. Si no se puede, muestra el motivo en pantalla.
+    //   - No vecino: avisa que no hay camino directo.
+    // Antes el clic solo valía si era rapidísimo (<600 ms) y sin mover el mouse 6 px,
+    // por eso a veces "no pasaba nada".
+    mainEl.querySelectorAll('[data-map-region]').forEach((g) => {
       g.style.cursor = 'pointer';
-      // Usamos mousedown/mouseup en el propio nodo para detectar click "puro"
-      // (sin movimiento significativo) y dispara el viaje.
-      let nodeMouseDownX = 0, nodeMouseDownY = 0, nodeMouseDownTime = 0;
-      g.addEventListener('mousedown', (e) => {
-        e.stopPropagation(); // Importante: no propagar al canvas para que no inicie un drag
-        nodeMouseDownX = e.clientX;
-        nodeMouseDownY = e.clientY;
-        nodeMouseDownTime = Date.now();
-      });
-      g.addEventListener('mouseup', (e) => {
+      // Que apretar sobre un nodo no empiece a arrastrar el mapa
+      g.addEventListener('mousedown', (e) => e.stopPropagation());
+      g.addEventListener('touchstart', (e) => e.stopPropagation(), { passive: true });
+      g.addEventListener('click', (e) => {
         e.stopPropagation();
-        const dx = Math.abs(e.clientX - nodeMouseDownX);
-        const dy = Math.abs(e.clientY - nodeMouseDownY);
-        const dt = Date.now() - nodeMouseDownTime;
-        // Si no movió mucho y fue rápido, es click → viajar
-        if (dx < 6 && dy < 6 && dt < 600) {
-          const regionId = g.dataset.mapRegion;
-          if (!regionId) return;
-          const result = A.Travel.start(regionId);
-          // Travel.start devuelve {ok: bool, error?, traveling?}
-          if (result && result.ok) {
-            closeMap();
-          } else if (result && result.error) {
-            // Mostrar error como crónica
-            A.State.addChronicle({ type: 'note', text: result.error });
-          }
-        }
-      });
-      // Touch: tap directo
-      g.addEventListener('touchend', (e) => {
-        e.stopPropagation();
+        if (didDragRecently) return;
         const regionId = g.dataset.mapRegion;
         if (!regionId) return;
+        if (regionId === (A.State.world && A.State.world.regionId)) {
+          showMapToast('Ya estás acá.');
+          return;
+        }
+        if (g.dataset.clickable !== '1') {
+          const r = A.Data.getById('regions', regionId);
+          showMapToast(`Desde acá no hay camino directo a ${r ? r.name : 'esa región'}.`);
+          return;
+        }
         const result = A.Travel.start(regionId);
-        if (result && result.ok) closeMap();
+        if (result && result.ok) {
+          closeMap();
+        } else {
+          // v1.9.1: solo el aviso; antes además llenaba las crónicas de errores
+          showMapToast((result && result.error) || 'No se puede viajar ahí.');
+        }
       });
     });
     // Zoom & Pan
@@ -330,6 +323,23 @@
         setTimeout(() => { didDragRecently = false; }, 100);
       }
     }
+  }
+
+  /** v1.8.0: aviso visible dentro del mapa (antes los errores iban a las crónicas, que no se ven acá) */
+  let toastTimer = null;
+  function showMapToast(text) {
+    if (!mainEl) return;
+    let el = mainEl.querySelector('.map-toast');
+    if (!el) {
+      el = document.createElement('div');
+      el.className = 'map-toast';
+      el.setAttribute('role', 'status');
+      (mainEl.querySelector('.map-view-canvas') || mainEl).appendChild(el);
+    }
+    el.textContent = text;
+    el.classList.add('is-visible');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => el.classList.remove('is-visible'), 2800);
   }
 
   function applyTransform(g) {
