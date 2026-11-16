@@ -1,14 +1,16 @@
 /* ============================================================
-   Aventurs — Seed: Razas (v1.8.0 — balanceadas)
-   9 razas. NINGUNA es más fuerte que otra: todas tienen el mismo
-   "presupuesto" de poder repartido distinto (lo mide tools/simulador.js).
+   Aventurs — Seed: Razas (v1.9.2 — 12 razas con pasiva)
+   NINGUNA es más fuerte que otra: el "presupuesto" de poder (stats +
+   pasiva) es el mismo, repartido distinto. Se mide con:
+     node tools/simulador.js razas
 
-   Tipos:
-     warrior (Enano, Orco, Robot)  -> sin magia, más vida, armadura y daño
+   Tipos (4 de cada uno):
      hybrid  (Humano, Elfo, Mediano, Dracónido) -> magia + arma
-     mage    (Gnomo, Alienígena)   -> más maná y precisión, menos vida
+     warrior (Enano, Orco, Robot, Goliat)       -> sin magia, más vida y daño
+     mage    (Gnomo, Alienígena, Infernal, Ángel) -> más maná, menos vida
 
-   La magia ya NO es al azar: magic:true/false según la raza.
+   passive: id de la pasiva (textos y reglas en js/systems/passives.js).
+
    Al subir de nivel: vida +7 (warrior), +6 (hybrid), +5 (mage);
    el resto de las mejoras es igual para todos (ver js/core/balance.js).
    Todos arrancan con Daga + Túnica de cuero; los que usan magia,
@@ -23,6 +25,7 @@
   'use strict';
 
   const RACES = [
+    // ---------- Híbridos: arma y magia ----------
     {
       id: 'humano',
       name: 'Humano',
@@ -30,8 +33,9 @@
       sprite: '',
       combatType: 'hybrid',
       magic: true,
-      bonuses: { hp: 4, mana: 0, speed: 1, precision: 1, armor: 0, damage: 0, dodge: 1 },
-      description: 'Adaptables y resistentes. Equilibrados en todo, dominantes en nada. La raza más común de los reinos del centro.',
+      passive: 'determinacion',
+      bonuses: { hp: 3, mana: 0, speed: 1, precision: 1, armor: 0, damage: 0, dodge: 1 },
+      description: 'Adaptables y tercos. Equilibrados en todo, dominantes en nada, y nunca se dan por vencidos.',
     },
     {
       id: 'elfo',
@@ -40,9 +44,34 @@
       sprite: '',
       combatType: 'hybrid',
       magic: true,
-      bonuses: { hp: 1, mana: 2, speed: 3, precision: 2, armor: 0, damage: 0, dodge: 1 },
+      passive: 'ojo_certero',
+      bonuses: { hp: 3, mana: 2, speed: 3, precision: 2, armor: 0, damage: 0, dodge: 1 },
       description: 'Ágiles y de instinto certero. Viven mil años bajo los bosques antiguos y rara vez bajan al mundo de los hombres.',
     },
+    {
+      id: 'mediano',
+      name: 'Mediano',
+      icon: '🧚',
+      sprite: '',
+      combatType: 'hybrid',
+      magic: true,
+      passive: 'suerte',
+      bonuses: { hp: 1, mana: 0, speed: 3, precision: 1, armor: 0, damage: 0, dodge: 2 },
+      description: 'Pequeños y silenciosos. Lo que pierden en fuerza lo ganan en velocidad, picardía y una suerte que no se explica.',
+    },
+    {
+      id: 'draconido',
+      name: 'Dracónido',
+      icon: '🐉',
+      sprite: '',
+      combatType: 'hybrid',
+      magic: true,
+      passive: 'sangre_dragon',
+      bonuses: { hp: 1, mana: 0, speed: 0, precision: 1, armor: 1, damage: 1, dodge: -1 },
+      description: 'Descendientes de dragones antiguos. Escamas duras, sangre caliente y orgullo más antiguo que los reinos.',
+    },
+
+    // ---------- Guerreros: sin magia ----------
     {
       id: 'enano',
       name: 'Enano',
@@ -50,7 +79,8 @@
       sprite: '',
       combatType: 'warrior',
       magic: false,
-      bonuses: { hp: 3, mana: 0, speed: -2, precision: 1, armor: 1, damage: 1, dodge: -1 },
+      passive: 'piel_roca',
+      bonuses: { hp: 4, mana: 0, speed: -2, precision: 1, armor: 0, damage: 1, dodge: -1 },
       description: 'Bajos y robustos. Su cuerpo soporta golpes que partirían a un humano y su voluntad no cede ante nada.',
     },
     {
@@ -60,38 +90,9 @@
       sprite: '',
       combatType: 'warrior',
       magic: false,
-      bonuses: { hp: 6, mana: 0, speed: 0, precision: 1, armor: 0, damage: 1, dodge: 0 },
-      description: 'Brutales en combate. La furia es su lenguaje y la fuerza su única medida del valor.',
-    },
-    {
-      id: 'mediano',
-      name: 'Mediano',
-      icon: '🧚',
-      sprite: '',
-      combatType: 'hybrid',
-      magic: true,
-      bonuses: { hp: 0, mana: 0, speed: 3, precision: 1, armor: 0, damage: 0, dodge: 2 },
-      description: 'Pequeños y silenciosos. Lo que pierden en fuerza lo ganan en velocidad y picardía.',
-    },
-    {
-      id: 'gnomo',
-      name: 'Gnomo',
-      icon: '🧙',
-      sprite: '',
-      combatType: 'mage',
-      magic: true,
-      bonuses: { hp: -2, mana: 6, speed: 1, precision: 2, armor: 0, damage: 0, dodge: 2 },
-      description: 'Inventores natos y de mente curiosa. La magia y la mecánica les vienen de la sangre.',
-    },
-    {
-      id: 'alienigena',
-      name: 'Alienígena',
-      icon: '👽',
-      sprite: '',
-      combatType: 'mage',
-      magic: true,
-      bonuses: { hp: 1, mana: 8, speed: 2, precision: 1, armor: 0, damage: 0, dodge: 2 },
-      description: 'Visitantes de mundos lejanos. Sus mentes alcanzan corrientes de energía que los nativos apenas perciben.',
+      passive: 'furia',
+      bonuses: { hp: 1, mana: 0, speed: 0, precision: 1, armor: 0, damage: 1, dodge: 0 },
+      description: 'Brutales en combate. La furia es su lenguaje, y cuanto más sangran, más fuerte pegan.',
     },
     {
       id: 'robot',
@@ -100,18 +101,66 @@
       sprite: '',
       combatType: 'warrior',
       magic: false,
+      passive: 'cuerpo_metal',
       bonuses: { hp: 3, mana: 0, speed: -1, precision: 1, armor: 1, damage: 1, dodge: -1 },
-      description: 'Construidos, no nacidos. Inmunes al cansancio y a la duda, pero ajenos por completo a la magia.',
+      description: 'Construidos, no nacidos. Inmunes al cansancio, al veneno y a la duda, pero ajenos por completo a la magia.',
     },
     {
-      id: 'draconido',
-      name: 'Dracónido',
-      icon: '🐉',
+      id: 'goliat',
+      name: 'Goliat',
+      icon: '🗿',
       sprite: '',
-      combatType: 'hybrid',
+      combatType: 'warrior',
+      magic: false,
+      passive: 'golpe_gigante',
+      bonuses: { hp: 8, mana: 0, speed: -2, precision: 0, armor: 0, damage: 1, dodge: 0 },
+      description: 'Gigantes de piel de piedra que viven en las cumbres. Lentos para empezar, pero cuando aciertan, aplastan.',
+    },
+
+    // ---------- Magos: mucha magia, menos vida ----------
+    {
+      id: 'gnomo',
+      name: 'Gnomo',
+      icon: '🧙',
+      sprite: '',
+      combatType: 'mage',
       magic: true,
-      bonuses: { hp: 2, mana: 0, speed: 0, precision: 1, armor: 1, damage: 1, dodge: -1 },
-      description: 'Descendientes de dragones antiguos. Escamas duras, sangre caliente y orgullo más antiguo que los reinos.',
+      passive: 'ingenio',
+      bonuses: { hp: -1, mana: 6, speed: 1, precision: 2, armor: 0, damage: 0, dodge: 2 },
+      description: 'Inventores natos y de mente curiosa. Encuentran la forma de hacer más magia con menos esfuerzo.',
+    },
+    {
+      id: 'alienigena',
+      name: 'Alienígena',
+      icon: '👽',
+      sprite: '',
+      combatType: 'mage',
+      magic: true,
+      passive: 'mente_expansiva',
+      bonuses: { hp: 0, mana: 3, speed: 2, precision: 1, armor: 0, damage: 0, dodge: 2 },
+      description: 'Visitantes de mundos lejanos. Sus mentes beben de corrientes de energía que los nativos apenas perciben.',
+    },
+    {
+      id: 'infernal',
+      name: 'Infernal',
+      icon: '😈',
+      sprite: '',
+      combatType: 'mage',
+      magic: true,
+      passive: 'llama_interior',
+      bonuses: { hp: 2, mana: 6, speed: 1, precision: 2, armor: 0, damage: 0, dodge: 1 },
+      description: 'Nacidos con sangre de demonio. Llevan el fuego del abismo en las venas y lo vuelcan en cada hechizo.',
+    },
+    {
+      id: 'angel',
+      name: 'Ángel',
+      icon: '👼',
+      sprite: '',
+      combatType: 'mage',
+      magic: true,
+      passive: 'bendicion',
+      bonuses: { hp: -1, mana: 3, speed: 1, precision: 1, armor: 0, damage: 0, dodge: 2 },
+      description: 'Guardianes bajados del cielo. Una luz suave los acompaña y les cierra las heridas en plena batalla.',
     },
   ];
 

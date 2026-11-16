@@ -1150,6 +1150,11 @@
     }
     if (hat === 'gnome') P.poly([[hx - r - 0.6, hy - r * 0.3], [hx + r + 0.6, hy - r * 0.3], [hx + 1.5, hy - r - 5.5], [hx + 4.5, hy - r - 6], [hx + 0.5, hy - r - 4]], 'a');
     if (hat === 'bandana') { P.rect(hx - r, hy - r * 0.55, r * 2, 1.4, 'cl2'); P.line([[R - 0.5, hy - r * 0.4], [R + 2, hy + 0.8]], 0.5, 0.5, 'cl2'); }
+    if (hat === 'halo') {
+      const ring = [];
+      for (let i = 0; i <= 18; i++) { const t = (i / 18) * Math.PI * 2; ring.push([hx + Math.cos(t) * r * 0.95, hy - r - 2.6 + Math.sin(t) * 1.2]); }
+      P.line(ring, 0.55, 0.55, 'g');
+    }
   }
 
   function weapon(P, hand, d, kind) {
@@ -1319,6 +1324,10 @@
     alienigena: { p: { sk: '#9ac0a0', cl: '#5a4a8a', cl2: '#3a3a5a', a: '#c0c0c0', m: '#b0b8c8', g: '#70ff90', e: '#101010' }, o: { size: 'medium', head: 'alien', outfit: 'tunic', defaultWeapon: 'gun' } },
     robot: { p: { sk: '#a0a8b0', m: '#8a929c', cl: '#6a7280', cl2: '#4a5058', a: '#ffcc33', g: '#40e0ff', e: '#40e0ff', wd: '#5a5a5a' }, o: { size: 'medium', head: 'robot', outfit: 'armor' } },
     draconido: { p: { sk: '#4a8a6a', cl: '#8a3a2a', cl2: '#4a3a2a', a: '#e8e0c0', m: '#b8b8c0', wd: '#5a3a1a', e: '#ffcc00' }, o: { size: 'medium', head: 'lizard', horns: 'small', outfit: 'tunic', tail: 'lizard', tailKey: 'sk' } },
+    // v1.9.2: tres razas nuevas
+    goliat: { p: { sk: '#8fa0b4', h: '#2a2a34', cl: '#6a4a32', cl2: '#3e3226', c: '#d8c8a0', a: '#c9a24a', m: '#c0c8d0', wd: '#5a3a1a', e: '#101820' }, o: { size: 'large', outfit: 'loincloth', hair: 'short', brows: true, defaultWeapon: 'hammer' } },
+    infernal: { p: { sk: '#c0483a', h: '#1e141a', cl: '#4a1e3e', cl2: '#2a1024', a: '#e8b040', m: '#c0c8d0', wd: '#4a2a1a', e: '#ffd040', g: '#ff8030' }, o: { size: 'medium', hair: 'long', horns: 'curved', tail: 'demon', outfit: 'robe', lower: 'robe', defaultWeapon: 'staff' } },
+    angel: { p: { sk: '#f4dcc4', h: '#f0cc78', cl: '#f4efe2', cl2: '#cbc2ae', a: '#d4a42c', wg: '#ffffff', m: '#d8dce4', wd: '#8a6a3a', e: '#3a6ab8', g: '#ffe680' }, o: { size: 'medium', hair: 'long', wings: 'feather', hat: 'halo', outfit: 'robe', lower: 'robe', defaultWeapon: 'sword' } },
   };
 
   // ============================================================

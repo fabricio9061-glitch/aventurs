@@ -1,234 +1,213 @@
 /* ============================================================
-   Aventurs — View: Character Creator
-   Grid 3x3 de razas + input nombre + card de resumen.
+   Aventurs — View: Creación de personaje (v1.9.2)
+   - 12 razas en 3 filas de 4: Híbridos, Guerreros y Magos
+   - Cada raza muestra su pasiva (js/systems/passives.js)
+   - A la derecha, la ficha de la raza elegida + nombre + botón
+   - Sin emojis: retratos e íconos en pixel art
    ============================================================ */
 
 (function (A) {
   'use strict';
 
   let rootEl = null;
-  let selectedRaceId = null;
+  let selectedRaceId = 'humano';
   let inputName = '';
 
-  // v1.6.3: tema visual por raza (color principal + acento)
-  const RACE_THEMES = {
-    humano:    { primary: '#a89060', accent: '#d4a437', tag: 'Equilibrado' },
-    elfo:      { primary: '#5a8a4a', accent: '#7ab058', tag: 'Ágil' },
-    orco:      { primary: '#7a3018', accent: '#a04020', tag: 'Agresivo' },
-    enano:     { primary: '#7a5018', accent: '#9c6820', tag: 'Tanque' },
-    gnomo:     { primary: '#3a5070', accent: '#5070a0', tag: 'Mago' },
-    dracon:    { primary: '#a04018', accent: '#d46a20', tag: 'Épico' },
-    dracónido: { primary: '#a04018', accent: '#d46a20', tag: 'Épico' },
-    robot:     { primary: '#3a587a', accent: '#5078a0', tag: 'Tecnológico' },
-    alien:     { primary: '#5a3870', accent: '#8050a0', tag: 'Extraño' },
-    alienigena:{ primary: '#5a3870', accent: '#8050a0', tag: 'Extraño' },
-    mediano:   { primary: '#5a7048', accent: '#7c9560', tag: 'Hábil' },
-    undead:    { primary: '#3a3848', accent: '#605870', tag: 'No-muerto' },
+  // Color de cada raza (anillo del retrato y detalles)
+  const RACE_COLORS = {
+    humano: '#c9a24a', elfo: '#6fa04a', mediano: '#b07a3a', draconido: '#c0582a',
+    enano: '#a8743a', orco: '#5f8f34', robot: '#5a86b0', goliat: '#7a8ea8',
+    gnomo: '#4a6ab0', alienigena: '#7a58b0', infernal: '#b8382a', angel: '#e0c060',
   };
 
-  // v1.9.0: retrato en pixel art de la raza (si no hay sprite, el emoji)
-  function raceSprite(race, size) {
-    if (A.Sprites && A.Sprites.heroHtml) return A.Sprites.heroHtml(race.id, { size, weapon: 'dagger' });
-    return race.icon;
+  const GROUPS = [
+    { type: 'hybrid', name: 'Híbridos', desc: 'Pelean con arma y con magia' },
+    { type: 'warrior', name: 'Guerreros', desc: 'Sin magia: más vida y más daño' },
+    { type: 'mage', name: 'Magos', desc: 'Mucha magia, menos vida' },
+  ];
+
+  const TYPE_LINE = { hybrid: 'Híbrido · arma y magia', warrior: 'Guerrero · sin magia', mage: 'Mago · magia fuerte' };
+
+  function esc(s) { return A.Utils.escapeHtml(String(s == null ? '' : s)); }
+  function icon(name, size, cls) { return A.ItemSprites ? A.ItemSprites.icon(name, { size, cls }) : ''; }
+  function colorOf(id) { return RACE_COLORS[id] || '#c9a24a'; }
+  function portrait(race, size) {
+    return A.Sprites && A.Sprites.heroHtml ? A.Sprites.heroHtml(race.id, { size, weapon: 'dagger' }) : '';
+  }
+  function passiveOf(race) {
+    return A.Passives && race.passive ? A.Passives.info(race.passive, { level: 1, maxHp: A.Seed.statsForRace(race.id).maxHp }) : null;
   }
 
-  function themeForRace(raceId) {
-    return RACE_THEMES[raceId] || RACE_THEMES[raceId.toLowerCase()] || { primary: '#a89060', accent: '#d4a437', tag: 'Híbrido' };
-  }
+  // ============================================================
+  // Render
+  // ============================================================
 
   function render() {
     if (!rootEl) return;
     const races = A.Data.races;
-    const selected = selectedRaceId ? races.find((r) => r.id === selectedRaceId) : null;
-    const stats = selected ? A.Seed.statsForRace(selected.id) : null;
-    const theme = selected ? themeForRace(selected.id) : null;
+    if (!races.find((r) => r.id === selectedRaceId)) selectedRaceId = races[0] ? races[0].id : null;
+    const selected = races.find((r) => r.id === selectedRaceId) || null;
+
+    const grouped = GROUPS.map((g) => ({ ...g, races: races.filter((r) => (r.combatType || 'hybrid') === g.type) }))
+      .filter((g) => g.races.length);
+    // Razas nuevas del editor con otro tipo: van al final
+    const known = new Set(GROUPS.map((g) => g.type));
+    const others = races.filter((r) => !known.has(r.combatType || 'hybrid'));
+    if (others.length) grouped.push({ type: 'other', name: 'Otras', desc: '', races: others });
 
     rootEl.innerHTML = `
-      <div class="char-page char-page-v2">
-        <header class="char-header-bar">
-          <div class="brand-mini">
-            <span class="brand-icon">⚔️</span><span class="brand-name">Aventurs</span>
-          </div>
-          <button class="btn-ghost" data-action="open-editor">Editor</button>
+      <div class="cc-page">
+        <header class="cc-topbar">
+          <div class="cc-brand">${icon('swords', 28)}<span>Aventurs</span></div>
+          <button class="cc-editor-btn" data-action="open-editor">Editor</button>
         </header>
 
-        <div class="char-create-v2">
-          <div class="char-title-block">
-            <h1 class="char-title">Nueva aventura</h1>
-            <p class="char-sub muted">Elegí tu héroe. Las decisiones serias vienen después.</p>
+        <main class="cc-main">
+          <div class="cc-heading">
+            <h1 class="cc-title">Nueva aventura</h1>
+            <p class="cc-sub">Elegí tu raza. Todas tienen el mismo poder, repartido distinto, y una pasiva propia.</p>
           </div>
 
-          <div class="char-layout-2col">
-            <!-- Columna izquierda: preview grande de la raza seleccionada -->
-            <aside class="char-preview-panel ${selected ? 'has-selection' : ''}" ${selected ? `style="--race-primary: ${theme.primary}; --race-accent: ${theme.accent};"` : ''}>
-              ${selected ? renderRacePreview(selected, stats, theme) : `
-                <div class="char-preview-empty">
-                  <div class="char-preview-empty-icon">⚔️</div>
-                  <div class="char-preview-empty-text">Seleccioná una raza<br>para ver su perfil</div>
+          <div class="cc-layout">
+            <section class="cc-picker" aria-label="Razas">
+              ${grouped.map((g) => `
+                <div class="cc-group">
+                  <div class="cc-group-head">
+                    <span class="cc-group-name">${esc(g.name)}</span>
+                    <span class="cc-group-desc">${esc(g.desc)}</span>
+                  </div>
+                  <div class="cc-grid">
+                    ${g.races.map((r) => raceCard(r)).join('')}
+                  </div>
                 </div>
-              `}
-            </aside>
+              `).join('')}
+            </section>
 
-            <!-- Columna derecha: selector de razas + nombre + botón -->
-            <section class="char-selector-panel">
-              <div class="char-section-label">Razas disponibles</div>
-              <div class="race-grid race-grid-v2">
-                ${races.map((r) => raceCard(r)).join('')}
-              </div>
-
-              <div class="char-form-block">
-                <label class="char-label" for="char-name">Nombre del personaje</label>
-                <input id="char-name" class="char-input char-input-v2" type="text" maxlength="24"
-                       value="${A.Utils.escapeHtml(inputName)}" placeholder="Si lo dejás vacío, te asignamos uno...">
-                ${selectedRaceId && !inputName.trim() ? `<div class="char-input-hint dim">Se generará uno aleatorio al comenzar.</div>` : ''}
-
-                <button class="btn-primary char-create-btn" id="btn-create" ${!selectedRaceId ? 'disabled' : ''}>
-                  ${selected ? `⚔️ Comenzar como ${A.Utils.escapeHtml(selected.name)}` : 'Comenzar aventura'}
+            <aside class="cc-detail" ${selected ? `style="--race-color:${colorOf(selected.id)}"` : ''}>
+              ${selected ? detailHtml(selected) : ''}
+              <div class="cc-form">
+                <label class="cc-label" for="char-name">Nombre</label>
+                <input id="char-name" class="cc-input" type="text" maxlength="24" autocomplete="off"
+                       value="${esc(inputName)}" placeholder="Si lo dejás vacío, te damos uno">
+                <button class="cc-start" id="btn-create" ${!selected ? 'disabled' : ''}>
+                  ${icon('swords', 24)}<span>${selected ? `Comenzar como ${esc(selected.name)}` : 'Elegí una raza'}</span>
                 </button>
               </div>
-            </section>
+            </aside>
           </div>
-        </div>
+        </main>
       </div>
     `;
-
     bindEvents();
-  }
-
-  /**
-   * v1.6.3: Preview grande de la raza seleccionada (columna izquierda).
-   */
-  function renderRacePreview(race, stats, theme) {
-    // v1.8.0: todas las razas arrancan con Daga + Túnica de cuero
-    const hasMagic = A.Seed.raceHasMagic ? A.Seed.raceHasMagic(race.id) : race.combatType !== 'warrior';
-    const startDmg = stats.damage > 0 ? `1d4+${stats.damage}` : '1d4';
-    // Barras visuales: estimadas a partir de stats típicos
-    const bars = [
-      { label: 'Salud', val: stats.maxHp, max: 30, color: '#c4513a' },
-      { label: 'Maná', val: hasMagic ? stats.maxMana : 0, max: 25, color: '#3a78c4' },
-      { label: 'Velocidad', val: stats.speed, max: 18, color: '#7a9c3a' },
-      { label: 'Armadura', val: stats.armor, max: 8, color: '#8d6a30' },
-      { label: 'Esquiva', val: stats.dodge, max: 10, color: '#a87838' },
-    ];
-    return `
-      <div class="race-preview-content">
-        <div class="race-preview-icon">${raceSprite(race, 128)}</div>
-        <div class="race-preview-name">${A.Utils.escapeHtml(race.name)}</div>
-        <div class="race-preview-type">${theme.tag} · ${typeLabel(race.combatType)}</div>
-        <p class="race-preview-desc">${A.Utils.escapeHtml(race.description)}</p>
-
-        <div class="race-preview-stats">
-          ${bars.map((b) => `
-            <div class="race-stat-row">
-              <span class="race-stat-label">${b.label}</span>
-              <div class="race-stat-bar"><span style="width:${Math.min(100, (b.val / b.max) * 100)}%; background:${b.color}"></span></div>
-              <span class="race-stat-val num">${b.val}</span>
-            </div>
-          `).join('')}
-        </div>
-
-        <div class="race-preview-extras">
-          <div class="race-extra-row">
-            <span class="dim">Precisión:</span>
-            <span class="num">+${stats.precision}</span>
-          </div>
-          <div class="race-extra-row">
-            <span class="dim">Magia:</span>
-            <span>${hasMagic ? 'Sí (empieza sabiendo Chispa)' : 'No'}</span>
-          </div>
-          <div class="race-extra-row">
-            <span class="dim">Daño inicial (daga):</span>
-            <span class="num">${startDmg}</span>
-          </div>
-          <div class="race-extra-row dim small">
-            <span>Todas las razas tienen el mismo poder total, repartido distinto.</span>
-          </div>
-        </div>
-      </div>
-    `;
   }
 
   function raceCard(race) {
     const isSel = race.id === selectedRaceId;
-    const stats = A.Seed.statsForRace(race.id);
-    const theme = themeForRace(race.id);
+    const pas = passiveOf(race);
     return `
-      <button class="race-card race-card-v2 ${isSel ? 'is-selected' : ''}" data-race="${race.id}"
-              style="--race-primary: ${theme.primary}; --race-accent: ${theme.accent};">
-        <div class="race-icon">${raceSprite(race, 56)}</div>
-        <div class="race-name">${A.Utils.escapeHtml(race.name)}</div>
-        <div class="race-tag">${theme.tag}</div>
-        <div class="race-mini-stats num">
-          <span title="Salud">❤ ${stats.maxHp}</span>
-          <span title="Velocidad">⚡ ${stats.speed}</span>
-          ${stats.maxMana > 0 ? `<span title="Maná">✦ ${stats.maxMana}</span>` : ''}
-        </div>
+      <button type="button" class="cc-race ${isSel ? 'is-selected' : ''}" data-race="${esc(race.id)}"
+              style="--race-color:${colorOf(race.id)}" aria-pressed="${isSel ? 'true' : 'false'}" title="${esc(race.name)}${pas ? ` · ${esc(pas.name)}` : ''}">
+        <span class="cc-race-portrait">${portrait(race, 64)}</span>
+        <span class="cc-race-name">${esc(race.name)}</span>
+        ${pas ? `<span class="cc-race-passive">${icon(pas.icon, 16, 'px-soft')}<span>${esc(pas.name)}</span></span>` : '<span class="cc-race-passive is-empty"></span>'}
       </button>
     `;
   }
 
-  function renderSummary(race, stats) {
-    // v1.5.8: el daño base sin arma es 1d3, más el bonus de raza si existe.
-    // Esto es coherente con el resto del juego: el daño es siempre dados.
-    const baseDmg = (stats.damage > 0)
-      ? `1d3+${stats.damage}`
-      : '1d3';
+  /** Rango de cada stat entre todas las razas, para que las barras comparen bien. */
+  function ranges() {
+    const out = {};
+    for (const r of A.Data.races) {
+      const st = A.Seed.statsForRace(r.id);
+      if (!st) continue;
+      for (const k of ['maxHp', 'maxMana', 'speed']) {
+        const v = st[k];
+        if (k === 'maxMana' && !v) continue;
+        out[k] = out[k] || { min: v, max: v };
+        out[k].min = Math.min(out[k].min, v);
+        out[k].max = Math.max(out[k].max, v);
+      }
+    }
+    return out;
+  }
+
+  function bar(label, value, range, color, emptyText) {
+    if (!value) {
+      return `<div class="cc-bar-row is-off"><span class="cc-bar-label">${label}</span><span class="cc-bar"><span style="width:0"></span></span><span class="cc-bar-val">${emptyText || '—'}</span></div>`;
+    }
+    const span = range && range.max > range.min ? (value - range.min) / (range.max - range.min) : 1;
+    const w = Math.round(38 + 62 * span);
+    return `<div class="cc-bar-row"><span class="cc-bar-label">${label}</span><span class="cc-bar"><span style="width:${w}%;background:${color}"></span></span><span class="cc-bar-val num">${value}</span></div>`;
+  }
+
+  function detailHtml(race) {
+    const st = A.Seed.statsForRace(race.id);
+    const magic = A.Seed.raceHasMagic ? A.Seed.raceHasMagic(race.id) : race.combatType !== 'warrior';
+    const pas = passiveOf(race);
+    const rg = ranges();
+    const dmg = st.damage > 0 ? `1d4+${st.damage}` : '1d4';
     return `
-      <div class="char-summary">
-        <div class="char-summary-icon">${raceSprite(race, 48)}</div>
-        <div class="char-summary-info">
-          <div class="char-summary-name">${A.Utils.escapeHtml(race.name)}</div>
-          <div class="char-summary-type dim">${typeLabel(race.combatType)}</div>
-          <p class="char-summary-desc">${A.Utils.escapeHtml(race.description)}</p>
-        </div>
-        <div class="char-summary-stats">
-          <div class="big-stat"><div class="big-stat-label dim">Salud</div><div class="big-stat-val num">${stats.maxHp}</div></div>
-          <div class="big-stat"><div class="big-stat-label dim">Maná</div><div class="big-stat-val num">${stats.maxMana}</div></div>
-          <div class="big-stat"><div class="big-stat-label dim">Velocidad</div><div class="big-stat-val num">${stats.speed}</div></div>
-          <div class="big-stat"><div class="big-stat-label dim">Armadura</div><div class="big-stat-val num">${stats.armor}</div></div>
-          <div class="big-stat" title="Daño base sin arma (puños). Con arma equipada se reemplaza por el daño del arma."><div class="big-stat-label dim">Daño base</div><div class="big-stat-val num">${baseDmg}</div></div>
-          <div class="big-stat"><div class="big-stat-label dim">Esquiva</div><div class="big-stat-val num">${stats.dodge}</div></div>
+      <div class="cc-hero">
+        <div class="cc-hero-portrait">${portrait(race, 128)}</div>
+        <div class="cc-hero-text">
+          <h2 class="cc-hero-name">${esc(race.name)}</h2>
+          <div class="cc-hero-type">${esc(TYPE_LINE[race.combatType] || TYPE_LINE.hybrid)}</div>
         </div>
       </div>
+      <p class="cc-desc">${esc(race.description)}</p>
+
+      ${pas ? `
+        <div class="cc-passive">
+          <span class="cc-passive-icon">${icon(pas.icon, 32)}</span>
+          <span class="cc-passive-body">
+            <span class="cc-passive-label">Pasiva</span>
+            <span class="cc-passive-name">${esc(pas.name)}</span>
+            <span class="cc-passive-text">${esc(pas.text)}</span>
+          </span>
+        </div>` : ''}
+
+      <div class="cc-bars">
+        ${bar('Vida', st.maxHp, rg.maxHp, '#c4513a')}
+        ${bar('Maná', magic ? st.maxMana : 0, rg.maxMana, '#3a78c4', 'Sin magia')}
+        ${bar('Velocidad', st.speed, rg.speed, '#7a9c3a')}
+      </div>
+
+      <div class="cc-stats">
+        <div class="cc-stat" title="Lo que sumás al D20 para pegar"><span>Ataque</span><b>+${st.precision}</b></div>
+        <div class="cc-stat" title="Daño con la daga del comienzo"><span>Daño</span><b>${dmg}</b></div>
+        <div class="cc-stat" title="Se resta a cada golpe que recibís"><span>Armadura</span><b>${st.armor}</b></div>
+        <div class="cc-stat" title="Suma a tu dificultad: lo que el enemigo tiene que sacar para pegarte"><span>Esquiva</span><b>${st.dodge}</b></div>
+      </div>
+
+      <p class="cc-kit">Empieza con daga, túnica de cuero, dos pociones y algo de comida${magic ? '. Ya sabe el hechizo <b>Chispa</b>' : ''}.</p>
     `;
   }
 
-  function typeLabel(t) {
-    if (t === 'warrior') return 'Guerrero';
-    if (t === 'mage') return 'Mago';
-    return 'Híbrido';
-  }
+  // ============================================================
+  // Eventos
+  // ============================================================
 
   function bindEvents() {
-    rootEl.querySelectorAll('.race-card').forEach((card) => {
+    rootEl.querySelectorAll('[data-race]').forEach((card) => {
       card.addEventListener('click', () => {
         selectedRaceId = card.dataset.race;
         render();
+        const again = rootEl.querySelector(`[data-race="${selectedRaceId}"]`);
+        if (again) again.focus({ preventScroll: true });
       });
     });
     const input = rootEl.querySelector('#char-name');
     if (input) {
-      input.addEventListener('input', (e) => {
-        inputName = e.target.value;
-        // v1.5.8: solo desactivar si no hay raza (nombre es opcional)
-        const btn = rootEl.querySelector('#btn-create');
-        if (btn) btn.disabled = !selectedRaceId;
-      });
-      input.focus();
+      input.addEventListener('input', (e) => { inputName = e.target.value; });
+      input.addEventListener('keydown', (e) => { if (e.key === 'Enter') onCreate(); });
     }
     const create = rootEl.querySelector('#btn-create');
-    if (create) {
-      create.addEventListener('click', onCreate);
-    }
+    if (create) create.addEventListener('click', onCreate);
     const editorBtn = rootEl.querySelector('[data-action="open-editor"]');
-    if (editorBtn) {
-      editorBtn.addEventListener('click', () => {
-        A.Views.Editor.mount(rootEl);
-      });
-    }
+    if (editorBtn) editorBtn.addEventListener('click', () => A.Views.Editor.mount(rootEl));
   }
 
-  // v1.5.8: nombres de fantasía para asignación aleatoria si el campo está vacío
+  // Nombres de fantasía si el campo queda vacío
   const RANDOM_NAMES = [
     'Ardan', 'Kael', 'Elian', 'Lyra', 'Nara', 'Daren', 'Kira', 'Thalos',
     'Iriel', 'Bruma', 'Ronan', 'Eira', 'Fenris', 'Selene', 'Orion', 'Vesna',
@@ -242,11 +221,9 @@
 
   function onCreate() {
     if (!selectedRaceId) return;
-    // v1.5.8: si el nombre está vacío o solo espacios, asignar uno aleatorio
-    const trimmed = inputName.trim();
-    const finalName = trimmed || pickRandomName();
+    const finalName = inputName.trim() || pickRandomName();
     A.State.createCharacter({ name: finalName, raceId: selectedRaceId });
-    selectedRaceId = null;
+    selectedRaceId = 'humano';
     inputName = '';
     A.Views.Shell.mount(rootEl);
   }
@@ -254,7 +231,7 @@
   const CharacterView = {
     mount(container) {
       rootEl = container;
-      selectedRaceId = null;
+      selectedRaceId = 'humano';
       inputName = '';
       render();
     },

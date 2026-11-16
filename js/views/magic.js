@@ -55,13 +55,14 @@
     const isDamage = !!s.damage;
     const isHeal = !!s.heal;
     const value = isDamage ? `${s.damage} daño` : isHeal ? `${s.heal} cura` : '—';
-    const canCast = (A.State.player.mana || 0) >= s.manaCost;
+    const cost = A.Passives ? A.Passives.spellCost(A.State.player, s) : s.manaCost;
+    const canCast = (A.State.player.mana || 0) >= cost;
     return `
       <div class="spell-card ${canCast ? '' : 'is-disabled'}">
-        <div class="spell-icon">${s.icon || '✨'}</div>
+        <div class="spell-icon">${A.ItemSprites && A.ItemSprites.spellIcon ? A.ItemSprites.spellIcon(s, { size: 32 }) : ''}</div>
         <div class="spell-name">${A.Utils.escapeHtml(s.name)}</div>
         <div class="spell-value num">${value}</div>
-        <div class="spell-cost dim">Maná ${s.manaCost} · T${s.tier}</div>
+        <div class="spell-cost dim">Maná ${cost}${cost < s.manaCost ? ` <s>${s.manaCost}</s>` : ''} · T${s.tier}</div>
         <p class="spell-desc">${A.Utils.escapeHtml(s.description || '')}</p>
       </div>
     `;

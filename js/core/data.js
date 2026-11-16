@@ -37,7 +37,12 @@
         // Override por id: si el editor edita un id del seed, gana el editor.
         const byId = new Map();
         for (const e of seedList) byId.set(e.id, e);
-        for (const e of overrideList) byId.set(e.id, e);
+        for (const e of overrideList) {
+          // v1.9.2: una raza editada antes de que existieran las pasivas conserva la suya
+          const base = byId.get(e.id);
+          if (key === 'races' && base && base.passive && e.passive === undefined) e.passive = base.passive;
+          byId.set(e.id, e);
+        }
 
         // Items eliminados desde el editor se marcan en overrides._deleted[key]
         const deleted = new Set((overrides._deleted && overrides._deleted[key]) || []);

@@ -65,7 +65,7 @@ node tools/simulador.js viaje      # pasos y niveles del mapa
 
 ## Contenido del juego (seed)
 
-- **9 razas** parejas: Humano, Elfo, Enano, Orco, Mediano, Gnomo, Alienígena, Robot, Dracónido
+- **12 razas** parejas, cada una con su pasiva (ver *Razas y pasivas*)
 - **17 regiones** ordenadas por nivel (1 a 10)
 - **78 enemigos** (24 domables) con tier, categoría, familia y tags
 - **33 armas**, **13 armaduras**, **153 items**, **5 mochilas**
@@ -79,9 +79,13 @@ mínimo 1 si pega. Los hechizos no se esquivan y la armadura cuenta la mitad.
 Efectos: sangrado, veneno y fuego dañan al empezar el turno; el frío baja defensa
 y ataque; el choque puede hacer perder el turno.
 
-**Razas**: mismo poder total repartido distinto. Guerreros (Enano, Orco, Robot) sin magia
+**Razas**: mismo poder total repartido distinto (stats + pasiva). Guerreros sin magia
 y con más vida; híbridos y magos usan magia y arrancan sabiendo Chispa. Todos empiezan
 con Daga y Túnica de cuero.
+
+**Dificultad del dado**: cada criatura muestra un D20 con su número: es lo que tiene
+que llegar tu tirada (D20 + tu ataque) para pegarle. El botón *Atacar* dice cuánto
+tenés que sacar ("Necesitás 7 o más").
 
 **Niveles**: nivel máximo 10, ~8-9 combates de tu tier por nivel. Cada región pide
 un nivel mínimo.
@@ -106,7 +110,7 @@ en `css/theme.css`.
 
 **Sprites**: todo se dibuja con código en 32×32 (sin imágenes externas):
 - 78 enemigos, cada uno con su forma (bestia, ave, humanoide, dragón, hidra, gólem…)
-- 9 razas jugables (el personaje muestra el arma que tiene equipada)
+- 12 razas jugables (el personaje muestra el arma que tiene equipada)
 - las mascotas usan el dibujo de su especie mirando hacia el otro lado
 - 204 ítems (armas, armaduras, pociones, comida, materiales, gemas, llaves, mochilas)
 
@@ -118,6 +122,27 @@ la forma de otra criatura y cambiar colores.
 crítico, gris en pifia), el atacante se lanza hacia adelante, el golpeado tiembla,
 aparecen números de daño y la vida baja con estela. Si tocás *Atacar* durante el turno
 de otro, el ataque queda en cola y sale apenas sea tu turno.
+
+## Razas y pasivas (v1.9.2)
+
+| Tipo | Raza | Pasiva |
+|---|---|---|
+| Híbrido | Humano | **Determinación**: una vez por combate, un golpe que te iba a voltear te deja con 1 de vida |
+| Híbrido | Elfo | **Ojo certero**: crítico con 19 o 20 |
+| Híbrido | Mediano | **Suerte**: un 1 en el dado se vuelve a tirar (atacar y huir) |
+| Híbrido | Dracónido | **Sangre de dragón**: 1 de cada 4 golpes prende fuego; el fuego no lo afecta |
+| Guerrero | Enano | **Piel de roca**: el primer golpe de cada combate hace la mitad |
+| Guerrero | Orco | **Furia**: con media vida o menos, +2 de daño (+3 desde nivel 5) |
+| Guerrero | Robot | **Cuerpo de metal**: inmune al veneno y al sangrado |
+| Guerrero | Goliat | **Golpe de gigante**: los críticos hacen el triple |
+| Mago | Gnomo | **Ingenio**: los hechizos cuestan menos maná |
+| Mago | Alienígena | **Mente expansiva**: +1 de maná cada dos turnos |
+| Mago | Infernal | **Llama interior**: los hechizos de daño hacen más (crece con el nivel) |
+| Mago | Ángel | **Bendición**: al quedar con media vida, una luz lo cura (una vez por combate) |
+
+Las reglas viven en `js/systems/passives.js`. El balance se mide con
+`node tools/simulador.js razas` (la IA del simulador elige lo que más daño hace:
+arma o hechizo).
 
 ## Combate (v1.9.1)
 

@@ -1108,6 +1108,37 @@
     breath: { p: { b: '#e8501a', c: '#ffb030', f: '#fff2a0' }, d: (P) => { P.poly([[2, 16], [12, 8], [30, 3], [24, 12], [31, 16], [24, 20], [30, 29], [12, 24]], 'b'); P.poly([[6, 16], [14, 11], [24, 9], [20, 16], [24, 23], [14, 21]], 'c'); P.dot(10, 16, 2.4, 'f'); } },
     fireball: { p: { b: '#e8501a', c: '#ffb030', f: '#fff2a0' }, d: (P) => { P.poly([[30, 2], [22, 14], [27, 13], [18, 22], [12, 30]], 'b'); P.ell(12, 20, 9, 9, 'b'); P.ell(11, 21, 6, 6, 'c'); P.ell(10, 22, 3, 3, 'f'); } },
     book: { p: { b: '#7a2a2a', c: '#f0e2c0', a: '#e0c060' }, d: (P) => { P.rect(5, 4, 22, 25, 'b'); P.rect(7, 26, 20, 3, 'c'); P.rect(9, 9, 14, 8, 'a'); P.rect(11, 11, 10, 4, 'b'); } },
+    // dado de 20 caras (el número se pone encima con HTML)
+    d20: { p: { b: '#e8d6a8', c: '#fff4d6', k: '#6a4a1a' }, d: (P) => {
+      P.poly([[16, 1.5], [29, 9], [29, 23], [16, 30.5], [3, 23], [3, 9]], 'b');
+      P.poly([[16, 8], [25, 22], [7, 22]], 'c');
+      P.line([[3, 9], [16, 8], [29, 9]], 0.45, 0.45, 'k');
+      P.line([[16, 1.5], [16, 8]], 0.45, 0.45, 'k');
+      P.line([[29, 9], [25, 22], [29, 23]], 0.45, 0.45, 'k');
+      P.line([[3, 9], [7, 22], [3, 23]], 0.45, 0.45, 'k');
+      P.line([[7, 22], [16, 30.5], [25, 22]], 0.45, 0.45, 'k');
+    } },
+    // pasivas de raza (v1.9.2)
+    target: { p: { b: '#c83a30', c: '#f4ece0', k: '#4a3020', f: '#e8e0d0' }, d: (P) => {
+      P.ell(15, 17, 12.5, 12.5, 'b'); P.ell(15, 17, 9, 9, 'c'); P.ell(15, 17, 5.6, 5.6, 'b'); P.ell(15, 17, 2.4, 2.4, 'c');
+      P.line([[15, 17], [28, 4]], 0.7, 0.7, 'k'); P.poly([[25.5, 2.5], [30, 2], [29.5, 6.5]], 'f');
+    } },
+    clover: { p: { b: '#3a9a3a', c: '#8ad87a', wd: '#2a6a2a' }, d: (P) => {
+      for (const [x, y] of [[10.5, 10.5], [21.5, 10.5], [10.5, 21.5], [21.5, 21.5]]) P.ell(x, y, 6.2, 6.2, 'b');
+      for (const [x, y] of [[9, 9], [20, 9], [9, 20], [20, 20]]) P.dot(x, y, 1.6, 'c');
+      P.ell(16, 16, 2.6, 2.6, 'c');
+      P.line([[20, 20], [27, 30]], 1, 0.7, 'wd');
+    } },
+    gear: { p: { m: '#9aa4b0', c: '#dfe5ec', k: '#2a2f36' }, d: (P) => {
+      for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4; P.dot(16 + Math.cos(a) * 11.6, 16 + Math.sin(a) * 11.6, 3.3, 'm'); }
+      P.ell(16, 16, 10.4, 10.4, 'm'); P.ell(16, 16, 6.4, 6.4, 'c'); P.ell(16, 16, 3.2, 3.2, 'k');
+    } },
+    hammer: { p: { m: '#a8b0ba', c: '#e6ebf0', wd: '#7a4a2a', a: '#c9a24a' }, d: (P) => {
+      P.line([[7, 29], [18, 12]], 1.3, 1.1, 'wd');
+      P.poly([[12, 3.5], [28, 12], [24.5, 18.5], [8.5, 10]], 'm');
+      P.line([[13, 5.5], [26.5, 12.8]], 0.6, 0.6, 'c');
+      P.line([[16.5, 13], [20, 15]], 0.9, 0.9, 'a');
+    } },
   };
 
   /** Ícono de interfaz pixelado: A.ItemSprites.icon('fire', { size: 16 }) */
@@ -1133,5 +1164,15 @@
     return icon(name, opts);
   }
 
-  A.ItemSprites = { html, dataUrl, shapeOf, icon, spellIcon, SHAPES: Object.keys(SHAPES), ICONS: Object.keys(ICONS) };
+  /**
+   * Dificultad del dado: un D20 con el número encima.
+   * Es lo que hay que sacar (D20 + ataque) para pegarle a esa criatura.
+   */
+  function dcBadge(n, opts = {}) {
+    const size = opts.size || 26;
+    const title = opts.title || `Dificultad del dado: para pegarle, el D20 más tu ataque tiene que llegar a ${n}.`;
+    return `<span class="dc-badge ${opts.cls || ''}" style="--dc-size:${size}px" title="${String(title).replace(/"/g, '&quot;')}">${icon('d20', { size })}<b>${n}</b></span>`;
+  }
+
+  A.ItemSprites = { html, dataUrl, shapeOf, icon, spellIcon, dcBadge, SHAPES: Object.keys(SHAPES), ICONS: Object.keys(ICONS) };
 })(window.Aventurs);

@@ -251,15 +251,40 @@
       .replace(/\b([Dd])e el /g, (m, d) => (d === 'D' ? 'Del ' : 'del '));
   }
 
+  // Lo que agrega una pasiva al final de un golpe recibido
+  const PASSIVE_SUFFIX = {
+    piel_roca: ' Tu piel de roca frena la mitad del golpe.',
+    determinacion: ' ¡Pero tu determinación te mantiene en pie con 1 de vida!',
+  };
+
   function say(entry, c) {
     const out = sayRaw(entry, c);
-    if (out && out.text) out.text = contract(out.text);
+    if (out && out.text) {
+      const fx = entry.fx || {};
+      const toPlayer = fx.target === 'player' && (fx.kind === 'attack' || fx.kind === 'tick');
+      if (toPlayer && entry.passive && PASSIVE_SUFFIX[entry.passive]) out.text += PASSIVE_SUFFIX[entry.passive];
+      out.text = contract(out.text);
+    }
     return out;
+  }
+
+  /** Frases de las pasivas que se anuncian solas. */
+  function passiveLine(entry, fx) {
+    const effect = { poison: 'el veneno', bleed: 'el sangrado', fire: 'el fuego' }[fx.effect] || 'eso';
+    switch (fx.passive) {
+      case 'suerte': return { text: pick(['¡Suerte! Sacás un 1, pero el dado vuelve a rodar.', 'Un 1… pero la suerte de los medianos te da otra tirada.']), tone: 'good' };
+      case 'furia': return { text: `La furia se apodera de vos: tus golpes hacen +${fx.amount || 2} de daño.`, tone: 'crit' };
+      case 'cuerpo_metal': return { text: `Tu cuerpo de metal ni siente ${effect}.`, tone: 'good' };
+      case 'sangre_dragon': return { text: 'Las llamas te rozan sin hacerte nada: tenés sangre de dragón.', tone: 'good' };
+      default: return entry.text ? { text: entry.text, tone: 'good' } : null;
+    }
   }
 
   function sayRaw(entry, c) {
     if (!entry || entry.type === 'turn-header') return null;
     const fx = entry.fx || {};
+    if (fx.quiet) return null; // solo el número flotante (ej: maná de Mente expansiva)
+    if (fx.kind === 'passive') return passiveLine(entry, fx);
     const p = A.State.player;
     const pet = p && p.pet;
 
@@ -273,6 +298,8 @@
       if (fx.actor === 'player') {
         const w = playerWeapon();
         Object.assign(v, { e: enemyNoun(targetInst), E: cap(enemyNoun(targetInst)), w: w.noun });
+        if (entry.result === 'crit' && entry.passive === 'golpe_gigante') return { text: fill(pick(['¡Golpe de gigante! Tu {w} aplasta a {e}: {d} de daño.', '¡Golpe de gigante! Descargás todo tu peso sobre {e}: {d} de daño.']), v), tone: 'crit' };
+        if (entry.result === 'crit' && entry.passive === 'ojo_certero') return { text: fill(pick(['¡Ojo certero! Le das a {e} justo donde duele: {d} de daño.', '¡Ojo certero! Encontrás el hueco en la guardia de {e}: {d} de daño.']), v), tone: 'crit' };
         if (entry.result === 'crit') return { text: fill(pick(PLAYER_CRIT), v), tone: 'crit' };
         if (entry.result === 'hit') return { text: fill(pick(PLAYER_HIT[w.group] || PLAYER_HIT.sword), v), tone: 'good' };
         if (entry.result === 'fumble') return { text: fill(pick(PLAYER_FUMBLE), v), tone: 'bad' };
@@ -312,6 +339,7 @@
       return { text: fill(pick(SPELL_HIT[fx.element] || SPELL_HIT.arcane), v), tone: 'good' };
     }
     if (fx.kind === 'heal') {
+      if (fx.passive === 'bendicion') return { text: pick([`Una luz te envuelve y te cierra las heridas: recuperás ${fx.amount} de vida.`, `Tu bendición responde cuando más la necesitás: +${fx.amount} de vida.`]), tone: 'good' };
       const name = (entry.text || '').match(/Usaste (.+?)\./);
       const spell = (entry.text || '').match(/Lanzaste (.+?) y/);
       if (spell) return { text: fill(pick(['Una luz cálida cierra tus heridas: recuperás {n} de vida.', 'Murmurás {s} y tus heridas se cierran: +{n} de vida.']), { ...v, s: spell[1] }), tone: 'good' };
@@ -329,6 +357,10 @@
     // --- Efectos ---
     if (fx.kind === 'status') {
       if (fx.target === 'player') return { text: STATUS_PLAYER[fx.effect] || 'Algo te afecta.', tone: 'bad' };
+      if (fx.passive === 'sangre_dragon') {
+        const noun = enemyNoun(targetInst);
+        return { text: pick([`Tu sangre de dragón prende fuego a ${noun}.`, `Tu golpe deja brasas: ${noun} se prende fuego.`]), tone: 'good' };
+      }
       const noun = fx.target === 'pet' ? petNoun(pet) : enemyNoun(targetInst);
       const tpl = (fx.target !== 'pet' && bloodless(targetInst) && STATUS_BLOODLESS[fx.effect]) || STATUS_OTHER[fx.effect] || '{E} queda afectado.';
       return { text: fill(tpl, { e: noun, E: cap(noun) }), tone: fx.target === 'pet' ? 'bad' : 'good' };

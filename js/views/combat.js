@@ -238,7 +238,7 @@
   function effectsHtml(effects) {
     const list = effects || [];
     if (!list.length) return '';
-    const max = list.length > 4 ? 3 : 4;
+    const max = list.length > 3 ? 2 : 3; // a la derecha va el dado: entran 3
     const chips = list.slice(0, max).map((ef) => {
       const label = A.Combat.effectLabel ? A.Combat.effectLabel(ef.type) : ef.type;
       return `<span class="cb-fx effect-${esc(ef.type)}" title="${esc(label)}: ${ef.turns} ${ef.turns === 1 ? 'turno' : 'turnos'}">${icon(ef.type, 16, 'px-soft')}<b>${ef.turns}</b></span>`;
@@ -273,6 +273,7 @@
       <${tag} ${attrs}>
         <div class="cb-sprite">
           ${effectsHtml(u.effects)}
+          ${u.dc != null && A.ItemSprites && A.ItemSprites.dcBadge ? A.ItemSprites.dcBadge(u.dc, { size: 34, cls: 'cb-dc', title: u.dcTitle }) : ''}
           ${u.sprite}
           <span class="cb-shadow"></span>
           ${u.isTarget && !u.dead ? '<span class="cb-target-mark" aria-label="objetivo">▼</span>' : ''}
@@ -310,11 +311,13 @@
       hp, hpMax: p.maxHp, barCls: 'bar-hp',
       sub: p.hasMagic ? { cls: 'is-mana', cur: mana, max: p.maxMana, title: `Maná ${mana}/${p.maxMana}` } : null,
       effects: p.effects,
+      dc: st.defense,
+      dcTitle: `Tu dificultad: un enemigo tiene que llegar a ${st.defense} (D20 + su ataque) para pegarte.${m.defensePenalty > 0 ? ' Bajó por el frío.' : ''}`,
       stats: [
         stat('ATQ', `+${st.attack || 0}`, 'Ataque: lo que sumás al D20 para pegar', m.attackPenalty > 0),
-        stat('DEF', st.defense, 'Defensa: lo que el enemigo tiene que sacar para pegarte', m.defensePenalty > 0),
         stat('DAÑO', dmg, dmgTip),
         stat('ARM', st.armor || 0, 'Armadura: se resta a cada golpe que recibís'),
+        stat('VEL', st.speed || 10, 'Velocidad: el más rápido actúa primero'),
       ],
     });
   }
@@ -332,11 +335,13 @@
       hp, hpMax: pet.maxHealth, barCls: 'bar-pet-hp',
       sub: pet.food != null ? { cls: 'is-food', cur: pet.food, max: pet.maxFood || 10, title: `Saciedad ${pet.food}/${pet.maxFood || 10}` } : null,
       effects: pet.effects,
+      dc: 8 + (pet.dodge || 0) - m.defensePenalty,
+      dcTitle: `Dificultad de tu mascota: un enemigo tiene que llegar a ${8 + (pet.dodge || 0) - m.defensePenalty} para pegarle.`,
       stats: [
         stat('ATQ', `+${atk}`, 'Ataque de tu mascota', m.attackPenalty > 0),
-        stat('DEF', 8 + (pet.dodge || 0) - m.defensePenalty, 'Defensa de tu mascota', m.defensePenalty > 0),
         stat('DAÑO', String(pet.damage || '1d3').replace(/\s+/g, ''), 'Daño de tu mascota'),
         stat('ARM', pet.armor || 0, 'Armadura de tu mascota'),
+        stat('VEL', pet.speed || 10, 'Velocidad de tu mascota'),
       ],
     });
   }
@@ -359,13 +364,28 @@
       hp, hpMax: e.maxHp, barCls: 'bar-enemy-hp',
       sub: null,
       effects: e.effects,
+      dc: (e.difficulty || 10) - m.defensePenalty,
+      dcTitle: dcText(e, m),
       stats: [
         stat('ATQ', `+${(e.attack || 0) - m.attackPenalty}`, 'Ataque: lo que suma al D20', m.attackPenalty > 0),
-        stat('DEF', (e.difficulty || 10) - m.defensePenalty, 'Defensa: lo que tenés que sacar con D20 + ataque', m.defensePenalty > 0),
         stat('DAÑO', String(e.damage || '1d3').replace(/\s+/g, ''), 'Daño de sus golpes'),
         stat('ARM', e.armor || 0, 'Armadura: se resta a tus golpes'),
+        stat('VEL', e.speed || 10, 'Velocidad: el más rápido actúa primero'),
       ],
     });
+  }
+
+  /** Lo que tenés que sacar en el D20 para pegarle (con tu ataque). */
+  function neededRoll(defense) {
+    const p = A.State.player;
+    const st = A.Balance && A.Balance.playerCombatStats ? A.Balance.playerCombatStats(p) : { attack: 0 };
+    return Math.max(2, Math.min(20, defense - (st.attack || 0)));
+  }
+
+  function dcText(e, m) {
+    const dc = (e.difficulty || 10) - (m ? m.defensePenalty : 0);
+    const need = neededRoll(dc);
+    return `Dificultad del dado: ${dc}. Con tu ataque necesitás sacar ${need} o más en el D20${need >= 20 ? ' (solo con un 20)' : ''}.`;
   }
 
   // ============================================================
@@ -440,6 +460,7 @@
     const tame = tameInfoFor(c, p);
     const target = A.Combat.getTarget();
     const hit = target && A.Combat.hitChanceVs ? A.Combat.hitChanceVs(target) : null;
+    const need = target ? neededRoll((target.difficulty || 10) - mods(target).defensePenalty) : null;
     const attackIcon = p.equipment && p.equipment.weapon && A.ItemSprites
       ? A.ItemSprites.html(p.equipment.weapon, { size: 32 }) : icon('fist', 32);
     const off = !ready;
@@ -460,7 +481,7 @@
           ${btn('attack', attackIcon, 'Atacar', {
             cls: `is-primary ${queuedAction === 'attack' ? 'is-queued' : ''}`,
             title: ready ? 'Atacar al objetivo marcado' : 'Tocalo ahora y atacás apenas te toque',
-            hint: hit != null ? `${Math.round(hit * 100)}% de pegar` : '',
+            hint: need != null ? `Necesitás ${need} o más${hit != null ? ` · ${Math.round(hit * 100)}%` : ''}` : '',
           })}
           ${p.hasMagic ? btn('spell', icon('spell', 32), 'Hechizo', {
             disabled: off || spells.length === 0,
@@ -507,6 +528,7 @@
     if (!fx) return null;
     if (['attack', 'spell', 'heal', 'cast', 'flee'].includes(fx.kind)) return fx.actor || 'player';
     if (['tick', 'status', 'stun', 'death', 'tamed', 'tame-fail'].includes(fx.kind)) return fx.target;
+    if (fx.kind === 'passive') return 'player';
     return null;
   }
 
@@ -535,7 +557,7 @@
     const parts = [];
     if (entry.roll != null) {
       const bonus = entry.bonus ? ` ${entry.bonus > 0 ? '+' : '−'} ${Math.abs(entry.bonus)} = <b>${entry.total}</b>` : '';
-      const vs = entry.vs != null ? ` contra ${esc(entry.vsLabel === 'DC huida' ? 'huida' : (entry.vsLabel || 'defensa'))} <b>${entry.vs}</b>` : '';
+      const vs = entry.vs != null ? ` contra ${entry.vsLabel === 'DC huida' ? 'huida' : 'dificultad'} <b>${entry.vs}</b>` : '';
       const nat = entry.roll === 20 ? 'is-nat20' : entry.roll === 1 ? 'is-nat1' : '';
       parts.push(`<span class="die-pill ${nat}">${entry.roll}</span> D20${bonus}${vs}`);
     }

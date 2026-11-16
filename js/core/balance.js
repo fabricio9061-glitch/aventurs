@@ -199,7 +199,8 @@
       attack: (p.stats.precision || 0) - fx.attackPenalty,
       defense: 8 + (p.stats.dodge || 0) + (armor && armor.dodge ? armor.dodge : 0) - pen('dodge') - fx.defensePenalty,
       armor: (p.stats.armor || 0) + (armor ? armor.defense || 0 : 0),
-      damageBonus: (p.stats.damage || 0) - pen('damage'),
+      // v1.9.2: + Furia del orco (solo con la mitad de la vida o menos)
+      damageBonus: (p.stats.damage || 0) - pen('damage') + (A.Passives ? A.Passives.damageBonus(p) : 0),
       // El peso solo frena si pasa de 4 (una daga y ropa no pesan nada)
       speed: Math.max(1, (p.stats.speed || 10) - Math.max(0, weight - 4) - pen('speed')),
       weapon,

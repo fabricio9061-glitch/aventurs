@@ -1182,6 +1182,9 @@
         {value:'warrior',label:'Guerrero'},{value:'mage',label:'Mago'},{value:'hybrid',label:'Híbrido'},
       ])),
       row('Usa magia (empieza con Chispa)', chk('magic', e.magic !== undefined ? e.magic : e.combatType !== 'warrior')),
+      row('Pasiva', sel('passive', e.passive || '', [{ value: '', label: 'Sin pasiva' }].concat(
+        A.Passives ? Object.keys(A.Passives.LIST).map((id) => ({ value: id, label: `${A.Passives.LIST[id].name}: ${A.Passives.LIST[id].text({ level: 1, maxHp: 24 })}` })) : [],
+      ))),
       row('Bonus HP', inp('bonuses.hp', e.bonuses.hp, 'number')),
       row('Bonus Maná', inp('bonuses.mana', e.bonuses.mana, 'number')),
       row('Bonus Velocidad', inp('bonuses.speed', e.bonuses.speed, 'number')),

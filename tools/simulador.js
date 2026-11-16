@@ -128,12 +128,17 @@ function spawn(G, enemyId) {
   };
 }
 
-/** IA simple del jugador: cura si está bajo, lanza hechizos si puede, si no ataca. */
+/**
+ * IA del jugador: cura si está bajo; si no, elige lo que más daño
+ * esperado hace este turno (arma o hechizo), como haría alguien que piensa.
+ */
 function playerAI(G) {
   const { A } = G;
   const p = A.State.player;
   const c = A.State.combat;
   const alive = A.Combat.aliveEnemies();
+  const P = A.Passives;
+  const cost = (s) => (P ? P.spellCost(p, s) : s.manaCost);
   // Cura con poción si queda poca vida
   if (p.hp < p.maxHp * 0.35) {
     const pot = (p.inventory || []).find((s) => {
@@ -144,22 +149,32 @@ function playerAI(G) {
   }
   // Curación propia si queda poca vida
   if (p.hasMagic && p.hp < p.maxHp * 0.45) {
-    const heal = A.Combat.availableSpells().find((s) => s.heal && p.mana >= s.manaCost);
+    const heal = A.Combat.availableSpells().find((s) => s.heal && p.mana >= cost(s));
     if (heal) { A.Combat.playerSpell(heal.id); return; }
-  }
-  // Hechizo de daño: área si hay varios enemigos, si no el más fuerte que alcance
-  if (p.hasMagic) {
-    const spells = A.Combat.availableSpells().filter((s) => s.damage && p.mana >= s.manaCost);
-    if (spells.length) {
-      const avg = (s) => A.Utils.diceRange ? (A.Utils.diceRange(s.damage).min + A.Utils.diceRange(s.damage).max) / 2 : 1;
-      spells.sort((a, b) => (avg(b) * (b.area ? alive.length : 1)) - (avg(a) * (a.area ? alive.length : 1)));
-      A.Combat.playerSpell(spells[0].id);
-      return;
-    }
   }
   // Apuntar al enemigo con menos vida
   const weakest = alive.slice().sort((a, b) => a.hp - b.hp)[0];
   if (weakest && c.targetInstanceId !== weakest.instanceId) A.Combat.setTarget(weakest.instanceId);
+  const avg = (n) => (A.Balance ? A.Balance.avgOf(n) : 1);
+  // Daño esperado del arma contra el objetivo
+  const st = A.Balance.playerCombatStats(p);
+  const comp = A.Combat.composePlayerDamage(p);
+  const def = (weakest && (weakest.difficulty || 10)) || 10;
+  const arm = (weakest && weakest.armor) || 0;
+  const hit = A.Balance.hitChance(st.attack, def);
+  const weaponEV = hit * Math.max(1, avg(comp.expression.replace(/ - \d+$/, '')) - arm);
+  // Mejor hechizo de daño que alcance
+  let best = null;
+  if (p.hasMagic) {
+    const power = st.spellPower + (P ? P.spellBonus(p) : 0);
+    for (const s of A.Combat.availableSpells()) {
+      if (!s.damage || p.mana < cost(s)) continue;
+      const each = Math.max(1, avg(s.damage) + power - Math.floor(arm / 2));
+      const ev = each * (s.area ? alive.length : 1);
+      if (!best || ev > best.ev) best = { s, ev };
+    }
+  }
+  if (best && best.ev >= weaponEV) { A.Combat.playerSpell(best.s.id); return; }
   A.Combat.playerAttack();
 }
 

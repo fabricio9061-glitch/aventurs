@@ -28,6 +28,7 @@
   let rerender = null;
   let holdUntil = 0;
   let diceFreeAt = 0;
+  let lastAt = 0;
   let currentDice = null;
   let rollTimer = null;
   const timers = new Set();
@@ -77,6 +78,7 @@
     cardFx.clear(); barTweens.clear(); lastPct.clear(); impactAt.clear(); dyingUntil.clear();
     holdUntil = 0;
     diceFreeAt = 0;
+    lastAt = 0;
   }
 
   /** Combate nuevo: limpia y hace la entrada de la arena. */
@@ -286,7 +288,7 @@
         el.classList.remove('is-rolling');
         el.classList.add('is-landed', `is-${v.cls}`);
         const bonus = entry.bonus ? ` ${entry.bonus > 0 ? '+' : '−'} ${Math.abs(entry.bonus)} = <b>${entry.total}</b>` : '';
-        const vs = entry.vs != null ? ` <span class="fx-dice-vs">vs ${esc(entry.vsLabel === 'DC huida' ? 'huida' : 'defensa')} ${entry.vs}</span>` : '';
+        const vs = entry.vs != null ? ` <span class="fx-dice-vs">vs ${entry.vsLabel === 'DC huida' ? 'huida' : 'dificultad'} ${entry.vs}</span>` : '';
         el.querySelector('.fx-dice-caption').innerHTML =
           `<div class="fx-dice-verdict">${v.text}</div><div class="fx-dice-math"><b>${entry.roll}</b>${bonus}${vs}</div>`;
       });
@@ -313,6 +315,9 @@
       diceFreeAt = entry._at + DICE_GAP_MS;
     } else if (fx.kind === 'spell') {
       entry._at = Math.max(t + CAST_MS, impactAt.get(fx.target) || 0);
+    } else if (fx.kind === 'passive' || (fx.kind === 'heal' && fx.passive)) {
+      // las pasivas se ven después de lo que las provocó
+      entry._at = Math.max(t + 120, lastAt + 220);
     } else if (fx.kind === 'heal' || fx.kind === 'cast') {
       entry._at = t + 200;
     } else if (fx.kind === 'death' || fx.kind === 'status' || fx.kind === 'tamed') {
@@ -326,6 +331,7 @@
     if (fx.kind === 'death' && fx.target) {
       dyingUntil.set(fx.target, entry._at + DEATH_MS);
     }
+    lastAt = Math.max(lastAt, entry._at);
     holdUntil = Math.max(holdUntil, entry._at + (fx.kind === 'death' ? DEATH_MS + 350 : 850));
   }
 
@@ -402,6 +408,11 @@
         later(at - t + DEATH_MS + 30, () => { if (rerender) rerender(); });
         break;
       }
+      case 'passive': {
+        const info = A.Passives && fx.passive ? A.Passives.info(fx.passive, A.State.player) : null;
+        if (info) later(at - t, () => floatText('player', info.name, 'is-status is-passive', -20, info.icon));
+        break;
+      }
       case 'tamed': {
         later(at - t, () => {
           sparkles(fx.target, 'love');
@@ -428,8 +439,13 @@
       slash(target, crit);
       sparks(target, crit ? 14 : 8, crit ? 'crit' : 'hit');
       playCardFx(target, crit ? 'fx-hit-crit' : 'fx-hit', crit ? 560 : 420);
+      if (target === 'player' && (entry.passive === 'piel_roca' || entry.passive === 'determinacion') && A.Passives) {
+        const info = A.Passives.info(entry.passive, A.State.player);
+        if (info) later(260, () => floatText('player', info.name, 'is-status is-passive', -20, info.icon));
+      }
       if (crit) {
-        floatText(target, '¡CRÍTICO!', 'is-crit-label', -34);
+        const label = entry.passive === 'golpe_gigante' ? '¡GOLPE DE GIGANTE!' : entry.passive === 'ojo_certero' ? '¡OJO CERTERO!' : '¡CRÍTICO!';
+        floatText(target, label, 'is-crit-label', -34);
         playCardFx('arena', 'fx-arena-shake', 420);
         flash();
       }

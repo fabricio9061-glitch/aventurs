@@ -164,9 +164,10 @@
             <div class="block-title">Criaturas que merodean</div>
             <div class="creature-strip">
               ${enemies.slice(0, 8).map((e) => `
-                <button class="creature-chip" data-creature="${A.Utils.escapeHtml(e.id)}" title="${A.Utils.escapeHtml(e.name)} · Tier ${e.tier} · ${e.category}">
+                <button class="creature-chip" data-creature="${A.Utils.escapeHtml(e.id)}" title="${A.Utils.escapeHtml(e.name)}: dificultad del dado ${e.difficulty != null ? e.difficulty : 10}">
                   <span class="creature-icon">${enemySprite(e, 32)}</span>
                   <span>${A.Utils.escapeHtml(e.name)}</span>
+                  ${A.ItemSprites && A.ItemSprites.dcBadge ? A.ItemSprites.dcBadge(e.difficulty != null ? e.difficulty : 10, { size: 24, cls: 'creature-dc' }) : ''}
                 </button>
               `).join('')}
               ${enemies.length > 8 ? `
@@ -411,6 +412,7 @@
               ${isGroup ? `<span class="dim">${A.Utils.escapeHtml(ev.enemyName)}</span>` : `
                 <span class="pill pill-tier">Tier ${ev.tier}</span>
                 <span class="pill pill-cat-${ev.category || 'normal'}">${categoryLabel(ev.category)}</span>
+                ${enemy && A.ItemSprites && A.ItemSprites.dcBadge ? A.ItemSprites.dcBadge(enemy.difficulty != null ? enemy.difficulty : 10, { size: 26 }) : ''}
                 ${ev.tameable ? `<span class="pill pill-tameable">🐾 Domable</span>` : ''}
               `}
             </div>

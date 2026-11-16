@@ -39,6 +39,15 @@
 
   function State() { return A.State; }
   function B() { return A.Balance; }
+  function P() { return A.Passives; }
+
+  /**
+   * v1.9.2: programa una acción del combate solo si cuando llegue el momento
+   * sigue siendo el MISMO combate (si terminó y empezó otro, se descarta).
+   */
+  function later(c, fn, ms) {
+    setTimeout(() => { if (State().combat === c) fn(); }, ms);
+  }
 
   const STUN_CHANCE = 0.35;
   const PET_TARGET_CHANCE = 0.30;
@@ -163,7 +172,7 @@
 
     A.Bus.emit('combat:started', { count: instances.length });
     State().persist();
-    setTimeout(() => advanceIfNotPlayer(), 500);
+    later(combat, () => advanceIfNotPlayer(), 500);
     return true;
   }
 
@@ -247,14 +256,45 @@
     return { total, composed, res };
   }
 
-  /** Tirada única de ataque. */
-  function attackRoll(attack, defense) {
-    const roll = A.Utils.dice(20);
+  /**
+   * Tirada única de ataque.
+   * opts.critMin: desde qué número es crítico (Ojo certero: 19).
+   * opts.reroll1: un 1 natural se vuelve a tirar (Suerte).
+   */
+  function attackRoll(attack, defense, opts = {}) {
+    let roll = A.Utils.dice(20);
+    let lucky = false;
+    if (roll === 1 && opts.reroll1) { lucky = true; roll = A.Utils.dice(20); }
     const total = roll + attack;
     const fumble = roll === 1;
-    const crit = roll === 20;
+    const crit = roll >= (opts.critMin || 20);
     const hit = crit || (!fumble && total >= defense);
-    return { roll, total, fumble, crit, hit };
+    return { roll, total, fumble, crit, hit, lucky };
+  }
+
+  /** Opciones de tirada del jugador según su pasiva. */
+  function playerRollOpts(p) {
+    return P() ? { critMin: P().critMin(p), reroll1: P().rerollOnes(p) } : {};
+  }
+
+  /**
+   * Después de que te pegan: Furia (se avisa la primera vez) y
+   * Bendición (te cura una vez por combate al quedar con media vida).
+   */
+  function maybeAnnounceFury(c, p) {
+    if (!P() || !p || p.hp <= 0) return;
+    if (P().furyJustStarted(c, p)) {
+      addLog(c, 'system', {
+        text: `Furia: tus golpes hacen +${P().damageBonus(p)} de daño.`,
+        fx: { kind: 'passive', passive: 'furia', amount: P().damageBonus(p) },
+      });
+    }
+    const bless = P().blessingHeal(c, p);
+    if (bless > 0) {
+      const before = p.hp;
+      A.State.healHp(bless);
+      addLog(c, 'system', { text: `Bendición: +${p.hp - before} de vida.`, fx: { kind: 'heal', actor: 'player', target: 'player', amount: p.hp - before, passive: 'bendicion' } });
+    }
   }
 
   function rollDamage(notationOrNumber) {
@@ -271,7 +311,8 @@
   // ============================================================
 
   function applyStatus(target, type, opts = {}) {
-    if (!target) return;
+    if (!target) return false;
+    if (target === State().player && P() && P().immune(target, type)) return false;
     if (!target.effects) target.effects = [];
     const turns = opts.turns || 3;
     const value = opts.value || 1;
@@ -282,10 +323,11 @@
       if (existing) {
         existing.turns = Math.max(existing.turns, turns);
         existing.value = Math.max(existing.value, value);
-        return;
+        return true;
       }
     }
     target.effects.push({ type, turns, value, source });
+    return true;
   }
 
   function removeStatus(target, type) {
@@ -339,9 +381,11 @@
     const name = targetName(entity);
     if (dmg > 0) {
       if (kind === 'player') {
-        A.State.damagePlayer(dmg);
-        addLog(c, 'system', { text: `Efectos: ${parts.join(', ')}. -${dmg} salud (HP ${entity.hp}/${entity.maxHp})`, fx: { kind: 'tick', target: 'player', amount: dmg, effect: tickType } });
+        const ab = P() ? P().absorbHit(c, entity, dmg, { tick: true }) : { dmg, passive: null };
+        A.State.damagePlayer(ab.dmg);
+        addLog(c, 'system', { text: `Efectos: ${parts.join(', ')}. -${ab.dmg} salud (HP ${entity.hp}/${entity.maxHp})`, passive: ab.passive, fx: { kind: 'tick', target: 'player', amount: ab.dmg, effect: tickType } });
         if (entity.hp <= 0) return { skip: true, died: true };
+        maybeAnnounceFury(c, entity);
       } else if (kind === 'pet') {
         entity.health = Math.max(0, entity.health - dmg);
         addLog(c, 'system', { text: `${name} sufre ${parts.join(', ')} (-${dmg}, HP ${entity.health}/${entity.maxHealth})`, fx: { kind: 'tick', target: 'pet', amount: dmg, effect: tickType } });
@@ -387,7 +431,7 @@
       addTurnHeader(c, c.round);
       State().persist();
       A.Bus.emit('combat:turn', { round: c.round });
-      setTimeout(() => advanceIfNotPlayer(), 350);
+      later(c, () => advanceIfNotPlayer(), 350);
       return;
     }
 
@@ -408,6 +452,7 @@
     const turnKey = `${c.round}:${c.currentActorIdx}`;
     if (c.turnStartedFor !== turnKey) {
       c.turnStartedFor = turnKey;
+      if (cur.kind === 'player') playerTurnPassives(c, entity);
       const st = startOfTurn(c, cur.kind, entity);
       if (checkEnd()) return;
       if (st.skip) {
@@ -422,9 +467,20 @@
     A.Bus.emit('combat:turn', { actor: cur.kind, round: c.round });
 
     // Pausas pensadas para que se vea el dado y el golpe de cada uno
-    if (cur.kind === 'enemy') setTimeout(() => executeEnemyAction(entity), ENEMY_DELAY);
-    else if (cur.kind === 'pet') setTimeout(() => executePetAction(), PET_DELAY);
+    if (cur.kind === 'enemy') later(c, () => executeEnemyAction(entity), ENEMY_DELAY);
+    else if (cur.kind === 'pet') later(c, () => executePetAction(), PET_DELAY);
     // Jugador: espera input
+  }
+
+  /** Pasivas que actúan al empezar tu turno (en silencio: solo el número flotante). */
+  function playerTurnPassives(c, p) {
+    if (!P() || !p) return;
+    const mana = P().manaPerTurn(p, c.round);
+    if (mana > 0 && p.hasMagic && p.mana < p.maxMana) {
+      const before = p.mana;
+      A.State.setMana(p.mana + mana);
+      addLog(c, 'system', { text: `Mente expansiva: +${p.mana - before} de maná.`, fx: { kind: 'heal', actor: 'player', target: 'player', amount: 0, mana: p.mana - before, passive: 'mente_expansiva', quiet: true } });
+    }
   }
 
   function nextActor() {
@@ -432,7 +488,7 @@
     if (!c) return;
     c.currentActorIdx += 1;
     if (c.currentActorIdx >= c.initiative.length) c.currentActorIdx = c.initiative.length;
-    setTimeout(() => advanceIfNotPlayer(), NEXT_DELAY);
+    later(c, () => advanceIfNotPlayer(), NEXT_DELAY);
   }
 
   function assignLabels(instances) {
@@ -495,8 +551,9 @@
     const p = State().player;
     const st = playerStats();
     const es = enemyStats(target);
-    const r = attackRoll(st.attack, es.defense);
+    const r = attackRoll(st.attack, es.defense, playerRollOpts(p));
     const weaponName = st.weapon ? st.weapon.name : 'puños';
+    if (r.lucky) addLog(c, 'system', { text: 'Suerte: sacaste un 1 y el dado se vuelve a tirar.', fx: { kind: 'passive', passive: 'suerte' } });
 
     if (!r.hit) {
       addLog(c, 'player', {
@@ -509,10 +566,14 @@
     } else {
       const dmgRoll = rollPlayerDamage(p);
       let rawDmg = dmgRoll.total;
-      if (r.crit) rawDmg *= 2;
+      if (r.crit) rawDmg *= P() ? P().critMult(p) : 2;
       const finalDmg = mitigate(rawDmg, es.armor);
       target.hp = Math.max(0, target.hp - finalDmg);
+      let passive = null;
+      if (r.crit && P() && P().has(p, 'golpe_gigante')) passive = 'golpe_gigante';
+      else if (r.crit && r.roll < 20) passive = 'ojo_certero';
       addLog(c, 'player', {
+        passive,
         text: r.crit ? `¡Golpe crítico a ${target.displayName}!` : `Atacaste a ${target.displayName}`,
         actor: p.name, target: target.displayName, actorIcon: '🗡️', weapon: weaponName,
         damageDice: dmgRoll.composed.expression,
@@ -527,6 +588,11 @@
         fx: { kind: 'attack', actor: 'player', target: fxKey(target) },
       });
       if (target.hp > 0) maybeInflictStatusOnHit(st.weapon, target, c);
+      // Sangre de dragón: a veces el golpe prende fuego
+      if (target.hp > 0 && P() && Math.random() < P().burnChance(p)) {
+        applyStatus(target, 'fire', { turns: 2, value: P().burnValue(p), source: 'sangre_dragon' });
+        addLog(c, 'system', { text: `${target.displayName} se prende fuego.`, fx: { kind: 'status', target: fxKey(target), effect: 'fire', passive: 'sangre_dragon' } });
+      }
       if (target.hp <= 0) {
         addLog(c, 'system', { text: `${target.displayName} cayó.`, killed: target.displayName, fx: { kind: 'death', target: fxKey(target) } });
         maybeDropEquippedWeapon(c, target);
@@ -556,12 +622,13 @@
       addLog(c, 'system', { text: 'Estás silenciado: no podés lanzar hechizos.', fx: { kind: 'note' } });
       return;
     }
-    if (p.mana < spell.manaCost) {
+    const cost = P() ? P().spellCost(p, spell) : spell.manaCost;
+    if (p.mana < cost) {
       addLog(c, 'system', { text: `No te alcanza el maná para ${spell.name}.`, fx: { kind: 'note' } });
       return;
     }
-    A.State.setMana(p.mana - spell.manaCost);
-    const power = playerStats().spellPower;
+    A.State.setMana(p.mana - cost);
+    const power = playerStats().spellPower + (spell.damage && P() ? P().spellBonus(p) : 0);
 
     if (spell.heal) {
       const heal = A.Utils.rollDice(spell.heal) + power;
@@ -647,7 +714,11 @@
     const fastest = Math.max(...aliveEnemies().map((e) => e.speed || 10));
     const playerSpeed = effectivePlayerSpeed(p);
     const fleeDC = Math.max(8, Math.min(18, 10 + (fastest - playerSpeed)));
-    const fleeRoll = A.Utils.dice(20);
+    let fleeRoll = A.Utils.dice(20);
+    if (fleeRoll === 1 && P() && P().rerollOnes(p)) {
+      addLog(c, 'system', { text: 'Suerte: sacaste un 1 y el dado se vuelve a tirar.', fx: { kind: 'passive', passive: 'suerte' } });
+      fleeRoll = A.Utils.dice(20);
+    }
     const fleeBonus = Math.floor(playerSpeed / 4);
     const fleeTotal = fleeRoll + fleeBonus;
 
@@ -786,11 +857,15 @@
     }
     let rawDmg = rollDamage(damageNotation);
     if (r.crit) rawDmg *= 2;
-    const finalDmg = mitigate(rawDmg, armor);
+    let finalDmg = mitigate(rawDmg, armor);
+    let passive = null;
     const victim = targetPet ? pet : p;
     if (targetPet) {
       pet.health = Math.max(0, pet.health - finalDmg);
     } else {
+      const ab = P() ? P().absorbHit(c, p, finalDmg) : { dmg: finalDmg, passive: null };
+      finalDmg = ab.dmg;
+      passive = ab.passive;
       A.State.damagePlayer(finalDmg);
     }
     addLog(c, 'enemy', {
@@ -799,18 +874,20 @@
         : targetPet ? `${enemy.displayName} hiere a ${pet.name}` : `${enemy.displayName} te hiere`,
       actor: enemy.displayName, target: targetName, actorIcon: enemyIcon, damageDice: damageNotation,
       roll: r.roll, bonus: es.attack, total: r.total, vs: defense, vsLabel: 'defensa',
-      rawDmg, targetArmor: armor, dmg: finalDmg,
+      rawDmg, targetArmor: armor, dmg: finalDmg, passive,
       hpAfter: targetPet ? pet.health : p.hp, hpMax: targetPet ? pet.maxHealth : p.maxHp,
       result: r.crit ? 'crit' : 'hit',
       fx: { kind: 'attack', actor: fxKey(enemy), target: targetPet ? 'pet' : 'player' },
     });
+    if (!targetPet) maybeAnnounceFury(c, p);
     // Efectos por tags del enemigo (veneno, fuego, hielo, ácido)
     if (targetPet ? pet.health > 0 : p.hp > 0) {
       for (const tag of enemy.tags || []) {
         const te = TAG_EFFECTS[tag];
         if (te && Math.random() < TAG_EFFECT_CHANCE) {
-          applyStatus(victim, te.type, { turns: te.turns, value: 1 + Math.floor(((enemy.tier || 1) - 1) / 3), source: enemy.id });
-          addLog(c, 'system', { text: `${targetName} sufre ${effectLabel(te.type)}.`, fx: { kind: 'status', target: targetPet ? 'pet' : 'player', effect: te.type } });
+          const took = applyStatus(victim, te.type, { turns: te.turns, value: 1 + Math.floor(((enemy.tier || 1) - 1) / 3), source: enemy.id });
+          if (took) addLog(c, 'system', { text: `${targetName} sufre ${effectLabel(te.type)}.`, fx: { kind: 'status', target: targetPet ? 'pet' : 'player', effect: te.type } });
+          else addLog(c, 'system', { text: `${targetName} no sufre ${effectLabel(te.type)} (pasiva).`, fx: { kind: 'passive', passive: P() ? P().idOf(p) : null, effect: te.type } });
           break;
         }
       }

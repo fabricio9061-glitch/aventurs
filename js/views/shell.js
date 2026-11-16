@@ -67,7 +67,7 @@
         </div>
 
         <footer class="shell-footer">
-          <span class="version-pill">v1.9.1</span>
+          <span class="version-pill">v1.9.2</span>
         </footer>
       </div>
     `;
@@ -80,6 +80,14 @@
     renderSidebar();
     renderChroniclesPanel();
     renderActiveView();
+  }
+
+  /** v1.9.2: la pasiva de la raza, con su ícono y la explicación al pasar el mouse. */
+  function passiveLine(p) {
+    const info = A.Passives ? A.Passives.info(p) : null;
+    if (!info) return '';
+    const ico = A.ItemSprites ? A.ItemSprites.icon(info.icon, { size: 16, cls: 'px-soft' }) : '';
+    return `<div class="char-passive" title="${A.Utils.escapeHtml(info.text)}">${ico}<span>${A.Utils.escapeHtml(info.name)}</span></div>`;
   }
 
   function renderSidebar() {
@@ -101,9 +109,10 @@
           <div class="char-id">
             <div class="char-name-row">
               <span class="char-name">${A.Utils.escapeHtml(p.name)}</span>
-              ${p.hasMagic ? `<button class="magic-btn" data-action="open-magic" title="Magia">✨</button>` : ''}
+              ${p.hasMagic ? `<button class="magic-btn" data-action="open-magic" title="Magia">${A.ItemSprites ? A.ItemSprites.icon('spell', { size: 20, cls: 'px-soft' }) : 'Magia'}</button>` : ''}
             </div>
             <div class="char-meta dim">${race ? race.name : '—'} · Nv ${p.level}</div>
+            ${passiveLine(p)}
           </div>
         </div>
 

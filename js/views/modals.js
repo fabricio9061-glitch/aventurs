@@ -526,32 +526,40 @@
             </div>
           </div>
         </div>
+        ${creatureDiceBlock(e)}
         <div class="creature-stats">
           <div class="stat-row"><span class="dim">Salud</span><span class="num">${e.health}</span></div>
           <div class="stat-row"><span class="dim">Daño</span><span class="num">${e.damage}</span></div>
           <div class="stat-row"><span class="dim">Ataque</span><span class="num">+${e.attack != null ? e.attack : '?'}</span></div>
-          <div class="stat-row"><span class="dim">Defensa</span><span class="num">${e.difficulty != null ? e.difficulty : '?'}</span></div>
           <div class="stat-row"><span class="dim">Armadura</span><span class="num">${e.armor}</span></div>
           <div class="stat-row"><span class="dim">Velocidad</span><span class="num">${e.speed}</span></div>
         </div>
-        ${families ? `<div class="creature-chips">${families}</div>` : ''}
-        ${tags ? `<div class="creature-chips">${tags}</div>` : ''}
-        <div class="creature-actions">
-          <button class="btn-primary" data-creature-action="fight" data-enemy-id="${A.Utils.escapeHtml(e.id)}">Pelear</button>
-          ${canTame && !havePet && !tameBlocked ? `
-            <button class="btn-secondary" data-creature-action="tame" data-enemy-id="${A.Utils.escapeHtml(e.id)}">
-              Intentar domar
-            </button>
-          ` : ''}
-          ${tameBlocked ? `<span class="muted small">No se puede domar: ${A.Utils.escapeHtml(A.Tame.reasonText(tameCheck.reason))}${tameCheck.requiredLevel ? ` (nivel ${tameCheck.requiredLevel})` : ''}.</span>` : ''}
-          ${diet ? `<span class="muted small">Come: ${A.Utils.escapeHtml(diet.eats)}.</span>` : ''}
-          ${canTame && havePet ? `
-            <span class="muted small">Ya tienes una mascota. Liberá a ${A.Utils.escapeHtml(A.State.player.pet.name)} antes de domar otra.</span>
-          ` : ''}
+        <div class="creature-notes">
+          <p class="muted small">Aparece al explorar o al viajar por la zona.</p>
+          ${canTame && !tameBlocked ? `<p class="muted small">Se puede domar si es el último enemigo en pie y tenés la comida que le gusta${diet ? ` (come ${A.Utils.escapeHtml(diet.eats)})` : ''}.</p>` : ''}
+          ${tameBlocked ? `<p class="muted small">No se puede domar: ${A.Utils.escapeHtml(A.Tame.reasonText(tameCheck.reason))}${tameCheck.requiredLevel ? ` (nivel ${tameCheck.requiredLevel})` : ''}.</p>` : ''}
+          ${canTame && havePet ? `<p class="muted small">Ya tenés una mascota: liberá a ${A.Utils.escapeHtml(A.State.player.pet.name)} antes de domar otra.</p>` : ''}
         </div>
       </div>
     `;
     return modalShell(e.name, body);
+  }
+
+  /** La dificultad del dado de una criatura y lo que tenés que sacar vos. */
+  function creatureDiceBlock(e) {
+    const dc = e.difficulty != null ? e.difficulty : 10;
+    const p = A.State.player;
+    const atk = p && A.Balance && A.Balance.playerCombatStats ? (A.Balance.playerCombatStats(p).attack || 0) : 0;
+    const need = Math.max(2, Math.min(20, dc - atk));
+    const pct = A.Balance && A.Balance.hitChance ? Math.round(A.Balance.hitChance(atk, dc) * 100) : null;
+    return `
+      <div class="creature-dice">
+        ${A.ItemSprites && A.ItemSprites.dcBadge ? A.ItemSprites.dcBadge(dc, { size: 44 }) : `<b>${dc}</b>`}
+        <div class="creature-dice-text">
+          <div class="creature-dice-title">Dificultad del dado: ${dc}</div>
+          <div class="muted small">Con tu ataque (+${atk}) necesitás sacar <b>${need} o más</b> en el D20${pct != null ? ` (${pct}% de pegarle)` : ''}.</div>
+        </div>
+      </div>`;
   }
 
   function escapeChip(s) {
@@ -583,6 +591,7 @@
                   Tier ${e.tier} · ${categoryLabel(e.category)}${e.tameable ? ' · domable' : ''}
                 </span>
               </span>
+              ${A.ItemSprites && A.ItemSprites.dcBadge ? A.ItemSprites.dcBadge(e.difficulty != null ? e.difficulty : 10, { size: 30 }) : ''}
               <span class="creature-list-arrow dim">›</span>
             </button>
           `).join('')}
@@ -965,13 +974,14 @@
         </div>
         <div class="combat-spell-list">
           ${spells.map((s) => {
-            const can = p.mana >= s.manaCost;
+            const cost = A.Passives ? A.Passives.spellCost(p, s) : s.manaCost;
+            const can = p.mana >= cost;
             return `
               <button class="combat-spell-row ${can ? '' : 'is-disabled'}" data-cast-spell="${A.Utils.escapeHtml(s.id)}" ${can ? '' : 'disabled'}>
                 <span class="combat-spell-icon">${A.ItemSprites && A.ItemSprites.spellIcon ? A.ItemSprites.spellIcon(s, { size: 32 }) : ''}</span>
                 <span class="combat-spell-info">
                   <span class="combat-spell-name">${A.Utils.escapeHtml(s.name)}</span>
-                  <span class="combat-spell-meta dim">${s.damage ? `${s.damage} daño` : s.heal ? `${s.heal} cura` : ''} · Maná ${s.manaCost}</span>
+                  <span class="combat-spell-meta dim">${s.damage ? `${s.damage} daño` : s.heal ? `${s.heal} cura` : ''} · Maná ${cost}${cost < s.manaCost ? ` <s>${s.manaCost}</s>` : ''}</span>
                 </span>
               </button>
             `;
@@ -1180,12 +1190,8 @@
       overlay.querySelectorAll('[data-creature-action]').forEach((b) => {
         b.addEventListener('click', () => {
           const action = b.dataset.creatureAction;
-          if (action === 'tame') {
-            A.State.openModal('tame', { enemyId: b.dataset.enemyId });
-          } else if (action === 'fight') {
-            A.State.closeModal();
-            A.Combat.start({ enemyId: b.dataset.enemyId, fromTravel: false });
-          }
+          // v1.9.2: la ficha es solo informativa (no se elige contra quién pelear)
+          if (action === 'tame') A.State.openModal('tame', { enemyId: b.dataset.enemyId });
         });
       });
     }
