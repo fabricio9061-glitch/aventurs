@@ -11,8 +11,9 @@
 
    passive: id de la pasiva (textos y reglas en js/systems/passives.js).
 
-   Al subir de nivel: vida +7 (warrior), +6 (hybrid), +5 (mage);
-   el resto de las mejoras es igual para todos (ver js/core/balance.js).
+   Al subir de nivel: vida +6 (warrior y hybrid), +5 (mage); maná +5 (mage)
+   o +3 (hybrid). v2.0: los guerreros tienen maestría con armas y los magos
+   más poder mágico (ver weaponFit y spellPowerOf en js/core/balance.js).
    Todos arrancan con Daga + Túnica de cuero; los que usan magia,
    además saben Chispa.
 
@@ -67,7 +68,7 @@
       combatType: 'hybrid',
       magic: true,
       passive: 'sangre_dragon',
-      bonuses: { hp: 1, mana: 0, speed: 0, precision: 1, armor: 1, damage: 1, dodge: -1 },
+      bonuses: { hp: 2, mana: 0, speed: 0, precision: 1, armor: 1, damage: 1, dodge: -1 },
       description: 'Descendientes de dragones antiguos. Escamas duras, sangre caliente y orgullo más antiguo que los reinos.',
     },
 
@@ -80,7 +81,7 @@
       combatType: 'warrior',
       magic: false,
       passive: 'piel_roca',
-      bonuses: { hp: 4, mana: 0, speed: -2, precision: 1, armor: 0, damage: 1, dodge: -1 },
+      bonuses: { hp: 3, mana: 0, speed: -2, precision: 1, armor: 0, damage: 0, dodge: -1 },
       description: 'Bajos y robustos. Su cuerpo soporta golpes que partirían a un humano y su voluntad no cede ante nada.',
     },
     {
@@ -91,7 +92,7 @@
       combatType: 'warrior',
       magic: false,
       passive: 'furia',
-      bonuses: { hp: 1, mana: 0, speed: 0, precision: 1, armor: 0, damage: 1, dodge: 0 },
+      bonuses: { hp: 1, mana: 0, speed: 0, precision: 1, armor: 0, damage: 0, dodge: 0 },
       description: 'Brutales en combate. La furia es su lenguaje, y cuanto más sangran, más fuerte pegan.',
     },
     {
@@ -102,7 +103,7 @@
       combatType: 'warrior',
       magic: false,
       passive: 'cuerpo_metal',
-      bonuses: { hp: 3, mana: 0, speed: -1, precision: 1, armor: 1, damage: 1, dodge: -1 },
+      bonuses: { hp: 3, mana: 0, speed: -1, precision: 1, armor: 1, damage: 0, dodge: -1 },
       description: 'Construidos, no nacidos. Inmunes al cansancio, al veneno y a la duda, pero ajenos por completo a la magia.',
     },
     {
@@ -113,7 +114,7 @@
       combatType: 'warrior',
       magic: false,
       passive: 'golpe_gigante',
-      bonuses: { hp: 8, mana: 0, speed: -2, precision: 0, armor: 0, damage: 1, dodge: 0 },
+      bonuses: { hp: 8, mana: 0, speed: -2, precision: 0, armor: 0, damage: 0, dodge: 0 },
       description: 'Gigantes de piel de piedra que viven en las cumbres. Lentos para empezar, pero cuando aciertan, aplastan.',
     },
 
@@ -126,7 +127,7 @@
       combatType: 'mage',
       magic: true,
       passive: 'ingenio',
-      bonuses: { hp: -1, mana: 6, speed: 1, precision: 2, armor: 0, damage: 0, dodge: 2 },
+      bonuses: { hp: -3, mana: 4, speed: 1, precision: 2, armor: 0, damage: 0, dodge: 2 },
       description: 'Inventores natos y de mente curiosa. Encuentran la forma de hacer más magia con menos esfuerzo.',
     },
     {
@@ -137,7 +138,7 @@
       combatType: 'mage',
       magic: true,
       passive: 'mente_expansiva',
-      bonuses: { hp: 0, mana: 3, speed: 2, precision: 1, armor: 0, damage: 0, dodge: 2 },
+      bonuses: { hp: -2, mana: 1, speed: 2, precision: 1, armor: 0, damage: 0, dodge: 2 },
       description: 'Visitantes de mundos lejanos. Sus mentes beben de corrientes de energía que los nativos apenas perciben.',
     },
     {
@@ -148,7 +149,7 @@
       combatType: 'mage',
       magic: true,
       passive: 'llama_interior',
-      bonuses: { hp: 2, mana: 6, speed: 1, precision: 2, armor: 0, damage: 0, dodge: 1 },
+      bonuses: { hp: 0, mana: 4, speed: 1, precision: 2, armor: 0, damage: 0, dodge: 1 },
       description: 'Nacidos con sangre de demonio. Llevan el fuego del abismo en las venas y lo vuelcan en cada hechizo.',
     },
     {
@@ -159,7 +160,7 @@
       combatType: 'mage',
       magic: true,
       passive: 'bendicion',
-      bonuses: { hp: -1, mana: 3, speed: 1, precision: 1, armor: 0, damage: 0, dodge: 2 },
+      bonuses: { hp: -3, mana: 1, speed: 1, precision: 1, armor: 0, damage: 0, dodge: 2 },
       description: 'Guardianes bajados del cielo. Una luz suave los acompaña y les cierra las heridas en plena batalla.',
     },
   ];

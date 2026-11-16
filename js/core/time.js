@@ -6,10 +6,10 @@
    4 fases del día con tonos visuales distintos.
 
    Ciclo de 20 unidades:
-     0-4   morning    🌅 (tonos cálidos claros)
-     5-9   afternoon  ☀️ (dorado claro)
-     10-14 night      🌙 (azul oscuro)
-     15-19 dawn       🌌 (violeta tenue)
+     0-4   morning    (tonos cálidos claros)
+     5-9   afternoon  (dorado claro)
+     10-14 night      (azul oscuro)
+     15-19 dawn       (violeta tenue)
 
    API:
      A.Time.advance(units, reason)
@@ -37,13 +37,13 @@
 
   // Definición de fases
   const PHASES = [
-    { id: 'morning',   start: 0,  end: 4,  label: 'Mañana',    icon: '🌅',
+    { id: 'morning',   start: 0,  end: 4,  label: 'Mañana',    icon: '', px: 'sunrise',
       bg: '#fff5e0', accent: '#d4a437', textColor: '#5a3a10' },
-    { id: 'afternoon', start: 5,  end: 9,  label: 'Tarde',     icon: '☀️',
+    { id: 'afternoon', start: 5,  end: 9,  label: 'Tarde',     icon: '', px: 'sun',
       bg: '#fff1c4', accent: '#c8862e', textColor: '#5a3a10' },
-    { id: 'night',     start: 10, end: 14, label: 'Noche',     icon: '🌙',
+    { id: 'night',     start: 10, end: 14, label: 'Noche',     icon: '', px: 'moon',
       bg: '#1a2438', accent: '#8da7d6', textColor: '#dde6f5' },
-    { id: 'dawn',      start: 15, end: 19, label: 'Madrugada', icon: '🌌',
+    { id: 'dawn',      start: 15, end: 19, label: 'Madrugada', icon: '', px: 'stars',
       bg: '#2a1a3a', accent: '#a88dd6', textColor: '#e6dde6' },
   ];
 
@@ -164,8 +164,10 @@
     return `Día ${w.day} · ${p.label}`;
   }
 
-  function icon() {
-    return currentPhase().icon;
+  /** v2.0: ícono pixel de la fase del día (sin emojis). */
+  function icon(size) {
+    const p = currentPhase();
+    return A.ItemSprites ? A.ItemSprites.icon(p.px, { size: size || 22 }) : '';
   }
 
   function phaseLabel() {

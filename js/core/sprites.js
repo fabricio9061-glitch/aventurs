@@ -1492,6 +1492,39 @@
     return html(enemy, { flip: true, ...opts });
   }
 
+  // ============================================================
+  // v2.0: retratos de los habitantes (por rol, o por id si tiene look propio)
+  // ============================================================
+
+  const NPC_LOOKS = {
+    merchant: { p: { sk: '#e2b08a', h: '#6a4a2a', cl: '#3a6a4a', cl2: '#4a3a2a', a: '#c9a24a', e: '#2a1a10' }, o: { size: 'medium', hair: 'short', beard: 'short', outfit: 'tunic', weapon: 'none' } },
+    tavernkeeper: { p: { sk: '#f0c8a0', h: '#a8402a', cl: '#8a4a6a', cl2: '#5a3a3a', a: '#e8dcc0', e: '#2a1a10' }, o: { size: 'medium', hair: 'long', outfit: 'dress', weapon: 'none' } },
+    blacksmith: { p: { sk: '#c8906a', h: '#2a2422', cl: '#5a4030', cl2: '#3a2a20', a: '#8a6a3a', m: '#9aa2ac', wd: '#5a3a1a', e: '#2a1a10' }, o: { size: 'large', beard: 'long', outfit: 'tunic', weapon: 'hammer', brows: true } },
+    sage: { p: { sk: '#ecd0b0', h: '#ececec', cl: '#3a3a8a', cl2: '#2a2a5a', a: '#e0c060', wd: '#6a4a2a', g: '#80d0ff', e: '#2a2a6a' }, o: { size: 'medium', beard: 'long', hat: 'wizard', outfit: 'robe', lower: 'robe', weapon: 'staff' } },
+    healer: { p: { sk: '#f0d0b0', h: '#e8d8a0', cl: '#e8e4d8', cl2: '#b8b0a0', a: '#c8302a', e: '#3a6ab0' }, o: { size: 'medium', hair: 'long', hat: 'hood', outfit: 'robe', lower: 'robe', weapon: 'none' } },
+    guard: { p: { sk: '#e0b08a', h: '#4a3a2a', cl: '#6a2a2a', m: '#a8b0ba', a: '#c9a24a', wd: '#6a4a2a', e: '#2a1a10' }, o: { size: 'medium', hat: 'helmet', outfit: 'armor', tabard: true, weapon: 'spear' } },
+    villager: { p: { sk: '#e2b08a', h: '#7a5a3a', cl: '#8a7a5a', cl2: '#5a4a3a', a: '#6a4a2a', e: '#2a1a10' }, o: { size: 'medium', hair: 'short', outfit: 'tunic', weapon: 'none' } },
+    // v2.0: la capitana del puerto (casaca azul, pelo largo, sable)
+    captain: { p: { sk: '#d8a07a', h: '#2a1a14', cl: '#2a4a7a', cl2: '#1a2a4a', a: '#d4a42c', m: '#c8d0da', wd: '#5a3a1a', e: '#2a1a10' }, o: { size: 'medium', hair: 'long', outfit: 'armor', tabard: true, weapon: 'sword' } },
+  };
+  const NPC_ROLE_LOOK = {
+    merchant: 'merchant', shopkeeper: 'merchant', vendor: 'merchant',
+    innkeeper: 'tavernkeeper', tavernkeeper: 'tavernkeeper',
+    blacksmith: 'blacksmith',
+    sage: 'sage', wizard: 'sage', mage: 'sage',
+    healer: 'healer', priest: 'healer',
+    guard: 'guard', quest: 'guard', captain: 'captain',
+  };
+
+  function npcSpec(npc) {
+    const look = (npc && npc.look && NPC_LOOKS[npc.look]) || NPC_LOOKS[NPC_ROLE_LOOK[(npc && npc.role) || ''] || 'villager'];
+    return { plan: 'humanoid', s: 1, o: { ...look.o, weaponSide: 'right' }, p: look.p };
+  }
+
+  function npcHtml(npc, opts = {}) {
+    return imgTag(urlForSpec(npcSpec(npc)), opts.size || 48, ['px-npc', opts.cls || ''].filter(Boolean).join(' '));
+  }
+
   function heroSpec(raceId, weaponKind) {
     const h = HEROES[raceId] || HEROES.humano;
     const o = { ...h.o, weaponSide: 'right' };
@@ -1576,7 +1609,7 @@
   }
 
   A.Sprites = {
-    html, svg, dataUrl, petHtml, heroHtml, heroFor, weaponKindOf, clearCache,
+    html, svg, dataUrl, petHtml, heroHtml, heroFor, npcHtml, weaponKindOf, clearCache,
     colorsFor, shapeOptions, shapeLabel, specFor,
     SPECIES, HEROES: Object.keys(HEROES), PLANS: Object.keys(PLANS), PLAN_LABELS,
     _kit: { N, bez, inE, shade, mix, hashStr, hsl, renderCustom, imgTag },

@@ -1,0 +1,168 @@
+/* ============================================================
+   Aventurs — Diario de viaje (v2.0)
+   Un solo lugar para lo que pasó y lo que falta:
+     Misiones  - la historia principal, los encargos y lo terminado
+     Crónicas  - lo que hiciste, agrupado por día y por lugar,
+                 sin repetir la misma línea diez veces
+   Registrado como A.ModalViews.journal y 'chronicles-full'.
+   ============================================================ */
+
+(function (A) {
+  'use strict';
+
+  const U = () => A.UI;
+
+  const TYPE_ICON = {
+    combat: 'swords', loot: 'coins', heal: 'heart', shop: 'shop', travel: 'boot',
+    craft: 'anvil', spell: 'book', rest: 'tent', item: 'bag', note: 'feather',
+    system: 'star', region: 'pin', quest: 'quest',
+  };
+
+  function chronicleIcon(type, size) { return U().icon(TYPE_ICON[type] || 'feather', size || 18, 'px-soft'); }
+
+  // ============================================================
+  // Misiones
+  // ============================================================
+
+  function objList(q) {
+    return `<ul class="qc-objs">${q.objectives.map((o, i) => {
+      const pr = A.Quests.objectiveProgress(q, i);
+      return `
+        <li class="qc-obj ${pr.done ? 'is-done' : ''}">
+          <span class="qc-box">${pr.done ? U().icon('check', 14) : ''}</span>
+          <span>${U().esc(A.Quests.objectiveText(o))}</span>
+          ${(o.count || 1) > 1 ? `<span class="qc-count num">${pr.have}/${pr.need}</span>` : ''}
+        </li>`;
+    }).join('')}</ul>`;
+  }
+
+  function questBlock(q) {
+    const st = A.Quests.status(q.id);
+    const giver = A.Data.getById('npcs', q.giver);
+    const region = giver ? A.Data.getById('regions', giver.region) : null;
+    return `
+      <article class="quest-card is-${st} ${q.main ? 'is-main' : ''}">
+        <header class="qc-head">
+          ${U().icon(q.main ? 'crown' : 'scroll', 22)}
+          <span class="qc-title">${U().esc(q.title)}</span>
+          <span class="qc-tag">${q.main ? `Historia · ${q.chapter}/8` : 'Encargo'}</span>
+        </header>
+        <p class="qc-text">${U().esc(q.text)}</p>
+        ${objList(q)}
+        ${st === 'ready' && giver ? `<p class="qc-where">${U().icon('question', 16)}<span>Volvé con ${U().esc(giver.name)}${region ? ` (${U().esc(region.name)})` : ''} para cobrar.</span></p>` : ''}
+      </article>
+    `;
+  }
+
+  function renderQuests() {
+    if (!A.Quests) return '';
+    const active = A.Quests.activeList();
+    const main = active.filter((q) => q.main);
+    const side = active.filter((q) => !q.main);
+    const done = A.Quests.doneList().slice().reverse();
+    let start = '';
+    if (!main.length && A.Quests.status('mq1_humo') !== 'done') {
+      const g = A.Data.getById('npcs', 'npc_guardia_pueblo');
+      start = `
+        <div class="journal-hint">${U().icon('crown', 24)}
+          <span>La historia empieza en el <b>Pueblo Inicial</b>: hablá con <b>${U().esc(g ? g.name : 'el guardia')}</b>.</span>
+        </div>`;
+    }
+    return `
+      <section class="journal-sec">
+        <h3 class="journal-h">Historia principal</h3>
+        ${main.map(questBlock).join('') || start || '<p class="journal-empty">Por ahora, nada. Hablá con la gente de los pueblos.</p>'}
+      </section>
+      <section class="journal-sec">
+        <h3 class="journal-h">Encargos</h3>
+        ${side.map(questBlock).join('') || '<p class="journal-empty">No tenés encargos. Los que tienen algo para vos llevan un signo de exclamación dorado.</p>'}
+      </section>
+      ${done.length ? `
+        <details class="journal-sec journal-done">
+          <summary class="journal-h">Terminadas <span class="num">${done.length}</span></summary>
+          <ul class="journal-done-list">
+            ${done.map((q) => `<li>${U().icon('check', 14)}<span>${U().esc(q.title)}</span></li>`).join('')}
+          </ul>
+        </details>` : ''}
+    `;
+  }
+
+  // ============================================================
+  // Crónicas
+  // ============================================================
+
+  /** Agrupa por día y por lugar; las líneas repetidas seguidas se juntan. */
+  function groupChronicles(list) {
+    const days = [];
+    for (const e of list) {
+      const day = e.day || 0;
+      let d = days[days.length - 1];
+      if (!d || d.day !== day) { d = { day, places: [] }; days.push(d); }
+      let pl = d.places[d.places.length - 1];
+      if (!pl || pl.regionId !== e.regionId) { pl = { regionId: e.regionId, entries: [] }; d.places.push(pl); }
+      const last = pl.entries[pl.entries.length - 1];
+      if (last && last.text === e.text) last.count += (e.count || 1);
+      else pl.entries.push({ ...e, count: e.count || 1 });
+    }
+    return days;
+  }
+
+  function renderChronicles() {
+    const all = (A.State.chronicles || []).slice().sort((a, b) => (b.ts || 0) - (a.ts || 0));
+    if (!all.length) return '<p class="journal-empty">Todavía no pasó nada. Tu historia empieza ahora.</p>';
+    const days = groupChronicles(all);
+    return days.map((d) => `
+      <section class="diary-day">
+        <h3 class="diary-day-h">${U().icon('sun', 18)}<span>${d.day ? `Día ${d.day}` : 'Antes'}</span></h3>
+        ${d.places.map((pl) => {
+          const r = pl.regionId ? A.Data.getById('regions', pl.regionId) : null;
+          return `
+            <div class="diary-place">
+              <div class="diary-place-h">${U().biomeIcon(r, 16)}<span>${U().esc(r ? r.name : 'En el camino')}</span></div>
+              <ul class="diary-list">
+                ${pl.entries.map((e) => `
+                  <li class="diary-entry is-${e.type}">
+                    ${chronicleIcon(e.type, 18)}
+                    <span class="diary-text">${U().esc(e.text)}</span>
+                    ${e.count > 1 ? `<span class="diary-count num">×${e.count}</span>` : ''}
+                  </li>`).join('')}
+              </ul>
+            </div>`;
+        }).join('')}
+      </section>
+    `).join('');
+  }
+
+  // ============================================================
+
+  function render(payload) {
+    const tab = payload && payload.tab === 'chronicles' ? 'chronicles' : 'quests';
+    const nActive = A.Quests ? A.Quests.activeList().length : 0;
+    return `
+      <div class="modal journal" role="dialog" aria-modal="true" aria-label="Diario de viaje">
+        <header class="modal-header">
+          <h2 class="modal-title">${U().icon('book', 24)}<span>Diario de viaje</span></h2>
+          <button class="modal-close" data-modal-close aria-label="Cerrar">×</button>
+        </header>
+        <nav class="npc2-tabs journal-tabs">
+          <button class="npc2-tab ${tab === 'quests' ? 'is-active' : ''}" data-journal-tab="quests">${U().icon('quest', 18)}<span class="tab-label">Misiones</span>${nActive ? `<span class="tab-count num">${nActive}</span>` : ''}</button>
+          <button class="npc2-tab ${tab === 'chronicles' ? 'is-active' : ''}" data-journal-tab="chronicles">${U().icon('feather', 18)}<span class="tab-label">Crónicas</span></button>
+        </nav>
+        <div class="modal-body journal-body">
+          ${tab === 'quests' ? renderQuests() : renderChronicles()}
+        </div>
+      </div>
+    `;
+  }
+
+  function bind(overlay) {
+    overlay.querySelectorAll('[data-journal-tab]').forEach((b) => {
+      b.addEventListener('click', () => A.State.openModal('journal', { tab: b.dataset.journalTab }));
+    });
+  }
+
+  A.ModalViews = A.ModalViews || {};
+  A.ModalViews.journal = { render, bind };
+  A.ModalViews['chronicles-full'] = { render: () => render({ tab: 'chronicles' }), bind };
+  A.Journal = { chronicleIcon, TYPE_ICON };
+})(window.Aventurs);

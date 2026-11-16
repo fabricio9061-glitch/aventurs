@@ -67,6 +67,12 @@
     }
   }
 
+  // ---------- v2.0: el resultado de la última acción (descansar) ----------
+  let lastNote = null;
+
+  function icon(name, size, cls) { return A.UI ? A.UI.icon(name, size, cls) : ''; }
+  function esc(s) { return A.Utils.escapeHtml(String(s == null ? '' : s)); }
+
   function render() {
     if (!mainEl) return;
     const w = A.State.world;
@@ -84,105 +90,119 @@
       return;
     }
 
-    const npcs = region.type === 'safe' ? A.Data.npcsInRegion(region.id) : [];
+    const npcs = A.Data.npcsInRegion(region.id);
     const enemies = A.Data.enemiesInRegion(region.id);
     const neighbors = A.Travel.neighbors();
     const isCombatRegion = region.type === 'combat';
     const isSafeRegion = region.type === 'safe';
+    const night = A.Time ? A.Time.isNight() : false;
+    const p = A.State.player;
+    const minLvl = (region.unlockConditions && region.unlockConditions.minLevel) || 1;
+    const todo = questsHere(region);
 
-    // Total de encuentros aquí
-    const encountersHere = A.State.encountersInRegion ? A.State.encountersInRegion(region.id) : 0;
+    const restLabel = night ? 'Dormir' : 'Descansar';
+    const restDesc = night
+      ? (isSafeRegion ? 'Hasta mañana. Recuperás bastante vida.' : 'Hasta mañana, al raso. Algo podría acercarse.')
+      : 'Un rato a la sombra. Pasa la tarde.';
 
     mainEl.innerHTML = `
-      <section class="world-view">
-
-        <header class="region-hero ${isSafeRegion ? 'is-safe' : 'is-combat'}">
-          <div class="region-hero-icon">${region.icon || '📍'}</div>
-          <div class="region-hero-info">
-            <div class="region-hero-name">${A.Utils.escapeHtml(region.name)}</div>
-            <div class="region-hero-meta">
-              <span class="pill ${isSafeRegion ? 'pill-safe' : 'pill-combat'}">
-                ${isSafeRegion ? 'Zona segura' : 'Zona de combate'}
-              </span>
-              <span class="pill pill-tier">Tier ${region.tier[0]}–${region.tier[1]}</span>
-              ${region.unlockConditions && region.unlockConditions.minLevel ? `<span class="dim">· Nivel ${region.unlockConditions.minLevel}+</span>` : ''}
-              <span class="dim">${biomeLabel(region.biome)}</span>
-              ${encountersHere > 0 ? `<span class="dim">· ${encountersHere} encuentros aquí</span>` : ''}
+      <section class="world2">
+        <header class="region2 ${isSafeRegion ? 'is-safe' : 'is-danger'} biome-${esc(region.biome)}">
+          <div class="region2-art">${A.UI ? A.UI.biomeIcon(region, 72) : ''}</div>
+          <div class="region2-info">
+            <div class="region2-kicker">
+              <span class="region2-tag ${isSafeRegion ? 'is-safe' : 'is-danger'}">${icon(isSafeRegion ? 'shield' : 'swords', 14)}<span>${isSafeRegion ? 'Zona segura' : 'Zona de peligro'}</span></span>
+              <span class="region2-tag">Nivel ${minLvl}+</span>
+              <span class="region2-tag is-soft">${esc(biomeLabel(region.biome))}</span>
             </div>
-            <p class="region-hero-desc">${A.Utils.escapeHtml(region.description)}</p>
+            <h1 class="region2-name">${esc(region.name)}</h1>
+            <p class="region2-desc">${esc(region.description)}</p>
           </div>
         </header>
 
-        <section class="action-grid-main">
+        ${lastNote ? `
+          <div class="note2" role="status">
+            ${icon(lastNote.icon || 'tent', 28)}
+            <div class="note2-main"><p>${esc(lastNote.text)}</p>${A.UI ? A.UI.chips(lastNote.chips) : ''}</div>
+            <button class="note2-x" data-note-close aria-label="Cerrar">×</button>
+          </div>` : ''}
+
+        <section class="acts2 ${isCombatRegion ? 'has-3' : 'has-2'}">
           ${isCombatRegion ? `
-            <button class="action-card-main" data-action="explore">
-              <div class="action-card-icon">🔎</div>
-              <div class="action-card-text">
-                <div class="action-card-label">Explorar</div>
-                <div class="action-card-desc">Buscar criaturas, tesoros y eventos.</div>
-              </div>
-            </button>
-          ` : ''}
-          <button class="action-card-main" data-action="rest">
-            <div class="action-card-icon">🌙</div>
-            <div class="action-card-text">
-              <div class="action-card-label">Descansar</div>
-              <div class="action-card-desc">${isSafeRegion ? 'Recupera salud completa.' : 'Recupera 50% de salud al raso.'}</div>
-            </div>
+            <button class="act2 is-main" data-action="explore">
+              <span class="act2-icon">${icon('search', 40)}</span>
+              <span class="act2-text"><span class="act2-label">Explorar</span><span class="act2-desc">Siempre pasa algo: criaturas, tesoros, peligros.</span></span>
+            </button>` : ''}
+          <button class="act2" data-action="rest">
+            <span class="act2-icon">${icon(night ? 'moon' : 'tent', 40)}</span>
+            <span class="act2-text"><span class="act2-label">${restLabel}</span><span class="act2-desc">${restDesc}</span></span>
           </button>
           ${neighbors.length > 0 ? `
-            <button class="action-card-main" data-action="open-travel">
-              <div class="action-card-icon">🗺️</div>
-              <div class="action-card-text">
-                <div class="action-card-label">Viajar</div>
-                <div class="action-card-desc">${neighbors.length} ${neighbors.length === 1 ? 'destino disponible' : 'destinos disponibles'}.</div>
-              </div>
-            </button>
-          ` : ''}
-          ${isSafeRegion && npcs.some((n) => n.role === 'blacksmith') ? `
-            <button class="action-card-main" data-action="open-craft">
-              <div class="action-card-icon">⚒️</div>
-              <div class="action-card-text">
-                <div class="action-card-label">Crafteo</div>
-                <div class="action-card-desc">Hay un herrero acá. Podés forjar objetos.</div>
-              </div>
-            </button>
-          ` : ''}
+            <button class="act2" data-action="open-travel">
+              <span class="act2-icon">${icon('map', 40)}</span>
+              <span class="act2-text"><span class="act2-label">Viajar</span><span class="act2-desc">${neighbors.length} ${neighbors.length === 1 ? 'camino' : 'caminos'} desde acá.</span></span>
+            </button>` : ''}
         </section>
 
+        ${todo.length ? `
+          <section class="block2 todo2">
+            <h2 class="block2-title">${icon('quest', 18)}<span>Para hacer acá</span></h2>
+            <ul class="todo2-list">
+              ${todo.map((t) => `<li>${icon(t.main ? 'crown' : 'scroll', 18)}<span><b>${esc(t.title)}</b> · ${esc(t.text)}</span>${t.count ? `<span class="num todo2-count">${t.count}</span>` : ''}</li>`).join('')}
+            </ul>
+          </section>` : ''}
+
         ${npcs.length ? `
-          <section class="region-block">
-            <div class="block-title">Habitantes</div>
-            <div class="npc-grid">
+          <section class="block2">
+            <h2 class="block2-title">${icon('talk', 18)}<span>Habitantes</span></h2>
+            <div class="npc2-grid">
               ${npcs.map((n) => npcCard(n)).join('')}
             </div>
           </section>
         ` : ''}
 
         ${isCombatRegion && enemies.length ? `
-          <section class="region-block">
-            <div class="block-title">Criaturas que merodean</div>
+          <section class="block2">
+            <h2 class="block2-title">${icon('skulls', 18)}<span>Criaturas de la zona</span><span class="block2-hint">El número es la dificultad del dado para pegarles</span></h2>
             <div class="creature-strip">
               ${enemies.slice(0, 8).map((e) => `
-                <button class="creature-chip" data-creature="${A.Utils.escapeHtml(e.id)}" title="${A.Utils.escapeHtml(e.name)}: dificultad del dado ${e.difficulty != null ? e.difficulty : 10}">
+                <button class="creature-chip" data-creature="${esc(e.id)}" title="${esc(e.name)}: dificultad del dado ${e.difficulty != null ? e.difficulty : 10}">
                   <span class="creature-icon">${enemySprite(e, 32)}</span>
-                  <span>${A.Utils.escapeHtml(e.name)}</span>
+                  <span>${esc(e.name)}</span>
                   ${A.ItemSprites && A.ItemSprites.dcBadge ? A.ItemSprites.dcBadge(e.difficulty != null ? e.difficulty : 10, { size: 24, cls: 'creature-dc' }) : ''}
                 </button>
               `).join('')}
               ${enemies.length > 8 ? `
-                <button class="creature-chip is-overflow" data-show-all="${A.Utils.escapeHtml(region.id)}">
+                <button class="creature-chip is-overflow" data-show-all="${esc(region.id)}">
                   <span>+${enemies.length - 8}</span>
                 </button>
               ` : ''}
             </div>
           </section>
         ` : ''}
-
       </section>
     `;
 
     bindEvents();
+  }
+
+  /** Objetivos de misiones activas que se cumplen en esta zona. */
+  function questsHere(region) {
+    if (!A.Quests) return [];
+    const out = [];
+    const here = new Set(A.Data.enemiesInRegion(region.id).map((e) => e.id));
+    for (const q of A.Quests.activeList()) {
+      q.objectives.forEach((o, i) => {
+        const pr = A.Quests.objectiveProgress(q, i);
+        if (pr.done) return;
+        const ids = o.type === 'kill' ? (Array.isArray(o.enemy) ? o.enemy : [o.enemy]) : [];
+        const fits = (o.type === 'explore' && o.region === region.id)
+          || (o.type === 'kill' && ids.some((id) => here.has(id)))
+          || (o.type === 'talk' && A.Data.npcsInRegion(region.id).some((n) => n.id === o.npc));
+        if (fits) out.push({ title: q.title, main: q.main, text: A.Quests.objectiveText(o), count: (o.count || 1) > 1 ? `${pr.have}/${pr.need}` : '' });
+      });
+    }
+    return out;
   }
 
   /**
@@ -193,16 +213,16 @@
     const isAuto = mode === 'auto' || mode === 'fast';
     return `
       <div class="travel-mode-selector ${isAuto ? 'is-active' : ''}" role="group" aria-label="Modo de viaje">
-        <button type="button" class="travel-mode-btn ${mode === 'manual' ? 'is-selected' : ''}" data-travel-mode="manual" title="Manual: avanzás vos haciendo click">
-          <span class="travel-mode-icon">👣</span>
+        <button type="button" class="travel-mode-btn ${mode === 'manual' ? 'is-selected' : ''}" data-travel-mode="manual" title="Manual: avanzás vos">
+          <span class="travel-mode-icon">${icon('boot', 16)}</span>
           <span class="travel-mode-label">Manual</span>
         </button>
-        <button type="button" class="travel-mode-btn ${mode === 'auto' ? 'is-selected' : ''}" data-travel-mode="auto" title="Auto: avanza solo cada 2s, pausa en eventos">
-          <span class="travel-mode-icon">▶️</span>
+        <button type="button" class="travel-mode-btn ${mode === 'auto' ? 'is-selected' : ''}" data-travel-mode="auto" title="Auto: avanza solo cada 2 segundos y frena en los encuentros">
+          <span class="travel-mode-icon">${icon('hourglass', 16)}</span>
           <span class="travel-mode-label">Auto</span>
         </button>
-        <button type="button" class="travel-mode-btn ${mode === 'fast' ? 'is-selected' : ''}" data-travel-mode="fast" title="Rápido: avanza solo cada 0.5s">
-          <span class="travel-mode-icon">⏩</span>
+        <button type="button" class="travel-mode-btn ${mode === 'fast' ? 'is-selected' : ''}" data-travel-mode="fast" title="Rápido: avanza solo cada medio segundo">
+          <span class="travel-mode-icon">${icon('run', 16)}</span>
           <span class="travel-mode-label">Rápido</span>
         </button>
       </div>
@@ -227,13 +247,13 @@
         <header class="travel-header-v2">
           <div class="travel-route-v2">
             <div class="travel-endpoint travel-endpoint-from">
-              <div class="travel-endpoint-icon">${fromR ? fromR.icon : '📍'}</div>
+              <div class="travel-endpoint-icon">${A.UI ? A.UI.biomeIcon(fromR, 36) : ''}</div>
               <div class="travel-endpoint-name">${A.Utils.escapeHtml(fromR ? fromR.name : t.fromId)}</div>
               <div class="travel-endpoint-label dim">Origen</div>
             </div>
             ${renderRoutePath(t)}
             <div class="travel-endpoint travel-endpoint-to">
-              <div class="travel-endpoint-icon">${toR ? toR.icon : '📍'}</div>
+              <div class="travel-endpoint-icon">${A.UI ? A.UI.biomeIcon(toR, 36) : ''}</div>
               <div class="travel-endpoint-name">${A.Utils.escapeHtml(toR ? toR.name : t.toId)}</div>
               <div class="travel-endpoint-label dim">Destino</div>
             </div>
@@ -251,7 +271,7 @@
           </main>
           <aside class="travel-log-v2">
             <div class="travel-log-header">
-              <span class="travel-log-title">📖 Bitácora</span>
+              <span class="travel-log-title">${icon('book', 16)} Bitácora</span>
               <span class="travel-log-count dim">${t.events.length} evento${t.events.length === 1 ? '' : 's'}</span>
             </div>
             <div class="travel-log-list">
@@ -297,7 +317,7 @@
             </div>
           `).join('')}
           <div class="travel-route-marker" style="left: ${pctNum}%" title="Tu posición">
-            <span class="travel-route-marker-icon">🚶</span>
+            <span class="travel-route-marker-icon">${icon('pin', 22)}</span>
           </div>
         </div>
       </div>
@@ -313,7 +333,7 @@
       ? renderStageEvent(lastEvent)
       : `
         <div class="travel-stage-empty">
-          <div class="travel-stage-icon">🌅</div>
+          <div class="travel-stage-icon">${icon('compass', 48)}</div>
           <div class="travel-stage-title">El camino te espera</div>
           <div class="travel-stage-desc dim">Cada paso te acerca al destino. ¿Qué encontrarás?</div>
         </div>
@@ -323,7 +343,7 @@
     const autoIndicator = (mode === 'auto' || mode === 'fast')
       ? `<div class="travel-auto-indicator is-${mode}">
            <span class="travel-auto-dot"></span>
-           <span class="travel-auto-text">${mode === 'fast' ? '⏩ Avanzando rápido...' : '▶️ Avanzando solo...'}</span>
+           <span class="travel-auto-text">${mode === 'fast' ? 'Avanzando rápido...' : 'Avanzando solo...'}</span>
          </div>`
       : '';
     return `
@@ -333,7 +353,7 @@
       </div>
       <div class="travel-actions-v2">
         <button class="btn-primary btn-travel-step" data-travel-action="step" ${mode !== 'manual' ? 'title="Avanzar manualmente (cancela auto)"' : ''}>
-          <span class="btn-icon">👣</span>
+          <span class="btn-icon">${icon('boot', 20)}</span>
           <span>Avanzar${mode !== 'manual' ? ' ahora' : ''}</span>
         </button>
         <button class="btn-ghost" data-travel-action="cancel">Volver al origen</button>
@@ -344,51 +364,52 @@
   /**
    * v1.6.9: Renderiza el último evento como una "tarjeta de stage" grande.
    */
+  // v2.0: cada tipo de suceso del camino con su ícono pixel
+  const EVENT_ICON = {
+    narrative: 'feather', minor_loot: 'coins', biome_loot: 'herb', treasure: 'chest',
+    damage: 'trap', heal: 'heart', nothing: 'boot',
+  };
+
+  function eventIcon(ev, size) {
+    if (ev.kind === 'creature' && ev.enemyId) return enemySprite(ev.enemyId, size);
+    return icon(EVENT_ICON[ev.kind] || 'feather', size);
+  }
+
   function renderStageEvent(ev) {
     const k = ev.kind || 'narrative';
     const themeMap = {
-      narrative: { icon: ev.icon || '✨', cls: 'is-narrative', title: 'Algo en el camino' },
-      minor_loot: { icon: '💰', cls: 'is-loot', title: '¡Encontraste algo!' },
-      biome_loot: { icon: ev.icon || '🎁', cls: 'is-biome-loot', title: 'Hallazgo del bioma' },
-      creature: { icon: ev.enemyId ? enemySprite(ev.enemyId, 48) : (ev.icon || '👹'), cls: 'is-creature', title: 'Encuentro' },
-      treasure: { icon: '🎁', cls: 'is-loot', title: 'Tesoro' },
-      damage: { icon: '⚠️', cls: 'is-danger', title: 'Peligro' },
-      heal: { icon: '💚', cls: 'is-heal', title: 'Buen presagio' },
+      narrative: { cls: 'is-narrative', title: 'Algo en el camino' },
+      minor_loot: { cls: 'is-loot', title: '¡Encontraste algo!' },
+      biome_loot: { cls: 'is-biome-loot', title: 'Hallazgo del camino' },
+      creature: { cls: 'is-creature', title: 'Encuentro' },
+      treasure: { cls: 'is-loot', title: 'Tesoro' },
+      damage: { cls: 'is-danger', title: 'Peligro' },
+      heal: { cls: 'is-heal', title: 'Buen presagio' },
     };
     const theme = themeMap[k] || themeMap.narrative;
     return `
       <div class="travel-stage-card ${theme.cls}">
-        <div class="travel-stage-card-icon">${theme.icon}</div>
+        <div class="travel-stage-card-icon">${eventIcon(ev, 48)}</div>
         <div class="travel-stage-card-content">
           <div class="travel-stage-card-title">${theme.title}</div>
-          <div class="travel-stage-card-text">${A.Utils.escapeHtml(ev.text || '')}</div>
+          <div class="travel-stage-card-text">${esc(ev.text || '')}</div>
         </div>
       </div>
     `;
   }
 
-  /**
-   * v1.6.9: Fila de bitácora (más compacta que la stage, ordenada por inverso)
-   */
   function eventLogRow(e) {
-    const icons = {
-      minor_loot: '💰', biome_loot: e.icon || '🎁',
-      creature: e.enemyId ? enemySprite(e.enemyId, 20) : '👹', narrative: e.icon || '✨', nothing: '·',
-      treasure: '🎁', damage: '⚠️', heal: '💚',
-    };
     return `
       <div class="travel-log-row">
-        <span class="travel-log-icon">${icons[e.kind] || (e.icon || '·')}</span>
-        <span class="travel-log-text">${A.Utils.escapeHtml(e.text || '...')}</span>
+        <span class="travel-log-icon">${eventIcon(e, 20)}</span>
+        <span class="travel-log-text">${esc(e.text || '...')}</span>
       </div>
     `;
   }
 
   // v1.9.0: sprites en pixel art en lugar de emojis
   function enemySprite(enemyOrId, size) {
-    if (A.Sprites) return A.Sprites.html(enemyOrId, { size });
-    const e = typeof enemyOrId === 'string' ? A.Data.getById('enemies', enemyOrId) : enemyOrId;
-    return (e && e.icon) || '👹';
+    return A.Sprites ? A.Sprites.html(enemyOrId, { size }) : '';
   }
 
   function encounterSprites(ev) {
@@ -413,7 +434,7 @@
                 <span class="pill pill-tier">Tier ${ev.tier}</span>
                 <span class="pill pill-cat-${ev.category || 'normal'}">${categoryLabel(ev.category)}</span>
                 ${enemy && A.ItemSprites && A.ItemSprites.dcBadge ? A.ItemSprites.dcBadge(enemy.difficulty != null ? enemy.difficulty : 10, { size: 26 }) : ''}
-                ${ev.tameable ? `<span class="pill pill-tameable">🐾 Domable</span>` : ''}
+                ${ev.tameable ? `<span class="pill pill-tameable">${icon('paw', 14)} Domable</span>` : ''}
               `}
             </div>
           </div>
@@ -425,19 +446,19 @@
             : 'No parece dispuesto a parlamentar.')}</p>
         <div class="encounter-actions-v2">
           <button class="btn-primary encounter-btn-fight" data-travel-action="fight" data-enemy-id="${A.Utils.escapeHtml(ev.enemyId)}">
-            <span class="btn-icon">⚔️</span>
+            <span class="btn-icon">${icon('swords', 20)}</span>
             <span>Pelear</span>
           </button>
           ${!isGroup && enemy && enemy.tameable && !A.State.player.pet && A.Tame && ['ok', 'missing-item'].includes(A.Tame.canTame(enemy.id).ok ? 'ok' : A.Tame.canTame(enemy.id).reason) ? `
             <button class="btn-secondary encounter-btn-tame" data-travel-action="tame" data-enemy-id="${A.Utils.escapeHtml(ev.enemyId)}">
-              <span class="btn-icon">🐾</span>
+              <span class="btn-icon">${icon('paw', 20)}</span>
               <span>Intentar domar</span>
             </button>
           ` : ''}
           ${(() => {
             const odds = calculateAvoidOdds(ev);
-            return `<button class="btn-ghost encounter-btn-avoid" data-travel-action="avoid" title="D20+${odds.speedBonus} vs DC ${odds.dc}">
-              <span class="btn-icon">💨</span>
+            return `<button class="btn-ghost encounter-btn-avoid" data-travel-action="avoid" title="D20+${odds.speedBonus} contra dificultad ${odds.dc}">
+              <span class="btn-icon">${icon('run', 20)}</span>
               <span>Evitar (${odds.chancePct}%)</span>
             </button>`;
           })()}
@@ -502,13 +523,10 @@
   }
 
   function eventRow(e) {
-    const icons = {
-      minor_loot: '💰', creature: '👹', narrative: '✨', nothing: '·',
-    };
     const cls = e.kind === 'creature' ? 'is-creature' : '';
     return `
       <div class="travel-event ${cls}">
-        <span class="travel-event-icon">${icons[e.kind] || '·'}</span>
+        <span class="travel-event-icon">${eventIcon(e, 18)}</span>
         <span class="travel-event-text">${A.Utils.escapeHtml(e.text || '...')}</span>
       </div>
     `;
@@ -517,13 +535,21 @@
   // ---------- Helpers de render ----------
 
   function npcCard(n) {
+    const marker = A.Quests ? A.Quests.markerFor(n.id) : null;
+    const offers = [];
+    if ((n.sells || []).length) offers.push('Comercia');
+    if (n.role === 'blacksmith') offers.push('Forja');
+    if ((n.teaches || []).length) offers.push('Enseña magia');
+    if (n.services && n.services.restCost != null) offers.push('Posada');
+    if (A.Quests && A.Quests.list().some((q) => q.giver === n.id)) offers.push('Encargos');
     return `
-      <button class="npc-card" data-npc="${n.id}">
-        <div class="npc-icon">${n.icon || '🧑'}</div>
-        <div class="npc-info">
-          <div class="npc-name">${A.Utils.escapeHtml(n.name)}</div>
-          <div class="npc-role dim">${roleLabel(n.role)}</div>
-        </div>
+      <button class="npc2-card ${marker ? 'has-quest' : ''}" data-npc="${esc(n.id)}">
+        ${A.UI ? A.UI.portrait(n, 56, marker) : ''}
+        <span class="npc2-card-info">
+          <span class="npc2-card-name">${esc(n.name)}</span>
+          <span class="npc2-card-role">${esc(n.roleName || roleLabel(n.role))}</span>
+          ${offers.length ? `<span class="npc2-card-offers">${esc(offers.join(' · '))}</span>` : ''}
+        </span>
       </button>
     `;
   }
@@ -538,7 +564,7 @@
     const cls = `travel-card ${locked ? 'is-locked' : ''}`;
     return `
       <button class="${cls}" data-travel="${n.id}" ${locked ? 'data-locked="1"' : ''}>
-        <div class="travel-icon">${n.icon || '📍'}</div>
+        <div class="travel-icon">${A.UI ? A.UI.biomeIcon(n, 28) : ''}</div>
         <div class="travel-info">
           <div class="travel-name">${A.Utils.escapeHtml(n.name)}</div>
           <div class="travel-meta">
@@ -547,9 +573,9 @@
             <span class="dim">${dist === 1 ? 'Cerca' : dist === 2 ? 'Medio camino' : 'Lejos'}</span>
             ${enemiesCount ? `<span class="dim">· ${enemiesCount} criaturas</span>` : ''}
           </div>
-          ${locked ? `<div class="travel-locked-msg">🔒 Necesitas ${travelCheck.required} encuentros completados (llevás ${travelCheck.have}).</div>` : ''}
+          ${locked ? `<div class="travel-locked-msg">${icon('lock', 14)} ${esc(travelCheck.error || 'Bloqueada')}</div>` : ''}
         </div>
-        <div class="travel-arrow dim">${locked ? '🔒' : '→'}</div>
+        <div class="travel-arrow dim">${locked ? icon('lock', 16) : '›'}</div>
       </button>
     `;
   }
@@ -605,6 +631,8 @@
     mainEl.querySelectorAll('[data-action]').forEach((btn) => {
       btn.addEventListener('click', () => onAction(btn.dataset.action));
     });
+    const nc = mainEl.querySelector('[data-note-close]');
+    if (nc) nc.addEventListener('click', () => { lastNote = null; render(); });
   }
 
   function bindTravelEvents() {
@@ -637,10 +665,10 @@
             const enemyName = last.enemyName || 'al enemigo';
             if (result.success) {
               last.resolved = true;
-              last.text = `Evitaste a ${enemyName} (D20=${result.roll}+${result.speedBonus} ≥ ${result.dc}).`;
+              last.text = `Esquivaste a ${enemyName}.`;
               A.State.addChronicle({
                 type: 'travel',
-                text: `Intentaste evitar a ${enemyName}. D20=${result.roll}+${result.speedBonus} vs DC ${result.dc}. Lo lograste.`,
+                text: `Esquivaste a ${enemyName} sin que te vieran (dado ${result.roll}+${result.speedBonus} contra ${result.dc}).`,
               });
               A.State.persist();
               A.Travel.step();
@@ -650,7 +678,7 @@
               last.text = `Te detectaron al intentar evitar a ${enemyName}.`;
               A.State.addChronicle({
                 type: 'travel',
-                text: `Intentaste evitar a ${enemyName}. D20=${result.roll}+${result.speedBonus} vs DC ${result.dc}. Falla. El combate empieza con desventaja.`,
+                text: `Quisiste esquivar a ${enemyName}, pero te vieron (dado ${result.roll}+${result.speedBonus} contra ${result.dc}). Te atacan primero.`,
               });
               A.State.persist();
               if (last.enemies && last.enemies.length > 0) {
@@ -708,151 +736,26 @@
 
   function onAction(action) {
     if (action === 'open-travel') {
+      lastNote = null;
       A.State.ui.showMap = true;
       A.Bus.emit('view:changed');
       return;
     }
-    if (action === 'open-craft') {
-      // Si hay un herrero en la región, abrir su craft. Si no, mostrar info.
-      const region = A.Data.getById('regions', A.State.world.regionId);
-      const npcs = A.Data.npcsInRegion(region.id);
-      const blacksmith = npcs.find((n) => n.role === 'blacksmith');
-      if (blacksmith) {
-        A.State.openModal('npc', { npcId: blacksmith.id, tab: 'craft' });
+    if (action === 'rest') {
+      // v2.0: descansar siempre hace algo (siesta de día, dormir de noche)
+      const res = A.Explore ? A.Explore.rest() : null;
+      if (res && res.kind !== 'night-event') {
+        lastNote = { icon: res.kind === 'nap' ? 'tent' : 'moon', text: res.text, chips: res.chips };
       } else {
-        A.State.addChronicle({ type: 'note', text: 'Acá no hay herrero. Buscá uno en otro pueblo.' });
+        lastNote = null;
       }
+      render();
       return;
     }
-    if (action === 'rest') {
-      // v1.5.9: Descansar solo es posible de noche
-      if (A.Time && !A.Time.canRest()) {
-        A.State.addChronicle({
-          type: 'note',
-          text: 'No podés descansar a plena luz del día. Esperá a que caiga la noche.',
-        });
-        return;
-      }
-      // Descanso al raso: solo +50% HP, sin maná ni food
-      const p = A.State.player;
-      let healMult = 0.5;
-      // v1.6.2: si tenés hambre severa, no descansás bien
-      if (A.Survival) {
-        const status = A.Survival.getStatus();
-        if (status.penalties.restPenalty) {
-          healMult = status.id === 'starving' ? 0.1 : 0.25;
-        }
-      }
-      const heal = Math.floor(p.maxHp * healMult);
-      const before = p.hp;
-      A.State.healHp(heal);
-      const recovered = p.hp - before;
-      let restNote = `Descansaste durante la noche. +${recovered} salud.`;
-      // v1.8.0: la mascota también descansa (recupera la mitad y despierta)
-      if (p.pet && p.pet.maxHealth) {
-        const petBefore = p.pet.health;
-        p.pet.health = Math.min(p.pet.maxHealth, p.pet.health + Math.ceil(p.pet.maxHealth * healMult));
-        if (p.pet.health > petBefore) restNote += ` ${p.pet.name} ${petBefore <= 0 ? 'despertó y ' : ''}recuperó ${p.pet.health - petBefore} de vida.`;
-      }
-      if (A.Survival && A.Survival.getStatus().penalties.restPenalty) {
-        restNote += ` Tu hambre te impide descansar bien.`;
-      }
-      A.State.addChronicle({ type: 'rest', text: restNote });
-      // Avanzar el tiempo hasta la mañana del día siguiente
-      if (A.Time) A.Time.passTo('day');
-    } else if (action === 'explore') {
-      const region = A.Data.getById('regions', A.State.world.regionId);
-      // v1.5.9: explorar avanza 1 unidad de tiempo
-      if (A.Time) A.Time.advance(1, 'explore');
-      // v1.6.2: explorar consume hambre cada 2 acciones (no cada acción)
-      if (A.Survival && A.State.player) {
-        A.State.player._exploreCounter = (A.State.player._exploreCounter || 0) + 1;
-        if (A.State.player._exploreCounter % 2 === 0) {
-          A.Survival.applyTurnTick('explore');
-        }
-      }
-      // Primero probar eventos custom de la región
-      if (region && Array.isArray(region.events) && region.events.length > 0) {
-        for (const ev of region.events) {
-          if (Math.random() * 100 < (ev.chance || 0)) {
-            executeRegionEventInline(ev);
-            return;
-          }
-        }
-      }
-      // v1.6.4: balance rebalanceado a favor de eventos pacíficos
-      // 35% combate, 65% pacífico (rastros, monedas, observación, recursos, hallazgos)
-      const r = Math.random();
-      if (r < 0.35) {
-        // Combate (antes era 60%)
-        const group = A.Encounter.generate(A.State.world.regionId);
-        if (group && group.length > 0) {
-          const desc = A.Encounter.describeGroup(group);
-          A.State.addChronicle({ type: 'note', text: `Te encontraste con ${desc} mientras explorabas.` });
-          A.Combat.start({ enemies: group, fromTravel: false });
-          return;
-        }
-        A.State.addChronicle({ type: 'note', text: 'Recorriste la zona pero no encontraste nada.' });
-      } else if (r < 0.50) {
-        // 15%: monedas escondidas
-        const coins = 3 + Math.floor(Math.random() * 12);
-        A.State.addItem('coin_copper', coins);
-        A.State.addChronicle({ type: 'loot', text: `Encontraste ${coins} monedas de cobre escondidas.` });
-      } else if (r < 0.62) {
-        // 12%: criatura observando desde lejos (no combate)
-        const peacefulMessages = [
-          'Viste un ciervo pasar entre los árboles. Te observa un instante y desaparece.',
-          'Una sombra se mueve a lo lejos. Algo te observa, pero no se acerca.',
-          'Un pájaro graznó al verte. Voló al horizonte sin más.',
-          'Escuchaste pasos cerca. Cuando miraste, ya no había nadie.',
-          'Una criatura desconocida cruzó el camino. No quiso pelear.',
-        ];
-        A.State.addChronicle({ type: 'note', text: peacefulMessages[Math.floor(Math.random() * peacefulMessages.length)] });
-      } else if (r < 0.74) {
-        // 12%: rastros / signos
-        const trackMessages = [
-          'Encontraste huellas frescas en el suelo. Algo grande pasó hace poco.',
-          'Marcas de garras en un árbol. Algún animal marcó territorio.',
-          'Una fogata apagada con cenizas tibias. Alguien estuvo acá hace horas.',
-          'Restos de un campamento abandonado. Nada útil quedó.',
-          'Plumas raras esparcidas por el suelo. ¿Pelea de aves?',
-        ];
-        A.State.addChronicle({ type: 'note', text: trackMessages[Math.floor(Math.random() * trackMessages.length)] });
-      } else if (r < 0.86) {
-        // 12%: v1.7.1: recurso del bioma de la región actual (usa el mismo pool de travel)
-        const region = A.Data.getById('regions', A.State.world.regionId);
-        const biomeResult = A.Travel.resolveBiomeLootStandalone
-          ? A.Travel.resolveBiomeLootStandalone(region)
-          : null;
-        if (biomeResult && biomeResult.kind === 'biome_loot') {
-          A.State.addChronicle({ type: 'loot', text: biomeResult.text });
-        } else if (biomeResult && biomeResult.kind === 'narrative') {
-          // Mochila llena
-          A.State.addChronicle({ type: 'note', text: biomeResult.text });
-        } else {
-          // Fallback: item genérico
-          const resourceItems = ['pan', 'queso', 'manzana', 'fruta_silvestre', 'hierba_curativa'];
-          const validItems = resourceItems.filter((id) => A.Data.getById('items', id));
-          if (validItems.length > 0) {
-            const itemId = validItems[Math.floor(Math.random() * validItems.length)];
-            const item = A.Data.getById('items', itemId);
-            const ok = A.State.addItem(itemId, 1);
-            if (ok) A.State.addChronicle({ type: 'loot', text: `Encontraste ${item.icon || ''} ${item.name} en el camino.` });
-            else A.State.addChronicle({ type: 'note', text: 'Encontraste algo útil pero no entró en tu mochila.' });
-          } else {
-            A.State.addChronicle({ type: 'note', text: 'Recorriste la zona, sin novedad.' });
-          }
-        }
-      } else {
-        // 14%: nada útil (viento, paisaje, etc)
-        const idleMessages = [
-          'Solo el viento entre los árboles. Recorriste la zona en silencio.',
-          'Caminaste un buen rato. Nada que destacar.',
-          'El paisaje sigue igual. No hay novedades.',
-          'Un día tranquilo. Nada que reportar.',
-        ];
-        A.State.addChronicle({ type: 'note', text: idleMessages[Math.floor(Math.random() * idleMessages.length)] });
-      }
+    if (action === 'explore') {
+      lastNote = null;
+      if (A.Explore) A.Explore.explore();
+      render();
     }
   }
 

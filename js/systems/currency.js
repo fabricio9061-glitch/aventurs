@@ -13,8 +13,10 @@
      canPay(c)      -> bool
      pay(c)         -> bool, paga c cobre desbarajustando monedas grandes si hace falta
      add(c)         -> agrega c cobre, auto-converte a plata/oro al llegar a 100/10000
-     formatPrice(c) -> "2🥈 50🥉" para mostrar precios
-     formatWallet() -> "🥇3 🥈12 🥉50" para mostrar billetera completa
+     formatPrice(c) -> "2 plata 50 cobre" (texto, sin emojis)
+     priceHtml(c)   -> lo mismo con las monedas dibujadas
+     formatWallet() -> la billetera en texto
+     walletHtml()   -> la billetera con las monedas dibujadas
      isCoinId(id)   -> bool
 
    Las monedas no consumen slots (subtype 'coin' es ignorado por inventoryUsedSlots).
@@ -110,33 +112,53 @@
     setCoinQty('coin_copper', copper);
   }
 
-  /**
-   * Formatea un precio (en cobre) como "2🥈 50🥉" o "1🥇 23🥉".
-   * Si vale 0 → "Gratis".
-   */
+  function split(copper) {
+    const c = Math.max(0, Math.floor(copper || 0));
+    const gold = Math.floor(c / COPPER_PER_GOLD);
+    const silver = Math.floor((c - gold * COPPER_PER_GOLD) / COPPER_PER_SILVER);
+    return { gold, silver, copper: c - gold * COPPER_PER_GOLD - silver * COPPER_PER_SILVER };
+  }
+
+  /** "2 plata 50 cobre" · "Gratis" si vale 0. (v2.0: sin emojis) */
   function formatPrice(amountInCopper) {
     if (!amountInCopper || amountInCopper <= 0) return 'Gratis';
-    const gold = Math.floor(amountInCopper / COPPER_PER_GOLD);
-    let rest = amountInCopper - gold * COPPER_PER_GOLD;
-    const silver = Math.floor(rest / COPPER_PER_SILVER);
-    const copper = rest - silver * COPPER_PER_SILVER;
+    const v = split(amountInCopper);
     const parts = [];
-    if (gold > 0) parts.push(`${gold}🥇`);
-    if (silver > 0) parts.push(`${silver}🥈`);
-    if (copper > 0 || parts.length === 0) parts.push(`${copper}🥉`);
+    if (v.gold) parts.push(`${v.gold} oro`);
+    if (v.silver) parts.push(`${v.silver} plata`);
+    if (v.copper || !parts.length) parts.push(`${v.copper} cobre`);
     return parts.join(' ');
   }
 
-  /**
-   * Formatea la billetera completa "🥇3 🥈12 🥉50".
-   */
+  function coinTag(id, n, size) {
+    const img = A.ItemSprites ? A.ItemSprites.html(id, { size: size || 20, cls: 'px-soft' }) : '';
+    return `<span class="coin-amt">${img}<b>${n}</b></span>`;
+  }
+
+  /** El precio con las monedas dibujadas (oro, plata, cobre). */
+  function priceHtml(amountInCopper, size) {
+    if (!amountInCopper || amountInCopper <= 0) return '<span class="coin-price is-free">Gratis</span>';
+    const v = split(amountInCopper);
+    const parts = [];
+    if (v.gold) parts.push(coinTag('coin_gold', v.gold, size));
+    if (v.silver) parts.push(coinTag('coin_silver', v.silver, size));
+    if (v.copper || !parts.length) parts.push(coinTag('coin_copper', v.copper, size));
+    return `<span class="coin-price" title="${formatPrice(amountInCopper)}">${parts.join('')}</span>`;
+  }
+
+  /** La billetera completa en texto. */
   function formatWallet() {
     const c = count();
     const parts = [];
-    if (c.gold > 0) parts.push(`🥇${c.gold}`);
-    if (c.silver > 0) parts.push(`🥈${c.silver}`);
-    parts.push(`🥉${c.copper}`); // siempre mostramos cobre aunque sea 0
+    if (c.gold > 0) parts.push(`${c.gold} oro`);
+    if (c.silver > 0) parts.push(`${c.silver} plata`);
+    parts.push(`${c.copper} cobre`);
     return parts.join(' ');
+  }
+
+  /** La billetera con las monedas dibujadas. */
+  function walletHtml(size) {
+    return priceHtml(toCopper(), size).replace('Gratis', '0 cobre');
   }
 
   // Para compatibilidad con código viejo que esperaba .toCopper(player.coins)
@@ -157,7 +179,10 @@
     add,
     distribute,
     formatPrice,
+    priceHtml,
     formatWallet,
+    walletHtml,
+    split,
     isCoinId,
     COIN_IDS,
     COPPER_PER_SILVER,

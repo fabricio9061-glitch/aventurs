@@ -17,6 +17,7 @@
   let mainEl = null;
   let sidebarEl = null;
   let chroniclesEl = null;
+  let mobStatusEl = null;
   let unsubscribers = [];
 
   function tabConfig() {
@@ -39,7 +40,7 @@
       <div class="game-shell">
         <header class="shell-header">
           <div class="shell-brand">
-            <span class="brand-icon">⚔️</span>
+            <span class="brand-icon">${A.UI ? A.UI.icon('swords', 26) : ''}</span>
             <span class="brand-name">Aventurs</span>
           </div>
           ${tabs.length > 1 ? `
@@ -52,14 +53,15 @@
             </nav>
           ` : `<div class="shell-nav-spacer"></div>`}
           <div class="shell-actions">
-            <button class="btn-ghost" data-action="rules">Reglas</button>
-            <button class="btn-ghost" data-action="editor">Editor</button>
-            <button class="btn-ghost" data-action="menu">Menú</button>
+            <button class="btn-ghost head-btn" data-action="journal" title="Misiones y crónicas">${A.UI ? A.UI.icon('book', 18) : ''}<span>Diario</span></button>
+            <button class="btn-ghost head-btn" data-action="editor">Editor</button>
+            <button class="btn-ghost head-btn" data-action="menu">Menú</button>
           </div>
         </header>
 
         <div class="shell-body">
           <main class="shell-main" id="shell-main">
+            <button class="mob-status" id="mob-status" data-action="to-sidebar" aria-label="Ver tu personaje"></button>
             <aside class="shell-chronicles" id="shell-chronicles"></aside>
             <div class="shell-main-content" id="shell-main-content"></div>
           </main>
@@ -67,12 +69,13 @@
         </div>
 
         <footer class="shell-footer">
-          <span class="version-pill">v1.9.2</span>
+          <span class="version-pill">v2.0.0</span>
         </footer>
       </div>
     `;
 
     mainEl = rootEl.querySelector('#shell-main-content');
+    mobStatusEl = rootEl.querySelector('#mob-status');
     sidebarEl = rootEl.querySelector('#shell-sidebar');
     chroniclesEl = rootEl.querySelector('#shell-chronicles');
 
@@ -90,10 +93,29 @@
     return `<div class="char-passive" title="${A.Utils.escapeHtml(info.text)}">${ico}<span>${A.Utils.escapeHtml(info.name)}</span></div>`;
   }
 
+  /** v2.0: en el celular, una franja con lo esencial arriba de todo (la ficha completa queda abajo). */
+  function renderMobStatus(p) {
+    if (!mobStatusEl || !p) return;
+    const bar = (cls, cur, max) => `<span class="mob-bar ${cls}"><span style="width:${pct(cur, max)}%"></span></span>`;
+    mobStatusEl.innerHTML = `
+      <span class="mob-hero">${A.Sprites ? A.Sprites.heroFor(p, { size: 36 }) : ''}</span>
+      <span class="mob-main">
+        <span class="mob-name">${A.Utils.escapeHtml(p.name)} <span class="dim">· Nv ${p.level}</span></span>
+        <span class="mob-bars">
+          <span class="mob-stat">${A.UI ? A.UI.icon('heart', 14) : ''}<b class="num">${p.hp}/${p.maxHp}</b>${bar('is-hp', p.hp, p.maxHp)}</span>
+          ${p.hasMagic ? `<span class="mob-stat">${A.UI ? A.UI.icon('spell', 14) : ''}<b class="num">${p.mana}/${p.maxMana}</b>${bar('is-mana', p.mana, p.maxMana)}</span>` : ''}
+          <span class="mob-stat">${A.UI ? A.UI.icon('food', 14) : ''}<b class="num">${p.food || 0}</b></span>
+        </span>
+      </span>
+      <span class="mob-coins">${A.Currency.walletHtml ? A.Currency.walletHtml(14) : ''}</span>
+    `;
+  }
+
   function renderSidebar() {
     if (!sidebarEl) return;
     const p = A.State.player;
     if (!p) { sidebarEl.innerHTML = ''; return; }
+    renderMobStatus(p);
 
     const race = A.Data.getById('races', p.raceId);
     const weapon = p.equipment.weapon ? A.Data.getById('weapons', p.equipment.weapon) : null;
@@ -105,7 +127,7 @@
     sidebarEl.innerHTML = `
       <div class="sidebar-card">
         <div class="char-header">
-          <div class="char-avatar">${A.Sprites ? A.Sprites.heroFor(p, { size: 52 }) : (race ? race.icon : '👤')}</div>
+          <div class="char-avatar">${A.Sprites ? A.Sprites.heroFor(p, { size: 52 }) : ''}</div>
           <div class="char-id">
             <div class="char-name-row">
               <span class="char-name">${A.Utils.escapeHtml(p.name)}</span>
@@ -149,7 +171,16 @@
           <div class="stat"><div class="stat-label dim">Armadura</div><div class="stat-val num">${(p.stats.armor || 0) + (armor ? armor.defense : 0)}</div></div>
           <div class="stat"><div class="stat-label dim">Esquiva</div><div class="stat-val num">${p.stats.dodge}</div></div>
           <div class="stat"><div class="stat-label dim">Velocidad</div><div class="stat-val num">${p.stats.speed}</div></div>
+          ${spellPowerStat(p)}
         </div>
+        ${classNote(p, weapon)}
+
+        <div class="wallet2" title="Tu dinero">
+          <span class="wallet2-label">${A.UI ? A.UI.icon('coins', 18) : ''}<span>Dinero</span></span>
+          <span class="wallet2-val">${A.Currency.walletHtml ? A.Currency.walletHtml(16) : A.Currency.formatWallet()}</span>
+        </div>
+
+        ${questTracker()}
 
         <div class="equip-block">
           <div class="block-subtitle dim">Equipado</div>
@@ -164,7 +195,7 @@
 
         ${renderBag(bag)}
 
-        ${region ? `<div class="loc-pill"><span>${region.icon || '📍'}</span> <span>${A.Utils.escapeHtml(region.name)}</span></div>` : ''}
+        ${region ? `<div class="loc-pill">${A.UI ? A.UI.biomeIcon(region, 18) : ''}<span>${A.Utils.escapeHtml(region.name)}</span></div>` : ''}
       </div>
     `;
 
@@ -187,7 +218,7 @@
     return `
       <div class="pet-card-sidebar ${isKO ? 'is-ko' : ''}">
         <div class="pet-card-header">
-          <span class="pet-icon">${A.Sprites ? A.Sprites.petHtml(pet, { size: 40 }) : (pet.icon || '🐾')}</span>
+          <span class="pet-icon">${A.Sprites ? A.Sprites.petHtml(pet, { size: 40 }) : ''}</span>
           <div class="pet-card-id">
             <div class="pet-card-name">${A.Utils.escapeHtml(pet.name)}</div>
             <div class="pet-card-meta dim">Nv ${lvl}${isKO ? ' · inconsciente' : ''}${hungry && !isKO ? ' · con hambre' : ''}</div>
@@ -212,8 +243,8 @@
           ${diet ? `<div class="pet-card-meta dim small">Come: ${A.Utils.escapeHtml(diet.eats)}</div>` : ''}
         </div>
         <div class="pet-card-actions">
-          <button class="btn-mini" data-pet-action="heal" title="Usar una poción de curación (también la despierta)">💊 Curar</button>
-          <button class="btn-mini" data-pet-action="feed" title="Darle comida de su dieta" ${isKO ? 'disabled' : ''}>🍖 Alimentar</button>
+          <button class="btn-mini" data-pet-action="heal" title="Usar una poción de curación (también la despierta)">${A.UI ? A.UI.icon('potion', 14) : ''} Curar</button>
+          <button class="btn-mini" data-pet-action="feed" title="Darle comida de su dieta" ${isKO ? 'disabled' : ''}>${A.UI ? A.UI.icon('food', 14) : ''} Alimentar</button>
         </div>
       </div>
     `;
@@ -234,7 +265,7 @@
       <button class="equip-mini equip-mini-clickable" ${dataAttr} title="${A.Utils.escapeHtml(equipped.name)}">
         <div class="equip-mini-label dim">${label}</div>
         <div class="equip-mini-body">
-          <span class="equip-mini-icon">${(A.ItemSprites ? A.ItemSprites.html(equipped, { size: 30 }) : (equipped.icon || '⚔️'))}</span>
+          <span class="equip-mini-icon">${A.ItemSprites ? A.ItemSprites.html(equipped, { size: 30 }) : ''}</span>
           <span class="equip-mini-name">${A.Utils.escapeHtml(equipped.name)}</span>
         </div>
         <div class="equip-mini-stat num">${stat}</div>
@@ -255,7 +286,7 @@
     let occupied = 0;
     for (const slot of items) {
       const data = A.Inventory.resolveData(slot.itemId);
-      const icon = data ? (A.ItemSprites ? A.ItemSprites.html(data, { size: 34 }) : (data.icon || '📦')) : '📦';
+      const icon = data && A.ItemSprites ? A.ItemSprites.html(data, { size: 34 }) : '';
       const qty = slot.qty > 1 ? `<span class="bag-side-qty num">${slot.qty}</span>` : '';
       const itemSlots = A.State.itemSlots(slot.itemId);
       const spanClass = itemSlots > 1 ? 'is-large' : '';
@@ -357,7 +388,7 @@
       const phaseId = theme.phase;
       clockBlock = `
         <div class="chronicles-clock is-${phaseId}" title="Tiempo del mundo: ${A.Utils.escapeHtml(A.Time.format())}">
-          <span class="clock-icon">${A.Time.icon()}</span>
+          <span class="clock-icon">${A.Time.icon(24)}</span>
           <span class="clock-text">
             <span class="clock-day">Día ${A.State.world.day}</span>
             <span class="clock-phase">${A.Time.phaseLabel()}</span>
@@ -369,15 +400,14 @@
     chroniclesEl.innerHTML = `
       <div class="chronicles-bar">
         ${clockBlock}
-        <span class="chronicles-bar-label">📜 Crónicas</span>
+        <span class="chronicles-bar-label">${A.UI ? A.UI.icon('feather', 16) : ''}<span>Crónicas</span></span>
         <div class="chronicles-bar-list">
           ${recent.length === 0
             ? `<span class="chronicles-bar-empty muted">Sin entradas aún.</span>`
             : recent.map(chronicleBarRow).join('')}
         </div>
-        <button class="chronicles-bar-more" data-action="open-chronicles" title="Ver historial completo">
-          <span>Ver todo</span>
-          <span class="chronicles-bar-count">${all.length}</span>
+        <button class="chronicles-bar-more" data-action="open-chronicles" title="Abrir el diario de viaje">
+          <span>Diario</span>
         </button>
       </div>
     `;
@@ -387,31 +417,63 @@
   }
 
   function chronicleBarRow(e) {
-    const icons = {
-      combat: '⚔️', loot: '💰', heal: '💚', shop: '🏪',
-      travel: '🗺️', craft: '⚒️', spell: '📖', rest: '🌙',
-      item: '🎒', note: '📝', system: '·', region: '📍',
-    };
-    const icon = icons[e.type] || '·';
+    const ic = A.Journal ? A.Journal.chronicleIcon(e.type, 16) : '';
     return `
-      <span class="chronicle-bar-entry" title="${A.Utils.escapeHtml(e.text)}">
-        <span class="chronicle-bar-icon">${icon}</span>
-        <span class="chronicle-bar-text">${A.Utils.escapeHtml(e.text)}</span>
+      <span class="chronicle-bar-entry is-${e.type}" title="${A.Utils.escapeHtml(e.text)}">
+        <span class="chronicle-bar-icon">${ic}</span>
+        <span class="chronicle-bar-text">${A.Utils.escapeHtml(e.text)}${e.count > 1 ? ` <b class="num">×${e.count}</b>` : ''}</span>
       </span>
     `;
   }
 
-  function chronicleRow(e) {
-    const icons = {
-      combat: '⚔️', loot: '💰', heal: '💚', shop: '🏪',
-      travel: '🗺️', craft: '⚒️', spell: '📖', rest: '🌙',
-      item: '🎒', note: '📝', system: '·', region: '📍',
-    };
-    const icon = icons[e.type] || '·';
+  // ---------- v2.0: piezas nuevas de la barra lateral ----------
+
+  /** Poder mágico: suma al daño y la cura de cada hechizo. */
+  function spellPowerStat(p) {
+    if (!p.hasMagic || !A.Balance || !A.Balance.playerCombatStats) return '';
+    const sp = A.Balance.playerCombatStats(p).spellPower || 0;
+    return `<div class="stat" title="Se suma al daño y a la curación de tus hechizos"><div class="stat-label dim">Magia</div><div class="stat-val num">+${sp}</div></div>`;
+  }
+
+  /** Cómo le queda el arma a tu clase (maestría del guerrero, penalidad del mago). */
+  function classNote(p, weapon) {
+    if (!A.Balance || !A.Balance.weaponFit) return '';
+    const fit = A.Balance.weaponFit(p, weapon);
+    if (!fit.note) return '';
+    const bad = fit.atk < 0;
+    return `<div class="class-note ${bad ? 'is-bad' : 'is-good'}">${A.UI ? A.UI.icon(bad ? 'arrow-down' : 'arrow-up', 14) : ''}<span>${A.Utils.escapeHtml(fit.note)}</span></div>`;
+  }
+
+  /** Misiones en curso (hasta 3) con su próximo objetivo. */
+  function questTracker() {
+    if (!A.Quests) return '';
+    const active = A.Quests.activeList();
+    if (!active.length) {
+      const first = A.Quests.status('mq1_humo');
+      if (first === 'available') {
+        return `<button class="quests2 is-empty" data-action="journal">${A.UI.icon('crown', 18)}<span>La historia empieza con <b>Tomas el guardia</b>, en el Pueblo Inicial.</span></button>`;
+      }
+      return '';
+    }
     return `
-      <div class="chronicle-side-row">
-        <span class="chronicle-side-icon">${icon}</span>
-        <span class="chronicle-side-text">${A.Utils.escapeHtml(e.text)}</span>
+      <div class="quests2">
+        <button class="quests2-head" data-action="journal">${A.UI.icon('quest', 16)}<span>Misiones</span><span class="quests2-more">Diario</span></button>
+        ${active.slice(0, 3).map((q) => {
+          const idx = q.objectives.findIndex((o, i) => !A.Quests.objectiveProgress(q, i).done);
+          const ready = idx < 0;
+          const o = ready ? null : q.objectives[idx];
+          const pr = ready ? null : A.Quests.objectiveProgress(q, idx);
+          const giver = A.Data.getById('npcs', q.giver);
+          return `
+            <button class="quest2-row ${q.main ? 'is-main' : ''} ${ready ? 'is-ready' : ''}" data-action="journal">
+              ${A.UI.icon(q.main ? 'crown' : 'scroll', 16)}
+              <span class="quest2-text">
+                <span class="quest2-title">${A.Utils.escapeHtml(q.title)}</span>
+                <span class="quest2-obj">${ready ? `Volvé con ${A.Utils.escapeHtml(giver ? giver.name : 'quien te la dio')}` : A.Utils.escapeHtml(A.Quests.objectiveText(o))}</span>
+              </span>
+              ${pr && pr.need > 1 ? `<span class="quest2-count num">${pr.have}/${pr.need}</span>` : ready ? A.UI.icon('question', 16) : ''}
+            </button>`;
+        }).join('')}
       </div>
     `;
   }
@@ -466,7 +528,9 @@
     else if (action === 'rules') A.State.openModal('rules');
     else if (action === 'menu') A.State.openModal('menu');
     else if (action === 'open-magic') A.State.openModal('magic');
-    else if (action === 'open-chronicles') A.State.openModal('chronicles-full');
+    else if (action === 'open-chronicles') A.State.openModal('journal', { tab: 'chronicles' });
+    else if (action === 'journal') A.State.openModal('journal', { tab: 'quests' });
+    else if (action === 'to-sidebar' && sidebarEl) sidebarEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
   function pct(cur, max) {
@@ -526,6 +590,10 @@
     // Crónicas: refresh panel izquierdo cada vez que se agrega entrada
     unsubscribers.push(A.Bus.on('chronicle:added', renderChroniclesPanel));
     unsubscribers.push(A.Bus.on('tame:lost', renderSidebar));
+    // v2.0: misiones
+    unsubscribers.push(A.Bus.on('quest:started', renderSidebar));
+    unsubscribers.push(A.Bus.on('quest:progress', renderSidebar));
+    unsubscribers.push(A.Bus.on('quest:completed', () => { renderSidebar(); if (!A.State.combat && !A.State.ui.showMap && !A.State.traveling) renderActiveView(); }));
     unsubscribers.push(A.Bus.on('chronicle:added', () => {
       if (A.State.ui.activeTab === 'chronicles') renderActiveView();
     }));

@@ -16,6 +16,9 @@
   let host = null;
   let confirmCallback = null;
 
+  /** v2.0: ícono pixel (reemplaza los emojis). */
+  function pxi(name, size) { return A.ItemSprites ? A.ItemSprites.icon(name, { size: size || 16 }) : ''; }
+
   function render(rootEl) {
     if (rootEl) host = rootEl;
     if (!host) return;
@@ -33,7 +36,11 @@
     overlay.className = 'modal-overlay';
 
     let html = '';
-    switch (id) {
+    // v2.0: pantallas nuevas registradas desde otros archivos (A.ModalViews[id])
+    const custom = A.ModalViews && A.ModalViews[id];
+    if (custom) {
+      html = custom.render(payload, { modalShell, renderNpcCraft, renderNpcLearn, renderNpcRest });
+    } else switch (id) {
       case 'npc': html = renderNpc(payload); break;
       case 'item-detail': html = renderItemDetail(payload); break;
       case 'rules': html = renderRules(); break;
@@ -87,7 +94,7 @@
     const body = `
       <div class="npc-modal">
         <div class="npc-modal-header">
-          <div class="npc-modal-avatar">${npc.icon || '🧑'}</div>
+          <div class="npc-modal-avatar">${A.Sprites && A.Sprites.npcHtml ? A.Sprites.npcHtml(npc, { size: 56 }) : ''}</div>
           <div>
             <div class="npc-modal-name">${A.Utils.escapeHtml(npc.name)}</div>
             <div class="npc-modal-role dim">${roleLabel(npc.role)}</div>
@@ -124,21 +131,21 @@
     let mainBadge = '';
     // Arma: mostrar daño en pill
     if (A.Data.getById('weapons', itemId)) {
-      mainBadge = `<span class="item-stat-pill item-stat-pill-dmg" title="Daño">⚔️ ${A.Utils.escapeHtml(data.damage || '?')}</span>`;
+      mainBadge = `<span class="item-stat-pill item-stat-pill-dmg" title="Daño">${pxi('swords', 14)} ${A.Utils.escapeHtml(data.damage || '?')}</span>`;
     }
     // Armadura: mostrar defensa
     else if (A.Data.getById('armors', itemId)) {
-      mainBadge = `<span class="item-stat-pill item-stat-pill-def" title="Defensa">🛡️ ${data.defense || 0}</span>`;
+      mainBadge = `<span class="item-stat-pill item-stat-pill-def" title="Defensa">${pxi('shield', 14)} ${data.defense || 0}</span>`;
     }
     // Bolsa: slots
     else if (data.subtype === 'bag') {
       const bagId = data.equipsBag;
       const bagData = A.Data.getById('bags', bagId);
-      if (bagData) mainBadge = `<span class="item-stat-pill item-stat-pill-bag" title="Slots">🎒 ${bagData.slots}</span>`;
+      if (bagData) mainBadge = `<span class="item-stat-pill item-stat-pill-bag" title="Espacios">${pxi('bag', 14)} ${bagData.slots}</span>`;
     }
     // Pergamino: hechizo
     else if (data.subtype === 'scroll_spell') {
-      mainBadge = `<span class="item-stat-pill item-stat-pill-spell" title="Enseña">📖</span>`;
+      mainBadge = `<span class="item-stat-pill item-stat-pill-spell" title="Enseña">${pxi('book', 14)}</span>`;
     }
     // Comida/poción con efecto
     else if (data.effect) {
@@ -178,7 +185,7 @@
                 const statBadge = renderItemStatBadge(it.data, it.id);
                 return `
                 <div class="shop-row ${it.canPay ? '' : 'is-disabled'}">
-                  <div class="shop-row-icon">${(A.ItemSprites ? A.ItemSprites.html(it.data, { size: 36 }) : (it.data.icon || '📦'))}</div>
+                  <div class="shop-row-icon">${(A.ItemSprites ? A.ItemSprites.html(it.data, { size: 36 }) : '')}</div>
                   <div class="shop-row-info">
                     <div class="shop-row-name">
                       ${A.Utils.escapeHtml(it.data.name)}
@@ -220,7 +227,7 @@
                 }
                 return `
                   <div class="shop-row">
-                    <div class="shop-row-icon">${(A.ItemSprites ? A.ItemSprites.html(d, { size: 36 }) : (d.icon || '📦'))}</div>
+                    <div class="shop-row-icon">${(A.ItemSprites ? A.ItemSprites.html(d, { size: 36 }) : '')}</div>
                     <div class="shop-row-info">
                       <div class="shop-row-name">${A.Utils.escapeHtml(d.name)}<span class="dim num">${qtyStr}</span></div>
                       <div class="shop-row-desc dim">${A.Currency.formatPrice(priceEach)} c/u</div>
@@ -257,7 +264,7 @@
               const dmgStr = s.damage ? `${s.damage} daño` : s.heal ? `${s.heal} cura` : '';
               return `
                 <div class="learn-row ${known ? 'is-known' : ''}">
-                  <div class="learn-icon">${s.icon || '✨'}</div>
+                  <div class="learn-icon">${A.ItemSprites ? A.ItemSprites.spellIcon(s, { size: 28 }) : ''}</div>
                   <div class="learn-info">
                     <div class="learn-name">${A.Utils.escapeHtml(s.name)}</div>
                     <div class="learn-meta dim">${dmgStr}${dmgStr ? ' · ' : ''}Maná ${s.manaCost} · T${s.tier}</div>
@@ -287,7 +294,7 @@
     return `
       <div class="rest-services">
         <div class="rest-service-row ${(canPay && needsRest) ? '' : 'is-disabled'}">
-          <div class="rest-service-icon">🛏️</div>
+          <div class="rest-service-icon">${pxi('tent', 28)}</div>
           <div class="rest-service-info">
             <div class="rest-service-name">Pasar la noche</div>
             <div class="rest-service-desc dim">Recupera salud y maná al máximo.</div>
@@ -296,7 +303,7 @@
           <button class="btn-mini" data-rest-action="sleep" data-npc-id="${A.Utils.escapeHtml(npc.id)}" ${canPay && needsRest ? '' : 'disabled'}>${needsRest ? 'Dormir' : 'Sano'}</button>
         </div>
         <div class="rest-service-row ${(canEat && needsFood) ? '' : 'is-disabled'}">
-          <div class="rest-service-icon">🍖</div>
+          <div class="rest-service-icon">${pxi('food', 28)}</div>
           <div class="rest-service-info">
             <div class="rest-service-name">Comer en la posada</div>
             <div class="rest-service-desc dim">+5 de comida. Sin colas.</div>
@@ -319,9 +326,9 @@
       return `<div class="muted small">No hay recetas disponibles.</div>`;
     }
     const sections = [];
-    if (forge.length) sections.push(`<div class="craft-section-label">⚒️ Forja</div>${renderCraftList(forge, 'forge')}`);
-    if (alchemy.length) sections.push(`<div class="craft-section-label">⚗️ Alquimia</div>${renderCraftList(alchemy, 'alchemy')}`);
-    if (enchant.length) sections.push(`<div class="craft-section-label">✨ Encantamiento</div>${renderCraftList(enchant, 'enchant')}`);
+    if (forge.length) sections.push(`<div class="craft-section-label">${pxi('anvil', 16)} Forja</div>${renderCraftList(forge, 'forge')}`);
+    if (alchemy.length) sections.push(`<div class="craft-section-label">${pxi('potion', 16)} Alquimia</div>${renderCraftList(alchemy, 'alchemy')}`);
+    if (enchant.length) sections.push(`<div class="craft-section-label">${pxi('arcane', 16)} Encantamiento</div>${renderCraftList(enchant, 'enchant')}`);
     return `<div class="craft-all-sections">${sections.join('')}</div>`;
   }
 
@@ -338,7 +345,7 @@
                            A.Data.getById('weapons', r.result) ||
                            A.Data.getById('armors', r.result);
             const resultName = result ? result.name : r.result;
-            const resultIcon = result ? (result.icon || '📦') : '📦';
+            const resultIcon = result && A.ItemSprites ? A.ItemSprites.html(result, { size: 28 }) : '';
             return `
               <div class="craft-row ${check.ok ? '' : 'is-disabled'}">
                 <div class="craft-row-result">
@@ -385,8 +392,15 @@
         <div class="detail-stat"><span class="dim">Daño</span><span class="num">${data.damage}</span></div>
         <div class="detail-stat"><span class="dim">Tier</span><span class="num">${data.tier}</span></div>
         <div class="detail-stat"><span class="dim">Rareza</span><span>${rarityLabel(data.rarity)}</span></div>
-        ${data.magic ? `<div class="detail-stat"><span class="dim">Mágica</span><span>Sí</span></div>` : ''}
+        ${data.magic ? `<div class="detail-stat"><span class="dim">Mágica</span><span>Sí (potencia tus hechizos)</span></div>` : ''}
+        ${(data.weight || 0) >= 4 ? `<div class="detail-stat"><span class="dim">Peso</span><span>Pesada</span></div>` : ''}
         ${slotsLine}
+        ${(() => {
+          // v2.0: cómo le queda a tu clase (maestría del guerrero, penalidad del mago)
+          const p = A.State.player;
+          const fit = p && A.Balance && A.Balance.weaponFit ? A.Balance.weaponFit(p, data) : null;
+          return fit && fit.note ? `<div class="class-note ${fit.atk < 0 ? 'is-bad' : 'is-good'}">${pxi(fit.atk < 0 ? 'arrow-down' : 'arrow-up', 14)}<span>${A.Utils.escapeHtml(fit.note)}</span></div>` : '';
+        })()}
       `;
     } else if (kind === 'armor') {
       stats = `
@@ -425,7 +439,7 @@
     const body = `
       <div class="item-modal">
         <div class="item-modal-header">
-          <div class="item-modal-icon">${(A.ItemSprites ? A.ItemSprites.html(data, { size: 72 }) : (data.icon || '📦'))}</div>
+          <div class="item-modal-icon">${(A.ItemSprites ? A.ItemSprites.html(data, { size: 72 }) : '')}</div>
           <div>
             <div class="item-modal-name">${A.Utils.escapeHtml(data.name)}</div>
             <div class="item-modal-meta dim">${kindLabel(kind)}${qty > 1 ? ` · ×${qty}` : ''}</div>
@@ -449,22 +463,22 @@
     const body = `
       <div class="rules-modal">
         <h3>Cómo se juega</h3>
-        <p>Aventurs es un RPG narrativo single-player. Eliges una raza, viajas entre regiones, peleas con criaturas, recoges botín y vuelves al pueblo a vender, comprar, descansar y aprender.</p>
+        <p>Elegís una raza, explorás zonas, peleás, juntás botín y volvés a los pueblos a vender, comprar, descansar y aprender. La historia principal empieza con Tomas el guardia, en el Pueblo Inicial.</p>
 
-        <h3>Combate (Fase 2)</h3>
-        <p>El combate es por turnos según velocidad. Los ataques se resuelven con dados estilo D&D: tirada de impacto contra dificultad, y daño con dado del arma + bonificadores.</p>
+        <h3>El dado</h3>
+        <p>Casi todo se decide con un D20. Para pegarle a una criatura, el dado más tu ataque tiene que llegar a su <b>dificultad</b> (el número sobre el dado que ves en cada criatura). Al explorar, las opciones también tiran: Fuerza, Agilidad, Ingenio, Puntería o Suerte, y siempre ves el porcentaje antes de elegir.</p>
 
-        <h3>Stats</h3>
-        <p>Cada raza tiene stats base distintos. <strong>Salud</strong> y <strong>maná</strong> determinan tu margen. <strong>Daño</strong>, <strong>armadura</strong>, <strong>esquiva</strong>, <strong>velocidad</strong> y <strong>precisión</strong> deciden los combates.</p>
+        <h3>Explorar</h3>
+        <p>Cada vez que explorás pasa algo: aparece una criatura (y elegís cómo encararla) o te toca una escena con dos o tres caminos. Explorar hace pasar el tiempo y da hambre.</p>
 
-        <h3>Razas</h3>
-        <p>Hay 9 razas en tres tipos: <em>guerreros</em> (más HP y armadura), <em>magos</em> (más maná) e <em>híbridos</em> (medios en todo).</p>
+        <h3>Clases</h3>
+        <p><b>Guerreros</b>: sin magia, pero con maestría en armas (más daño a medida que suben de nivel). <b>Magos</b>: su fuerte son los hechizos, que crecen con el nivel y con un bastón; las armas pesadas les quitan puntería. <b>Híbridos</b>: un poco de cada cosa.</p>
 
-        <h3>Magia</h3>
-        <p>Los hechizos se aprenden con NPCs sabios y se lanzan en combate. Cada uno cuesta maná, que se recupera descansando o con pociones.</p>
+        <h3>Descansar</h3>
+        <p>De día, un rato de descanso te recupera un poco y pasa la tarde. De noche dormís hasta la mañana; al raso, algo puede acercarse. En la posada dormís seguro y te recuperás del todo.</p>
 
-        <h3>Items y crafting</h3>
-        <p>Las armas, armaduras y pociones se compran en pueblo o se crean con materiales recogidos en combate. Cada herrero o alquimista tiene sus recetas.</p>
+        <h3>Misiones</h3>
+        <p>Los habitantes con un signo de exclamación dorado tienen algo para vos. Con un signo de pregunta, te esperan para cobrar. Todo queda anotado en el Diario.</p>
       </div>
     `;
     return modalShell('Reglas', body);
@@ -475,6 +489,7 @@
   function renderMenu() {
     const body = `
       <div class="menu-modal">
+        <button class="menu-action" data-menu-action="rules">Reglas del juego</button>
         <button class="menu-action" data-menu-action="export-save">Exportar partida</button>
         <button class="menu-action" data-menu-action="export-content">Exportar contenido del editor</button>
         <button class="menu-action" data-menu-action="import">Importar (JSON)</button>
@@ -516,7 +531,7 @@
     const body = `
       <div class="creature-modal">
         <div class="creature-modal-header">
-          <div class="creature-modal-icon">${A.Sprites ? A.Sprites.html(e, { size: 80 }) : (e.icon || '👹')}</div>
+          <div class="creature-modal-icon">${A.Sprites ? A.Sprites.html(e, { size: 80 }) : ''}</div>
           <div>
             <div class="creature-modal-name">${A.Utils.escapeHtml(e.name)}</div>
             <div class="creature-modal-meta dim">
@@ -584,7 +599,7 @@
         <div class="creature-list">
           ${enemies.map((e) => `
             <button class="creature-list-row" data-creature="${A.Utils.escapeHtml(e.id)}">
-              <span class="creature-list-icon">${A.Sprites ? A.Sprites.html(e, { size: 36 }) : (e.icon || '👹')}</span>
+              <span class="creature-list-icon">${A.Sprites ? A.Sprites.html(e, { size: 36 }) : ''}</span>
               <span class="creature-list-info">
                 <span class="creature-list-name">${A.Utils.escapeHtml(e.name)}</span>
                 <span class="creature-list-meta dim">
@@ -618,7 +633,7 @@
 
     const body = `
       <div class="tame-modal">
-        <div class="tame-icon">${A.Sprites ? A.Sprites.html(e, { size: 88 }) : (e.icon || '🐾')}</div>
+        <div class="tame-icon">${A.Sprites ? A.Sprites.html(e, { size: 88 }) : ''}</div>
         <p class="tame-text">
           ${canDo
             ? `Te acercas a ${A.Utils.escapeHtml(e.name)} con ${A.Utils.escapeHtml(item ? item.name : itemId)} en la mano.`
@@ -627,7 +642,7 @@
         <div class="tame-info">
           <div class="tame-info-row">
             <span class="dim">Necesitas:</span>
-            <span>${item ? (A.ItemSprites ? A.ItemSprites.html(item, { size: 20 }) : (item.icon)) : '📦'} ${A.Utils.escapeHtml(item ? item.name : itemId)} ${haveQty > 0 ? `<span class="num dim">(tenés ${haveQty})</span>` : '<span class="num danger">(no tenés)</span>'}</span>
+            <span>${item ? (A.ItemSprites ? A.ItemSprites.html(item, { size: 20 }) : '') : ''} ${A.Utils.escapeHtml(item ? item.name : itemId)} ${haveQty > 0 ? `<span class="num dim">(tenés ${haveQty})</span>` : '<span class="num danger">(no tenés)</span>'}</span>
           </div>
           <div class="tame-info-row">
             <span class="dim">Probabilidad:</span>
@@ -664,7 +679,7 @@
     const body = `
       <div class="item-modal">
         <div class="item-modal-header">
-          <div class="item-modal-icon">${(A.ItemSprites ? A.ItemSprites.html(bag, { size: 72 }) : (bag.icon || '🎒'))}</div>
+          <div class="item-modal-icon">${(A.ItemSprites ? A.ItemSprites.html(bag, { size: 72 }) : '')}</div>
           <div>
             <div class="item-modal-name">${A.Utils.escapeHtml(bag.name)}</div>
             <div class="item-modal-meta dim">Mochila · ${bag.slots} espacios</div>
@@ -694,9 +709,9 @@
   function renderChroniclesFull() {
     const all = A.State.chronicles || [];
     const ICONS = {
-      combat: '⚔️', loot: '💰', heal: '💚', shop: '🏪',
-      travel: '🗺️', craft: '⚒️', spell: '📖', rest: '🌙',
-      item: '🎒', note: '📝', system: '✨', region: '📍',
+      combat: 'swords', loot: 'coins', heal: 'heart', shop: 'shop',
+      travel: 'boot', craft: 'anvil', spell: 'book', rest: 'tent',
+      item: 'bag', note: 'feather', system: 'star', region: 'pin',
     };
     const body = `
       <div class="chronicles-full-modal">
@@ -704,13 +719,13 @@
         <div class="chronicles-full-list">
           ${all.length === 0 ? `
             <div class="empty-card">
-              <div class="empty-icon">📜</div>
+              <div class="empty-icon">${pxi('scroll', 40)}</div>
               <div class="empty-title">Sin historia aún</div>
               <div class="empty-text muted">Tus aventuras se irán registrando acá.</div>
             </div>
           ` : all.map((e) => `
             <div class="chronicle-full-row">
-              <span class="chronicle-full-icon">${ICONS[e.type] || '·'}</span>
+              <span class="chronicle-full-icon">${pxi(ICONS[e.type] || 'feather', 16)}</span>
               <div class="chronicle-full-body">
                 <div class="chronicle-full-text">${A.Utils.escapeHtml(e.text)}</div>
                 <div class="chronicle-full-meta dim">${formatTimestamp(e.ts)}</div>
@@ -743,7 +758,7 @@
       <div class="travel-modal">
         <div class="travel-modal-header">
           <span class="travel-modal-current">
-            <span class="travel-modal-icon-mini">${currentRegion ? currentRegion.icon : '📍'}</span>
+            <span class="travel-modal-icon-mini">${A.UI ? A.UI.biomeIcon(currentRegion, 18) : ''}</span>
             <span class="dim">Estás en</span>
             <strong>${currentRegion ? A.Utils.escapeHtml(currentRegion.name) : '?'}</strong>
           </span>
@@ -753,7 +768,7 @@
 
         ${neighbors.length === 0 ? `
           <div class="empty-card">
-            <div class="empty-icon">🗺️</div>
+            <div class="empty-icon">${pxi('map', 40)}</div>
             <div class="empty-title">No hay caminos desde acá</div>
             <div class="empty-text muted">Esta región es un punto final.</div>
           </div>
@@ -869,7 +884,7 @@
       nodes.push(`
         <g class="${cls}" data-map-region="${A.Utils.escapeHtml(r.id)}" ${isNeighbor ? 'data-clickable="1"' : ''}>
           <circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="${nodeRadius}" />
-          <text x="${p.x.toFixed(1)}" y="${(p.y + 1).toFixed(1)}" text-anchor="middle" dominant-baseline="middle" font-size="${fontSize}" class="map-node-icon">${r.icon || '📍'}</text>
+          <image href="${A.ItemSprites && A.ItemSprites.iconUrl ? A.ItemSprites.iconUrl('biome-' + r.biome) : ''}" x="${(p.x - fontSize / 2).toFixed(1)}" y="${(p.y - fontSize / 2).toFixed(1)}" width="${fontSize}" height="${fontSize}" class="map-node-icon"/>
           <text x="${p.x.toFixed(1)}" y="${labelY.toFixed(1)}" text-anchor="middle" class="map-node-label" font-size="10">${A.Utils.escapeHtml(r.name)}</text>
         </g>
       `);
@@ -909,7 +924,7 @@
       lockedSection = `
         <div class="travel-locked-block">
           <div class="travel-locked-header">
-            <span class="travel-locked-icon">🔒</span>
+            <span class="travel-locked-icon">${pxi('lock', 14)}</span>
             <span class="travel-locked-title">Región bloqueada</span>
             <span class="travel-locked-progress dim">${metCount}/${reqs.length} requisitos</span>
           </div>
@@ -918,7 +933,7 @@
             <ul class="travel-locked-reqs">
               ${reqs.map((r) => `
                 <li class="${r.met ? 'is-met' : 'is-pending'}">
-                  <span class="req-mark">${r.met ? '✓' : '✗'}</span>
+                  <span class="req-mark">${pxi(r.met ? 'check' : 'lock', 12)}</span>
                   <span class="req-label">${A.Utils.escapeHtml(r.label)}</span>
                   ${!r.met && r.target > 1 ? `<span class="req-progress dim">(${r.current}/${r.target})</span>` : ''}
                 </li>
@@ -931,7 +946,7 @@
 
     return `
       <button class="${cls}" data-travel="${A.Utils.escapeHtml(n.id)}" ${locked ? 'disabled data-locked="1"' : ''} ${locked ? `title="Región bloqueada — falta ${(travelCheck.requirements || []).filter(r => !r.met).map(r => r.label).join(', ')}"` : ''}>
-        <div class="travel-modal-icon">${n.icon || '📍'}</div>
+        <div class="travel-modal-icon">${A.UI ? A.UI.biomeIcon(n, 28) : ''}</div>
         <div class="travel-modal-info">
           <div class="travel-modal-name">${A.Utils.escapeHtml(n.name)}</div>
           <div class="travel-modal-meta">
@@ -943,7 +958,7 @@
           ${n.description ? `<div class="travel-modal-desc dim">${A.Utils.escapeHtml(n.description)}</div>` : ''}
           ${lockedSection}
         </div>
-        <div class="travel-modal-arrow">${locked ? '🔒' : '→'}</div>
+        <div class="travel-modal-arrow">${locked ? pxi('lock', 14) : '›'}</div>
       </button>
     `;
   }
@@ -1032,80 +1047,15 @@
       <div class="modal" role="dialog" aria-modal="true">
         <header class="modal-header">
           <h2 class="modal-title">${A.Utils.escapeHtml(title)}</h2>
-          <button class="modal-close" data-modal-close aria-label="Cerrar">✕</button>
+          <button class="modal-close" data-modal-close aria-label="Cerrar">×</button>
         </header>
         <div class="modal-body">${bodyHtml}</div>
       </div>
     `;
   }
 
-  function bindOverlayEvents(overlay, id, payload) {
-    overlay.addEventListener('click', (e) => {
-      if (e.target === overlay) A.State.closeModal();
-    });
-    // Bindear TODOS los data-modal-close (X arriba + cualquier botón "Cerrar" en el body)
-    overlay.querySelectorAll('[data-modal-close]').forEach((btn) => {
-      btn.addEventListener('click', () => A.State.closeModal());
-    });
-
-    if (id === 'item-detail') {
-      overlay.querySelectorAll('[data-detail-action]').forEach((b) => {
-        b.addEventListener('click', () => onItemAction(b.dataset.detailAction, payload.itemId));
-      });
-    }
-    if (id === 'equipped-bag') {
-      overlay.querySelectorAll('[data-bag-remove]').forEach((b) => {
-        if (b.disabled) return;
-        b.addEventListener('click', () => {
-          // Crear el item-proxy de la bolsa actual y agregarlo al inventario, equipar bag_basic
-          const p = A.State.player;
-          const currentBagId = p.bagId;
-          const proxy = A.Data.items.find((it) => it.subtype === 'bag' && it.equipsBag === currentBagId);
-          if (!proxy) {
-            A.State.closeModal();
-            return;
-          }
-          // Equipar bag_basic primero
-          p.bagId = 'bag_basic';
-          // Agregar el proxy al inventario
-          const ok = A.State.addItem(proxy.id, 1);
-          if (!ok) {
-            // Revertir
-            p.bagId = currentBagId;
-            return;
-          }
-          A.State.addChronicle({
-            type: 'item',
-            text: `Quitaste tu mochila. Volviste a la básica.`,
-          });
-          A.Bus.emit('bag:equipped', { bagId: 'bag_basic' });
-          A.State.persist();
-          A.State.closeModal();
-        });
-      });
-    }
-    if (id === 'menu') {
-      overlay.querySelectorAll('[data-menu-action]').forEach((b) => {
-        b.addEventListener('click', () => onMenuAction(b.dataset.menuAction));
-      });
-    }
-    if (id === 'confirm') {
-      overlay.querySelectorAll('[data-confirm-action]').forEach((b) => {
-        b.addEventListener('click', () => {
-          if (b.dataset.confirmAction === 'ok') {
-            const cb = confirmCallback;
-            confirmCallback = null;
-            A.State.closeModal();
-            if (cb) cb();
-          } else {
-            confirmCallback = null;
-            A.State.closeModal();
-          }
-        });
-      });
-    }
-
-    if (id === 'npc') {
+  /** Botones de los habitantes (comprar, vender, aprender, descansar, forjar). */
+  function bindLegacyNpc(overlay) {
       // Cambiar de tab
       overlay.querySelectorAll('[data-npc-tab]').forEach((b) => {
         b.addEventListener('click', () => {
@@ -1184,7 +1134,80 @@
           }
         });
       });
+  }
+
+  function bindOverlayEvents(overlay, id, payload) {
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay && !(A.ModalViews && A.ModalViews[id] && A.ModalViews[id].blocking)) A.State.closeModal();
+    });
+    // Bindear TODOS los data-modal-close (X arriba + cualquier botón "Cerrar" en el body)
+    overlay.querySelectorAll('[data-modal-close]').forEach((btn) => {
+      btn.addEventListener('click', () => A.State.closeModal());
+    });
+    // v2.0: las pantallas registradas manejan sus propios botones
+    if (A.ModalViews && A.ModalViews[id] && A.ModalViews[id].bind) {
+      A.ModalViews[id].bind(overlay, payload, { bindLegacy: () => bindLegacyNpc(overlay) });
+      return;
     }
+
+    if (id === 'item-detail') {
+      overlay.querySelectorAll('[data-detail-action]').forEach((b) => {
+        b.addEventListener('click', () => onItemAction(b.dataset.detailAction, payload.itemId));
+      });
+    }
+    if (id === 'equipped-bag') {
+      overlay.querySelectorAll('[data-bag-remove]').forEach((b) => {
+        if (b.disabled) return;
+        b.addEventListener('click', () => {
+          // Crear el item-proxy de la bolsa actual y agregarlo al inventario, equipar bag_basic
+          const p = A.State.player;
+          const currentBagId = p.bagId;
+          const proxy = A.Data.items.find((it) => it.subtype === 'bag' && it.equipsBag === currentBagId);
+          if (!proxy) {
+            A.State.closeModal();
+            return;
+          }
+          // Equipar bag_basic primero
+          p.bagId = 'bag_basic';
+          // Agregar el proxy al inventario
+          const ok = A.State.addItem(proxy.id, 1);
+          if (!ok) {
+            // Revertir
+            p.bagId = currentBagId;
+            return;
+          }
+          A.State.addChronicle({
+            type: 'item',
+            text: `Quitaste tu mochila. Volviste a la básica.`,
+          });
+          A.Bus.emit('bag:equipped', { bagId: 'bag_basic' });
+          A.State.persist();
+          A.State.closeModal();
+        });
+      });
+    }
+    if (id === 'menu') {
+      overlay.querySelectorAll('[data-menu-action]').forEach((b) => {
+        b.addEventListener('click', () => onMenuAction(b.dataset.menuAction));
+      });
+    }
+    if (id === 'confirm') {
+      overlay.querySelectorAll('[data-confirm-action]').forEach((b) => {
+        b.addEventListener('click', () => {
+          if (b.dataset.confirmAction === 'ok') {
+            const cb = confirmCallback;
+            confirmCallback = null;
+            A.State.closeModal();
+            if (cb) cb();
+          } else {
+            confirmCallback = null;
+            A.State.closeModal();
+          }
+        });
+      });
+    }
+
+    if (id === 'npc') bindLegacyNpc(overlay);
 
     if (id === 'creature') {
       overlay.querySelectorAll('[data-creature-action]').forEach((b) => {
@@ -1289,6 +1312,10 @@
   }
 
   function onMenuAction(action) {
+    if (action === 'rules') {
+      A.State.openModal('rules');
+      return;
+    }
     if (action === 'export-save') {
       const data = JSON.stringify({
         player: A.State.player, world: A.State.world,

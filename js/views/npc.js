@@ -1,0 +1,495 @@
+/* ============================================================
+   Aventurs — Pantalla del habitante (v2.0)
+   Registrada como A.ModalViews.npc (reemplaza la vieja).
+
+   Arriba: retrato, nombre, oficio y tu bolsa.
+   Pestañas (solo las que tiene ese habitante):
+     Hablar    - lo que dice + sus misiones (aceptar / entregar)
+     Comprar   - objetos dibujados; al tocar uno, el detalle y si es
+                 mejor o peor que lo que tenés puesto
+     Vender    - lo que tenés en la mochila, a la mitad de su valor
+     Aprender  - hechizos (sabios)
+     Forjar    - recetas (herrero)
+     Posada    - dormir y comer (tabernera)
+   ============================================================ */
+
+(function (A) {
+  'use strict';
+
+  const U = () => A.UI;
+  const ROLE = {
+    merchant: 'Mercader', shopkeeper: 'Comerciante', vendor: 'Vendedor', blacksmith: 'Herrero',
+    innkeeper: 'Posadero', tavernkeeper: 'Tabernera', healer: 'Curandero', priest: 'Sacerdote',
+    sage: 'Sabio', wizard: 'Mago', mage: 'Mago', quest: 'Tiene un encargo', guard: 'Guardia', captain: 'Capitana del puerto',
+  };
+  const RARITY = { common: 'Común', uncommon: 'Poco común', rare: 'Raro', epic: 'Épico', legendary: 'Legendario' };
+
+  function npcOf(id) { return A.Data.getById('npcs', id); }
+  function player() { return A.State.player; }
+  function kindOf(id) {
+    if (A.Data.getById('weapons', id)) return 'weapon';
+    if (A.Data.getById('armors', id)) return 'armor';
+    const it = A.Data.getById('items', id);
+    if (it && it.subtype === 'bag') return 'bag';
+    if (A.Data.getById('bags', id)) return 'bag';
+    return 'item';
+  }
+  function priceOf(npc, id) { return A.NPC.getNpcSellPrice(npc, id) || 0; }
+  function sellPrice(data) { return Math.max(1, Math.floor((data.value || 0) / 2)); }
+
+  function tabsFor(npc) {
+    const p = player();
+    const tabs = [{ id: 'talk', label: 'Hablar', icon: 'talk' }];
+    if ((npc.sells || []).length) {
+      tabs.push({ id: 'buy', label: 'Comprar', icon: 'shop' });
+      tabs.push({ id: 'sell', label: 'Vender', icon: 'coins' });
+    }
+    if ((npc.teaches || []).length && p && p.hasMagic) tabs.push({ id: 'learn', label: 'Aprender', icon: 'book' });
+    if (npc.role === 'blacksmith') tabs.push({ id: 'craft', label: 'Forjar', icon: 'anvil' });
+    if (npc.services && npc.services.restCost != null) tabs.push({ id: 'inn', label: 'Posada', icon: 'tent' });
+    return tabs;
+  }
+
+  // ============================================================
+  // Comparar con lo equipado
+  // ============================================================
+
+  function bagData(id) {
+    const it = A.Data.getById('items', id);
+    const bagId = it && (it.equipsBag || it.bagId) ? (it.equipsBag || it.bagId) : id;
+    return A.Data.getById('bags', bagId) || A.Data.getById('bags', String(id).replace(/^item_/, '')) || null;
+  }
+
+  /**
+   * Devuelve { verdict: 'better'|'worse'|'same'|null, lines: [texto], note }
+   */
+  function compare(id) {
+    const p = player();
+    const kind = kindOf(id);
+    const B = A.Balance;
+    if (kind === 'weapon') {
+      const cand = A.Data.getById('weapons', id);
+      const curId = p.equipment.weapon;
+      const cur = curId ? A.Data.getById('weapons', curId) : null;
+      const fitC = B.weaponFit(p, cand);
+      const fitE = cur ? B.weaponFit(p, cur) : { atk: 0, dmg: 0 };
+      const avgC = B.avgOf(cand.damage) + fitC.dmg;
+      const avgE = cur ? B.avgOf(cur.damage) + fitE.dmg : 1;
+      const spC = B.spellPowerOf ? B.spellPowerOf(p, cand) : 0;
+      const spE = B.spellPowerOf ? B.spellPowerOf(p, cur) : 0;
+      const dDmg = avgC - avgE;
+      const dAtk = fitC.atk - fitE.atk;
+      const dSp = p.hasMagic ? spC - spE : 0;
+      const lines = [];
+      lines.push({ label: 'Daño medio', value: avgC.toFixed(1), diff: dDmg });
+      if (fitC.atk || dAtk) lines.push({ label: 'Ataque', value: `${fitC.atk >= 0 ? '+' : ''}${fitC.atk}`, diff: fitE.atk ? dAtk : 0 });
+      if (p.hasMagic) lines.push({ label: 'Poder mágico', value: `+${spC}`, diff: dSp });
+      const type = B.classOf(p);
+      const score = dDmg + dAtk * 0.7 + dSp * (type === 'mage' ? 2 : 1);
+      return { verdict: id === curId ? 'equipped' : score > 0.25 ? 'better' : score < -0.25 ? 'worse' : 'same', lines, note: fitC.note, current: cur };
+    }
+    if (kind === 'armor') {
+      const cand = A.Data.getById('armors', id);
+      const curId = p.equipment.armor;
+      const cur = curId ? A.Data.getById('armors', curId) : null;
+      const d = (cand.defense || 0) - (cur ? cur.defense || 0 : 0);
+      return { verdict: id === curId ? 'equipped' : d > 0 ? 'better' : d < 0 ? 'worse' : 'same', lines: [{ label: 'Armadura', value: `+${cand.defense || 0}`, diff: d }], current: cur };
+    }
+    if (kind === 'bag') {
+      const cand = bagData(id);
+      const cur = A.Data.getById('bags', p.bagId);
+      if (!cand) return { verdict: null, lines: [] };
+      const d = (cand.slots || 0) - (cur ? cur.slots || 0 : 0);
+      return { verdict: d > 0 ? 'better' : d < 0 ? 'worse' : 'same', lines: [{ label: 'Espacios', value: `${cand.slots}`, diff: d }], current: cur };
+    }
+    return { verdict: null, lines: [] };
+  }
+
+  function verdictBadge(v) {
+    if (v === 'better') return `<span class="cmp-badge is-better" title="Mejor que lo que tenés">${U().icon('arrow-up', 14)}<span class="cmp-label">Mejor</span></span>`;
+    if (v === 'worse') return `<span class="cmp-badge is-worse" title="Peor que lo que tenés">${U().icon('arrow-down', 14)}<span class="cmp-label">Peor</span></span>`;
+    if (v === 'same') return '<span class="cmp-badge is-same">Parecido</span>';
+    if (v === 'equipped') return `<span class="cmp-badge is-eq" title="Lo tenés puesto">${U().icon('check', 12)}<span class="cmp-label">Puesto</span></span>`;
+    return '';
+  }
+
+  function diffText(d) {
+    if (!d) return '';
+    const n = Math.abs(d) % 1 ? Math.abs(d).toFixed(1) : Math.abs(d);
+    return `<span class="cmp-diff ${d > 0 ? 'is-up' : 'is-down'}">${d > 0 ? '+' : '-'}${n}</span>`;
+  }
+
+  // ============================================================
+  // Pestañas
+  // ============================================================
+
+  function questCard(q, mode, npc) {
+    const objectives = q.objectives.map((o, i) => {
+      const pr = mode === 'offer' ? { have: 0, need: o.count || 1, done: false } : A.Quests.objectiveProgress(q, i);
+      return `
+        <li class="qc-obj ${pr.done ? 'is-done' : ''}">
+          <span class="qc-box">${pr.done ? U().icon('check', 14) : ''}</span>
+          <span>${U().esc(A.Quests.objectiveText(o))}</span>
+          ${(o.count || 1) > 1 && mode !== 'offer' ? `<span class="qc-count num">${pr.have}/${pr.need}</span>` : ''}
+        </li>`;
+    }).join('');
+    const r = q.reward || {};
+    const rewardChips = [];
+    if (r.coins) rewardChips.push({ kind: 'coins', value: r.coins });
+    if (r.xp) rewardChips.push({ kind: 'xp', value: r.xp });
+    for (const [id, n] of r.items || []) rewardChips.push({ kind: 'item', itemId: id, value: n });
+    const btn = mode === 'offer'
+      ? `<button class="btn-primary qc-btn" data-quest-accept="${U().esc(q.id)}">${U().icon('quest', 18)}<span>Aceptar</span></button>`
+      : mode === 'ready'
+        ? `<button class="btn-primary qc-btn is-gold" data-quest-turnin="${U().esc(q.id)}">${U().icon('check', 18)}<span>Entregar</span></button>`
+        : '';
+    return `
+      <article class="quest-card is-${mode} ${q.main ? 'is-main' : ''}">
+        <header class="qc-head">
+          ${U().icon(q.main ? 'crown' : 'scroll', 22)}
+          <span class="qc-title">${U().esc(q.title)}</span>
+          ${q.main ? `<span class="qc-tag">Historia · ${q.chapter}/8</span>` : '<span class="qc-tag">Encargo</span>'}
+        </header>
+        ${mode === 'offer' ? `<p class="qc-offer">"${U().esc(q.offer || q.text)}"</p>` : mode === 'ready' ? `<p class="qc-offer">"¿Lo conseguiste? Dejame ver..."</p>` : `<p class="qc-text">${U().esc(q.text)}</p>`}
+        <ul class="qc-objs">${objectives}</ul>
+        ${rewardChips.length ? `<div class="qc-reward"><span class="qc-reward-label">Recompensa</span>${U().chips(rewardChips)}</div>` : ''}
+        ${btn ? `<div class="qc-actions">${btn}</div>` : ''}
+      </article>
+    `;
+  }
+
+  function renderTalk(npc, payload) {
+    const f = A.Quests ? A.Quests.forNpc(npc.id) : { offer: [], ready: [], active: [], locked: [] };
+    const parts = [];
+    for (const q of f.ready) parts.push(questCard(q, 'ready', npc));
+    for (const q of f.offer) parts.push(questCard(q, 'offer', npc));
+    for (const q of f.active) parts.push(questCard(q, 'active', npc));
+    const locked = f.locked.length
+      ? `<p class="npc2-note">${U().icon('lock', 16)}<span>Tiene más trabajo, pero para alguien con más experiencia. Volvé cuando seas nivel ${Math.min(...f.locked.map((q) => q.minLevel || 1))}.</span></p>`
+      : '';
+    return `
+      ${parts.length ? `<div class="npc2-quests">${parts.join('')}</div>` : `<p class="npc2-note">${U().icon('talk', 16)}<span>No tiene encargos para vos ahora.</span></p>`}
+      ${locked}
+    `;
+  }
+
+  function itemStatsLine(id) {
+    const kind = kindOf(id);
+    const d = U().itemData(id);
+    if (!d) return '';
+    if (kind === 'weapon') return `${d.damage}${d.magic ? ' · mágica' : ''}${(d.weight || 0) >= 4 ? ' · pesada' : ''}`;
+    if (kind === 'armor') return `Armadura +${d.defense || 0}`;
+    if (kind === 'bag') { const b = bagData(id); return b ? `${b.slots} espacios` : ''; }
+    if (d.effect && d.effect.type === 'heal') return `Cura ${d.effect.amount || d.effect.value || ''}`.trim();
+    if (d.foodValue) return `+${d.foodValue} comida`;
+    return RARITY[d.rarity] || '';
+  }
+
+  function buyDetail(npc, id) {
+    const p = player();
+    const d = U().itemData(id);
+    if (!d) return `<div class="shop-detail is-empty">${U().icon('shop', 40)}<p>Tocá un objeto para ver qué hace y si te conviene.</p></div>`;
+    const price = priceOf(npc, id);
+    const canPay = A.Currency.canPay(price);
+    const hasRoom = A.State.inventoryHasSpaceFor ? A.State.inventoryHasSpaceFor(id) : A.State.inventoryHasSpace();
+    const cmp = compare(id);
+    const why = !canPay ? 'No te alcanza' : !hasRoom ? 'Mochila llena' : '';
+    return `
+      <div class="shop-detail">
+        <div class="shop-detail-head">
+          <span class="shop-detail-sprite">${U().itemSprite(d, 64)}</span>
+          <div>
+            <div class="shop-detail-name">${U().esc(d.name)}</div>
+            <div class="shop-detail-meta">${U().esc(RARITY[d.rarity] || 'Común')}${itemStatsLine(id) ? ` · ${U().esc(itemStatsLine(id))}` : ''}</div>
+            ${verdictBadge(cmp.verdict)}
+          </div>
+        </div>
+        ${d.description ? `<p class="shop-detail-desc">${U().esc(d.description)}</p>` : ''}
+        ${cmp.lines.length ? `
+          <div class="shop-cmp">
+            <div class="shop-cmp-head">Comparado con ${cmp.current ? `<b>${U().esc(cmp.current.name)}</b>` : 'nada puesto'}</div>
+            ${cmp.lines.map((l) => `<div class="shop-cmp-row"><span>${U().esc(l.label)}</span><span class="num">${U().esc(l.value)}</span>${diffText(l.diff)}</div>`).join('')}
+            ${cmp.note ? `<div class="shop-cmp-note">${U().esc(cmp.note)}</div>` : ''}
+          </div>` : ''}
+        <div class="shop-buy-row">
+          <span class="shop-buy-price">${U().price(price, 18)}</span>
+          <button class="btn-primary" data-buy="${U().esc(id)}" ${why ? 'disabled' : ''}>${why || 'Comprar'}</button>
+        </div>
+        ${p && (p.food || 0) <= 3 && d.subtype === 'food' ? '<p class="shop-hint">Tenés hambre: la comida te viene bien.</p>' : ''}
+      </div>
+    `;
+  }
+
+  function renderBuy(npc, payload) {
+    const ids = (npc.sells || []).filter((id) => U().itemData(id));
+    const sel = payload.sel && ids.includes(payload.sel) ? payload.sel : null;
+    return `
+      <div class="shop2">
+        <div class="shop-grid">
+          ${ids.map((id) => {
+            const d = U().itemData(id);
+            const price = priceOf(npc, id);
+            const cmp = compare(id);
+            return `
+              <button class="shop-card ${sel === id ? 'is-selected' : ''} ${A.Currency.canPay(price) ? '' : 'is-pricey'}" data-shop-sel="${U().esc(id)}" title="${U().esc(d.name)}">
+                <span class="shop-card-sprite">${U().itemSprite(d, 44)}</span>
+                <span class="shop-card-name">${U().esc(d.name)}</span>
+                <span class="shop-card-price">${U().price(price, 14)}</span>
+                ${cmp.verdict && cmp.verdict !== 'same' ? `<span class="shop-card-cmp">${verdictBadge(cmp.verdict)}</span>` : ''}
+              </button>`;
+          }).join('')}
+        </div>
+        <aside class="shop-side">${buyDetail(npc, sel)}</aside>
+      </div>
+    `;
+  }
+
+  function questNeeds() {
+    const need = new Set();
+    if (!A.Quests) return need;
+    for (const q of A.Quests.activeList()) for (const o of q.objectives) if (o.type === 'collect' || o.type === 'have') need.add(o.item);
+    return need;
+  }
+
+  function renderSell() {
+    const p = player();
+    const need = questNeeds();
+    const rows = (p.inventory || []).filter((s) => !(A.Currency.isCoinId && A.Currency.isCoinId(s.itemId)) && !String(s.itemId).startsWith('coin_'));
+    if (!rows.length) return `<p class="npc2-note">${U().icon('bag', 16)}<span>No tenés nada para vender.</span></p>`;
+    return `
+      <p class="npc2-hint">Te paga la mitad de lo que vale cada cosa.</p>
+      <div class="sell-list">
+        ${rows.map((s) => {
+          const d = U().itemData(s.itemId);
+          if (!d) return '';
+          const each = sellPrice(d);
+          const quest = need.has(s.itemId);
+          return `
+            <div class="sell-row ${quest ? 'is-quest' : ''}">
+              <span class="sell-sprite">${U().itemSprite(d, 32)}</span>
+              <span class="sell-name">${U().esc(d.name)}${s.qty > 1 ? ` <span class="num dim">×${s.qty}</span>` : ''}${quest ? `<span class="sell-tag">${U().icon('quest', 12)}Misión</span>` : ''}</span>
+              <span class="sell-price">${U().price(each, 14)}</span>
+              <span class="sell-btns">
+                <button class="btn-mini" data-sell="${U().esc(s.itemId)}" data-qty="1">Vender</button>
+                ${s.qty > 1 ? `<button class="btn-mini" data-sell="${U().esc(s.itemId)}" data-qty="${s.qty}" title="Vender los ${s.qty} por ${A.Currency.formatPrice(each * s.qty)}">Todo</button>` : ''}
+              </span>
+            </div>`;
+        }).join('')}
+      </div>
+    `;
+  }
+
+  function renderLearn(npc) {
+    const p = player();
+    const spells = (npc.teaches || []).map((id) => A.Data.getById('spells', id)).filter(Boolean);
+    return `
+      <div class="learn2">
+        ${spells.map((s) => {
+          const known = (p.spells || []).includes(s.id);
+          const price = A.NPC.spellPrice(s.id);
+          const canPay = A.Currency.canPay(price);
+          const cost = A.Passives && A.Passives.spellCost ? A.Passives.spellCost(p, s) : s.manaCost;
+          const what = s.damage ? `${s.damage} de daño${s.area ? ' a todos' : ''}` : s.heal ? `cura ${s.heal}` : '';
+          return `
+            <div class="learn2-row ${known ? 'is-known' : ''}">
+              <span class="learn2-icon">${A.ItemSprites ? A.ItemSprites.spellIcon(s, { size: 36 }) : ''}</span>
+              <span class="learn2-info">
+                <span class="learn2-name">${U().esc(s.name)}</span>
+                <span class="learn2-meta">${U().esc(what)} · ${cost} de maná</span>
+                <span class="learn2-desc">${U().esc(s.description || '')}</span>
+              </span>
+              ${known ? `<span class="cmp-badge is-eq">${U().icon('check', 12)}<span>Aprendido</span></span>` : `
+                <span class="learn2-buy">${U().price(price, 14)}<button class="btn-mini" data-learn="${U().esc(s.id)}" ${canPay ? '' : 'disabled'}>${canPay ? 'Aprender' : 'Sin dinero'}</button></span>`}
+            </div>`;
+        }).join('')}
+      </div>
+    `;
+  }
+
+  function renderCraft() {
+    const groups = [
+      ['forge', 'Forja', 'anvil'], ['alchemy', 'Alquimia', 'potion'], ['enchant', 'Encantamiento', 'arcane'],
+    ];
+    const inv = player().inventory || [];
+    const html = groups.map(([w, label, ic]) => {
+      const recipes = A.Crafting.recipesForWorkshop(w);
+      if (!recipes.length) return '';
+      return `
+        <div class="craft2-group">
+          <div class="craft2-label">${U().icon(ic, 18)}<span>${label}</span></div>
+          ${recipes.map((r) => {
+            const ok = A.Crafting.canCraft(r.id).ok;
+            const res = U().itemData(r.result);
+            return `
+              <div class="craft2-row ${ok ? 'is-ready' : ''}">
+                <span class="craft2-sprite">${U().itemSprite(res, 36)}</span>
+                <span class="craft2-info">
+                  <span class="craft2-name">${U().esc(res ? res.name : r.result)}</span>
+                  <span class="craft2-ings">
+                    ${(r.ingredients || []).map((ing) => {
+                      const d = U().itemData(ing.itemId);
+                      const slot = inv.find((s) => s.itemId === ing.itemId);
+                      const have = slot ? slot.qty : 0;
+                      return `<span class="craft2-ing ${have >= ing.qty ? 'is-ok' : ''}">${U().itemSprite(d, 18)}<span>${U().esc(d ? d.name : ing.itemId)}</span><b class="num">${have}/${ing.qty}</b></span>`;
+                    }).join('')}
+                  </span>
+                </span>
+                <button class="btn-mini" data-craft2="${U().esc(r.id)}" ${ok ? '' : 'disabled'}>Forjar</button>
+              </div>`;
+          }).join('')}
+        </div>`;
+    }).join('');
+    return `<div class="craft2">${html || '<p class="npc2-note">No hay recetas.</p>'}</div>`;
+  }
+
+  function renderInn(npc) {
+    const p = player();
+    const cost = npc.services.restCost;
+    const eatCost = Math.max(2, Math.floor(cost / 2));
+    const tired = p.hp < p.maxHp || (p.hasMagic && p.mana < p.maxMana);
+    const hungry = (p.food || 0) < (p.maxFood || 20);
+    const row = (ic, name, desc, price, attr, ok, label) => `
+      <div class="inn-row ${ok ? '' : 'is-off'}">
+        <span class="inn-icon">${U().icon(ic, 36)}</span>
+        <span class="inn-info"><span class="inn-name">${name}</span><span class="inn-desc">${desc}</span></span>
+        <span class="inn-buy">${U().price(price, 14)}<button class="btn-mini" ${attr} ${ok ? '' : 'disabled'}>${label}</button></span>
+      </div>`;
+    return `
+      <div class="inn2">
+        ${row('tent', 'Una cama hasta mañana', 'Recuperás toda la vida y el maná, y comés algo antes de dormir.', cost, 'data-inn="sleep"', A.Currency.canPay(cost), tired ? 'Dormir' : 'Dormir igual')}
+        ${row('food', 'Un plato caliente', '+5 de comida.', eatCost, `data-inn="eat" data-cost="${eatCost}"`, A.Currency.canPay(eatCost) && hungry, hungry ? 'Comer' : 'Lleno')}
+      </div>
+    `;
+  }
+
+  // ============================================================
+  // Render principal
+  // ============================================================
+
+  function render(payload) {
+    const npc = npcOf(payload.npcId);
+    if (!npc) return '<div class="modal"><div class="modal-body">No hay nadie acá.</div></div>';
+    // Hablar con alguien cumple los objetivos "hablá con..."
+    const news = (payload.news || []).slice();
+    if (A.Quests && !payload._talked) {
+      const off = A.Bus.on('quest:auto-completed', (e) => news.push(e));
+      A.Quests.talkTo(npc.id);
+      off();
+      payload._talked = true;
+    }
+    const tabs = tabsFor(npc);
+    const legacy = { shop: 'buy', dialog: 'talk', rest: 'inn' };
+    let tab = legacy[payload.tab] || payload.tab || 'talk';
+    if (!tabs.find((t) => t.id === tab)) tab = tabs[0].id;
+    // Si tiene una misión lista o para ofrecer, se abre en Hablar
+    const marker = A.Quests ? A.Quests.markerFor(npc.id) : null;
+    if (!payload.tab && (marker === 'offer' || marker === 'ready')) tab = 'talk';
+
+    if (payload.lineIdx == null) payload.lineIdx = Math.floor(Math.random() * Math.max(1, (npc.dialog || []).length));
+    const line = (npc.dialog && npc.dialog.length) ? npc.dialog[payload.lineIdx % npc.dialog.length] : '...';
+
+    let body = '';
+    if (tab === 'talk') body = renderTalk(npc, payload);
+    else if (tab === 'buy') body = renderBuy(npc, payload);
+    else if (tab === 'sell') body = renderSell(npc);
+    else if (tab === 'learn') body = renderLearn(npc);
+    else if (tab === 'craft') body = renderCraft(npc);
+    else if (tab === 'inn') body = renderInn(npc);
+
+    const newsHtml = news.map((n) => {
+      const q = A.Quests.get(n.id);
+      return q ? `
+        <div class="npc2-news">
+          ${U().icon('check', 20)}
+          <div><b>Misión cumplida: ${U().esc(q.title)}</b><p>${U().esc(q.done || '')}</p>${U().chips(n.chips)}</div>
+        </div>` : '';
+    }).join('');
+
+    return `
+      <div class="modal npc2" role="dialog" aria-modal="true" aria-label="${U().esc(npc.name)}">
+        <header class="npc2-head">
+          <span class="npc2-portrait">${A.Sprites && A.Sprites.npcHtml ? A.Sprites.npcHtml(npc, { size: 80 }) : ''}</span>
+          <div class="npc2-id">
+            <h2 class="npc2-name">${U().esc(npc.name)}</h2>
+            <div class="npc2-role">${U().esc(npc.roleName || ROLE[npc.role] || npc.role || '')}</div>
+            <div class="npc2-wallet" title="Tu dinero">${U().icon('bag', 16)}${A.Currency.walletHtml(16)}</div>
+          </div>
+          <button class="modal-close" data-modal-close aria-label="Cerrar">×</button>
+        </header>
+        <div class="npc2-say"><span>${U().esc(line)}</span></div>
+        ${tabs.length > 1 ? `
+          <nav class="npc2-tabs" role="tablist">
+            ${tabs.map((t) => `
+              <button class="npc2-tab ${t.id === tab ? 'is-active' : ''}" data-npc2-tab="${t.id}" role="tab" aria-selected="${t.id === tab}" aria-label="${t.label}" title="${t.label}">
+                ${U().icon(t.icon, 18)}<span class="tab-label">${t.label}</span>
+                ${t.id === 'talk' && marker ? U().questMark(marker) : ''}
+              </button>`).join('')}
+          </nav>` : ''}
+        <div class="npc2-body">
+          ${newsHtml}
+          ${body}
+        </div>
+      </div>
+    `;
+  }
+
+  function reopen(payload, extra) {
+    A.State.openModal('npc', { npcId: payload.npcId, tab: payload.tab, sel: payload.sel, lineIdx: payload.lineIdx, _talked: true, ...extra });
+  }
+
+  function bind(overlay, payload) {
+    const npc = npcOf(payload.npcId);
+    if (!npc) return;
+    const cur = { ...payload }; // misma frase mientras el modal sigue abierto
+
+    overlay.querySelectorAll('[data-npc2-tab]').forEach((b) => b.addEventListener('click', () => reopen(cur, { tab: b.dataset.npc2Tab, sel: null })));
+    overlay.querySelectorAll('[data-shop-sel]').forEach((b) => b.addEventListener('click', () => {
+      reopen(cur, { tab: 'buy', sel: b.dataset.shopSel });
+      // En el celular el detalle queda arriba: subir para verlo
+      const body = document.querySelector('.npc2-body');
+      if (body && window.innerWidth < 760) body.scrollTo({ top: 0, behavior: 'smooth' });
+    }));
+    overlay.querySelectorAll('[data-buy]').forEach((b) => b.addEventListener('click', () => {
+      const r = A.NPC.buy(npc.id, b.dataset.buy);
+      if (r.ok) reopen(cur, { tab: 'buy', sel: b.dataset.buy });
+    }));
+    overlay.querySelectorAll('[data-sell]').forEach((b) => b.addEventListener('click', () => {
+      const r = A.NPC.sell(b.dataset.sell, parseInt(b.dataset.qty, 10) || 1);
+      if (r.ok) reopen(cur, { tab: 'sell' });
+    }));
+    overlay.querySelectorAll('[data-learn]').forEach((b) => b.addEventListener('click', () => {
+      const r = A.NPC.learnSpell(npc.id, b.dataset.learn);
+      if (r.ok) reopen(cur, { tab: 'learn' });
+    }));
+    overlay.querySelectorAll('[data-craft2]').forEach((b) => b.addEventListener('click', () => {
+      const r = A.Crafting.craft(b.dataset.craft2);
+      if (r.ok) { A.Bus.emit('inventory:changed'); reopen(cur, { tab: 'craft' }); }
+    }));
+    overlay.querySelectorAll('[data-inn]').forEach((b) => b.addEventListener('click', () => {
+      if (b.dataset.inn === 'sleep') {
+        const r = A.NPC.restAt(npc.id);
+        if (r.ok) {
+          if (A.Time) A.Time.passTo('morning');
+          A.State.closeModal();
+        }
+      } else {
+        const cost = parseInt(b.dataset.cost, 10) || 5;
+        if (!A.Currency.canPay(cost)) return;
+        A.Currency.pay(cost);
+        A.State.modifyFood(5);
+        A.State.addChronicle({ type: 'rest', text: `Comiste un plato caliente en lo de ${npc.name}.` });
+        reopen(cur, { tab: 'inn' });
+      }
+    }));
+    overlay.querySelectorAll('[data-quest-accept]').forEach((b) => b.addEventListener('click', () => {
+      if (A.Quests.accept(b.dataset.questAccept)) reopen(cur, { tab: 'talk' });
+    }));
+    overlay.querySelectorAll('[data-quest-turnin]').forEach((b) => b.addEventListener('click', () => {
+      const res = A.Quests.turnIn(b.dataset.questTurnin);
+      if (res) reopen(cur, { tab: 'talk', news: [{ id: res.quest.id, chips: res.chips }] });
+    }));
+  }
+
+  A.ModalViews = A.ModalViews || {};
+  A.ModalViews.npc = { render, bind };
+})(window.Aventurs);

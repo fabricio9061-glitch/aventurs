@@ -16,7 +16,8 @@ aventurs/
 │   ├── base.css            Reset + tipografía
 │   ├── game.css            Estilos del juego (shell, sidebar, tabs, modales)
 │   ├── editor.css          Estilos del editor admin
-│   └── theme.css           Tema "Mezcla" (v1.9.0): se carga último y pisa lo anterior
+│   ├── theme.css           Tema "Mezcla" (v1.9.0)
+│   └── v2.css              Pantallas de la v2.0 (escenas, tienda, diario, mapa): va última
 ├── js/
 │   ├── core/
 │   │   ├── utils.js        Dados, clamp, escapeHtml, etc.
@@ -31,12 +32,15 @@ aventurs/
 │   │       ├── autobalance.js    Sugerencias del editor (usa balance.js)
 │   │       └── autoloot.js       Sugerencias de drops por familia/tags
 │   ├── data/               Seeds: races, regions, enemies, items, weapons,
-│   │                       armors, spells, recipes, npcs, bags
+│   │                       armors, spells, recipes, npcs, bags,
+│   │                       events (escenas al explorar), quests (misiones)
 │   ├── systems/            Combat, Encounter, Travel, Tame (mascotas),
-│   │                       Inventory, Currency, Crafting, NPC, Explore
+│   │                       Inventory, Currency, Crafting, NPC,
+│   │                       Explore (escenas y descanso), Quests (misiones)
 │   ├── views/              Shell, Character, World, Map, Inventory, Magic,
 │   │                       Chronicles, Combat, Modals, Editor
 │   │                       combat-fx.js: dado D20 y animaciones de combate
+│   │                       ui-kit.js, event.js, npc.js, journal.js (v2.0)
 │   └── app.js              Bootstrap
 └── tools/
     └── simulador.js        Simulador de balance (Node, no se carga en el juego)
@@ -157,6 +161,53 @@ arma o hechizo).
 - **Sin emojis en el combate**: íconos pixelados (`A.ItemSprites.icon`) y sprites.
 - La pantalla de victoria muestra la experiencia, las monedas y el botín con sus dibujos.
 
+## Versión 2.0
+
+### Explorar
+Explorar siempre hace pasar algo (`js/systems/explore.js` + `js/data/seed-events.js`):
+- **Criaturas**: aparecen y elegís cómo encararlas. El ataque por sorpresa depende de
+  tu clase (guerrero: *Cargar* con Fuerza; mago: *Hechizo desde las sombras* con
+  Ingenio; híbrido: *Atacar por sorpresa* con Agilidad). Si sale bien, actuás primero;
+  si te escabullís mal, te atacan primero. Si es domable y estás solo, podés acercarte.
+- **Escenas del bioma** (30): cofres, viajeros heridos, panales, ríos de lava... con
+  2 o 3 opciones. Cada opción muestra su tirada y el % de éxito antes de elegir.
+- **Tiradas**: D20 + bonus contra una dificultad que sube con la zona.
+  Fuerza (guerreros +3), Agilidad (velocidad), Ingenio (magos +3), Puntería
+  (precisión), Suerte (el Mediano +3). Todos suman la mitad de su nivel.
+- **Descansar**: de día, un rato (+20%) y pasa la tarde; de noche, dormís hasta la
+  mañana (50% al raso, 75% en zona segura). Al raso, 1 de cada 4 noches algo se acerca.
+
+### Misiones (`js/systems/quests.js` + `js/data/seed-quests.js`)
+- **Historia principal** "La sombra del dragón" (8 capítulos): empieza con Tomas el
+  guardia del Pueblo Inicial y termina en el Nido de Dragones.
+- **Encargos**: dientes de lobo (Borgan), ratas (Maela), esqueletos (Tomas),
+  bandidos y perlas (Irena, capitana del Puerto), hierro (Druss), polvo arcano (Velrith).
+- Signo de exclamación dorado = tiene una misión; signo de pregunta = te espera para cobrar.
+- Objetivos: derrotar, juntar y entregar, tener, explorar, llegar, hablar.
+
+### Clases
+- **Guerreros**: maestría con armas (+1 daño, +2 desde nivel 5, +3 desde nivel 9) y +1
+  al ataque con armas pesadas.
+- **Magos**: poder mágico 1 + nivel/2 (+ bastón), +5 de maná por nivel. Armas pesadas
+  -3 al ataque; medianas no mágicas -1.
+- **Híbridos**: sin penalidad con armas; poder mágico (nivel-1)/2, +3 de maná por nivel.
+
+### Monedas y tienda
+- Cada enemigo suelta monedas siempre, según su tier y categoría
+  (`Balance.Economy.coinsFor`).
+- Tienda nueva: objetos dibujados, detalle con comparación contra lo que tenés puesto
+  (mejor / peor / parecido) y venta a mitad de precio. Pestañas: Hablar, Comprar,
+  Vender, Aprender, Forjar, Posada (solo las que tiene cada habitante).
+
+### Pantallas
+- Mapa del reino en pergamino: posiciones fijas (`pos` y `labelAt` en las regiones),
+  caminos curvos, niebla en lo que no conocés, candado y nivel en lo bloqueado, ficha
+  de la zona con "Viajar". Rueda o botones para el zoom; arrastrar para mover.
+- Diario de viaje: misiones y crónicas agrupadas por día y lugar (las líneas repetidas
+  se cuentan con ×N).
+- En el celular, una franja arriba con vida, maná, comida y dinero.
+- Sin emojis en el juego (el editor todavía los usa para cargar íconos).
+
 ## Idioma
 
-Español latino (con "tú", no "vos"). Sin TODO MAYÚSCULAS.
+Español rioplatense (con "vos"). Sin TODO MAYÚSCULAS.

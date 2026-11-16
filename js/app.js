@@ -91,7 +91,7 @@
     overlay.className = 'death-overlay';
     overlay.innerHTML = `
       <div class="death-screen">
-        <div class="death-icon">💀</div>
+        <div class="death-icon">${A.ItemSprites ? A.ItemSprites.icon('skull', { size: 72 }) : ''}</div>
         <h1 class="death-title">Caíste por inanición</h1>
         <div class="death-narrative">
           <p>El hambre te consumió. No volviste a levantarte.</p>

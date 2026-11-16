@@ -138,13 +138,13 @@
      * así que compensan con más vida; los magos con más maná).
      */
     gainsForLevel(newLevel, hasMagic, combatType) {
-      const HP_BY_TYPE = { warrior: 7, hybrid: 6, mage: 5 };
+      const HP_BY_TYPE = { warrior: 6, hybrid: 6, mage: 5 };
       return {
         maxHp: HP_BY_TYPE[combatType] || 6,
         precision: 1,
         dodge: newLevel % 2 === 1 ? 1 : 0,     // niveles 3, 5, 7, 9
         damage: newLevel % 3 === 1 ? 1 : 0,    // niveles 4, 7, 10
-        maxMana: hasMagic ? 3 : 0,
+        maxMana: hasMagic ? (combatType === 'mage' ? 5 : 3) : 0,
       };
     },
 
@@ -187,6 +187,48 @@
     },
   };
 
+  // ---------- v2.0: cada clase pelea distinto ----------
+  /**
+   * Cómo le queda un arma a una clase:
+   *   guerrero: maestría (+daño que crece con el nivel) y +1 al ataque con armas medianas o pesadas
+   *   híbrido:  normal con todas las armas (y con magia a medias)
+   *   mago:     las pesadas le dan -3 al ataque y las medianas no mágicas -1; su fuerte es la magia
+   */
+  function classOf(p) {
+    const race = p && A.Data && A.Data.getById ? A.Data.getById('races', p.raceId) : null;
+    return (race && race.combatType) || 'hybrid';
+  }
+
+  function weaponFit(p, weapon) {
+    const type = classOf(p);
+    const lvl = Math.max(1, (p && p.level) || 1);
+    const w = weapon ? weapon.weight || 0 : 0;
+    const heavy = w >= 4;
+    const medium = w >= 2 && w < 4;
+    const magicW = !!(weapon && weapon.magic);
+    const out = { type, atk: 0, dmg: 0, note: '' };
+    if (type === 'warrior') {
+      out.dmg = 1 + Math.floor((lvl - 1) / 4);
+      if (heavy) out.atk = 1;
+      out.note = `Maestría con armas: +${out.dmg} de daño${out.atk ? ' y +1 al ataque' : ''}.`;
+    } else if (type === 'mage') {
+      if (heavy) { out.atk = -3; out.note = 'Muy pesada para un mago: -3 al ataque.'; }
+      else if (medium && !magicW) { out.atk = -1; out.note = 'Incómoda para un mago: -1 al ataque.'; }
+      else if (magicW) out.note = 'Arma mágica: potencia tus hechizos.';
+    }
+    return out;
+  }
+
+  /** Poder mágico: los magos lo tienen más alto y crece más rápido. */
+  function spellPowerOf(p, weapon) {
+    const type = classOf(p);
+    const lvl = Math.max(1, (p && p.level) || 1);
+    const wBonus = weapon && weapon.magic ? 1 + Math.floor((weapon.tier || 1) / 3) : 0;
+    if (type === 'mage') return 1 + Math.floor(lvl / 2) + wBonus;
+    if (type === 'hybrid') return Math.floor((lvl - 1) / 2) + wBonus;
+    return 0;
+  }
+
   // ---------- Stats de combate del jugador (incluye equipo y hambre) ----------
   function playerCombatStats(p) {
     if (!p) return null;
@@ -195,17 +237,19 @@
     const pen = (stat) => (A.Survival && A.Survival.getStatPenalty ? A.Survival.getStatPenalty(stat) : 0);
     const fx = statusMods(p);
     const weight = (weapon ? weapon.weight || 0 : 0) + (armor ? armor.weight || 0 : 0);
+    const fit = weaponFit(p, weapon);
     return {
-      attack: (p.stats.precision || 0) - fx.attackPenalty,
+      fit,
+      attack: (p.stats.precision || 0) + fit.atk - fx.attackPenalty,
       defense: 8 + (p.stats.dodge || 0) + (armor && armor.dodge ? armor.dodge : 0) - pen('dodge') - fx.defensePenalty,
       armor: (p.stats.armor || 0) + (armor ? armor.defense || 0 : 0),
-      // v1.9.2: + Furia del orco (solo con la mitad de la vida o menos)
-      damageBonus: (p.stats.damage || 0) - pen('damage') + (A.Passives ? A.Passives.damageBonus(p) : 0),
+      // v1.9.2: + Furia del orco (solo con la mitad de la vida o menos) · v2.0: + maestría del guerrero
+      damageBonus: (p.stats.damage || 0) - pen('damage') + fit.dmg + (A.Passives ? A.Passives.damageBonus(p) : 0),
       // El peso solo frena si pasa de 4 (una daga y ropa no pesan nada)
       speed: Math.max(1, (p.stats.speed || 10) - Math.max(0, weight - 4) - pen('speed')),
       weapon,
       armorItem: armor,
-      spellPower: Math.floor(((p.level || 1) - 1) / 2) + (weapon && weapon.magic ? 1 + Math.floor((weapon.tier || 1) / 3) : 0),
+      spellPower: spellPowerOf(p, weapon),
     };
   }
 
@@ -235,7 +279,17 @@
   // ---------- Economía ----------
   const Economy = {
     /** Cobre promedio que suelta un enemigo normal de tier t. */
-    coinBase(t) { t = clampTier(t); return 2 * Math.pow(1.45, t - 1); },
+    coinBase(t) { t = clampTier(t); return 2.5 * Math.pow(1.45, t - 1); },
+
+    /**
+     * v2.0: monedas SEGURAS de un enemigo (siempre suelta algo).
+     * Más si es de más tier o si es fuerte/jefe; ±20% de azar.
+     */
+    coinsFor(enemy, rnd = Math.random) {
+      if (!enemy) return 0;
+      const avg = Economy.coinBase(enemy.tier) * cat(enemy.category).coin;
+      return Math.max(1, Math.round(avg * (0.8 + 0.4 * rnd())));
+    },
 
     /** Drop de monedas listo para enemy.drops. */
     coinDrop(enemy) {
@@ -290,6 +344,9 @@
     hitChance,
     Progression,
     playerCombatStats,
+    weaponFit,
+    spellPowerOf,
+    classOf,
     statusMods,
     Pet,
     Economy,

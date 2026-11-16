@@ -15,7 +15,7 @@
     if (!p.hasMagic) {
       return `
         <div class="empty-card">
-          <div class="empty-icon">🚫</div>
+          <div class="empty-icon">${A.ItemSprites ? A.ItemSprites.icon('lock', { size: 40 }) : ''}</div>
           <div class="empty-title">Sin afinidad mágica</div>
           <div class="empty-text muted">
             Tu raza y herencia no te permiten canalizar maná. La magia no es para todos.
@@ -36,7 +36,7 @@
 
         ${known.length === 0 ? `
           <div class="empty-card">
-            <div class="empty-icon">📖</div>
+            <div class="empty-icon">${A.ItemSprites ? A.ItemSprites.icon('book', { size: 40 }) : ''}</div>
             <div class="empty-title">Aún no conoces hechizos</div>
             <div class="empty-text muted">
               Busca a Velrith en la Torre del Mago. Si tu maná alcanza y tu mente está firme, puede enseñarte.

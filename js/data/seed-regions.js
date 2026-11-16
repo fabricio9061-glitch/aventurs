@@ -22,7 +22,7 @@
 
   const REGIONS = [
     {
-      id: 'pueblo_inicial',
+      id: 'pueblo_inicial', pos:{x:200,y:330}, labelAt:'b',
       name: 'Pueblo Inicial',
       type: 'safe',
       biome: 'village',
@@ -34,7 +34,7 @@
       events: [{type:'find',chance:5,reward:'pan'}],
     },
     {
-      id: 'bosque_sombrio',
+      id: 'bosque_sombrio', pos:{x:95,y:200}, labelAt:'t',
       name: 'Bosque Sombrío',
       type: 'combat',
       biome: 'forest',
@@ -47,7 +47,7 @@
       encounter: {minEnemies:1,maxEnemies:2,allowMixed:true,spawnWeights:{weak:50,normal:40,strong:10,boss:0}},
     },
     {
-      id: 'cementerio',
+      id: 'cementerio', pos:{x:175,y:490}, labelAt:'b',
       name: 'Cementerio',
       type: 'combat',
       biome: 'graveyard',
@@ -60,7 +60,7 @@
       encounter: {minEnemies:1,maxEnemies:2,allowMixed:true,spawnWeights:{weak:50,normal:40,strong:10,boss:0}},
     },
     {
-      id: 'camino_real',
+      id: 'camino_real', pos:{x:340,y:330}, labelAt:'r',
       name: 'Camino Real',
       type: 'combat',
       biome: 'plains',
@@ -74,7 +74,7 @@
       unlockConditions: {minLevel:2},
     },
     {
-      id: 'pantano',
+      id: 'pantano', pos:{x:305,y:525}, labelAt:'b',
       name: 'Pantano',
       type: 'combat',
       biome: 'swamp',
@@ -88,7 +88,7 @@
       unlockConditions: {minLevel:3},
     },
     {
-      id: 'puerto',
+      id: 'puerto', pos:{x:480,y:440}, labelAt:'l',
       name: 'Puerto',
       type: 'safe',
       biome: 'coast',
@@ -101,7 +101,7 @@
       unlockConditions: {minLevel:3},
     },
     {
-      id: 'torre_del_mago',
+      id: 'torre_del_mago', pos:{x:600,y:520}, labelAt:'b',
       name: 'Torre del Mago',
       type: 'safe',
       biome: 'arcane',
@@ -113,7 +113,7 @@
       unlockConditions: {minLevel:4},
     },
     {
-      id: 'montanas',
+      id: 'montanas', pos:{x:470,y:200}, labelAt:'t',
       name: 'Montañas',
       type: 'combat',
       biome: 'mountain',
@@ -127,7 +127,7 @@
       unlockConditions: {minLevel:4},
     },
     {
-      id: 'desierto',
+      id: 'desierto', pos:{x:640,y:280}, labelAt:'t',
       name: 'Desierto',
       type: 'combat',
       biome: 'desert',
@@ -141,7 +141,7 @@
       unlockConditions: {minLevel:5},
     },
     {
-      id: 'ruinas_perdidas',
+      id: 'ruinas_perdidas', pos:{x:720,y:420}, labelAt:'b',
       name: 'Ruinas Perdidas',
       type: 'combat',
       biome: 'ruins',
@@ -154,7 +154,7 @@
       unlockConditions: {minLevel:7},
     },
     {
-      id: 'catacumbas',
+      id: 'catacumbas', pos:{x:790,y:300}, labelAt:'b',
       name: 'Catacumbas',
       type: 'combat',
       biome: 'crypt',
@@ -168,7 +168,7 @@
       unlockConditions: {minLevel:7},
     },
     {
-      id: 'cuevas_ancestrales',
+      id: 'cuevas_ancestrales', pos:{x:585,y:105}, labelAt:'t',
       name: 'Cuevas Ancestrales',
       type: 'combat',
       biome: 'cave',
@@ -181,7 +181,7 @@
       unlockConditions: {minLevel:6},
     },
     {
-      id: 'alta_mar',
+      id: 'alta_mar', pos:{x:500,y:595}, labelAt:'b',
       name: 'Alta Mar',
       type: 'combat',
       biome: 'sea',
@@ -195,7 +195,7 @@
       unlockConditions: {minLevel:6},
     },
     {
-      id: 'volcan',
+      id: 'volcan', pos:{x:735,y:125}, labelAt:'b',
       name: 'Volcán',
       type: 'combat',
       biome: 'volcano',
@@ -209,7 +209,7 @@
       encounter: {minEnemies:1,maxEnemies:2,allowMixed:false,spawnWeights:{weak:0,normal:20,strong:55,boss:25}},
     },
     {
-      id: 'infierno',
+      id: 'infierno', pos:{x:885,y:65}, labelAt:'b',
       name: 'Infierno',
       type: 'combat',
       biome: 'hell',
@@ -222,7 +222,7 @@
       unlockConditions: {minLevel:9},
     },
     {
-      id: 'nido_de_dragones',
+      id: 'nido_de_dragones', pos:{x:885,y:200}, labelAt:'b',
       name: 'Nido de Dragones',
       type: 'combat',
       biome: 'lair',
@@ -236,7 +236,7 @@
       unlockConditions: {minLevel:10},
     },
     {
-      id: 'abismo_marino',
+      id: 'abismo_marino', pos:{x:690,y:625}, labelAt:'r',
       name: 'Abismo Marino',
       type: 'combat',
       biome: 'abyss',

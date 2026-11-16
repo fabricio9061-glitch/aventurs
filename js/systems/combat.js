@@ -152,18 +152,25 @@
       log: [],
       result: null,
       fromTravel: !!opts.fromTravel,
-      ambush: !!opts.ambush,
+      ambush: !!opts.ambush && !opts.surprise,
+      surprise: !!opts.surprise,
     };
 
     if (combat.ambush) {
       const firstEnemyIdx = initiative.findIndex((e) => e.kind === 'enemy');
       if (firstEnemyIdx > 0) combat.initiative = initiative.slice(firstEnemyIdx).concat(initiative.slice(0, firstEnemyIdx));
+    } else if (combat.surprise) {
+      // v2.0: los agarraste desprevenidos: vos (y tu mascota) actúan primero
+      const mine = initiative.filter((e) => e.kind !== 'enemy');
+      const theirs = initiative.filter((e) => e.kind === 'enemy');
+      combat.initiative = mine.concat(theirs);
     }
     combat.turn = currentTurnKind(combat);
     State().combat = combat;
 
     addLog(combat, 'system', { text: `Comienza el combate contra ${A.Encounter.describeGroup(instances)}.`, fx: { kind: 'start', group: A.Encounter.describeGroup(instances), ambush: combat.ambush } });
     if (combat.ambush) addLog(combat, 'system', { text: 'Te emboscaron. Los enemigos atacan primero.' });
+    if (combat.surprise) addLog(combat, 'system', { text: 'Los agarraste desprevenidos. Actuás primero.' });
     addLog(combat, 'system', { text: `Orden por velocidad: ${combat.initiative.map((i) => `${i.name} (vel ${i.speed})`).join(' → ')}` });
     for (const tg of tieGroups) {
       addLog(combat, 'system', { text: `Empate de velocidad ${tg.speed}, desempate con D20: ${tg.members.map((m) => `${m.name}: ${m.tieRoll}`).join(', ')}` });
@@ -234,11 +241,11 @@
     const st = B().playerCombatStats(player);
     const components = [];
     if (st.weapon && st.weapon.damage) {
-      components.push({ source: 'weapon', label: st.weapon.name, expr: st.weapon.damage, icon: st.weapon.icon || '⚔️' });
+      components.push({ source: 'weapon', label: st.weapon.name, expr: st.weapon.damage, icon: '' });
     } else {
-      components.push({ source: 'race', label: 'Puños', expr: '1d3', icon: '✊' });
+      components.push({ source: 'race', label: 'Puños', expr: '1d3', icon: '' });
     }
-    if (st.damageBonus > 0) components.push({ source: 'modifier', label: 'Bonus de daño', expr: `+${st.damageBonus}`, icon: '✨' });
+    if (st.damageBonus > 0) components.push({ source: 'modifier', label: 'Bonus de daño', expr: `+${st.damageBonus}`, icon: '' });
     let expression = components.map((c) => c.expr).join(' + ');
     if (st.damageBonus < 0) expression += ` - ${Math.abs(st.damageBonus)}`;
     expression = expression.replace(/\+\s*\+/g, '+').replace(/\s+/g, ' ').trim();
@@ -558,7 +565,7 @@
     if (!r.hit) {
       addLog(c, 'player', {
         text: r.fumble ? `Atacaste a ${target.displayName} pero fallaste por completo` : `${target.displayName} esquivó tu ataque`,
-        actor: p.name, target: target.displayName, actorIcon: '🗡️', weapon: weaponName,
+        actor: p.name, target: target.displayName, actorIcon: '', weapon: weaponName,
         roll: r.roll, bonus: st.attack, total: r.total, vs: es.defense, vsLabel: 'defensa',
         result: r.fumble ? 'fumble' : 'evaded',
         fx: { kind: 'attack', actor: 'player', target: fxKey(target) },
@@ -575,7 +582,7 @@
       addLog(c, 'player', {
         passive,
         text: r.crit ? `¡Golpe crítico a ${target.displayName}!` : `Atacaste a ${target.displayName}`,
-        actor: p.name, target: target.displayName, actorIcon: '🗡️', weapon: weaponName,
+        actor: p.name, target: target.displayName, actorIcon: '', weapon: weaponName,
         damageDice: dmgRoll.composed.expression,
         damageBreakdown: dmgRoll.composed.components.map((cmp, i) => ({
           label: cmp.label, expr: cmp.expr,
@@ -634,7 +641,7 @@
       const heal = A.Utils.rollDice(spell.heal) + power;
       const before = p.hp;
       A.State.healHp(heal);
-      addLog(c, 'player', { text: `Lanzaste ${spell.name} y recuperaste ${p.hp - before} de salud.`, fx: { kind: 'heal', actor: 'player', target: 'player', amount: p.hp - before, icon: spell.icon || '✨' } });
+      addLog(c, 'player', { text: `Lanzaste ${spell.name} y recuperaste ${p.hp - before} de salud.`, fx: { kind: 'heal', actor: 'player', target: 'player', amount: p.hp - before, icon: '' } });
     } else if (spell.damage) {
       const targets = spell.area ? aliveEnemies() : [getTarget()].filter(Boolean);
       for (const t of targets) {
@@ -644,17 +651,17 @@
         t.hp = Math.max(0, t.hp - finalDmg);
         addLog(c, 'player', {
           text: `${spell.name} hiere a ${t.displayName}`,
-          actor: p.name, target: t.displayName, actorIcon: spell.icon || '✨',
+          actor: p.name, target: t.displayName, actorIcon: '',
           rawDmg, targetArmor: armor, dmg: finalDmg, hpAfter: t.hp, hpMax: t.maxHp,
           damageDice: power ? `${spell.damage}+${power}` : spell.damage,
           spell: spell.name, result: 'hit',
-          fx: { kind: 'spell', actor: 'player', target: fxKey(t), element: spellElement(spell), icon: spell.icon || '✨' },
+          fx: { kind: 'spell', actor: 'player', target: fxKey(t), element: spellElement(spell), icon: '' },
         });
         if (t.hp > 0) maybeInflictStatusOnHit(spell, t, c);
         if (t.hp <= 0) addLog(c, 'system', { text: `${t.displayName} cayó.`, killed: t.displayName, fx: { kind: 'death', target: fxKey(t) } });
       }
     } else {
-      addLog(c, 'player', { text: `Lanzaste ${spell.name}.`, fx: { kind: 'cast', actor: 'player', icon: spell.icon || '✨' } });
+      addLog(c, 'player', { text: `Lanzaste ${spell.name}.`, fx: { kind: 'cast', actor: 'player', icon: '' } });
     }
     afterPlayerAction();
   }
@@ -675,7 +682,7 @@
     let text = `Usaste ${item.name}.`;
     if (hpDelta > 0) text += ` (+${hpDelta} salud)`;
     if (manaDelta > 0) text += ` (+${manaDelta} maná)`;
-    addLog(c, 'player', { text, fx: { kind: 'heal', actor: 'player', target: 'player', amount: hpDelta, mana: manaDelta, icon: item.icon || '🧪' } });
+    addLog(c, 'player', { text, fx: { kind: 'heal', actor: 'player', target: 'player', amount: hpDelta, mana: manaDelta, icon: '' } });
     afterPlayerAction();
   }
 
@@ -788,7 +795,7 @@
     const ps = petStats(pet);
     const es = enemyStats(target);
     const r = attackRoll(ps.attack, es.defense);
-    const petIcon = pet.icon || '🐾';
+    const petIcon = '';
     const hungry = (pet.food != null && pet.food <= 0);
 
     if (!r.hit) {
@@ -842,7 +849,7 @@
       defense = st.defense; armor = st.armor; targetName = p.name;
     }
     const r = attackRoll(es.attack, defense);
-    const enemyIcon = enemy.icon || '👹';
+    const enemyIcon = '';
     const damageNotation = enemy.damage;
 
     if (!r.hit) {
@@ -940,7 +947,15 @@
     for (const inst of defeated) {
       const enemyData = A.Data.getById('enemies', inst.id);
       if (!enemyData) continue;
+      // v2.0: cada enemigo suelta monedas SIEMPRE, según su peligro
+      const sure = B().Economy && B().Economy.coinsFor ? B().Economy.coinsFor(enemyData) : 0;
+      if (sure > 0) {
+        totalCoins += sure;
+        if (A.Currency && A.Currency.add) A.Currency.add(sure); else A.State.addItem('coin_copper', sure);
+      }
       for (const d of enemyData.drops || []) {
+        // las monedas automáticas ya se pagaron arriba; solo cuentan las puestas a mano en el editor
+        if (d.itemId === 'coin_copper' && (d.source === 'balance' || d.source === 'auto' || !d.source)) continue;
         if (Math.random() >= (d.chance || 0)) continue;
         const qMin = Math.max(1, d.qtyMin || 1);
         const qMax = Math.max(qMin, d.qtyMax || qMin);
@@ -985,7 +1000,9 @@
       A.State.incrementRegionEncounters(A.State.world.regionId);
       addLog(c, 'system', { text: `Encuentros completados aquí: ${A.State.encountersInRegion(A.State.world.regionId)}.` });
     }
-    A.State.addChronicle({ type: 'combat', text: `Venciste a ${A.Encounter.describeGroup(c.enemies)} (+${totalXp} XP).` });
+    A.State.addChronicle({ type: 'combat', text: `Venciste a ${A.Narrator && A.Narrator.groupPhrase ? A.Narrator.groupPhrase(c.enemies).text : A.Encounter.describeGroup(c.enemies)} (+${totalXp} XP).` });
+    // v2.0: para las misiones ("mata 3 esqueletos")
+    A.Bus.emit('combat:victory', { enemyIds: c.enemies.map((e) => e.id), regionId: A.State.world ? A.State.world.regionId : null });
     A.Bus.emit('combat:ended', { result: 'victory', xp: totalXp });
     State().persist();
   }

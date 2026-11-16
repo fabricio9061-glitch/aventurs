@@ -10,19 +10,19 @@
   let activeFilter = 'all';
 
   const TYPE_ICONS = {
-    combat: '⚔️', loot: '💰', heal: '💚', shop: '🏪',
-    travel: '🗺️', craft: '⚒️', spell: '📖', rest: '🌙',
-    item: '🎒', note: '📝', system: '✨',
+    combat: '', loot: '', heal: '', shop: '',
+    travel: '', craft: '', spell: '', rest: '',
+    item: '', note: '', system: '',
   };
 
   const FILTERS = [
-    { id: 'all', label: 'Todo', icon: '·' },
-    { id: 'combat', label: 'Combate', icon: '⚔️' },
-    { id: 'loot', label: 'Botín', icon: '💰' },
-    { id: 'travel', label: 'Viajes', icon: '🗺️' },
-    { id: 'shop', label: 'Tienda', icon: '🏪' },
-    { id: 'spell', label: 'Magia', icon: '📖' },
-    { id: 'craft', label: 'Crafting', icon: '⚒️' },
+    { id: 'all', label: 'Todo', icon: '' },
+    { id: 'combat', label: 'Combate', icon: '' },
+    { id: 'loot', label: 'Botín', icon: '' },
+    { id: 'travel', label: 'Viajes', icon: '' },
+    { id: 'shop', label: 'Tienda', icon: '' },
+    { id: 'spell', label: 'Magia', icon: '' },
+    { id: 'craft', label: 'Crafting', icon: '' },
   ];
 
   function render() {
@@ -54,7 +54,7 @@
 
         ${filtered.length === 0 ? `
           <div class="empty-card">
-            <div class="empty-icon">📜</div>
+            <div class="empty-icon"></div>
             <div class="empty-title">${activeFilter === 'all' ? 'Sin historia aún' : `Sin entradas de ${FILTERS.find((f)=>f.id===activeFilter)?.label.toLowerCase()}`}</div>
             <div class="empty-text muted">
               ${activeFilter === 'all'

@@ -21,12 +21,17 @@
   };
 
   const GROUPS = [
-    { type: 'hybrid', name: 'Híbridos', desc: 'Pelean con arma y con magia' },
-    { type: 'warrior', name: 'Guerreros', desc: 'Sin magia: más vida y más daño' },
-    { type: 'mage', name: 'Magos', desc: 'Mucha magia, menos vida' },
+    { type: 'hybrid', name: 'Híbridos', desc: 'Arma y magia, un poco de cada una' },
+    { type: 'warrior', name: 'Guerreros', desc: 'Sin magia, pero maestros con las armas' },
+    { type: 'mage', name: 'Magos', desc: 'Hechizos fuertes; las armas pesadas les cuestan' },
   ];
 
-  const TYPE_LINE = { hybrid: 'Híbrido · arma y magia', warrior: 'Guerrero · sin magia', mage: 'Mago · magia fuerte' };
+  const TYPE_LINE = { hybrid: 'Híbrido · arma y magia', warrior: 'Guerrero · maestría con armas', mage: 'Mago · hechizos que crecen con el nivel' };
+  const TYPE_KIT = {
+    hybrid: 'Usa cualquier arma sin problema y lanza hechizos a medias.',
+    warrior: 'Maestría: +1 de daño con cualquier arma (+2 desde el nivel 5) y +1 al ataque con armas pesadas.',
+    mage: 'Sus hechizos pegan más fuerte y crecen con cada nivel y con un bastón. Las armas pesadas le quitan 3 de ataque.',
+  };
 
   function esc(s) { return A.Utils.escapeHtml(String(s == null ? '' : s)); }
   function icon(name, size, cls) { return A.ItemSprites ? A.ItemSprites.icon(name, { size, cls }) : ''; }
@@ -145,7 +150,10 @@
     const magic = A.Seed.raceHasMagic ? A.Seed.raceHasMagic(race.id) : race.combatType !== 'warrior';
     const pas = passiveOf(race);
     const rg = ranges();
-    const dmg = st.damage > 0 ? `1d4+${st.damage}` : '1d4';
+    const mastery = race.combatType === 'warrior' ? 1 : 0;
+    const dmgBonus = st.damage + mastery;
+    const dmg = dmgBonus > 0 ? `1d4+${dmgBonus}` : '1d4';
+    const spellPower = !magic ? 0 : race.combatType === 'mage' ? 1 : 0;
     return `
       <div class="cc-hero">
         <div class="cc-hero-portrait">${portrait(race, 128)}</div>
@@ -178,6 +186,7 @@
         <div class="cc-stat" title="Se resta a cada golpe que recibís"><span>Armadura</span><b>${st.armor}</b></div>
         <div class="cc-stat" title="Suma a tu dificultad: lo que el enemigo tiene que sacar para pegarte"><span>Esquiva</span><b>${st.dodge}</b></div>
       </div>
+      <p class="cc-kit is-class">${esc(TYPE_KIT[race.combatType] || TYPE_KIT.hybrid)}${magic ? ` Poder mágico inicial: +${spellPower}.` : ''}</p>
 
       <p class="cc-kit">Empieza con daga, túnica de cuero, dos pociones y algo de comida${magic ? '. Ya sabe el hechizo <b>Chispa</b>' : ''}.</p>
     `;

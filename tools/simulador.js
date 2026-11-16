@@ -59,7 +59,9 @@ function createGame() {
     let n = 0;
     while (queue.length && n < limit) { queue.shift()(); n++; }
   }
-  return { A, drain, queue };
+  // Math del juego (el sandbox tiene el suyo): sirve para fijar el azar en pruebas
+  const GameMath = vm.runInContext('Math', sandbox);
+  return { A, drain, queue, GameMath };
 }
 
 // ------------------------------------------------------------
@@ -83,8 +85,17 @@ function gearForLevel(G, p) {
   const lvl = p.level || 1;
   const ok = (x) => (x.tier || 1) <= lvl && ['common', 'uncommon', 'rare'].includes(x.rarity || 'common');
   const avg = (w) => (A.Balance ? A.Balance.avgOf(w.damage) : 1);
+  // v2.0: cada clase elige el arma que mejor le queda (los magos, bastones)
+  const type = A.Balance.classOf ? A.Balance.classOf(p) : 'hybrid';
+  const score = (w) => {
+    const fit = A.Balance.weaponFit ? A.Balance.weaponFit(p, w) : { atk: 0, dmg: 0 };
+    let s = avg(w) + fit.dmg + fit.atk * 0.6;
+    if (type === 'mage' && w.magic) s += 3;
+    if (type === 'hybrid' && w.magic) s += 0.5;
+    return s;
+  };
   const weapons = A.Data.weapons.filter((w) => ok(w) && (p.hasMagic ? true : !w.magic));
-  weapons.sort((a, b) => (b.tier - a.tier) || (avg(b) - avg(a)));
+  weapons.sort((a, b) => score(b) - score(a));
   const armors = A.Data.armors.filter(ok).sort((a, b) => (b.tier - a.tier) || (b.defense - a.defense));
   if (lvl > 1) {
     if (weapons[0]) p.equipment.weapon = weapons[0].id;
@@ -349,9 +360,9 @@ function report(section) {
     for (const t of Object.keys(byTier).map(Number).sort((a, b) => a - b)) {
       let coins = 0, n = 0, xp = 0;
       for (const e of byTier[t]) {
-        for (const d of e.drops || []) {
-          if (d.itemId === 'coin_copper') coins += (d.chance || 0) * ((d.qtyMin || 1) + (d.qtyMax || d.qtyMin || 1)) / 2;
-        }
+        // v2.0: monedas seguras por enemigo (Balance.Economy.coinsFor)
+        const E = A.Balance && A.Balance.Economy;
+        if (E && E.coinsFor) coins += E.coinBase(e.tier) * ((A.Balance.CATEGORY[e.category] || A.Balance.CATEGORY.normal).coin);
         if (A.Progression && A.Progression.xpForEnemy) xp += A.Progression.xpForEnemy(e);
         n++;
       }

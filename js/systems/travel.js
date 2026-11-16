@@ -380,6 +380,7 @@
       { itemId: 'hongo_luminoso',   weight: 40, qty: [1, 2], msg: 'Hongos que iluminan tu camino.' },
       { itemId: 'fragmento_cuarzo', weight: 25, qty: [1, 2], msg: 'Cristales en el techo de la cueva.' },
       { itemId: 'mineral_hierro',   weight: 20, qty: [1, 2], msg: 'Una veta de hierro en la pared.' },
+      { itemId: 'obsidiana',        weight: 15, qty: [1, 1], msg: 'Vidrio negro y liso brilla en la pared de la cueva.' },
       { itemId: 'moneda_antigua',   weight: 15, qty: [1, 1], msg: 'Una moneda en una grieta. ¿Quién la dejó?' },
     ],
     crypt: [
@@ -481,10 +482,10 @@
       kind: 'biome_loot',
       itemId: entry.itemId,
       itemName: itemData.name,
-      icon: itemData.icon || '🎁',
+      icon: '',
       qty,
       biome,
-      text: `${entry.msg} (${itemData.icon || '📦'} ${itemData.name} ×${qty})`,
+      text: `${entry.msg} (${itemData.name} ×${qty})`,
     };
   }
 
@@ -651,7 +652,7 @@
     const list = NARRATIVES[biome] || NARRATIVES.plains;
     const choice = A.Utils.randomOf(list);
     const text = typeof choice === 'string' ? choice : choice.text;
-    const icon = typeof choice === 'string' ? '✨' : (choice.icon || '✨');
+    const icon = '';
     return { kind: 'narrative', text, icon, biome };
   }
 

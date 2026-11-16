@@ -513,7 +513,17 @@
         type: type || 'note',
         text: text || '',
         regionId: regionId || (State.world && State.world.regionId) || null,
+        // v2.0: el diario agrupa por día
+        day: (State.world && State.world.day) || null,
       };
+      // v2.0: la misma línea dos veces seguidas se cuenta en vez de repetirse
+      const last = State.chronicles[0];
+      if (last && last.text === entry.text && last.regionId === entry.regionId && last.day === entry.day) {
+        last.count = (last.count || 1) + 1;
+        last.ts = entry.ts;
+        A.Bus.emit('chronicle:added', { entry: last });
+        return;
+      }
       State.chronicles.unshift(entry);
       // Cap razonable para que el localStorage no crezca infinito
       if (State.chronicles.length > 500) State.chronicles.length = 500;
