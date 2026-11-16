@@ -173,6 +173,52 @@
   }
 
   // ============================================================
+  // v2.3: Sugerir números (como la herramienta de autobalance de antes)
+  // ============================================================
+
+  const SUG_FIELDS = [
+    ['health', 'Vida'], ['damage', 'Daño'], ['attack', 'Precisión'],
+    ['difficulty', 'Defensa'], ['armor', 'Armadura'], ['speed', 'Velocidad'],
+  ];
+
+  function suggestSig(d) { return `${d.tier || 1}:${d.category || 'normal'}`; }
+
+  function enemySuggest(d) {
+    if (!d || !A.EditorSim || !A.EditorSim.STYLES) return '';
+    const key = `e:${d.id || 'nuevo'}`;
+    const st = (S().suggest || {})[key];
+    const fresh = st && st.sig === suggestSig(d) ? st : null;
+    const style = (fresh && fresh.style) || (st && st.style) || A.EditorSim.guessStyle(d);
+    const styles = Object.entries(A.EditorSim.STYLES).map(([id, x]) => `
+      <button type="button" class="ed-chip ${id === style ? 'is-on' : ''}" data-ed="suggest-style" data-key="${esc(key)}" data-style="${esc(id)}" title="${esc(x.hint)}">${esc(x.label)}</button>`).join('');
+    const catName = ({ weak: 'débiles', normal: 'normales', strong: 'fuertes', boss: 'jefes' })[d.category || 'normal'] || 'normales';
+    let body;
+    if (fresh && fresh.res) {
+      const r = fresh.res;
+      const shown = (k, v) => (k === 'attack' ? `+${v}` : String(v));
+      const rows = SUG_FIELDS.map(([k, label]) => {
+        const now = d[k] == null ? '—' : shown(k, d[k]);
+        const next = shown(k, r[k]);
+        const same = String(d[k]) === String(r[k]);
+        return `<tr class="${same ? '' : 'is-diff'}"><td>${label}</td><td class="num">${esc(now)}</td><td class="ed-sug-arrow">${same ? '' : '→'}</td><td class="num"><b>${esc(next)}</b></td></tr>`;
+      }).join('');
+      body = `
+        <table class="ed-sug-table"><thead><tr><th></th><th>Ahora</th><th></th><th>Sugerido</th></tr></thead><tbody>${rows}</tbody></table>
+        <div class="ed-dim">Con estos números un aventurero de nivel ${d.tier || 1} le gana el <b>${pct(r.win)}</b> de las veces y pierde cerca del <b>${pct(r.cost)}</b> de su vida, como contra las demás criaturas ${catName} del juego.</div>
+        <div class="ed-sug-actions">
+          <button type="button" class="ed-btn is-primary" data-ed="suggest-apply" data-key="${esc(key)}">${icon('check', 15)}<span>Usar estos números</span></button>
+          <button type="button" class="ed-btn" data-ed="suggest-style" data-key="${esc(key)}" data-style="${esc(style)}">${icon('d20', 15)}<span>Probar de nuevo</span></button>
+        </div>`;
+    } else {
+      body = `<div class="ed-sug-actions"><button type="button" class="ed-btn is-primary" data-ed="suggest-style" data-key="${esc(key)}" data-style="${esc(style)}">${icon('d20', 15)}<span>Sugerir números</span></button></div>`;
+    }
+    return card('Sugerir números', `
+      <div class="ed-dim">Elegí cómo es la criatura y te propongo vida, daño y defensas parejos con las criaturas ${catName} de nivel ${d.tier || 1}. No cambia nada hasta que toques "Usar estos números" y guardes.</div>
+      <div class="ed-sug-styles">${styles}</div>
+      ${body}`, { icon: 'd20', cls: 'is-suggest' });
+  }
+
+  // ============================================================
   // Escenas
   // ============================================================
 
@@ -297,8 +343,21 @@
     return card('Cómo le queda a cada clase (nivel 1)', lines, { cls: 'is-flat' });
   }
 
+  /** v2.4: lo que hace un objeto, como lo lee el jugador en su ficha. */
+  function itemEffects(d) {
+    const lines = d && d.subtype === 'accessory'
+      ? (A.Accessories ? A.Accessories.describe(d) : [])
+      : (A.ItemFx ? A.ItemFx.describe(d) : []);
+    const fair = d && d.subtype !== 'accessory' && d.effect && A.Balance && A.Balance.Economy && A.Balance.Economy.consumablePrice && ['heal', 'mana', 'food', 'buff'].includes(d.effect.type)
+      ? A.Balance.Economy.consumablePrice(d) : 0;
+    const body = `${lines.length ? `<ul class="ed-quest-objs">${lines.map((l) => `<li>${icon('star', 14)}<span>${esc(l)}</span></li>`).join('')}</ul>` : '<div class="ed-empty is-small">Todavía no hace nada.</div>'}
+      ${fair ? `<div class="ed-help">Precio justo por lo que da: ${esc(A.Currency ? A.Currency.formatPrice(fair) : fair)}.</div>` : ''}`;
+    return card('Así lo ve el jugador', body, { cls: 'is-flat' });
+  }
+
   Ed.panels = {
     regionMap, regionCreatures, regionTest, regionPeople, creaturesIn,
-    homeHelp, enemySim, dcHelp, eventPreview, npcQuests, priceHelp, questPreview, passiveHelp, racePreview, weaponFit,
+    homeHelp, enemySim, enemySuggest, suggestSig, dcHelp, eventPreview, npcQuests, priceHelp, questPreview, passiveHelp, racePreview, weaponFit,
+    itemEffects,
   };
 })(window.Aventurs);

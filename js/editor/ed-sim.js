@@ -148,21 +148,93 @@
   // ---------- cómo son las criaturas del juego (para comparar) ----------
 
   let calib = null;
-  /** Rango normal de % de victorias por tipo de criatura (con las del juego base). */
+  /** Lo que cuesta una pelea: vida que pierde el aventurero (perder = 1). */
+  const costFrom = (r) => (1 - r.win) + r.win * (1 - r.hpLeft);
+
+  /**
+   * Rango normal de % de victorias por tipo de criatura (con las del juego base),
+   * y el "costo" típico de cada tipo (v2.3: lo usa Sugerir números).
+   */
   function calibration() {
     if (calib) return calib;
     const byCat = {};
     for (const e of (A.Seed && A.Seed.enemies) || A.Data.enemies) {
       const r = fight([e], Math.max(1, Math.min(10, e.tier || 1)), 120);
-      (byCat[e.category || 'normal'] = byCat[e.category || 'normal'] || []).push(r.win);
+      const k = e.category || 'normal';
+      (byCat[k] = byCat[k] || { win: [], cost: [] });
+      byCat[k].win.push(r.win);
+      byCat[k].cost.push(costFrom(r));
     }
     calib = {};
     for (const k of Object.keys(byCat)) {
-      const xs = byCat[k].sort((a, b) => a - b);
-      const q = (f) => xs[Math.max(0, Math.min(xs.length - 1, Math.round(f * (xs.length - 1))))];
-      calib[k] = { lo: q(0.1), hi: q(0.9), mid: q(0.5) };
+      const q = (arr, f) => { const xs = arr.slice().sort((a, b) => a - b); return xs[Math.max(0, Math.min(xs.length - 1, Math.round(f * (xs.length - 1))))]; };
+      calib[k] = { lo: q(byCat[k].win, 0.1), hi: q(byCat[k].win, 0.9), mid: q(byCat[k].win, 0.5), cost: q(byCat[k].cost, 0.5) };
     }
     return calib;
+  }
+
+  // ---------- v2.3: sugerir números ----------
+
+  /** Formas de ser: reparten el mismo poder de otra manera. */
+  const STYLES = {
+    pareja: { label: 'Pareja', hint: 'Todo en la media de su nivel.', hp: 1, dmg: 1, armor: 0, def: 0, speed: 0 },
+    aguanta: { label: 'Aguanta mucho', hint: 'Mucha vida, pega menos.', hp: 1.3, dmg: 0.8, armor: 0, def: 0, speed: -2 },
+    pega: { label: 'Pega fuerte', hint: 'Golpes duros, poca vida.', hp: 0.8, dmg: 1.25, armor: 0, def: 0, speed: 0 },
+    rapida: { label: 'Rápida', hint: 'Ataca primero y cuesta pegarle.', hp: 0.85, dmg: 0.95, armor: 0, def: 1, speed: 4 },
+    acorazada: { label: 'Acorazada', hint: 'Mucha armadura, menos vida.', hp: 0.85, dmg: 0.9, armor: 2, def: 0, speed: -2 },
+  };
+
+  /** La forma que más se le parece a una criatura (para empezar). */
+  function guessStyle(d) {
+    if (!d || !A.Balance) return 'pareja';
+    const c = A.Balance.enemyStats(d.tier || 1, d.category || 'normal');
+    const hp = (d.health || c.health) / c.health;
+    const dmg = A.Balance.avgOf(d.damage || c.damage) / c.damageAvg;
+    if ((d.armor || 0) >= c.armor + 2) return 'acorazada';
+    if ((d.speed || 10) >= 14) return 'rapida';
+    if (dmg / hp > 1.25) return 'pega';
+    if (hp / dmg > 1.25) return 'aguanta';
+    return 'pareja';
+  }
+
+  /**
+   * Números sugeridos para una criatura: la curva de su nivel y tipo, con su
+   * forma de ser, y la vida afinada con peleas de prueba para que cueste lo
+   * mismo que las del juego de su mismo tipo.
+   */
+  function suggest(d, styleId) {
+    const tier = Math.max(1, Math.min(10, d.tier || 1));
+    const category = d.category || 'normal';
+    const st = STYLES[styleId] || STYLES.pareja;
+    const c = A.Balance.enemyStats(tier, category);
+    const target = (calibration()[category] || calibration().normal || {}).cost;
+    const out = {
+      damage: A.Balance.damageToNotation(c.damageAvg * st.dmg),
+      attack: c.attack,
+      difficulty: c.difficulty + st.def,
+      armor: Math.max(0, c.armor + st.armor),
+      // la velocidad es parte de su forma de ser: solo cambia si la forma lo pide
+      speed: (() => {
+        const cur = d.speed || (category === 'weak' ? 12 : 10);
+        if (st.speed > 0) return Math.min(20, Math.max(cur, 10 + st.speed));
+        if (st.speed < 0) return Math.max(3, Math.min(cur, 10 + st.speed));
+        return cur;
+      })(),
+      health: Math.max(3, Math.round(c.health * st.hp)),
+    };
+    if (target != null) {
+      const test = (hp) => costFrom(fight([{ ...d, ...out, health: hp }], tier, 160));
+      let lo = Math.max(3, Math.round(out.health * 0.5));
+      let hi = Math.max(lo + 1, Math.round(out.health * 1.8));
+      // el costo sube con la vida: búsqueda por mitades
+      for (let i = 0; i < 7 && hi - lo > 1; i++) {
+        const mid = Math.round((lo + hi) / 2);
+        if (test(mid) > target) hi = mid; else lo = mid;
+      }
+      out.health = Math.abs(test(lo) - target) <= Math.abs(test(hi) - target) ? lo : hi;
+    }
+    const r = fight([{ ...d, ...out }], tier, 300);
+    return { ...out, style: styleId, win: r.win, cost: costFrom(r), target };
   }
 
   // ---------- una zona ----------
@@ -189,5 +261,5 @@
     return { n: done, win: done ? wins / done : 0, size: done ? size / done : 0, worst, kinds: groups.size };
   }
 
-  A.EditorSim = { heroAt, fight, zone, calibration, clearCache };
+  A.EditorSim = { heroAt, fight, zone, calibration, clearCache, STYLES, guessStyle, suggest, costFrom };
 })(window.Aventurs);

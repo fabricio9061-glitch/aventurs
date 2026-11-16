@@ -100,6 +100,35 @@ window.Aventurs = window.Aventurs || {};
       return { min, max };
     },
 
+    /**
+     * v2.3: dados en forma corta: suma los números sueltos y junta los dados
+     * iguales ('1d8+1 + +2' -> '1d8+3', '1d6 + 1d6' -> '2d6').
+     */
+    compactDice(expression) {
+      const str = String(expression || '').replace(/\s+/g, '');
+      if (!str) return '';
+      const dice = new Map();
+      let flat = 0;
+      const re = /([+-]?)(\d+)d(\d+)|([+-]?)(\d+)/gi;
+      let m;
+      while ((m = re.exec(str))) {
+        if (m[2]) {
+          const sign = m[1] === '-' ? -1 : 1;
+          const faces = +m[3];
+          dice.set(faces, (dice.get(faces) || 0) + sign * (+m[2]));
+        } else if (m[5]) {
+          flat += (m[4] === '-' ? -1 : 1) * (+m[5]);
+        }
+      }
+      const parts = [];
+      Array.from(dice.entries()).sort((a, b) => b[0] - a[0]).forEach(([faces, n]) => {
+        if (n > 0) parts.push(`${parts.length ? '+' : ''}${n}d${faces}`);
+      });
+      if (flat > 0) parts.push(`${parts.length ? '+' : ''}${flat}`);
+      else if (flat < 0) parts.push(`-${Math.abs(flat)}`);
+      return parts.join('') || '0';
+    },
+
     clamp(n, min, max) {
       return Math.max(min, Math.min(max, n));
     },

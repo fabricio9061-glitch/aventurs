@@ -100,10 +100,11 @@
     const minLvl = (region.unlockConditions && region.unlockConditions.minLevel) || 1;
     const todo = questsHere(region);
 
-    const restLabel = night ? 'Dormir' : 'Descansar';
-    const restDesc = night
-      ? (isSafeRegion ? 'Hasta mañana. Recuperás bastante vida.' : 'Hasta mañana, al raso. Algo podría acercarse.')
-      : 'Un rato a la sombra. Pasa la tarde.';
+    // v2.3: descansar afuera cura hasta un tope y después hay que moverse
+    const restI = A.Explore && A.Explore.restInfo ? A.Explore.restInfo() : null;
+    const restLabel = restI ? restI.label : (night ? 'Dormir' : 'Descansar');
+    const restDesc = restI ? restI.desc : (night ? 'Hasta mañana.' : 'Un rato a la sombra. Pasa la tarde.');
+    const restLocked = !!(restI && restI.locked);
 
     mainEl.innerHTML = `
       <section class="world2">
@@ -133,7 +134,7 @@
               <span class="act2-icon">${icon('search', 40)}</span>
               <span class="act2-text"><span class="act2-label">Explorar</span><span class="act2-desc">Siempre pasa algo: criaturas, tesoros, peligros.</span></span>
             </button>` : ''}
-          <button class="act2" data-action="rest">
+          <button class="act2 ${restLocked ? 'is-tired' : ''}" data-action="rest" ${restLocked ? 'aria-disabled="true"' : ''}>
             <span class="act2-icon">${icon(night ? 'moon' : 'tent', 40)}</span>
             <span class="act2-text"><span class="act2-label">${restLabel}</span><span class="act2-desc">${restDesc}</span></span>
           </button>
@@ -500,7 +501,8 @@
     if (A.Time && A.Time.isNight()) dc += 1;
 
     // Bonus del jugador: D20 promedio (10.5) + speed/4
-    const speed = (p.stats && p.stats.speed) || 10;
+    // v2.4: la velocidad real (el peso del equipo frena)
+    const speed = (A.Balance && A.Balance.playerCombatStats ? A.Balance.playerCombatStats(p).speed : (p.stats && p.stats.speed)) || 10;
     const speedBonus = Math.floor(speed / 4);
 
     // Probabilidad: P(D20 + speedBonus >= dc) = (21 - (dc - speedBonus)) / 20
@@ -747,7 +749,7 @@
       // v2.0: descansar siempre hace algo (siesta de día, dormir de noche)
       const res = A.Explore ? A.Explore.rest() : null;
       if (res && res.kind !== 'night-event') {
-        lastNote = { icon: res.kind === 'nap' ? 'tent' : 'moon', text: res.text, chips: res.chips };
+        lastNote = { icon: res.kind === 'sleep' ? 'moon' : 'tent', text: res.text, chips: res.chips };
       } else {
         lastNote = null;
       }

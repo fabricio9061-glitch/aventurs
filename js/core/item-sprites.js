@@ -783,11 +783,188 @@
     for (const [x, y] of [[9, 23], [21, 21], [16, 25], [12, 26]]) P.put(x, y, 'hl');
   }
 
+  // ============================================================
+  // v2.4: formas nuevas (accesorios, libros, orbes, guadañas, comidas)
+  // ============================================================
+
+  const circle = (cx, cy, rx, ry, a0 = 0, a1 = Math.PI * 2, n = 32) =>
+    Array.from({ length: n + 1 }, (_, i) => { const a = a0 + (a1 - a0) * i / n; return [cx + Math.cos(a) * rx, cy + Math.sin(a) * ry]; });
+
+  function ring(P, o) {
+    const ry = o.band ? 6 : 7.5;
+    P.line(circle(16, 20, 9.5, ry), o.band ? 2.6 : 1.6, o.band ? 2.6 : 1.6, 'a');
+    P.line(circle(16, 20, 9.5, ry, Math.PI * 1.1, Math.PI * 1.9, 12), 0.5, 0.5, 'c');
+    if (o.spikes) for (const a of [0.4, 1.2, 2.0, 2.8]) {
+      const x = 16 + Math.cos(a) * 10.5, y = 20 + Math.sin(a) * (ry + 1);
+      P.poly([[x - 1.2, y - 0.6], [x + Math.cos(a) * 3, y + Math.sin(a) * 3], [x + 1.2, y + 0.6]], 'a');
+    }
+    if (o.band) { for (const x of [10, 16, 22]) P.put(x, 25.5, 'g'); return; }
+    P.poly([[16, 4], [21.5, 9.5], [16, 15], [10.5, 9.5]], 'g');
+    P.poly([[16, 6.5], [19, 9.5], [16, 12.5], [13, 9.5]], 'g~');
+    P.put(14.5, 8, 'hl');
+  }
+
+  function book(P, o) {
+    P.poly([[6, 6.5], [24, 4.5], [27, 25.5], [9, 27.5]], 'b');
+    P.poly([[9, 27.5], [27, 25.5], [27.4, 28], [9.4, 30]], 'c');
+    P.line([[7.6, 7], [10.2, 28]], 0.9, 0.9, 'b~');
+    P.line([[11, 6.4], [13, 27]], 0.35, 0.35, 'a');
+    P.dot(18, 15.5, 3.6, 'a');
+    P.dot(18, 15.5, 2, 'g');
+    if (o.clasp) P.rect(24.5, 13.5, 3.5, 3, 'a');
+    P.put(13, 8, 'hl');
+  }
+
+  function orb(P) {
+    P.poly([[9.5, 28.5], [22.5, 28.5], [20.5, 24], [11.5, 24]], 'a');
+    P.dot(16, 14.5, 9.2, 'b');
+    P.dot(16, 14.5, 6.2, 'c');
+    P.dot(16, 14.5, 2.4, 'g');
+    P.dot(12.5, 11, 1.8, 'hl');
+  }
+
+  function boots(P, o) {
+    for (const x of [5, 16]) {
+      P.poly([[x, 6], [x + 7, 6], [x + 7, 19], [x + 11, 21], [x + 11, 27], [x - 1, 27], [x, 18]], 'b');
+      P.rect(x, 6.5, 7, 2.2, 'c');
+      P.rect(x - 1, 25.4, 12, 1.8, 'a');
+      if (o.wings) P.poly([[x, 9], [x - 4, 5], [x - 3, 11]], 'g');
+    }
+  }
+
+  function cape(P) {
+    P.poly([[11, 4.5], [21, 4.5], [27.5, 28.5], [21.5, 26], [16, 28.5], [10.5, 26], [4.5, 28.5]], 'b');
+    P.poly([[11, 4.5], [21, 4.5], [19.5, 9], [12.5, 9]], 'c');
+    P.line([[13.5, 10], [10, 26]], 0.45, 0.45, 'b~');
+    P.line([[18.5, 10], [22, 26]], 0.45, 0.45, 'b~');
+    P.dot(16, 7, 1.7, 'a');
+  }
+
+  function gauntlet(P, o) {
+    P.poly([[8.5, 14], [23.5, 14], [24, 25], [8, 25]], 'm');
+    for (const [x, y, h] of [[9, 6, 9], [12.7, 4.5, 10.5], [16.4, 4.5, 10.5], [20.1, 6.5, 8.5]]) {
+      P.rect(x, y, 3.2, h, 'm');
+      P.put(x + 1, y + 1, 'c');
+    }
+    P.poly([[3.5, 15], [8.5, 14], [8.5, 21], [4.5, 20]], 'm');
+    P.rect(7.5, 24, 17, 5, 'a');
+    P.line([[9, 15], [23, 15]], 0.4, 0.4, 'c');
+    if (o.runes) for (const x of [11, 15, 19]) P.put(x, 19, 'g');
+  }
+
+  function scythe(P, o) {
+    if (o.small) {
+      P.line([[7, 29], [13.5, 19.5]], 1.3, 1.3, 'wd');
+      P.line(bez([13.5, 19.5], [28, 19], [27, 3], [14, 5], 14), 1.5, 0.35, 'm');
+      P.line(bez([15, 18], [25, 17], [24.5, 6.5], [15.5, 7], 10), 0.35, 0.35, 'c');
+      return;
+    }
+    P.line([[7, 30], [21, 3]], 1.0, 0.9, 'wd');
+    P.line(bez([20.5, 4], [12, 0.5], [3, 4.5], [1.5, 13], 14), 1.8, 0.35, 'm');
+    P.line(bez([19, 5.5], [12, 3.5], [5, 6], [3.5, 11.5], 10), 0.35, 0.35, 'c');
+    P.line([[11, 18], [15, 20]], 0.8, 0.8, 'wd');
+    if (o.glow) P.put(5, 8, 'g');
+  }
+
+  function whip(P) {
+    P.line([[4, 28.5], [10.5, 22]], 1.4, 1.2, 'wd');
+    P.dot(4, 28.5, 1.4, 'a');
+    P.line(bez([10.5, 22], [27, 27], [30, 7], [17, 8], 16).concat(bez([17, 8], [7, 9], [9, 17], [18, 15], 10).slice(1)), 0.9, 0.35, 'b');
+  }
+
+  function clover(P) {
+    P.line([[16, 17], [19, 29]], 0.5, 0.5, 'wd');
+    for (const [x, y] of [[12, 12], [20, 12], [12, 20], [20, 20]]) P.dot(x, y, 4.6, 'b');
+    for (const [x, y] of [[11, 11], [19, 11], [11, 19], [19, 19]]) P.put(x, y, 'c');
+    P.dot(16, 16, 1.4, 'b~');
+  }
+
+  function fruit(P, o) {
+    const k = o.kind || 'apple';
+    if (k === 'carrot') {
+      P.poly([[9, 8], [14, 6.5], [26, 27], [24, 28.5]], 'b');
+      for (const y of [11, 15, 19]) P.line([[y * 0.55 + 4, y], [y * 0.55 + 8, y - 1]], 0.3, 0.3, 'b~');
+      P.poly([[10, 8], [5, 2], [9, 4], [11, 1], [12.5, 6]], 'a');
+      return;
+    }
+    if (k === 'potato') {
+      P.ell(16, 18, 11, 8.5, 'b');
+      for (const [x, y] of [[11, 15], [19, 14], [15, 21], [22, 20]]) P.put(x, y, 'b~');
+      P.line([[10, 13], [13, 11]], 0.4, 0.4, 'c');
+      if (o.ember) for (const [x, y] of [[8, 22], [24, 23]]) P.put(x, y, 'g');
+      return;
+    }
+    if (k === 'banana') {
+      P.line(bez([7, 8], [9, 24], [20, 28], [27, 21], 14), 2.6, 1.2, 'b');
+      P.line(bez([8.5, 10], [11, 22], [19, 25.5], [25.5, 20.5], 12), 0.5, 0.5, 'c');
+      P.line([[6.5, 7.5], [6, 4.5]], 0.8, 0.8, 'wd');
+      P.put(27, 21, 'wd');
+      return;
+    }
+    if (k === 'melon') {
+      P.poly(circle(16, 13, 13, 13, 0, Math.PI, 16), 'a');
+      P.poly(circle(16, 13, 11, 11, 0, Math.PI, 16), 'b');
+      for (const [x, y] of [[11, 17], [16, 20], [21, 17], [13.5, 21.5], [18.5, 21.5]]) P.put(x, y, 'k');
+      P.line([[3.5, 13], [28.5, 13]], 0.5, 0.5, 'c');
+      return;
+    }
+    if (k === 'egg') {
+      P.ell(16, 17.5, 8.5, 11, 'b');
+      for (const [x, y] of [[13, 12], [19, 16], [14, 22], [20, 23]]) P.dot(x, y, 1.3, 'c');
+      P.put(12, 10, 'hl');
+      if (o.glow) for (const [x, y] of [[5, 9], [27, 12], [6, 25], [26, 27]]) P.put(x, y, 'g');
+      return;
+    }
+    if (k === 'eggs') {
+      for (const [x, y, k] of [[16, 12.5, 'b~'], [10.5, 18.5, 'b'], [21.5, 18.5, 'b']]) { P.ell(x, y, 4.6, 6, k); P.put(x - 1.5, y - 3, 'hl'); }
+      P.poly([[4, 23], [28, 23], [25, 29], [7, 29]], 'a');
+      return;
+    }
+    // manzana
+    P.dot(16, 18, 10, 'b');
+    P.dot(11.5, 14, 2, 'c');
+    P.line([[16, 9], [17.5, 4]], 0.6, 0.5, 'wd');
+    P.poly([[17.5, 6], [24, 3], [21.5, 8]], 'a');
+    if (o.glow) for (const [x, y] of [[6, 8], [27, 13], [8, 27]]) P.put(x, y, 'g');
+  }
+
+  function bowl(P, o) {
+    P.ell(16, 15, 12, 4, o.kind === 'pie' ? 'c' : 'e');
+    if (o.kind === 'pie') {
+      P.poly([[4, 15], [28, 15], [26, 23], [6, 23]], 'b');
+      for (const x of [9, 14, 19, 24]) P.line([[x, 12.5], [x + 1.5, 15.5]], 0.4, 0.4, 'b~');
+      P.rect(5, 22, 22, 2, 'b~');
+      return;
+    }
+    if (o.chunks) for (const [x, y] of [[11, 14.5], [16, 13.5], [21, 15]]) P.dot(x, y, 1.4, 'c');
+    P.poly([[4, 15], [28, 15], [23, 25.5], [9, 25.5]], 'b');
+    P.rect(11, 25.5, 10, 2, 'b~');
+    for (const x of [12, 16, 20]) P.line([[x, 10], [x - 1, 7], [x + 0.5, 4]], 0.4, 0.4, 'hl');
+  }
+
+  function jar(P) {
+    P.rect(10, 6, 12, 4, 'wd');
+    P.poly([[8, 10], [24, 10], [25.5, 27], [6.5, 27]], 'gl');
+    P.recolor(['gl'], 'b', (x, y) => y > 13);
+    P.rect(9, 17, 14, 5, 'c');
+    P.line([[9.5, 12], [9, 24]], 0.5, 0.5, 'hl');
+  }
+
+  function basket(P) {
+    P.line(circle(16, 15, 10, 9, Math.PI, Math.PI * 2, 16), 1, 1, 'wd');
+    P.poly([[4, 15], [28, 15], [25, 28], [7, 28]], 'wd');
+    for (const y of [18, 21.5, 25]) P.line([[5, y], [27, y]], 0.4, 0.4, 'wd~');
+    P.dot(11, 14, 3.4, 'b');
+    P.dot(17.5, 13, 3.4, 'c');
+    P.ell(23, 14, 3.4, 2.6, 'a');
+  }
+
   const SHAPES = {
     sword, axe, halberd, club, mace, hammer, staff, wand, scepter, bow, crossbow, spear, armor,
     potion, meat, bread, cheese, berries, cactus, goo, scroll, coins, oldCoin, key, bag, lantern, rope,
     amulet, ingot, rock, gem, crystal, feather, bone, fang, claw, horn, stinger, scale, pearl, pelt,
     log, plant, essence, bodyPart, fabric, urn, core, saltPile,
+    ring, book, orb, boots, cape, gauntlet, scythe, whip, clover, fruit, bowl, jar, basket,
   };
 
   // ============================================================
@@ -802,6 +979,19 @@
     const p = { m: mat.m, c: mat.c, a: '#c9a24a', wd: '#7a5430', g: (el && el.g) || '#9ae0ff', hl: '#ffffff', k: '#1a1410' };
     if (/obsidiana/.test(t)) { p.m = '#2e2638'; p.c = '#7a5ab0'; }
     if (/colmillo/.test(t)) return { shape: 'fang', p: { t: '#f0e8d0', c: '#ffffff', r: '#a02a1a' }, o: { curved: true, blood: true } };
+    // v2.4: armas nuevas
+    if (/(^|\s)hoz(\s|$)/.test(t)) return { shape: 'scythe', p, o: { small: true } };
+    if (/guada|segadora/.test(t)) return { shape: 'scythe', p: /segadora/.test(t) ? { ...p, m: '#3a3046', c: '#9a8ac0', wd: '#2a2028', g: '#c090ff' } : p, o: { glow: /segadora/.test(t) } };
+    if (/l[aá]tigo/.test(t)) return { shape: 'whip', p: { ...p, b: '#6a4224' } };
+    if (/tomo|grimorio/.test(t)) return { shape: 'book', p: { b: /grimorio/.test(t) ? '#2a1a2a' : '#6a3a2a', c: '#f0e6cc', a: '#c9a24a', g: /grimorio/.test(t) ? '#c03030' : '#7ae0ff', hl: '#ffffff' }, o: { clasp: true } };
+    if (/(^|\s)orbe/.test(t)) return { shape: 'orb', p: { b: '#5a3ab0', c: '#a88af0', g: '#ffffff', a: '#c9a24a', hl: '#ffffff' } };
+    if (/cristal arcano/.test(t)) return { shape: 'crystal', p: { b: '#8a5ae0', c: '#e0d0ff', hl: '#ffffff' } };
+    if (/lucero|mangual|nunchaku/.test(t)) return { shape: 'mace', p };
+    if (/gungnir/.test(t)) return { shape: 'spear', p: { ...p, m: '#e0c060', c: '#fff4c0' } };
+    if (/cimitarra|alfanje|masamune/.test(t)) return { shape: 'sword', p: /masamune/.test(t) ? { ...p, m: '#dfe8f0', a: '#2a2a2a', k: '#202024' } : p, o: { curve: true, round: /masamune/.test(t), grip: /masamune/.test(t) ? 6.5 : 4.5, gripKey: /masamune/.test(t) ? 'k' : undefined, w: /alfanje/.test(t) ? 1.7 : 1.1 } };
+    if (/claymore|espad[oó]n|matadragones/.test(t)) return { shape: 'sword', p: /matadragones/.test(t) ? { ...p, m: '#8a929c', a: '#b03020' } : p, o: { len: 1.12, w: 1.7, guard: 6, grip: 5.5, x0: 10, y0: 22 } };
+    if (/vengador|lamento/.test(t)) return { shape: 'sword', p: { ...p, m: /lamento/.test(t) ? '#a8d8f0' : '#e8e0c0', g: /lamento/.test(t) ? '#e0f6ff' : '#ffd040' }, o: { len: 1.05, w: 1.35, runes: true, gem: true } };
+    if (/estoque/.test(t)) return { shape: 'sword', p, o: { len: 1.05, w: 0.7, guard: 3.5 } };
     if (/katana/.test(t)) return { shape: 'sword', p: { ...p, a: '#2a2a2a', k: '#202024' }, o: { curve: true, round: true, grip: 6.5, gripKey: 'k', w: 0.95, len: 1.02 } };
     if (/mandoble/.test(t)) return { shape: 'sword', p, o: { len: 1.12, w: 1.6, guard: 5.5, grip: 5.5, x0: 10, y0: 22 } };
     if (/excalibur/.test(t)) return { shape: 'sword', p: { ...p, m: '#dfe8f0', c: '#ffffff', a: '#ffd040', g: '#60c0ff' }, o: { len: 1.05, w: 1.35, guard: 5, gem: true } };
@@ -830,6 +1020,33 @@
   function armorShape(it, t) {
     const el = elemOf(t);
     const base = { a: '#8a6a3a', c: '#e8d8b0', m: '#b8bcc4', wd: '#6a4a2a', g: (el && el.g) || '#9ae0ff' };
+    // v2.4: armaduras nuevas
+    if (/archimago|celestial|vestiduras|ropajes|vestido|druida|t[uú]nica de mago|plumas|armadura del vac/.test(t)) {
+      const col = /archimago/.test(t) ? ['#2a3a8a', '#e0c060', '#c0d8ff'] : /celestial/.test(t) ? ['#1a2050', '#e0c060', '#fff6c0']
+        : /vestiduras/.test(t) ? ['#e8e0d0', '#d0a030', '#fff2a0'] : /ropajes/.test(t) ? ['#2a1e2e', '#7a5a9a', '#c090ff']
+        : /vestido/.test(t) ? ['#3a8a8a', '#e0c060', '#a0f0e8'] : /druida/.test(t) ? ['#3a6a2a', '#a07a3a', '#a0f070']
+        : /plumas/.test(t) ? ['#c83a1a', '#ffb030', '#ffe080'] : /vac/.test(t) ? ['#16121e', '#5a3a8a', '#9a6ad0'] : ['#2a4aa0', '#c0a040', '#c0e0ff'];
+      return { shape: 'armor', p: { ...base, b: col[0], a: col[1], g: col[2] }, o: { kind: 'robe', stars: /celestial|archimago|mago/.test(t) } };
+    }
+    if (/acolchad/.test(t)) return { shape: 'armor', p: { ...base, b: '#c8b890', a: '#8a6a3a' }, o: { kind: 'tunic' } };
+    if (/^pieles/.test(t)) return { shape: 'armor', p: { ...base, b: '#8a6a4a', a: '#5a3a1a' }, o: { kind: 'leather' } };
+    if (/tachonad/.test(t)) return { shape: 'armor', p: { ...base, b: '#7a4a2a', a: '#3a2a1a', m: '#c8c8d0' }, o: { kind: 'studded' } };
+    if (/anillas/.test(t)) return { shape: 'armor', p: { ...base, b: '#8a929c', a: '#6a4a2a' }, o: { kind: 'chain' } };
+    if (/huesos/.test(t)) return { shape: 'armor', p: { ...base, b: '#d8ccaa', c: '#fff8e6', a: '#8a7a5a' }, o: { kind: 'brigandine' } };
+    if (/corteza/.test(t)) return { shape: 'armor', p: { ...base, b: '#6a4a2a', c: '#9a7a4a', a: '#3a6a2a' }, o: { kind: 'plate' } };
+    if (/quitina/.test(t)) return { shape: 'armor', p: { ...base, b: '#3a5a3a', c: '#7aa06a' }, o: { kind: 'breastplate', sheen: true } };
+    if (/sombras/.test(t)) return { shape: 'armor', p: { ...base, b: '#2a2430', a: '#4a3a5a', g: '#9a6ad0' }, o: { kind: 'leather', sheen: true } };
+    if (/escamas/.test(t)) return { shape: 'armor', p: { ...base, b: '#7a8a8a', c: '#c0d0d0' }, o: { kind: 'plate', scales: true } };
+    if (/tablillas|bandas/.test(t)) return { shape: 'armor', p: { ...base, b: '#8a929c', a: '#6a4a2a' }, o: { kind: 'brigandine' } };
+    if (/coral/.test(t)) return { shape: 'armor', p: { ...base, b: '#e07a6a', c: '#ffc0b0' }, o: { kind: 'breastplate' } };
+    if (/armadura de cristal/.test(t)) return { shape: 'armor', p: { ...base, b: '#a8d8f0', c: '#ffffff', g: '#ffffff' }, o: { kind: 'plate', sheen: true } };
+    if (/volc[aá]nica/.test(t)) return { shape: 'armor', p: { ...base, b: '#3a2a26', c: '#ff7a30', g: '#ffb030' }, o: { kind: 'plate', runes: true } };
+    if (/escarcha/.test(t)) return { shape: 'armor', p: { ...base, b: '#7ab8e0', c: '#e0f6ff', g: '#ffffff' }, o: { kind: 'plate', sheen: true } };
+    if (/tormenta/.test(t)) return { shape: 'armor', p: { ...base, b: '#4a4a7a', c: '#a0a0e0', g: '#fff070' }, o: { kind: 'plate', runes: true } };
+    if (/g[oó]tica/.test(t)) return { shape: 'armor', p: { ...base, b: '#3a3a42', c: '#8a8a96' }, o: { kind: 'plate' } };
+    if (/mithril/.test(t)) return { shape: 'armor', p: { ...base, b: '#d8e4f0', c: '#ffffff', g: '#c0e8ff' }, o: { kind: 'plate', sheen: true } };
+    if (/adamant/.test(t)) return { shape: 'armor', p: { ...base, b: '#4a6a7a', c: '#a0d0d8' }, o: { kind: 'plate', sheen: true } };
+    if (/completa|torneo|media placa/.test(t)) return { shape: 'armor', p: { ...base, b: '#a0aab4', c: '#e8eef4' }, o: { kind: 'plate' } };
     if (/manto/.test(t) || /t[uú]nica de tela/.test(t) && false) {
       if (/estelar/.test(t)) return { shape: 'armor', p: { ...base, b: '#1e2a5a', a: '#e0c060', g: '#fff6c0' }, o: { kind: 'robe', stars: true } };
       return { shape: 'armor', p: { ...base, b: '#3a2a5a', a: '#c0a040' }, o: { kind: 'robe' } };
@@ -893,9 +1110,35 @@
       if (/man[aá]/.test(t)) col = ['#2a5ad0', '#7aaaff'];
       else if (/ant[ií]doto/.test(t)) col = ['#3aa03a', '#9ae07a'];
       else if (/fuerza/.test(t)) col = ['#e08a20', '#ffd070'];
+      else if (/piedra/.test(t)) col = ['#7a7a80', '#b0b0b8'];
+      else if (/velocidad/.test(t)) col = ['#e0c020', '#fff6a0'];
+      else if (/regenera/.test(t)) col = ['#3ab05a', '#9af0a0'];
+      else if (/invisib/.test(t)) col = ['#c8d0e0', '#f4f8ff'];
+      else if (/contra el fuego/.test(t)) col = ['#e05a20', '#ffb060'];
+      else if (/contra el fr/.test(t)) col = ['#5ab0f0', '#d0f0ff'];
+      else if (/elixir de vida/.test(t)) col = ['#f0c0d0', '#ffffff'];
       else if (/lodo/.test(t)) col = ['#6a4a2a', '#9a7a50'];
       const shape = /menor/.test(t) ? 'small' : /elixir/.test(t) ? 'tall' : 'round';
       return { shape: 'potion', p: { b: col[0], c: col[1], gl: GLASS, wd: '#8a5a30', hl: '#ffffff' }, o: { shape } };
+    }
+    // v2.4: accesorios
+    if (sub === 'accessory' || /^acc /.test(t)) {
+      if (/anillo/.test(t)) return { shape: 'ring', p: { a: /cobre/.test(t) ? '#c87a3a' : /espinas/.test(t) ? '#6a6a72' : '#d4a42c', c: '#fff0b0', g: /espinas/.test(t) ? '#c03040' : /certero/.test(t) ? '#40c060' : '#c87a3a', hl: '#ffffff' }, o: { spikes: /espinas/.test(t) } };
+      if (/brazalete/.test(t)) return { shape: 'ring', p: { a: '#9aa4b0', c: '#e0e6ec', g: '#c03030' }, o: { band: true } };
+      if (/botas/.test(t)) return { shape: 'boots', p: { b: '#7a4a2a', c: '#a8784a', a: '#c9a24a', g: '#f0f0ff' }, o: { wings: true } };
+      if (/capa/.test(t)) return { shape: 'cape', p: { b: '#3a4a7a', c: '#5a6aa0', a: '#d4a42c' } };
+      if (/guantelete/.test(t)) return { shape: 'gauntlet', p: { m: '#9aa4b0', c: '#e0e6ec', a: '#7a4a2a', g: '#ff7a30' }, o: { runes: true } };
+      if (/guantes/.test(t)) return { shape: 'gauntlet', p: { m: '#9a6a3a', c: '#d0a070', a: '#5a3a1a', g: '#fff070' }, o: { runes: true } };
+      if (/tr[eé]bol/.test(t)) return { shape: 'clover', p: { b: '#3a9a3a', c: '#8ae07a', wd: '#2a6a2a' } };
+      if (/orbe/.test(t)) return { shape: 'orb', p: { b: '#2a8a4a', c: '#8ae0a0', g: '#ffffff', a: '#c9a24a', hl: '#ffffff' } };
+      if (/gema de man/.test(t)) return { shape: 'gem', p: { b: '#2a6ae0', c: '#ffffff' } };
+      if (/cruz/.test(t)) return { shape: 'amulet', p: { a: '#e0c040', g: '#ffffff', hl: '#ffffff' } };
+      if (/escudo/.test(t)) return { shape: 'amulet', p: { a: '#9aa4b0', g: '#7ae0ff', hl: '#ffffff' } };
+      if (/vamp/.test(t)) return { shape: 'amulet', p: { a: '#4a3a3a', g: '#c01a2a', hl: '#ffffff' } };
+      if (/sabidur/.test(t)) return { shape: 'amulet', p: { a: '#c9a24a', g: '#7a9ae0', hl: '#ffffff' } };
+      if (/iniciativa/.test(t)) return { shape: 'amulet', p: { a: '#c8d0da', g: '#fff070', hl: '#ffffff' } };
+      if (/superviviente/.test(t)) return { shape: 'amulet', p: { a: '#e0b030', g: '#ff5a5a', hl: '#ffffff' } };
+      if (/hueso/.test(t)) return { shape: 'fang', p: { t: '#f2ead6', c: '#ffffff', r: '#a02a1a' } };
     }
     // amuletos
     if (/collar de perlas/.test(t)) return { shape: 'amulet', p: { a: '#c0a040', hl: '#f8f4ec' }, o: { pearls: true } };
@@ -904,6 +1147,36 @@
     if (/linterna|farol|antorcha/.test(t)) return { shape: 'lantern', p: { m: '#4a4a52', g: '#ffd070', f: '#fff6c0' } };
     if (/cuerda/.test(t)) return { shape: 'rope', p: { b: '#b0905a' } };
     if (/reliquia|urna|[aá]nfora/.test(t)) return { shape: 'urn', p: { b: '#b08a3a', c: '#e0c070', g: '#60e0c0' } };
+    // v2.4: comidas y bebidas nuevas
+    if (/ambros/.test(t)) return { shape: 'fruit', p: { b: '#f0c030', c: '#fff4b0', wd: '#7a5430', a: '#5ab04a', g: '#fff6c0' }, o: { kind: 'apple', glow: true } };
+    if (/manzana/.test(t)) return { shape: 'fruit', p: { b: '#d02a2a', c: '#ff8a7a', wd: '#5a3a1a', a: '#4a9a3a' }, o: { kind: 'apple' } };
+    if (/zanahoria/.test(t)) return { shape: 'fruit', p: { b: '#f08a20', a: '#4a9a3a' }, o: { kind: 'carrot' } };
+    if (/papa asada/.test(t)) return { shape: 'fruit', p: { b: '#8a5a2a', c: '#e0c080', g: '#ff8a30' }, o: { kind: 'potato', ember: true } };
+    if (/huevos/.test(t)) return { shape: 'fruit', p: { b: '#f4ecd8', a: '#b08a5a', hl: '#ffffff' }, o: { kind: 'eggs' } };
+    if (/frutillas/.test(t)) return { shape: 'berries', p: { b: '#d02a3a', a: '#3a8a3a', wd: '#5a3a1a' } };
+    if (/huevo de f[eé]nix/.test(t)) return { shape: 'fruit', p: { b: '#f08a30', c: '#ffd060', g: '#fff2a0', hl: '#ffffff' }, o: { kind: 'egg', glow: true } };
+    if (/naranja/.test(t)) return { shape: 'fruit', p: { b: '#f08a20', c: '#ffc070', wd: '#5a3a1a', a: '#4a9a3a' }, o: { kind: 'apple' } };
+    if (/tomate/.test(t)) return { shape: 'fruit', p: { b: '#e0302a', c: '#ff8a7a', wd: '#3a7a2a', a: '#3a8a3a' }, o: { kind: 'apple' } };
+    if (/cebolla/.test(t)) return { shape: 'fruit', p: { b: '#b06a9a', c: '#f0d0e8', wd: '#c8b080', a: '#7aa04a' }, o: { kind: 'apple' } };
+    if (/pl[aá]tano/.test(t)) return { shape: 'fruit', p: { b: '#f0d040', c: '#fff4a0', wd: '#5a4a1a' }, o: { kind: 'banana' } };
+    if (/sand[ií]a/.test(t)) return { shape: 'fruit', p: { a: '#3a8a3a', b: '#e0404a', c: '#f0f0d0', k: '#1a1a1a' }, o: { kind: 'melon' } };
+    if (/choclo/.test(t)) return { shape: 'fruit', p: { b: '#f0d040', a: '#5aa03a' }, o: { kind: 'carrot' } };
+    if (/arroz/.test(t)) return { shape: 'bowl', p: { b: '#8a5a32', e: '#f4f0e0', hl: '#ffffff' } };
+    if (/fideos/.test(t)) return { shape: 'bowl', p: { b: '#8a5a32', e: '#e8c070', c: '#c0302a', hl: '#ffffff' }, o: { chunks: true } };
+    if (/ensalada/.test(t)) return { shape: 'bowl', p: { b: '#a07a4a', e: '#5ab04a', c: '#e0302a', hl: '#ffffff' }, o: { chunks: true } };
+    if (/tocino/.test(t)) return { shape: 'meat', p: { b: '#b0403a', c: '#f0b0a0' }, o: { kind: 'jerky' } };
+    if (/filete/.test(t)) return { shape: 'meat', p: { b: '#8a3a2a', c: '#c87a5a', t: '#f0e8d0' } };
+    if (/galletas/.test(t)) return { shape: 'coins', p: { b: '#b8803a', c: '#e8b878' } };
+    if (/dulces/.test(t)) return { shape: 'berries', p: { b: '#e05a9a', a: '#c9a24a', wd: '#8a5a30' } };
+    if (/champi/.test(t)) return { shape: 'plant', p: { b: '#a8805a', c: '#e8dcc8' }, o: { kind: 'mushroom' } };
+    if (/sopa/.test(t)) return { shape: 'bowl', p: { b: '#8a5a32', e: '#e0a040', hl: '#ffffff' } };
+    if (/estofado/.test(t)) return { shape: 'bowl', p: { b: '#6a4a2a', e: '#a0502a', c: '#e0a070', hl: '#ffffff' }, o: { chunks: true } };
+    if (/pastel/.test(t)) return { shape: 'bowl', p: { b: '#c88a3a', c: '#e8b060' }, o: { kind: 'pie' } };
+    if (/cerveza|hidromiel/.test(t)) return { shape: 'potion', p: { b: '#8a5a2a', e: /hidromiel/.test(t) ? '#f0c040' : '#f8f0d8', hl: '#ffffff' }, o: { shape: 'cup' } };
+    if (/miel|jalea/.test(t)) return { shape: 'jar', p: { b: /jalea/.test(t) ? '#f0e090' : '#e0a020', c: '#f4ecd8', gl: GLASS, wd: '#8a5a30', hl: '#ffffff' } };
+    if (/vino/.test(t)) return { shape: 'potion', p: { b: '#6a1a2a', c: '#a03040', gl: '#3a5a3a', wd: '#6a3a1a', hl: '#ffffff' }, o: { shape: 'tall' } };
+    if (/fest[ií]n/.test(t)) return { shape: 'basket', p: { wd: '#a07a3a', b: '#d02a2a', c: '#e0b030', a: '#b0503a' } };
+    if (/pollo asado/.test(t)) return { shape: 'meat', p: { b: '#c08030', c: '#e8b060', t: '#f0e8d0' }, o: { kind: 'drumstick' } };
     // comida
     if (/pan\b|^pan/.test(t)) return { shape: 'bread', p: { b: '#c88a3a', c: '#e8b060' } };
     if (/queso/.test(t)) return { shape: 'cheese', p: { b: '#e8b830', c: '#f8d860' } };

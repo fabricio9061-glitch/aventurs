@@ -19,6 +19,7 @@
   font-family: var(--font);
   font-size: 14px;
   overflow: hidden;
+  overflow: clip; /* v2.3: que nada pueda correr la pantalla entera del editor */
 }
 .ed-app .px-sprite, .ed-layer .px-sprite { flex: none; }
 .ed-dim { color: var(--text-dim); font-size: 12.5px; }
@@ -243,8 +244,10 @@
 .ed-dice { display: flex; flex-direction: column; gap: 3px; }
 .ed-dice-out { font-size: 12px; color: var(--gold-text); font-weight: 600; min-height: 15px; }
 
-.ed-switch { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; padding: 4px 0; }
-.ed-switch input { position: absolute; opacity: 0; pointer-events: none; }
+.ed-switch { position: relative; display: inline-flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; padding: 4px 0; }
+/* v2.3: el input escondido queda dentro del interruptor. Antes quedaba "colgado" de toda la
+   pantalla del editor y, al tocarlo más abajo, el navegador corría todo y se veía negro. */
+.ed-switch input { position: absolute; top: 0; left: 0; width: 1px; height: 1px; margin: 0; opacity: 0; pointer-events: none; }
 .ed-switch-ui { width: 40px; height: 22px; border-radius: 999px; background: #cbb58a; position: relative; transition: background 0.15s; flex: none; box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.25); }
 .ed-switch-ui::after { content: ''; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%; background: #fffaf0; transition: transform 0.15s; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3); }
 .ed-switch input:checked + .ed-switch-ui { background: #5e8a2e; }
@@ -576,3 +579,14 @@
   .ed-change-btns { flex-direction: row; width: 100%; }
   .ed-change-keys li > span:first-child { min-width: 90px; }
 }
+
+/* ---------- v2.3: Sugerir números ---------- */
+.ed-panel.is-suggest { display: flex; flex-direction: column; gap: 10px; }
+.ed-sug-styles { display: flex; flex-wrap: wrap; gap: 6px; }
+.ed-sug-table { width: 100%; max-width: 420px; border-collapse: collapse; font-size: 13.5px; }
+.ed-sug-table th { text-align: left; font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-dim); padding: 2px 6px; }
+.ed-sug-table td { padding: 4px 6px; border-top: 1px solid rgba(140, 105, 50, 0.18); }
+.ed-sug-table td:first-child { color: var(--text-dim); }
+.ed-sug-table tr.is-diff td { background: rgba(232, 196, 110, 0.14); }
+.ed-sug-table .ed-sug-arrow { color: #8a6a2c; width: 18px; text-align: center; }
+.ed-sug-actions { display: flex; flex-wrap: wrap; gap: 8px; }

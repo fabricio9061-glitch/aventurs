@@ -434,5 +434,5 @@
     return null;
   }
 
-  A.Narrator = { say, enemyNoun, petNoun, coinsInWords, groupPhrase };
+  A.Narrator = { say, enemyNoun, petNoun, coinsInWords, groupPhrase, contract };
 })(window.Aventurs);

@@ -16,9 +16,12 @@
      Suerte   - el dado y nada más (el Mediano suma +3)
    Todos suman la mitad de su nivel. La dificultad sube con la zona.
 
-   Descansar también hace siempre algo: de día es una siesta corta
-   (y pasa la tarde); de noche dormís hasta la mañana, y en zonas
-   peligrosas algo puede acercarse al campamento.
+   Descansar (v2.3): de día es una siesta corta (y pasa la tarde); de
+   noche dormís hasta la mañana, y en zonas peligrosas algo puede
+   acercarse. Fuera de la posada nunca te cura del todo (la siesta,
+   hasta la mitad de la vida; dormir, hasta 3/4), da hambre, y después
+   de descansar hay que moverse (explorar, pelear o viajar) antes de
+   volver a descansar. En la posada, pagando, te recuperás del todo.
 
    A.Rewards aplica premios y castigos (lo usan también las misiones).
    ============================================================ */
@@ -63,7 +66,8 @@
     let mod = 0;
     switch (stat) {
       case 'fuerza': mod = ({ warrior: 3, hybrid: 1, mage: 0 })[type] || 0; break;
-      case 'agilidad': mod = Math.max(0, Math.floor(((st.speed || 10) - 8) / 2)); break;
+      // v2.4: la velocidad real (el peso del equipo frena)
+      case 'agilidad': mod = Math.max(0, Math.floor(((A.Balance && A.Balance.playerCombatStats ? A.Balance.playerCombatStats(p).speed : st.speed || 10) - 8) / 2)); break;
       case 'ingenio': mod = ({ warrior: 0, hybrid: 1, mage: 3 })[type] || 0; break;
       case 'punteria': mod = Math.max(0, Math.floor((st.precision || 1) / 2)); break;
       case 'suerte': mod = (A.Passives && A.Passives.idOf && A.Passives.idOf(p) === 'suerte') ? 3 : 0; return mod;
@@ -426,6 +430,7 @@
   function explore() {
     if (!canExplore()) return { ok: false };
     const region = regionNow();
+    clearRestLock();
     if (A.Time) A.Time.advance(1, 'explore');
     if (A.Survival && player()) {
       player()._exploreCounter = (player()._exploreCounter || 0) + 1;
@@ -533,36 +538,124 @@
   // ============================================================
 
   /**
+   * v2.3: descansar ya no cura todo ni se puede repetir sin parar.
+   *   gain: parte de la vida (y el maná) que recuperás
+   *   cap:  hasta dónde podés llegar descansando afuera (parte de la vida máxima)
+   *   food: comida que gasta (descansar da hambre)
+   * En la posada (pagando) te recuperás del todo: eso no pasa por acá.
+   */
+  const REST = {
+    nap: { gain: 0.15, cap: 0.5, food: 1 },     // siesta de día
+    wild: { gain: 0.4, cap: 0.75, food: 2 },    // dormir al raso
+    town: { gain: 0.5, cap: 0.75, food: 2 },    // dormir en el pueblo sin pagar
+    ambush: 0.25,                               // 1 de cada 4 noches al raso algo se acerca
+  };
+
+  function restKind(region) {
+    if (!A.Time || !A.Time.isNight()) return 'nap';
+    return region && region.type === 'safe' ? 'town' : 'wild';
+  }
+
+  /** ¿Ya descansaste y todavía no te moviste? */
+  function restLocked() {
+    const w = A.State.world;
+    return !!(w && w.restLock);
+  }
+  function clearRestLock() {
+    const w = A.State.world;
+    if (w && w.restLock) { w.restLock = false; }
+  }
+
+  /** Lo que la pantalla muestra en el botón de descansar. */
+  function restInfo() {
+    const region = regionNow();
+    const kind = restKind(region);
+    const cfg = REST[kind];
+    const pctTxt = (x) => (x >= 0.75 ? 'tres cuartos' : x >= 0.5 ? 'la mitad' : `${Math.round(x * 100)}%`);
+    if (restLocked()) {
+      return { kind, locked: true, label: kind === 'nap' ? 'Descansar' : 'Dormir', desc: 'Ya descansaste. Explorá o viajá antes de volver a descansar.' };
+    }
+    if (kind === 'nap') return { kind, label: 'Descansar', desc: `Un rato a la sombra. Te cura hasta ${pctTxt(cfg.cap)} de la vida.` };
+    if (kind === 'town') return { kind, label: 'Dormir', desc: `Hasta mañana. Te cura hasta ${pctTxt(cfg.cap)} de la vida (en la posada, todo).` };
+    return { kind, label: 'Dormir', desc: `Hasta mañana, al raso: hasta ${pctTxt(cfg.cap)} de la vida. Algo podría acercarse.` };
+  }
+
+  /** Cuánto recuperás (en puntos) sin pasar del tope. */
+  function restGain(cur, max, gain, cap) {
+    if (!max) return 0;
+    const room = Math.floor(max * cap) - cur;
+    if (room <= 0) return 0;
+    return Math.min(Math.max(1, Math.round(max * gain)), room);
+  }
+
+  /**
    * Descansar en la zona actual. Devuelve { kind, text, chips } para mostrar.
-   *   de día   -> siesta: +20% vida y maná, pasa hasta la fase siguiente
-   *   de noche -> dormís hasta la mañana: 50% (75% en zona segura)
-   *               en zonas de combate, 1 de cada 4 noches algo se acerca
+   *   de día   -> siesta: +15% de vida y maná (hasta la mitad), pasa a la fase siguiente
+   *   de noche -> dormís hasta la mañana: +40% al raso, +50% en el pueblo (hasta 3/4)
+   *               al raso, 1 de cada 4 noches algo se acerca
+   *   después hay que moverse (explorar, pelear o viajar) para volver a descansar
    */
   function rest() {
     const p = player();
     const region = regionNow();
     if (!p || !region || !A.Time) return null;
-    const safe = region.type === 'safe';
+    if (restLocked()) {
+      return { kind: 'locked', text: 'Ya descansaste. Para volver a descansar tenés que moverte: explorá, peleá o viajá. Para recuperarte del todo, la posada del pueblo.', chips: [] };
+    }
+    const kind = restKind(region);
+    const cfg = REST[kind];
     const hungry = A.Survival ? A.Survival.getStatus() : null;
     const penalty = hungry && hungry.penalties && hungry.penalties.restPenalty ? (hungry.id === 'starving' ? 0.2 : 0.5) : 1;
+    const gain = cfg.gain * penalty;
 
-    if (!A.Time.isNight()) {
-      const chips = applyOutcome({ heal: 0.2 * penalty, mana: 0.2 * penalty }, { tier: regionTier(region), region });
-      const w = A.State.world;
+    const heal = (share) => {
+      const chips = [];
+      const hp = restGain(p.hp, p.maxHp, share, cfg.cap);
+      if (hp > 0) {
+        const before = p.hp;
+        A.State.healHp(hp);
+        if (p.hp > before) chips.push({ kind: 'heal', value: p.hp - before });
+      }
+      if (p.hasMagic) {
+        const mp = restGain(p.mana, p.maxMana, share, cfg.cap);
+        if (mp > 0) {
+          const before = p.mana;
+          A.State.setMana(Math.min(p.maxMana, p.mana + mp));
+          if (p.mana > before) chips.push({ kind: 'mana', value: p.mana - before });
+        }
+      }
+      return chips;
+    };
+    const eat = () => {
+      if (!cfg.food || !A.State.modifyFood) return [];
+      const before = p.food || 0;
+      A.State.modifyFood(-cfg.food);
+      const diff = (p.food || 0) - before;
+      return diff ? [{ kind: 'food', value: diff }] : [];
+    };
+    const capNote = (chips) => (chips.some((c) => c.kind === 'heal') || p.hp >= p.maxHp ? '' : ` Descansando sin posada no pasás de ${cfg.cap >= 0.75 ? 'tres cuartos' : 'la mitad'} de tu vida: para curarte del todo, la posada o una poción.`);
+    const w = A.State.world;
+
+    if (kind === 'nap') {
+      const chips = heal(gain).concat(eat());
       const toNext = A.Time.PHASE_DURATION - ((w.timeProgress || 0) % A.Time.PHASE_DURATION);
       A.Time.advance(toNext, 'nap');
-      const text = `Descansaste un rato${safe ? '' : ' a la sombra'}. ${chips.length ? chips.map(chipText).join(', ') + '.' : 'Ya estabas descansado.'}`;
+      w.restLock = true;
+      const got = chips.filter((c) => c.kind !== 'food');
+      const text = `Descansaste un rato${region.type === 'safe' ? '' : ' a la sombra'}. ${got.length ? got.map(chipText).join(', ') + '.' : 'No te sirvió de mucho.'}${capNote(chips)}`;
       A.State.addChronicle({ type: 'rest', text });
+      A.State.persist();
       return { kind: 'nap', text, chips };
     }
 
     // Noche
-    const share = (safe ? 0.75 : 0.5) * penalty;
     const enemiesHere = A.Data.enemiesInRegion(region.id).length > 0;
-    if (!safe && enemiesHere && Math.random() < 0.25) {
+    if (kind === 'wild' && enemiesHere && Math.random() < REST.ambush) {
       // Dormís un poco y algo se acerca
-      applyOutcome({ heal: share / 2, mana: share / 2 }, { tier: regionTier(region), region });
+      heal(gain / 2);
+      eat();
       A.Time.passTo('morning');
+      w.restLock = true;
       const group = A.Encounter.generate(region.id);
       if (group && group.length) {
         A.State.openModal('event', creatureScene(region, group, { night: true }));
@@ -570,19 +663,29 @@
         return { kind: 'night-event' };
       }
     }
-    const chips = applyOutcome({ heal: share, mana: share }, { tier: regionTier(region), region });
+    const chips = heal(gain);
     // La mascota también duerme
     if (p.pet && p.pet.maxHealth) {
       const before = p.pet.health;
-      p.pet.health = Math.min(p.pet.maxHealth, p.pet.health + Math.ceil(p.pet.maxHealth * share));
+      p.pet.health = Math.min(p.pet.maxHealth, p.pet.health + Math.ceil(p.pet.maxHealth * gain));
       if (p.pet.health > before) chips.push({ kind: 'pet', value: p.pet.health - before });
     }
+    const food = eat();
     A.Time.passTo('morning');
-    const where = safe ? 'en un rincón tranquilo del pueblo' : 'al raso, con un ojo abierto';
-    const text = `Dormiste ${where} hasta la mañana. ${chips.filter((c) => c.kind !== 'pet').map(chipText).join(', ') || 'Ya estabas descansado'}.`;
+    w.restLock = true;
+    const where = kind === 'town' ? 'en un rincón tranquilo del pueblo' : 'al raso, con un ojo abierto,';
+    const got = chips.filter((c) => c.kind !== 'pet');
+    const text = `Dormiste ${where} hasta la mañana. ${got.length ? got.map(chipText).join(', ') + '.' : 'Ya estabas descansado.'}${capNote(chips)}`;
     A.State.addChronicle({ type: 'rest', text });
     A.State.persist();
-    return { kind: 'sleep', text, chips };
+    return { kind: 'sleep', text, chips: chips.concat(food) };
+  }
+
+  // Moverse destraba el descanso: pelear, viajar o pagar la posada
+  if (A.Bus) {
+    A.Bus.on('combat:ended', clearRestLock);
+    A.Bus.on('region:changed', clearRestLock);
+    A.Bus.on('rest:done', clearRestLock);
   }
 
   A.Rewards = { apply: applyOutcome, chipText, gainXp, coinUnit, xpUnit };
@@ -600,6 +703,9 @@
     current,
     optionBlocked,
     rest,
+    restInfo,
+    restLocked,
+    REST,
     creatureScene,
   };
 })(window.Aventurs);

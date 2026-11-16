@@ -34,6 +34,7 @@
     filters: {},
     screen: 'types',      // celular: types | list | detail
     simLevel: {},
+    suggest: {},
     mapSel: null,
     mapRoads: false,
     mapPlacing: false,
@@ -64,6 +65,7 @@
     container.addEventListener('click', onClick);
     container.addEventListener('input', onInput);
     container.addEventListener('change', onChange);
+    container.addEventListener('scroll', onAppScroll, true);
     document.addEventListener('keydown', onKey);
     window.addEventListener('beforeunload', onBeforeUnload);
     A.Bus.emit('editor:opened');
@@ -76,6 +78,7 @@
     host.removeEventListener('click', onClick);
     host.removeEventListener('input', onInput);
     host.removeEventListener('change', onChange);
+    host.removeEventListener('scroll', onAppScroll, true);
     document.removeEventListener('keydown', onKey);
     window.removeEventListener('beforeunload', onBeforeUnload);
     ui.clearLayer();
@@ -86,6 +89,15 @@
     S.draft = null;
     A.Bus.emit('editor:closed');
     return host;
+  }
+
+  /** v2.3: la pantalla del editor nunca se corre entera (si pasa, queda todo negro). */
+  function onAppScroll(ev) {
+    const el = ev.target;
+    if (el && el.classList && el.classList.contains('ed-app') && (el.scrollTop || el.scrollLeft)) {
+      el.scrollTop = 0;
+      el.scrollLeft = 0;
+    }
   }
 
   function onBeforeUnload(ev) {
@@ -797,6 +809,26 @@
         S.mapSel = el.dataset.id || null;
         render();
         break;
+      case 'suggest-style': {
+        if (!S.draft || !A.EditorSim || !A.EditorSim.suggest) break;
+        const style = el.dataset.style;
+        let res = null;
+        try { res = A.EditorSim.suggest(S.draft, style); } catch (err) { console.warn('[Editor]', err); }
+        S.suggest[el.dataset.key] = { style, res, sig: Ed.panels.suggestSig(S.draft) };
+        renderDetailOnly();
+        break;
+      }
+      case 'suggest-apply': {
+        const st = S.suggest[el.dataset.key];
+        if (!S.draft || !st || !st.res) break;
+        for (const k of ['health', 'damage', 'attack', 'difficulty', 'armor', 'speed']) {
+          if (st.res[k] != null) S.draft[k] = st.res[k];
+        }
+        delete S.suggest[el.dataset.key];
+        renderDetailOnly();
+        ui.toast('Números puestos. Revisalos y tocá Guardar.');
+        break;
+      }
       case 'sim-level': {
         const k = el.dataset.key;
         const cur = S.simLevel[k] || (S.draft && (S.draft.tier && !Array.isArray(S.draft.tier) ? S.draft.tier : schema.lvlOf(S.draft))) || 1;

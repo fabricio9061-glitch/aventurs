@@ -65,9 +65,7 @@
     if (!data) return { ok: false, error: 'Item no encontrado.' };
     if (data.subtype === 'coin') return { ok: false, error: 'Las monedas no se venden.' };
     const p = A.State.player;
-    if (p.equipment.weapon === itemId || p.equipment.armor === itemId) {
-      return { ok: false, error: 'Quita el item primero.' };
-    }
+    // lo que tenés puesto no está en la mochila: lo que se vende es siempre una copia de la mochila
     const slot = p.inventory.find((s) => s.itemId === itemId);
     if (!slot) return { ok: false, error: 'No tenés ese item.' };
     const actualQty = Math.min(qty, slot.qty);

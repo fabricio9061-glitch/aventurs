@@ -31,6 +31,17 @@
   const MAX_LEVEL = 10;
   const MAX_TIER = 10;
 
+  // ---------- v2.4: rarezas ----------
+  // value: cuánto vale un material (por la moneda base de su nivel)
+  // drop: con qué probabilidad lo suelta una criatura normal
+  const RARITY = {
+    common: { label: 'Común', color: '#8a7a68', value: 2, drop: 0.4, order: 0 },
+    uncommon: { label: 'Poco común', color: '#4a8a3a', value: 4.5, drop: 0.22, order: 1 },
+    rare: { label: 'Raro', color: '#3a6ac8', value: 10, drop: 0.1, order: 2 },
+    epic: { label: 'Épico', color: '#8a4ac8', value: 25, drop: 0.05, order: 3 },
+    legendary: { label: 'Legendario', color: '#d0861a', value: 60, drop: 0.02, order: 4 },
+  };
+
   // ---------- Categorías de enemigo ----------
   // hp/dmg: multiplicadores. atk/def: suman al ataque/defensa.
   // coin/xp: multiplicadores de recompensa.
@@ -300,36 +311,53 @@
     return { turn: (base.turn || 0) + extra, win: base.win || 0 };
   }
 
-  // ---------- Stats de combate del jugador (incluye equipo y hambre) ----------
+  // ---------- Stats de combate del jugador (incluye equipo, accesorio, mejoras y hambre) ----------
+  /** v2.4: el peso de arma y armadura frena: cada punto por encima de 4 es -1 de velocidad. */
+  const FREE_WEIGHT = 4;
+  function weightOf(p) {
+    const weapon = p && p.equipment && p.equipment.weapon ? A.Data.getById('weapons', p.equipment.weapon) : null;
+    const armor = p && p.equipment && p.equipment.armor ? A.Data.getById('armors', p.equipment.armor) : null;
+    const total = (weapon ? weapon.weight || 0 : 0) + (armor ? armor.weight || 0 : 0);
+    return { total, free: FREE_WEIGHT, penalty: Math.max(0, total - FREE_WEIGHT) };
+  }
+
   function playerCombatStats(p) {
     if (!p) return null;
     const weapon = p.equipment && p.equipment.weapon ? A.Data.getById('weapons', p.equipment.weapon) : null;
     const armor = p.equipment && p.equipment.armor ? A.Data.getById('armors', p.equipment.armor) : null;
     const pen = (stat) => (A.Survival && A.Survival.getStatPenalty ? A.Survival.getStatPenalty(stat) : 0);
     const fx = statusMods(p);
-    const weight = (weapon ? weapon.weight || 0 : 0) + (armor ? armor.weight || 0 : 0);
+    const w = weightOf(p);
     const fit = weaponFit(p, weapon);
+    // v2.4: accesorio puesto y mejoras de pociones o pergaminos
+    const acc = (k) => (A.Accessories ? A.Accessories.bonus(p, k) : 0);
+    const bm = A.ItemFx ? A.ItemFx.buffMods(p) : { damage: 0, armor: 0, precision: 0, defense: 0, speed: 0 };
+    const weaponPrec = weapon && weapon.precision ? weapon.precision : 0;
     return {
       fit,
-      attack: (p.stats.precision || 0) + fit.atk - fx.attackPenalty + (A.Passives && A.Passives.precisionBonus ? A.Passives.precisionBonus(p) : 0),
-      defense: 8 + (p.stats.dodge || 0) + (armor && armor.dodge ? armor.dodge : 0) - pen('dodge') - fx.defensePenalty,
-      armor: (p.stats.armor || 0) + (armor ? armor.defense || 0 : 0) + (A.Passives && A.Passives.armorBonus ? A.Passives.armorBonus(p) : 0),
+      attack: (p.stats.precision || 0) + fit.atk + weaponPrec + acc('precision') + bm.precision - fx.attackPenalty + (A.Passives && A.Passives.precisionBonus ? A.Passives.precisionBonus(p) : 0),
+      defense: 8 + (p.stats.dodge || 0) + (armor && armor.dodge ? armor.dodge : 0) + acc('defense') + bm.defense - pen('dodge') - fx.defensePenalty,
+      armor: (p.stats.armor || 0) + (armor ? armor.defense || 0 : 0) + acc('armor') + bm.armor + (A.Passives && A.Passives.armorBonus ? A.Passives.armorBonus(p) : 0),
       // v1.9.2: + Furia del orco (solo con la mitad de la vida o menos) · v2.0: + maestría del guerrero
-      damageBonus: (p.stats.damage || 0) - pen('damage') + fit.dmg + (A.Passives ? A.Passives.damageBonus(p) : 0),
+      damageBonus: (p.stats.damage || 0) - pen('damage') + fit.dmg + acc('damage') + bm.damage + (A.Passives ? A.Passives.damageBonus(p) : 0),
       // El peso solo frena si pasa de 4 (una daga y ropa no pesan nada)
-      speed: Math.max(1, (p.stats.speed || 10) - Math.max(0, weight - 4) - pen('speed')),
+      speed: Math.max(1, (p.stats.speed || 10) - w.penalty + acc('speed') + bm.speed - pen('speed')),
+      weight: w.total,
+      weightPenalty: w.penalty,
       weapon,
       armorItem: armor,
       spellPower: spellPowerOf(p, weapon),
     };
   }
 
-  /** Penalizaciones por efectos de estado (frío, ceguera). */
+  /** Penalizaciones por efectos de estado (frío, ceguera, maldición). */
   function statusMods(entity) {
     const out = { attackPenalty: 0, defensePenalty: 0 };
     for (const ef of (entity && entity.effects) || []) {
       if (ef.type === 'cold') { out.defensePenalty += 2; out.attackPenalty += 1; }
       if (ef.type === 'blind') out.attackPenalty += 4;
+      // v2.4: Pergamino de maldición: -N a su precisión y a su defensa
+      if (ef.type === 'curse') { const v = Number(ef.value) || 1; out.attackPenalty += v; out.defensePenalty += v; }
     }
     return out;
   }
@@ -393,6 +421,48 @@
 
     /** Valor máximo razonable de un material que suelta un enemigo de tier t. */
     materialCap(t) { return Math.round(Economy.coinBase(t) * 10); },
+
+    // ---------- v2.4: rarezas, botín y consumibles ----------
+
+    /** Valor de un material según el nivel de la criatura más fácil que lo suelta y su rareza. */
+    materialValue(t, rarity = 'common') {
+      return Math.max(1, Math.round(Economy.coinBase(t) * (RARITY[rarity] || RARITY.common).value));
+    },
+
+    /** Probabilidad de que una criatura suelte un objeto de esa rareza. */
+    dropChance(rarity = 'common', category = 'normal') {
+      const base = (RARITY[rarity] || RARITY.common).drop;
+      const mult = ({ weak: 0.9, normal: 1, strong: 1.25, boss: 1.6 })[category] || 1;
+      return Math.min(0.85, Math.round(base * mult * 100) / 100);
+    },
+
+    /**
+     * Precio de comidas, pociones y pergaminos según lo que dan:
+     * 2,4 de cobre por punto de vida, 2,8 por punto de maná, 1,2 por punto de comida,
+     * y las mejoras según cuánto ayudan y cuántos turnos duran.
+     */
+    consumablePrice(item) {
+      if (!item) return 0;
+      const ef = item.effect || {};
+      const hpAt = (t) => 24 + 6 * (clampTier(t || 1) - 1);
+      let v = 0;
+      if (ef.type === 'heal') v += ef.pct ? ef.pct * hpAt(item.tier) * 2.4 * 1.2 : avgOf(ef.amount) * 2.4;
+      if (ef.type === 'mana') v += avgOf(ef.amount) * 2.8;
+      if (ef.type === 'food') v += (ef.amount || 0) * 1.2;
+      if (ef.heal && ef.type !== 'heal') v += avgOf(ef.heal) * 2.4;
+      if (item.foodValue) v += item.foodValue * 1.2;
+      if (item.healAmount) v += item.healAmount * 2.4;
+      if (ef.type === 'cure') v += 12;
+      if (ef.type === 'escape') v += 40;
+      if (ef.type === 'buff') {
+        const PER = { damage: 5, armor: 5, precision: 3, defense: 3, regen: 2.4, invisible: 30, resist: 3, immune: 6, reflect: 40, invincible: 60, speed: 2 };
+        const turns = ef.duration || 3;
+        let per = (PER[ef.stat] || 3) * (ef.amount || 1);
+        for (const k of Object.keys(ef.also || {})) per += (PER[k] || 3) * Math.max(0, ef.also[k]);
+        v += per * turns;
+      }
+      return Math.max(2, Math.round(v));
+    },
   };
 
   // ---------- Viaje ----------
@@ -408,6 +478,7 @@
   A.Balance = {
     MAX_LEVEL,
     CATEGORY,
+    RARITY,
     Enemy,
     enemyStats,
     damageToNotation,
@@ -416,6 +487,8 @@
     hitChance,
     Progression,
     playerCombatStats,
+    weightOf,
+    FREE_WEIGHT,
     weaponFit,
     manaRegenOf,
     hpRegenOf,

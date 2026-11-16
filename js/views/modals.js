@@ -147,10 +147,18 @@
     else if (data.subtype === 'scroll_spell') {
       mainBadge = `<span class="item-stat-pill item-stat-pill-spell" title="Enseña">${pxi('book', 14)}</span>`;
     }
-    // Comida/poción con efecto
-    else if (data.effect) {
-      mainBadge = `<span class="item-stat-pill" title="Efecto">${A.Utils.escapeHtml(data.effect)}</span>`;
+    // v2.4: accesorio: lo que hace
+    else if (data.subtype === 'accessory' && A.Accessories) {
+      const first = A.Accessories.describe(data)[0];
+      if (first) mainBadge = `<span class="item-stat-pill" title="${A.Utils.escapeHtml(A.Accessories.describe(data).join('. '))}">${pxi('star', 14)} ${A.Utils.escapeHtml(first)}</span>`;
     }
+    // Comida, poción o pergamino: lo que hace (antes se veía "[object Object]")
+    else if ((data.effect || data.healAmount || data.foodValue) && A.ItemFx) {
+      const first = A.ItemFx.describe(data)[0];
+      if (first) mainBadge = `<span class="item-stat-pill" title="${A.Utils.escapeHtml(A.ItemFx.summary(data))}">${A.Utils.escapeHtml(first)}</span>`;
+    }
+    // v2.4: rareza (si no es común)
+    if (data.rarity && data.rarity !== 'common') mainBadge = `<span class="rarity-tag rarity-${A.Utils.escapeHtml(data.rarity)}">${rarityLabel(data.rarity)}</span>` + mainBadge;
     return mainBadge + slotsBadge;
   }
 
@@ -169,7 +177,6 @@
       const d = A.Inventory.resolveData(s.itemId);
       if (!d) return false;
       if (d.subtype === 'coin') return false;
-      if (p.equipment.weapon === s.itemId || p.equipment.armor === s.itemId) return false;
       return true;
     });
 
@@ -379,13 +386,40 @@
     const data = A.Inventory.resolveData(itemId);
     if (!data) return modalShell('Item', `<p class="muted">No encontrado.</p>`);
 
+    const p = A.State.player;
     const kind = A.Inventory.classifyItem(itemId);
-    const slot = A.State.player.inventory.find((s) => s.itemId === itemId);
+    const slot = p.inventory.find((s) => s.itemId === itemId);
     const qty = slot ? slot.qty : 0;
     // v2.1.1: abierto desde lo que tenés puesto (o no está en la mochila): se puede quitar
-    const eq = A.State.player.equipment || {};
-    const isWorn = (kind === 'weapon' && eq.weapon === itemId) || (kind === 'armor' && eq.armor === itemId);
+    const eq = p.equipment || {};
+    const isWorn = (kind === 'weapon' && eq.weapon === itemId) || (kind === 'armor' && eq.armor === itemId) || (kind === 'accessory' && eq.accessory === itemId);
     const wornView = isWorn && (!!equipped || !slot);
+    const inCombat = !!(A.State.combat && !A.State.combat.result);
+    const esc = A.Utils.escapeHtml;
+    const row = (label, value) => `<div class="detail-stat"><span class="dim">${label}</span><span>${value}</span></div>`;
+
+    // v2.4: rareza con su color, y lo que pagan si lo vendés
+    const rar = (A.Balance && A.Balance.RARITY && A.Balance.RARITY[data.rarity || 'common']) || null;
+    const rarityRow = row('Rareza', `<span class="rarity-tag rarity-${esc(data.rarity || 'common')}">${rarityLabel(data.rarity || 'common')}</span>`);
+    const sellRow = data.subtype !== 'coin' && data.value > 0 ? row('Se vende a', `<span class="num">${A.Currency.formatPrice(Math.max(1, Math.floor(data.value / 2)))}</span>`) : '';
+    const tierRow = data.tier ? row('Nivel', `<span class="num">${data.tier}</span>`) : '';
+
+    // v2.4: el peso frena (arma + armadura que pasen de 4)
+    function weightRows() {
+      if (kind !== 'weapon' && kind !== 'armor') return '';
+      const w = data.weight || 0;
+      const B = A.Balance;
+      const free = (B && B.FREE_WEIGHT) || 4;
+      const otherId = kind === 'weapon' ? eq.armor : eq.weapon;
+      const other = otherId ? (kind === 'weapon' ? A.Data.getById('armors', otherId) : A.Data.getById('weapons', otherId)) : null;
+      const total = w + (other ? other.weight || 0 : 0);
+      const pen = Math.max(0, total - free);
+      const word = w === 0 ? 'No pesa' : w <= 2 ? 'Liviana' : w <= 4 ? 'Mediana' : w <= 6 ? 'Pesada' : 'Muy pesada';
+      let note;
+      if (pen > 0) note = `<div class="class-note is-bad">${pxi('boot', 14)}<span>${isWorn ? 'Con lo que llevás puesto' : `Con tu ${kind === 'weapon' ? 'armadura' : 'arma'}`} pesa ${total}: perdés ${pen} de velocidad (lo que pase de ${free}).</span></div>`;
+      else note = w > 0 ? `<div class="class-note is-good">${pxi('boot', 14)}<span>${isWorn ? 'Con lo que llevás puesto' : `Con tu ${kind === 'weapon' ? 'armadura' : 'arma'}`} pesa ${total}: no te frena (hasta ${free} no pasa nada).</span></div>` : '';
+      return row('Peso', `<span class="num">${w}</span> <span class="dim">(${word})</span>`) + note;
+    }
 
     let stats = '';
     const slotsLine = data.slots && data.slots > 1
@@ -395,49 +429,71 @@
       const rg = A.Balance && A.Balance.rangeOf ? A.Balance.rangeOf(data.damage) : null;
       stats = `
         <div class="detail-stat"><span class="dim">Daño</span><span class="num">${data.damage}${rg ? ` <span class="dim">(de ${rg.min} a ${rg.max})</span>` : ''}</span></div>
-        <div class="detail-stat"><span class="dim">Nivel</span><span class="num">${data.tier}</span></div>
-        <div class="detail-stat"><span class="dim">Rareza</span><span>${rarityLabel(data.rarity)}</span></div>
-        ${data.magic ? `<div class="detail-stat"><span class="dim">Mágica</span><span>Sí (potencia tus hechizos)</span></div>` : ''}
-        ${(data.weight || 0) >= 4 ? `<div class="detail-stat"><span class="dim">Peso</span><span>Pesada</span></div>` : ''}
+        ${tierRow}
+        ${rarityRow}
+        ${data.precision ? row('Precisión', `<span class="num">+${data.precision}</span>`) : ''}
+        ${data.magic ? row('Mágica', 'Sí (potencia tus hechizos)') : ''}
+        ${data.mana ? row('Maná máximo', `<span class="num">+${data.mana}</span> <span class="dim">(si usás magia)</span>`) : ''}
+        ${data.statusEffect ? row('Al pegar', `${Math.round((data.statusEffect.chance || 0) * 100)}% de ${esc((A.Combat && A.Combat.effectLabel ? A.Combat.effectLabel(data.statusEffect.type) : data.statusEffect.type))}`) : ''}
+        ${sellRow}
         ${slotsLine}
+        ${weightRows()}
         ${(() => {
           // v2.0: cómo le queda a tu clase (maestría del guerrero, penalidad del mago)
-          const p = A.State.player;
           const fit = p && A.Balance && A.Balance.weaponFit ? A.Balance.weaponFit(p, data) : null;
-          return fit && fit.note ? `<div class="class-note ${fit.atk < 0 ? 'is-bad' : 'is-good'}">${pxi(fit.atk < 0 ? 'arrow-down' : 'arrow-up', 14)}<span>${A.Utils.escapeHtml(fit.note)}</span></div>` : '';
+          return fit && fit.note ? `<div class="class-note ${fit.atk < 0 ? 'is-bad' : 'is-good'}">${pxi(fit.atk < 0 ? 'arrow-down' : 'arrow-up', 14)}<span>${esc(fit.note)}</span></div>` : '';
         })()}
       `;
     } else if (kind === 'armor') {
+      const RES = { fire: 'fuego', cold: 'frío', shock: 'rayos', poison: 'veneno' };
       stats = `
         <div class="detail-stat"><span class="dim">Armadura</span><span class="num">+${data.defense || 0}</span></div>
         ${data.dodge ? `<div class="detail-stat"><span class="dim">Esquiva</span><span class="num">${data.dodge > 0 ? '+' : ''}${data.dodge}</span></div>` : ''}
-        <div class="detail-stat"><span class="dim">Nivel</span><span class="num">${data.tier}</span></div>
-        <div class="detail-stat"><span class="dim">Rareza</span><span>${rarityLabel(data.rarity)}</span></div>
+        ${tierRow}
+        ${rarityRow}
+        ${data.mana ? row('Maná máximo', `<span class="num">+${data.mana}</span> <span class="dim">(si usás magia)</span>`) : ''}
+        ${Array.isArray(data.resist) && data.resist.length ? row('Inmune a', esc(data.resist.map((t) => RES[t] || t).join(' y '))) : ''}
+        ${sellRow}
         ${slotsLine}
+        ${weightRows()}
         <div class="class-note is-good">${pxi('shield', 14)}<span>La armadura se resta de cada golpe que recibís${data.dodge ? '; la esquiva sube tu defensa' : ''}.</span></div>
       `;
-    } else if (kind === 'consumable' && data.effect) {
-      const ef = data.effect;
-      const lbl = ef.type === 'heal' ? `Cura ${ef.amount}` :
-                  ef.type === 'mana' ? `Restaura maná ${ef.amount}` :
-                  ef.type === 'food' ? `Cura ${ef.amount}` :
-                  ef.type === 'cure' ? `Cura estado: ${ef.status}` :
-                  ef.type === 'buff' ? `Aumenta ${ef.stat} +${ef.amount}` :
-                  ef.type;
-      stats = `<div class="detail-stat"><span class="dim">Efecto</span><span>${A.Utils.escapeHtml(lbl)}</span></div>`;
+    } else if (kind === 'accessory') {
+      const lines = A.Accessories ? A.Accessories.describe(data) : [];
+      stats = `
+        ${tierRow}
+        ${rarityRow}
+        ${sellRow}
+        <ul class="effect-list">${lines.map((l) => `<li>${pxi('star', 14)}<span>${esc(l)}</span></li>`).join('')}</ul>
+        <div class="class-note is-good">${pxi('gear', 14)}<span>Se lleva en el casillero de accesorio: uno por vez.</span></div>
+      `;
+    } else if ((kind === 'consumable' || kind === 'scroll') && data.subtype !== 'scroll_spell') {
+      const lines = A.ItemFx ? A.ItemFx.describe(data) : [];
+      const onlyCombat = A.ItemFx && A.ItemFx.combatOnly(data);
+      stats = `
+        ${rarityRow}
+        ${sellRow}
+        ${lines.length ? `<ul class="effect-list">${lines.map((l) => `<li>${pxi(onlyCombat ? 'swords' : 'heal', 14)}<span>${esc(l)}</span></li>`).join('')}</ul>` : ''}
+        ${onlyCombat ? `<div class="class-note is-good">${pxi('swords', 14)}<span>Se usa en combate, con el botón Objeto (gasta tu turno).</span></div>` : ''}
+      `;
+    } else {
+      stats = `${rarityRow}${sellRow}`;
     }
 
     const actions = [];
-    if (kind === 'weapon' || kind === 'armor') {
+    let hint = '';
+    if (kind === 'weapon' || kind === 'armor' || kind === 'accessory') {
       if (wornView) actions.push(`<button class="btn-primary" data-detail-action="unequip">Quitar</button>`);
       else actions.push(`<button class="btn-primary" data-detail-action="equip">Equipar</button>`);
     }
-    if (kind === 'consumable') {
-      actions.push(`<button class="btn-primary" data-detail-action="use">Usar</button>`);
+    if (kind === 'consumable' || (kind === 'scroll' && data.subtype !== 'scroll_spell')) {
+      // v2.4: no dejes gastar algo que no hace nada ahora
+      const can = inCombat ? { ok: true } : (A.ItemFx ? A.ItemFx.usableNow(data) : { ok: true });
+      actions.push(`<button class="btn-primary" data-detail-action="use" ${can.ok ? '' : 'disabled'}>${inCombat ? 'Usar (gasta tu turno)' : 'Usar'}</button>`);
+      if (!can.ok && can.why && !(A.ItemFx && A.ItemFx.combatOnly(data))) hint = `<div class="item-modal-hint dim">${esc(can.why)}</div>`;
     }
-    if (kind === 'scroll') {
-      const isSpellScroll = data.subtype === 'scroll_spell';
-      actions.push(`<button class="btn-primary" data-detail-action="use">${isSpellScroll ? 'Aprender hechizo' : 'Usar'}</button>`);
+    if (data.subtype === 'scroll_spell') {
+      actions.push(`<button class="btn-primary" data-detail-action="use">Aprender hechizo</button>`);
     }
     if (kind === 'bag') {
       actions.push(`<button class="btn-primary" data-detail-action="use">Equipar mochila</button>`);
@@ -447,16 +503,17 @@
     const body = `
       <div class="item-modal">
         <div class="item-modal-header">
-          <div class="item-modal-icon">${(A.ItemSprites ? A.ItemSprites.html(data, { size: 72 }) : '')}</div>
+          <div class="item-modal-icon ${rar ? `rarity-frame rarity-${esc(data.rarity || 'common')}` : ''}">${(A.ItemSprites ? A.ItemSprites.html(data, { size: 72 }) : '')}</div>
           <div>
-            <div class="item-modal-name">${A.Utils.escapeHtml(data.name)}</div>
-            <div class="item-modal-meta dim">${kindLabel(kind)}${wornView ? ' · la tenés puesta' : ''}${qty > 1 ? ` · ×${qty}` : ''}</div>
+            <div class="item-modal-name">${esc(data.name)}</div>
+            <div class="item-modal-meta dim">${kindLabel(kind)}${wornView ? ' · lo tenés puesto' : ''}${qty > 1 ? ` · ×${qty}` : ''}</div>
           </div>
         </div>
-        <p class="item-modal-desc">${A.Utils.escapeHtml(data.description || '')}</p>
+        <p class="item-modal-desc">${esc(data.description || '')}</p>
         <div class="detail-stats">
           ${stats}
         </div>
+        ${hint}
         <div class="item-modal-actions">
           ${actions.join('')}
         </div>
@@ -482,10 +539,14 @@
           <li><b>Daño</b>: la vida que sacás cuando acertás. "1d4" quiere decir un dado de 4 caras: de 1 a 4. "1d6+2" es un dado de 6 más 2: de 3 a 8. Lo da tu arma. A eso se le resta la armadura del enemigo.</li>
           <li><b>Defensa</b>: lo mismo, pero al revés. Es lo que el enemigo tiene que alcanzar con su dado para pegarte. Sube con la esquiva.</li>
           <li><b>Armadura</b>: se resta de cada golpe que recibís.</li>
-          <li><b>Velocidad</b>: el más rápido pega primero.</li>
+          <li><b>Velocidad</b>: el más rápido pega primero, y te ayuda a huir. El arma y la armadura pesan: lo que pasen de 4 entre las dos te lo restan de velocidad.</li>
           <li><b>Magia</b>: lo que suman tus hechizos al daño (o a la curación). Los hechizos no fallan, pero gastan maná.</li>
         </ul>
         <p>Si en el dado sale un 20 es golpe crítico: acierta siempre y hace el doble de daño. Con un 1 falla siempre.</p>
+
+        <h3>Equipo y objetos</h3>
+        <p>Llevás un arma, una armadura, un <b>accesorio</b> (anillos, amuletos, botas, capas: cada uno con un efecto propio) y una mochila. Todo tiene <b>rareza</b>: común, poco común, raro, épico y legendario; mientras más rara, más cuesta y menos se encuentra. Lo que vendés te lo pagan a la mitad de su precio.</p>
+        <p>Las pociones curan o te dan una mejora por unos turnos. Los <b>pergaminos</b> los puede usar cualquiera, una sola vez y en combate: dañan, paralizan, maldicen o te protegen, y no fallan. Usar algo en combate gasta tu turno. Si una misión te pide algo que sueltan las criaturas, mientras te falte lo vas a encontrar más seguido.</p>
 
         <h3>Explorar</h3>
         <p>Cada vez que explorás pasa algo: aparece una criatura (y elegís cómo encararla) o te toca una escena con dos o tres caminos. Explorar hace pasar el tiempo y da hambre.</p>
@@ -494,7 +555,7 @@
         <p><b>Guerreros</b>: sin magia, pero pegan más fuerte con cualquier arma y tienen el <b>Golpe fuerte</b>: un ataque con el doble de daño que se puede usar una vez cada 5 turnos. <b>Magos</b>: viven de la magia; el maná les vuelve solo, un poco en cada turno (más desde el nivel 5) y otro poco al ganar, pero son frágiles y las armas pesadas les quitan precisión. <b>Híbridos</b>: usan cualquier arma y algo de magia; cada golpe con arma que aciertan les devuelve maná (más desde el nivel 5). Cada raza con magia nace con su propio hechizo.</p>
 
         <h3>Descansar</h3>
-        <p>De día, un rato de descanso te recupera un poco y pasa la tarde. De noche dormís hasta la mañana; al raso, algo puede acercarse. En la posada dormís seguro y te recuperás del todo.</p>
+        <p>De día, una siesta te cura un poco (hasta la mitad de tu vida) y pasa la tarde. De noche dormís hasta la mañana y te curás más (hasta tres cuartos); al raso, algo puede acercarse. Descansar da hambre, y después de descansar tenés que moverte (explorar, pelear o viajar) antes de volver a descansar. Para recuperarte del todo: la posada del pueblo o una poción.</p>
 
         <h3>Misiones</h3>
         <p>Los habitantes con un signo de exclamación dorado tienen algo para vos. Con un signo de pregunta, te esperan para cobrar. Todo queda anotado en el Diario.</p>
@@ -1031,28 +1092,37 @@
   function renderCombatItem() {
     const items = A.Combat.availableItems();
     if (items.length === 0) {
-      return modalShell('Usar item', `<p class="muted">No tienes consumibles a mano.</p>`);
+      return modalShell('Usar objeto', `<p class="muted">No tenés pociones, comida ni pergaminos a mano.</p>`);
     }
+    // v2.4: pergaminos de combate aparte, y cada uno dice lo que hace
+    const groups = [
+      { title: 'Pociones y comida', list: items.filter((s) => { const d = A.Data.getById('items', s.itemId); return d && d.subtype !== 'scroll'; }) },
+      { title: 'Pergaminos', list: items.filter((s) => { const d = A.Data.getById('items', s.itemId); return d && d.subtype === 'scroll'; }) },
+    ].filter((g) => g.list.length);
     const body = `
       <div class="combat-item-modal">
-        <div class="combat-item-list">
-          ${items.map((s) => {
-            const data = A.Data.getById('items', s.itemId);
-            if (!data) return '';
-            return `
-              <button class="combat-item-row" data-use-item="${A.Utils.escapeHtml(s.itemId)}">
-                <span class="combat-item-icon">${A.ItemSprites ? A.ItemSprites.html(data, { size: 32 }) : ''}</span>
-                <span class="combat-item-info">
-                  <span class="combat-item-name">${A.Utils.escapeHtml(data.name)} <span class="dim">×${s.qty}</span></span>
-                  <span class="combat-item-meta dim">${A.Utils.escapeHtml(data.description || '')}</span>
-                </span>
-              </button>
-            `;
-          }).join('')}
-        </div>
+        ${groups.map((g) => `
+          ${groups.length > 1 ? `<div class="combat-item-group dim">${g.title}</div>` : ''}
+          <div class="combat-item-list">
+            ${g.list.map((s) => {
+              const data = A.Data.getById('items', s.itemId);
+              if (!data) return '';
+              const what = A.ItemFx ? A.ItemFx.summary(data) : (data.description || '');
+              return `
+                <button class="combat-item-row rarity-${A.Utils.escapeHtml(data.rarity || 'common')}" data-use-item="${A.Utils.escapeHtml(s.itemId)}">
+                  <span class="combat-item-icon">${A.ItemSprites ? A.ItemSprites.html(data, { size: 32 }) : ''}</span>
+                  <span class="combat-item-info">
+                    <span class="combat-item-name">${A.Utils.escapeHtml(data.name)} <span class="dim">×${s.qty}</span></span>
+                    <span class="combat-item-meta dim">${A.Utils.escapeHtml(what || data.description || '')}</span>
+                  </span>
+                </button>
+              `;
+            }).join('')}
+          </div>
+        `).join('')}
       </div>
     `;
-    return modalShell('Usar item', body);
+    return modalShell('Usar objeto', body);
   }
 
   function rarityLabel(r) {
@@ -1324,7 +1394,7 @@
     } else if (action === 'unequip') {
       // v2.1.1: quitarse el arma o la armadura (vuelve a la mochila)
       const kind = A.Inventory.classifyItem(itemId);
-      const ok = A.Inventory.unequip(kind === 'weapon' ? 'weapon' : 'armor');
+      const ok = A.Inventory.unequip(kind === 'weapon' || kind === 'accessory' ? kind : 'armor');
       if (ok) {
         const d = A.Inventory.resolveData(itemId);
         A.State.addChronicle({ type: 'item', text: `Te sacaste ${d ? d.name.toLowerCase() : 'el equipo'} y lo guardaste en la mochila.` });
@@ -1434,8 +1504,9 @@
 
   function kindLabel(k) {
     return {
-      weapon: 'Arma', armor: 'Armadura', consumable: 'Consumible',
-      material: 'Material', misc: 'Objeto', coin: 'Moneda',
+      weapon: 'Arma', armor: 'Armadura', accessory: 'Accesorio', consumable: 'Consumible',
+      scroll: 'Pergamino', bag: 'Mochila', material: 'Material', misc: 'Objeto', coin: 'Moneda',
+      tame: 'Para domar', key: 'Llave',
     }[k] || 'Objeto';
   }
 

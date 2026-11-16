@@ -41,8 +41,21 @@
     if (!p) return 0;
     let n = 0;
     for (const s of p.inventory || []) if (s.itemId === itemId) n += s.qty || 0;
-    if (p.equipment && (p.equipment.weapon === itemId || p.equipment.armor === itemId)) n += 1;
+    if (p.equipment && (p.equipment.weapon === itemId || p.equipment.armor === itemId || p.equipment.accessory === itemId)) n += 1;
     return n;
+  }
+
+  /** v2.4: objetos que pide una misión en curso y que todavía te faltan (caen más seguido). */
+  function wantedItems() {
+    const out = new Set();
+    for (const id of Object.keys(state().active)) {
+      const q = get(id);
+      if (!q) continue;
+      q.objectives.forEach((o, i) => {
+        if ((o.type === 'collect' || o.type === 'have') && o.item && !objectiveProgress(q, i).done) out.add(o.item);
+      });
+    }
+    return out;
   }
 
   function npcName(id) {
@@ -303,6 +316,7 @@
     objectiveText,
     objectiveProgress,
     allObjectivesDone,
+    wantedItems,
     accept,
     turnIn,
     talkTo,

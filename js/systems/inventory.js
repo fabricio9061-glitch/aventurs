@@ -1,14 +1,15 @@
 /* ============================================================
    Aventurs — Inventory
-   Equipar arma/armadura, usar consumibles, tirar items.
+   Equipar arma/armadura/accesorio, usar consumibles, tirar items.
    La capacidad y el storage están en State; este system aplica reglas.
+   Lo que hace cada poción, comida o pergamino vive en ItemFx.
    ============================================================ */
 
 (function (A) {
   'use strict';
 
   /**
-   * Devuelve el "slot type" de un item: 'weapon', 'armor', 'consumable', 'material', 'misc'.
+   * Devuelve el "slot type" de un item: 'weapon', 'armor', 'accessory', 'consumable', 'scroll', 'material', 'misc'.
    */
   function classifyItem(itemId) {
     if (!itemId) return null;
@@ -16,6 +17,7 @@
     if (A.Data.getById('armors', itemId)) return 'armor';
     const item = A.Data.getById('items', itemId);
     if (!item) return null;
+    if (item.subtype === 'accessory') return 'accessory';
     if (item.subtype === 'potion' || item.subtype === 'food') return 'consumable';
     if (item.subtype === 'scroll' || item.subtype === 'scroll_spell') return 'scroll';
     if (item.subtype === 'tame') return 'tame';
@@ -45,13 +47,14 @@
     if (!p) return false;
 
     const kind = classifyItem(itemId);
-    if (kind !== 'weapon' && kind !== 'armor') return false;
+    if (kind !== 'weapon' && kind !== 'armor' && kind !== 'accessory') return false;
 
     // Verificar que está en el inventario
     const slot = p.inventory.find((s) => s.itemId === itemId);
     if (!slot) return false;
 
-    const slotName = kind === 'weapon' ? 'weapon' : 'armor';
+    const slotName = kind;
+    if (!p.equipment) p.equipment = { weapon: null, armor: null, accessory: null };
     const currentlyEquippedId = p.equipment[slotName];
 
     // Quitar del inventario el item a equipar
@@ -63,6 +66,8 @@
     }
 
     p.equipment[slotName] = itemId;
+    // v2.4: libros, túnicas y gemas que dan maná máximo
+    if (A.Accessories) A.Accessories.applyGearMana(p, slotName, resolveData(itemId));
 
     A.Bus.emit('inventory:equipped', { slot: slotName, itemId });
     A.Bus.emit('inventory:changed');
@@ -71,7 +76,7 @@
   }
 
   /**
-   * Desequipa el slot indicado ('weapon' o 'armor').
+   * Desequipa el slot indicado ('weapon', 'armor' o 'accessory').
    * Requiere espacio en el inventario.
    */
   function unequip(slotName) {
@@ -86,6 +91,7 @@
     }
 
     p.equipment[slotName] = null;
+    if (A.Accessories) A.Accessories.applyGearMana(p, slotName, null);
     A.State.addItem(equippedId, 1);
     A.Bus.emit('inventory:unequipped', { slot: slotName, itemId: equippedId });
     A.Bus.emit('inventory:changed');
@@ -193,88 +199,21 @@
       return true;
     }
 
-    const ef = item.effect;
-    if (!ef) return false;
+    // v2.4: en combate se usa gastando el turno (desde el botón Objeto o desde la mochila)
+    const c = A.State.combat;
+    if (c && !c.result && A.Combat && A.Combat.playerUseItem) return A.Combat.playerUseItem(itemId);
 
-    let applied = false;
-    let chronicleText = '';
-
-    // v1.6.1: Item puede tener efectos combinados (food + heal)
-    // El consumo aplica TODOS los efectos del item simultáneamente.
-    // Los items declaran sus efectos en `effect: { type, amount, heal, hungerRestore, manaRestore }`
-    // o el item tiene los campos directos `healAmount`, `hungerRestore`, `foodValue`, `manaRestore`.
-    const effects = [];
-
-    // 1. Curación de HP — múltiples fuentes posibles
-    let healAmount = 0;
-    if (ef.type === 'heal') healAmount += A.Utils.rollDice(ef.amount);
-    if (ef.heal) healAmount += A.Utils.rollDice(ef.heal);
-    if (item.healAmount) healAmount += item.healAmount;
-
-    // 2. Restauración de comida
-    let hungerAmount = 0;
-    if (ef.type === 'food') hungerAmount += ef.amount || ef.hungerRestore || 0;
-    if (ef.hungerRestore) hungerAmount += ef.hungerRestore;
-    if (item.hungerRestore) hungerAmount += item.hungerRestore;
-    // foodValue del seed (carnes, pan, frutas) suma directo al hunger
-    if (item.foodValue) hungerAmount += item.foodValue;
-
-    // 3. Restauración de maná
-    let manaAmount = 0;
-    if (ef.type === 'mana') manaAmount += A.Utils.rollDice(ef.amount);
-    if (ef.manaRestore) manaAmount += A.Utils.rollDice(ef.manaRestore);
-
-    // Aplicar
-    if (healAmount > 0) {
-      const before = p.hp;
-      A.State.healHp(healAmount);
-      const recovered = p.hp - before;
-      if (recovered > 0) effects.push(`+${recovered} salud`);
+    if (!item.effect && !item.healAmount && !item.foodValue && !item.hungerRestore) return false;
+    if (!A.ItemFx) return false;
+    const res = A.ItemFx.useOutside(item);
+    if (!res.ok) {
+      if (res.text) A.State.addChronicle({ type: 'note', text: res.text });
+      return false;
     }
-    if (hungerAmount > 0) {
-      const before = p.food || 0;
-      const maxFood = p.maxFood || 100;
-      p.food = Math.min(maxFood, before + hungerAmount);
-      const restored = p.food - before;
-      if (restored > 0) effects.push(`+${restored} comida`);
-      A.Bus.emit('player:food-changed', { current: p.food, max: maxFood });
-    }
-    if (manaAmount > 0) {
-      const before = p.mana || 0;
-      A.State.setMana(before + manaAmount);
-      const recovered = p.mana - before;
-      if (recovered > 0) effects.push(`+${recovered} maná`);
-    }
-
-    if (effects.length > 0) {
-      chronicleText = `Usaste ${item.name}: ${effects.join(', ')}.`;
-      applied = true;
-    } else {
-      // Casos especiales que no tocan stats numéricos
-      switch (ef.type) {
-        case 'cure':
-        case 'buff':
-        case 'escape':
-          chronicleText = `Usaste ${item.name}. (efecto disponible en combate)`;
-          applied = true;
-          break;
-        default:
-          // Si no aplicó nada, intentar warning
-          if (item.subtype === 'food' && (p.food || 0) >= (p.maxFood || 100)) {
-            chronicleText = `${item.name}: ya estás saciado, no podés comer más.`;
-            return false;
-          } else if (item.subtype === 'potion' && p.hp >= p.maxHp) {
-            chronicleText = `${item.name}: ya estás con salud completa.`;
-            return false;
-          }
-      }
-    }
-
-    if (applied) {
-      A.State.removeItem(itemId, 1);
-      if (chronicleText) A.State.addChronicle({ type: 'item', text: chronicleText });
-    }
-    return applied;
+    A.State.removeItem(itemId, 1);
+    A.State.addChronicle({ type: 'item', text: res.text });
+    A.State.persist();
+    return true;
   }
 
   function drop(itemId) {

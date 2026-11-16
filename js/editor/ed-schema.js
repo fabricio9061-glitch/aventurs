@@ -44,9 +44,19 @@
     RARITY: { common: 'Común', uncommon: 'Poco común', rare: 'Rara', epic: 'Épica', legendary: 'Legendaria' },
     SUBTYPE: {
       coin: 'Moneda', potion: 'Poción', material: 'Material', food: 'Comida', scroll: 'Pergamino', misc: 'Varios',
-      tame: 'Para domar', scroll_spell: 'Pergamino de hechizo', bag: 'Mochila', key: 'Llave',
+      tame: 'Para domar', scroll_spell: 'Pergamino de hechizo', bag: 'Mochila', key: 'Llave', accessory: 'Accesorio',
     },
-    EFFECT: { heal: 'Cura vida', mana: 'Da maná', food: 'Quita el hambre', cure: 'Cura un estado', buff: 'Mejora por unos turnos', escape: 'Escapar de una pelea' },
+    EFFECT: {
+      heal: 'Cura vida', mana: 'Da maná', food: 'Quita el hambre', cure: 'Cura un estado', cleanse: 'Limpia todo lo malo', restore: 'Vida y maná al máximo',
+      buff: 'Mejora por unos turnos', damage: 'Daño a enemigos', stun: 'Deja sin turno', curse: 'Maldice (baja precisión y defensa)',
+      survivor: 'Salva de la muerte una vez', escape: 'Escapar de una pelea',
+    },
+    BUFF: {
+      damage: 'Daño', precision: 'Precisión', armor: 'Armadura', defense: 'Defensa (esquivar)', speed: 'Velocidad', regen: 'Vida por turno',
+      reflect: 'Espinas (devuelve parte del golpe)', invisible: 'Invisible (le fallan)', immune: 'Inmune a los efectos', invincible: 'Invencible (no le hacen daño)', resist: 'Resiste un elemento',
+    },
+    ELEMENT: { arcane: 'Magia', fire: 'Fuego', cold: 'Hielo', shock: 'Rayo', poison: 'Veneno' },
+    RESIST: { fire: 'Fuego', cold: 'Frío', shock: 'Rayos', poison: 'Veneno', bleed: 'Sangrado' },
     ROLE: {
       merchant: 'Mercader', tavernkeeper: 'Tabernero (posada)', blacksmith: 'Herrero (forja)', sage: 'Sabio (enseña magia)',
       guard: 'Guardia', captain: 'Capitán', noble: 'Noble', healer: 'Curandero',
@@ -287,6 +297,7 @@
           F.num('armor', 'Armadura', { min: 0, max: 20, help: 'Se resta de cada golpe que le das.' }),
           F.num('speed', 'Velocidad', { min: 1, max: 30, help: 'El más rápido ataca primero.' }),
           F.custom('enemySim', (d) => Ed.panels.enemySim(d), { live: true, heavy: true }),
+          F.custom('enemySuggest', (d) => Ed.panels.enemySuggest(d), { live: true }),
         ] },
         { title: 'Botín', help: 'Lo que puede soltar al caer.', fields: [
           F.list('drops', '', [
@@ -299,8 +310,8 @@
             itemTitle: (d) => `${esc(Ed.fields.nameOf(['items', 'weapons', 'armors'], d.itemId))} · ${Math.round((d.chance || 0) * 100)}%` }),
         ] },
         { title: 'Grupo', fields: [
-          F.num('spawn.max', 'Cuántas pueden venir juntas', { min: 1, max: 8 }),
           F.tog('spawn.groupable', 'Anda en grupo', { on: 'Sí', off: 'No, siempre sola' }),
+          F.num('spawn.max', 'Cuántas pueden venir juntas', { min: 1, max: 8, when: (d) => !d.spawn || d.spawn.groupable !== false }),
           F.num('spawn.weight', 'Qué tan seguido sale', { min: 0.05, max: 5, step: 0.05, help: '1 = normal; 0,1 = muy rara.' }),
         ] },
         { title: 'Domar', fields: [
@@ -454,28 +465,66 @@
     {
       key: 'items', label: 'Objetos', one: 'objeto', icon: 'bag', group: 'Cosas',
       hint: 'Pociones, comida, materiales, pergaminos, llaves.',
-      meta: (i) => `${L.SUBTYPE[i.subtype] || i.subtype || ''} · ${A.Currency ? A.Currency.formatPrice(i.value || 0) : i.value}`,
+      meta: (i) => `${L.SUBTYPE[i.subtype] || i.subtype || ''}${i.rarity && i.rarity !== 'common' ? ` · ${L.RARITY[i.rarity] || i.rarity}` : ''} · ${A.Currency ? A.Currency.formatPrice(i.value || 0) : i.value}`,
       sort: (a, b) => String(a.subtype).localeCompare(String(b.subtype)) || String(a.name).localeCompare(String(b.name), 'es'),
       filters: [
         { key: 'sub', label: 'Tipo', options: opts(L.SUBTYPE), test: (i, v) => i.subtype === v },
       ],
-      template: () => ({ name: 'Objeto nuevo', type: 'item', subtype: 'material', value: 5, weight: 0.5, stack: 20, description: '' }),
+      template: () => ({ name: 'Objeto nuevo', type: 'item', subtype: 'material', rarity: 'common', value: 5, weight: 0.5, stack: 20, description: '' }),
       sections: [
         { title: 'Lo básico', fields: [
           F.text('name', 'Nombre'),
           F.sel('subtype', 'Tipo', opts(L.SUBTYPE)),
-          F.num('value', 'Precio', { min: 0, max: 999999, unit: 'cobre', help: (d) => Ed.panels.priceHelp(d && d.value) }),
+          F.sel('rarity', 'Rareza', opts(L.RARITY), { help: 'Común, poco común, raro, épico o legendario. Se ve con su color en la mochila y la tienda.' }),
+          F.num('tier', 'Nivel', { min: 1, max: 10, when: (d) => ['accessory', 'scroll', 'potion'].includes(d.subtype), help: 'Para qué nivel de personaje está pensado.' }),
+          F.num('value', 'Precio', { min: 0, max: 999999, unit: 'cobre', help: (d) => `${Ed.panels.priceHelp(d && d.value)}${d && d.value ? ` Lo compran a la mitad: ${A.Currency ? A.Currency.formatPrice(Math.max(1, Math.floor(d.value / 2))) : Math.floor(d.value / 2)}.` : ''}` }),
           F.num('stack', 'Cuántos por casilla', { min: 1, max: 999 }),
           F.area('description', 'Descripción', { rows: 2 }),
         ] },
         { title: 'Al usarlo', when: (d) => ['potion', 'food', 'scroll', 'misc', 'tame'].includes(d.subtype), fields: [
           F.present('effect', 'Efecto', () => ({ type: 'heal', amount: '1d6' }), { on: 'Hace algo al usarlo', off: 'No se usa' }),
           F.sel('effect.type', 'Qué hace', opts(L.EFFECT), { when: (d) => !!d.effect }),
-          F.dice('effect.amount', 'Cuánto', { when: (d) => d.effect && ['heal', 'mana', 'food', 'buff'].includes(d.effect.type) }),
+          F.dice('effect.amount', 'Cuánto', { when: (d) => d.effect && (['mana', 'food', 'buff', 'curse'].includes(d.effect.type) || (d.effect.type === 'heal' && !d.effect.pct)) }),
+          F.pct('effect.pct', 'O una parte de la vida', { when: (d) => d.effect && ['heal', 'cleanse'].includes(d.effect.type), help: 'Si lo llenás, cura ese % de la vida máxima en vez de los dados.' }),
+          F.tog('effect.pet', 'También a la mascota', { on: 'Sí, y la despierta', off: 'Solo a vos', when: (d) => d.effect && d.effect.type === 'heal' }),
           F.sel('effect.status', 'Qué cura', opts(L.STATUS), { when: (d) => d.effect && d.effect.type === 'cure' }),
-          F.sel('effect.stat', 'Qué mejora', [{ value: 'damage', label: 'Daño' }, { value: 'precision', label: 'Precisión' }, { value: 'armor', label: 'Armadura' }, { value: 'dodge', label: 'Esquiva' }, { value: 'speed', label: 'Velocidad' }], { when: (d) => d.effect && d.effect.type === 'buff' }),
-          F.num('effect.duration', 'Turnos', { min: 1, max: 20, when: (d) => d.effect && d.effect.type === 'buff' }),
+          F.sel('effect.stat', 'Qué mejora', opts(L.BUFF), { when: (d) => d.effect && d.effect.type === 'buff' }),
+          F.chips('effect.types', 'Contra qué', opts(L.RESIST), { when: (d) => d.effect && d.effect.type === 'buff' && d.effect.stat === 'resist' }),
+          F.dice('effect.dice', 'Daño', { when: (d) => d.effect && d.effect.type === 'damage', help: 'No falla nunca; la armadura del enemigo cuenta la mitad.' }),
+          F.sel('effect.element', 'Elemento', opts(L.ELEMENT), { when: (d) => d.effect && d.effect.type === 'damage' }),
+          F.tog('effect.all', 'A quién', { on: 'A todos los enemigos', off: 'A uno', when: (d) => d.effect && ['damage', 'stun'].includes(d.effect.type) }),
+          F.num('effect.stun', 'Además pierde turnos', { min: 0, max: 3, when: (d) => d.effect && d.effect.type === 'damage' }),
+          F.tog('effect.drain', 'Robo de vida', { on: 'Recuperás lo que le sacás', off: 'No', when: (d) => d.effect && d.effect.type === 'damage' }),
+          F.present('effect.status', 'Además deja un efecto', () => ({ type: 'fire', turns: 3, value: 1 }), { on: 'Sí', off: 'No', when: (d) => d.effect && ['damage', 'stun'].includes(d.effect.type) }),
+          F.sel('effect.status.type', 'Cuál', opts(L.STATUS), { when: (d) => d.effect && ['damage', 'stun'].includes(d.effect.type) && !!d.effect.status }),
+          F.num('effect.status.turns', 'Turnos del efecto', { min: 1, max: 9, when: (d) => d.effect && ['damage', 'stun'].includes(d.effect.type) && !!d.effect.status }),
+          F.num('effect.status.value', 'Fuerza del efecto', { min: 0, max: 20, when: (d) => d.effect && ['damage', 'stun'].includes(d.effect.type) && !!d.effect.status, help: 'Vida que saca por turno (fuego, veneno, sangrado).' }),
+          F.num('effect.turns', 'Turnos sin actuar', { min: 1, max: 3, when: (d) => d.effect && d.effect.type === 'stun', help: 'A los jefes, como mucho uno.' }),
+          F.num('effect.duration', 'Turnos', { min: 1, max: 20, when: (d) => d.effect && ['buff', 'curse'].includes(d.effect.type), help: 'Cuenta tus turnos: después de cada acción tuya baja uno.' }),
           F.num('foodValue', 'Alimenta', { min: 0, max: 40, when: (d) => d.subtype === 'food' || d.subtype === 'tame', help: 'Cuánto te saca el hambre (y le gusta a las mascotas).' }),
+          F.custom('itemEffects', (d) => Ed.panels.itemEffects(d), { live: true }),
+        ] },
+        { title: 'Accesorio', when: (d) => d.subtype === 'accessory', fields: [
+          F.num('acc.precision', 'Precisión', { min: 0, max: 5 }),
+          F.num('acc.damage', 'Daño', { min: 0, max: 5 }),
+          F.num('acc.armor', 'Armadura', { min: 0, max: 5 }),
+          F.num('acc.defense', 'Defensa (esquivar)', { min: 0, max: 5 }),
+          F.num('acc.speed', 'Velocidad', { min: 0, max: 6 }),
+          F.num('acc.mana', 'Maná máximo', { min: 0, max: 20, help: 'Solo si usás magia.' }),
+          F.num('acc.regen', 'Vida por turno', { min: 0, max: 6, help: 'Al empezar cada turno tuyo en combate.' }),
+          F.num('acc.crit', 'Críticos desde más abajo', { min: 0, max: 4, help: '2 = críticos con 18 o más.' }),
+          F.pct('acc.thorns', 'Espinas', { help: 'Parte del golpe que vuelve al que te pega.' }),
+          F.pct('acc.lifesteal', 'Robo de vida', { help: 'Parte del daño que hacés que vuelve como vida.' }),
+          F.pct('acc.double', 'Doble golpe', { help: 'Chance de pegar dos veces.' }),
+          F.pct('acc.counter', 'Contraataque', { help: 'Chance de devolver el golpe cuando te fallan.' }),
+          F.pct('acc.heal', 'Cura más', { help: 'Lo que te cura, te cura este % más.' }),
+          F.pct('acc.xp', 'Más experiencia'),
+          F.pct('acc.gold', 'Más monedas'),
+          F.pct('acc.drops', 'Más botín'),
+          F.tog('acc.first', 'Iniciativa', { on: 'Actúa primero', off: 'No' }),
+          F.tog('acc.survivor', 'Superviviente', { on: 'Una vez por pelea queda con 1 de vida', off: 'No' }),
+          F.chips('acc.immune', 'Inmune a', opts(L.RESIST)),
+          F.custom('accEffects', (d) => Ed.panels.itemEffects(d), { live: true }),
         ] },
         { title: 'Pergamino', when: (d) => d.subtype === 'scroll_spell', fields: [F.ref('teachesSpell', 'Enseña', 'spells', { filter: (s) => !s.racial })] },
         { title: 'Mochila', when: (d) => d.subtype === 'bag', fields: [F.ref('equipsBag', 'Al usarla te ponés', 'bags')] },
@@ -483,6 +532,10 @@
       normalize: (d) => {
         if (d.subtype !== 'scroll_spell') delete d.teachesSpell;
         if (d.subtype !== 'bag') delete d.equipsBag;
+        if (d.subtype !== 'accessory') delete d.acc;
+        else if (!d.acc) d.acc = {};
+        // pergaminos y pociones de combate: siempre en combate
+        if (d.effect && ['damage', 'stun', 'curse', 'survivor'].includes(d.effect.type)) d.effect.combat = true;
       },
     },
 
@@ -504,8 +557,10 @@
         ] },
         { title: 'Combate', fields: [
           F.dice('damage', 'Daño', { help: 'La vida que sacás cuando acertás.' }),
-          F.num('weight', 'Peso', { min: 0, max: 8, help: 'Desde 4 es pesada: los guerreros ganan precisión y los magos pierden 3.' }),
+          F.num('weight', 'Peso', { min: 0, max: 12, help: 'Desde 4 es pesada: los guerreros ganan precisión y los magos pierden 3. Arma y armadura juntas: lo que pase de 4 te quita velocidad.' }),
+          F.num('precision', 'Precisión extra', { min: 0, max: 5, help: 'Se suma al dado de 20 al atacar.' }),
           F.tog('magic', 'Mágica', { on: 'Sí, potencia los hechizos', off: 'No' }),
+          F.num('mana', 'Maná máximo', { min: 0, max: 20, help: 'Lo suma mientras la tenés puesta (si usás magia).' }),
           F.num('slots', 'Casillas que ocupa', { min: 1, max: 4 }),
           ...statusFields('statusEffect'),
           F.custom('weaponFit', (d) => Ed.panels.weaponFit(d), { live: true }),
@@ -531,8 +586,10 @@
         { title: 'Protección', fields: [
           F.num('defense', 'Armadura', { min: 0, max: 20, help: 'Se resta de cada golpe que recibís.' }),
           F.num('dodge', 'Esquiva', { min: -5, max: 8, help: 'Sube tu defensa: lo que el enemigo necesita para pegarte.' }),
-          F.num('weight', 'Peso', { min: 0, max: 8, help: 'Más de 4 te hace más lento.' }),
+          F.num('weight', 'Peso', { min: 0, max: 12, help: 'Arma y armadura juntas: lo que pase de 4 te quita velocidad.' }),
           F.tog('magic', 'Mágica', { on: 'Sí', off: 'No' }),
+          F.num('mana', 'Maná máximo', { min: 0, max: 20, help: 'Lo suma mientras la tenés puesta (si usás magia).' }),
+          F.chips('resist', 'Inmune a', opts(L.RESIST), { help: 'Esos efectos no te tocan mientras la tenés puesta.' }),
           F.num('slots', 'Casillas que ocupa', { min: 1, max: 4 }),
         ] },
       ],

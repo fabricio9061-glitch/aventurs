@@ -22,6 +22,8 @@
   const DICE_GAP_MS = 420;    // mínimo entre un dado y el siguiente
   const DEATH_MS = 700;
   const CAST_MS = 360;
+  const READ_MS = 850;        // v2.3: cada frase del narrador queda a la vista al menos esto
+  const ADD_MS = 640;         // v2.3: la precisión vuela al dado y se suma (antes del veredicto)
 
   let layer = null;
   let root = null;
@@ -29,6 +31,7 @@
   let holdUntil = 0;
   let diceFreeAt = 0;
   let lastAt = 0;
+  let lastSayAt = 0;
   let currentDice = null;
   let rollTimer = null;
   const timers = new Set();
@@ -79,6 +82,7 @@
     holdUntil = 0;
     diceFreeAt = 0;
     lastAt = 0;
+    lastSayAt = 0;
   }
 
   /** Combate nuevo: limpia y hace la entrada de la arena. */
@@ -265,6 +269,59 @@
     return el ? el.getBoundingClientRect() : null;
   }
 
+  /** v2.3: ¿se anima la suma de la precisión? (con 1 o 20 el dado decide solo) */
+  function addMsFor(entry) {
+    if (!entry || entry.roll == null || !entry.bonus || entry.total == null) return 0;
+    if (entry.roll === 1 || entry.roll === 20) return 0;
+    return ADD_MS;
+  }
+
+  /** La precisión sale del número PREC de la tarjeta y vuela hasta el dado. */
+  function flyBonus(entry, diceEl, numEl, addMs) {
+    const bonus = entry.bonus;
+    const dieEl = diceEl.querySelector('.fx-dice-die');
+    if (!dieEl) return;
+    const d = dieEl.getBoundingClientRect();
+    const tx = d.left + d.width / 2;
+    const ty = d.top + d.height / 2;
+    const actorEl = entry.fx ? findEl(entry.fx.actor) : null;
+    const statEl = actorEl ? actorEl.querySelector('.cb-stat') : null;
+    const f = statEl ? statEl.getBoundingClientRect() : null;
+    const side = entry.fx && String(entry.fx.actor || '').startsWith('enemy') ? 1 : -1;
+    const sx = f ? f.left + f.width / 2 : tx + side * 130;
+    const sy = f ? f.top + f.height / 2 : ty;
+    const what = entry.fx && entry.fx.kind === 'flee' ? 'para huir' : 'precisión';
+    const chip = spawn(`fx-bonus ${bonus < 0 ? 'is-neg' : ''}`, sx, sy,
+      `<b>${bonus > 0 ? '+' : '−'}${Math.abs(bonus)}</b><small>${what}</small>`, addMs + 300);
+    if (!chip) return;
+    const fly = Math.round(addMs * 0.62);
+    const dx = Math.round(tx - sx);
+    const dy = Math.round(ty - sy);
+    if (chip.animate) {
+      chip.animate([
+        { transform: 'translate(-50%, -50%) scale(0.6)', opacity: 0 },
+        { transform: 'translate(-50%, -50%) scale(1.15)', opacity: 1, offset: 0.22 },
+        { transform: `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px)) scale(0.75)`, opacity: 1 },
+      ], { duration: fly, easing: 'cubic-bezier(.45, 0, .25, 1)', fill: 'forwards' });
+    }
+    later(fly, () => {
+      chip.remove();
+      if (!diceEl.isConnected) return;
+      diceEl.classList.add('is-adding');
+      // el número del dado cuenta hasta el total
+      const from = entry.roll;
+      const to = entry.total;
+      const steps = Math.max(1, Math.abs(to - from));
+      const span = Math.max(80, addMs - fly - 90);
+      for (let i = 1; i <= steps; i++) {
+        later(Math.round((span * i) / steps), () => {
+          if (!numEl.isConnected) return;
+          numEl.textContent = from + Math.sign(to - from) * i;
+        });
+      }
+    });
+  }
+
   function showDice(entry, startAt) {
     later(startAt - now(), () => {
       if (!layer || !root) return;
@@ -274,25 +331,38 @@
       if (currentDice) currentDice.remove();
       const side = entry.fx && String(entry.fx.actor || '').startsWith('enemy') ? 'enemy' : 'ally';
       const v = verdictOf(entry);
+      const addMs = entry._addMs || 0;
       const el = spawn(`fx-dice is-rolling is-${side}`, r.left + r.width / 2, r.top + r.height / 2,
         `<div class="fx-dice-die">${D20_SVG}<span class="fx-dice-num">${1 + Math.floor(Math.random() * 20)}</span></div>
-         <div class="fx-dice-caption"></div>`, DICE_ROLL_MS + DICE_HOLD_MS + 400);
+         <div class="fx-dice-caption"></div>`, DICE_ROLL_MS + addMs + DICE_HOLD_MS + 400);
       if (!el) return;
       currentDice = el;
       const numEl = el.querySelector('.fx-dice-num');
+      const capEl = el.querySelector('.fx-dice-caption');
       rollTimer = setInterval(() => { numEl.textContent = 1 + Math.floor(Math.random() * 20); }, 60);
+      const reveal = () => {
+        if (!el.isConnected) return;
+        if (addMs) numEl.textContent = entry.total;
+        el.classList.remove('is-raw', 'is-adding', 'is-landed');
+        void el.offsetWidth; // vuelve a saltar
+        el.classList.add('is-landed', `is-${v.cls}`);
+        const bonus = entry.bonus ? ` ${entry.bonus > 0 ? '+' : '−'} ${Math.abs(entry.bonus)} = <b>${entry.total}</b>` : '';
+        const vs = entry.vs != null ? ` <span class="fx-dice-vs">vs ${entry.vsLabel === 'DC huida' ? 'huida' : 'dificultad'} ${entry.vs}</span>` : '';
+        capEl.innerHTML = `<div class="fx-dice-verdict">${v.text}</div><div class="fx-dice-math"><b>${entry.roll}</b>${bonus}${vs}</div>`;
+      };
       later(DICE_ROLL_MS, () => {
         clearInterval(rollTimer);
         if (!el.isConnected) return;
         numEl.textContent = entry.roll;
         el.classList.remove('is-rolling');
-        el.classList.add('is-landed', `is-${v.cls}`);
-        const bonus = entry.bonus ? ` ${entry.bonus > 0 ? '+' : '−'} ${Math.abs(entry.bonus)} = <b>${entry.total}</b>` : '';
-        const vs = entry.vs != null ? ` <span class="fx-dice-vs">vs ${entry.vsLabel === 'DC huida' ? 'huida' : 'dificultad'} ${entry.vs}</span>` : '';
-        el.querySelector('.fx-dice-caption').innerHTML =
-          `<div class="fx-dice-verdict">${v.text}</div><div class="fx-dice-math"><b>${entry.roll}</b>${bonus}${vs}</div>`;
+        if (!addMs) { reveal(); return; }
+        // v2.3: primero el dado solo, después se le suma la precisión
+        el.classList.add('is-landed', 'is-raw');
+        capEl.innerHTML = `<div class="fx-dice-math is-raw">Sacaste <b>${entry.roll}</b>${entry.vs != null ? ` <span class="fx-dice-vs">· necesita ${entry.vs}</span>` : ''}</div>`;
+        flyBonus(entry, el, numEl, addMs);
       });
-      later(DICE_ROLL_MS + DICE_HOLD_MS, () => el.classList.add('is-leaving'));
+      if (addMs) later(DICE_ROLL_MS + addMs, reveal);
+      later(DICE_ROLL_MS + addMs + DICE_HOLD_MS, () => el.classList.add('is-leaving'));
     });
   }
 
@@ -305,26 +375,42 @@
    * y la muerte esperen al dado. Se llama ANTES de re-dibujar.
    */
   function prepare(entry) {
-    if (!entry || !entry.fx) return;
-    const fx = entry.fx;
+    if (!entry) return;
     const t = now();
+    // v2.3: el narrador cuenta una cosa por vez. Si dos frases caían juntas (tu golpe y
+    // el sangrado del enemigo), la primera ni se llegaba a leer.
+    const says = !!(entry.say && entry.say.text) && !(entry.fx && entry.fx.kind === 'reward');
+    const minAt = says && lastSayAt ? lastSayAt + READ_MS : 0;
+    if (!entry.fx) {
+      if (says) {
+        entry._at = Math.max(t, minAt);
+        lastSayAt = entry._at;
+        lastAt = Math.max(lastAt, entry._at);
+      }
+      return;
+    }
+    const fx = entry.fx;
     if (entry.roll != null && (fx.kind === 'attack' || fx.kind === 'flee')) {
-      const startAt = Math.max(t, diceFreeAt);
+      const addMs = addMsFor(entry);
+      const startAt = Math.max(t, diceFreeAt, minAt - DICE_ROLL_MS - addMs);
       entry._diceAt = startAt;
-      entry._at = startAt + DICE_ROLL_MS;
+      entry._addMs = addMs;
+      entry._at = startAt + DICE_ROLL_MS + addMs;
       diceFreeAt = entry._at + DICE_GAP_MS;
     } else if (fx.kind === 'spell') {
       entry._at = Math.max(t + CAST_MS, impactAt.get(fx.target) || 0);
     } else if (fx.kind === 'passive' || (fx.kind === 'heal' && fx.passive)) {
       // las pasivas se ven después de lo que las provocó
       entry._at = Math.max(t + 120, lastAt + 220);
-    } else if (fx.kind === 'heal' || fx.kind === 'cast') {
-      entry._at = t + 200;
+    } else if (fx.kind === 'heal' || fx.kind === 'cast' || fx.kind === 'buff') {
+      entry._at = Math.max(t + 200, fx.kind === 'buff' ? lastAt + 200 : 0);
     } else if (fx.kind === 'death' || fx.kind === 'status' || fx.kind === 'tamed') {
       entry._at = Math.max(t, (impactAt.get(fx.target) || 0) + (fx.kind === 'death' ? 120 : 260));
     } else {
       entry._at = t;
     }
+    if (says && entry._at < minAt) entry._at = minAt;
+    if (says) lastSayAt = entry._at;
     if (fx.target && (fx.kind === 'attack' || fx.kind === 'spell' || fx.kind === 'tick' || fx.kind === 'heal')) {
       impactAt.set(fx.target, entry._at);
     }
@@ -381,6 +467,14 @@
         castGlow(fx.actor || 'player', 'arcane');
         break;
       }
+      case 'buff': {
+        // v2.4: mejoras, accesorios que actúan (doble golpe, contraataque, superviviente)
+        later(at - t, () => {
+          floatText(fx.target || 'player', fx.label || 'Mejora', 'is-status is-buff', -20, fx.icon || 'star');
+          playCardFx(fx.target || 'player', 'fx-heal', 500);
+        });
+        break;
+      }
       case 'tick': {
         later(at - t, () => {
           floatNumber(fx.target, `-${fx.amount}`, `is-tick is-tick-${fx.effect || 'poison'}`, fx.effect || 'poison');
@@ -389,7 +483,7 @@
         break;
       }
       case 'status': {
-        later(at - t, () => floatText(fx.target, effectName(fx.effect), `is-status is-status-${fx.effect}`, 0, fx.effect));
+        later(at - t, () => floatText(fx.target, effectName(fx.effect), `is-status is-status-${fx.effect}`, 0, ({ stun: 'hourglass', curse: 'skull' })[fx.effect] || fx.effect));
         break;
       }
       case 'stun': {
@@ -561,7 +655,7 @@
   }
 
   function effectName(type) {
-    return ({ bleed: 'Sangrado', poison: 'Envenenado', fire: 'En llamas', cold: 'Congelado', shock: 'Electrizado', blind: 'Cegado', silence: 'Silenciado' })[type] || type;
+    return ({ bleed: 'Sangrado', poison: 'Envenenado', fire: 'En llamas', cold: 'Congelado', shock: 'Electrizado', blind: 'Cegado', silence: 'Silenciado', stun: 'Paralizado', curse: 'Maldito' })[type] || type;
   }
 
   // ---------------------------------------------------------------

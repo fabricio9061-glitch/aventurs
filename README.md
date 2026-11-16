@@ -30,10 +30,14 @@ aventurs/
 │   │   └── validate.js     Chequeos de coherencia (refs, regiones vacías, misiones, escenas)
 │   ├── data/               Seeds: races, regions, enemies, items, weapons,
 │   │                       armors, spells, recipes, npcs, bags,
-│   │                       events (escenas al explorar), quests (misiones)
+│   │                       events (escenas al explorar), quests (misiones),
+│   │                       extra (lo de "RPG Plugins": equipo, accesorios,
+│   │                       pergaminos, pociones y comidas; v2.4)
 │   ├── systems/            Combat, Encounter, Travel, Tame (mascotas),
 │   │                       Inventory, Currency, Crafting, NPC,
-│   │                       Explore (escenas y descanso), Quests (misiones)
+│   │                       Explore (escenas y descanso), Quests (misiones),
+│   │                       Accessories (accesorio puesto), ItemFx (pociones,
+│   │                       comidas y pergaminos, mejoras por turnos) (v2.4)
 │   ├── editor/             Editor del mundo (v2.2): ed-core (guardado por parches),
 │   │                       ed-fields (campos), ed-schema (qué se edita de cada cosa),
 │   │                       ed-panels, ed-sim (prueba de combate), ed-map, ed-view
@@ -73,7 +77,8 @@ node tools/simulador.js viaje      # pasos y niveles del mapa
   magia nacen con su propio hechizo
 - **31 regiones** (24 de combate y 7 pueblos) ordenadas por nivel (1 a 10)
 - **104 enemigos** (29 domables), cada uno con su zona propia: 4 a 7 criaturas por zona
-- **35 armas**, **13 armaduras**, **159 items**, **5 mochilas**
+- **66 armas**, **44 armaduras**, **266 objetos** (22 accesorios, 44 pergaminos de combate,
+  19 pociones, 46 comidas), **5 mochilas**; todo con rareza (común a legendario)
 - **15 hechizos** (8 de nacimiento), **19 recetas**, **13 habitantes**
 - **22 misiones** (8 de la historia principal) y **43 escenas** para explorar
 
@@ -209,6 +214,141 @@ Explorar siempre hace pasar algo (`js/systems/explore.js` + `js/data/seed-events
   se cuentan con ×N).
 - En el celular, una franja arriba con vida, maná, comida y dinero.
 - Sin emojis en el juego (desde la v2.2, tampoco en el editor).
+
+## Versión 2.4.0: rarezas, accesorios, pergaminos y botín justo
+
+### Botín y precios
+- **Rarezas** para todo (común, poco común, raro, épico y legendario), con su color en la
+  mochila, la tienda, el combate y la ficha (`Balance.RARITY`).
+- **Lo que vale cada material** sale de la criatura más fácil que lo suelta y de su rareza
+  (`Economy.materialValue`). Lo que vendés te lo pagan a la mitad.
+- **Lo que suelta cada criatura** depende de la rareza de la cosa: común 40%, poco común
+  22%, raro 10%, épico 5%, legendario 2%; las fuertes un poco más y los jefes bastante más
+  (`Economy.dropChance`). El equipo y los accesorios caen poco.
+- **Misiones**: lo que pide una misión cae al menos el 40% de las veces en su criatura, y
+  mientras te falte, el 50% (`QUEST_DROP_CHANCE` en combat.js, `Quests.wantedItems`). Los 3
+  dientes de lobo ahora salen en unas 6 peleas contra lobos (antes, más de 20).
+- **Comidas y pociones** cuestan según lo que dan: 2,4 de cobre por punto de vida, 2,8 por
+  punto de maná, 1,2 por punto de comida; las mejoras, según cuánto ayudan y cuántos turnos
+  duran (`Economy.consumablePrice`). El editor muestra el "precio justo".
+
+### Peso
+- El arma y la armadura pesan: lo que pasen de 4 entre las dos se resta de la velocidad
+  (actuás más tarde y te cuesta más huir). Ahora se ve: la velocidad de la barra es la real
+  (en rojo si el peso te frena), la ficha de cada arma o armadura dice cuánto te frenaría
+  con lo que tenés puesto, y la tienda compara la velocidad.
+- Las armaduras pesadas nuevas protegen más que las que ya había, pero pesan bastante más:
+  son un cambio (más armadura, menos velocidad), no una mejora gratis.
+
+### Todo lo de "RPG Plugins", de base (`js/data/seed-extra.js`)
+- **31 armas** (hoz, látigo, estoque, cimitarra, mangual, claymore, guadaña, tomos y orbes
+  que dan maná, Gungnir, Masamune...), **31 armaduras** (de las livianas con esquiva a las
+  muy pesadas; túnicas con maná; volcánica, de escarcha y de tormenta te hacen inmune a un
+  elemento).
+- **22 accesorios** en un casillero nuevo, cada uno con su efecto: precisión, daño,
+  armadura, defensa, velocidad, maná, vida por turno, críticos con 18, espinas, robo de vida,
+  doble golpe, contraataque, más experiencia, monedas o botín, actuar primero, inmunidad al
+  veneno, al fuego o al frío, curación aumentada y el Amuleto del superviviente.
+- **43 pergaminos de combate** que puede usar cualquiera, una vez: daño que no falla (a
+  uno o a todos, con fuego, hielo, rayo o veneno), aturdir, maldecir, robar vida, curar,
+  limpiar, mejoras por turnos, espinas, invisibilidad, invencible, resurrección y deseo.
+- **9 pociones** (curación y maná mayores, Elixir de vida, piel de piedra, velocidad,
+  regeneración, invisibilidad, contra el fuego y contra el frío) y **33 comidas** (frutas,
+  verduras, platos de taberna, bebidas, y las raras: pan élfico, jalea real, festín real,
+  huevo de fénix y ambrosía, que además curan).
+- Dónde se consiguen: cada tienda suma lo que va con su pueblo y su nivel, y cada criatura
+  lleva lo que usaría (los magos oscuros, grimorios; las sirenas, tridentes y coral).
+- Lo que no entró: los enemigos del plugin ya estaban todos en el juego; tampoco la comida
+  rápida (pizza, hamburguesa, sushi...), las mascotas (acá se doma cualquier criatura) ni
+  materiales que no sirven para nada. Los hechizos del plugin quedaron como pergaminos.
+
+### Sistemas nuevos
+- `js/systems/accessories.js` (`A.Accessories`): los efectos del accesorio puesto y el maná
+  que dan el arma, la armadura y el accesorio (se suma al ponerlo y se resta al sacarlo).
+- `js/systems/itemfx.js` (`A.ItemFx`): lo que hace cada poción, comida y pergamino, dentro y
+  fuera del combate. Las mejoras duran tantos turnos tuyos como dice el objeto (se
+  descuentan después de cada acción tuya).
+- Combate: espinas, robo de vida, doble golpe, contraataque, superviviente, iniciativa,
+  regeneración, inmunidades, invisible, invencible, aturdido y maldición, cada uno con su
+  frase del narrador y su ícono sobre la tarjeta.
+
+### Pantallas
+- Barra lateral: cuatro casilleros de equipo (arma, armadura, accesorio y mochila).
+- Ficha de cada objeto: rareza, precio de venta, peso, y lo que hace en líneas cortas.
+  El botón "Usar" se apaga si no sirve en ese momento (panza llena, vida completa) y dice
+  por qué; los pergaminos de combate avisan que se usan peleando.
+- Combate: "Usar objeto" separa pociones y pergaminos, y cada uno dice lo que hace.
+- Tienda: el borde de cada cosa dice su rareza; el detalle muestra qué hace y compara
+  esquiva y velocidad.
+- Dibujos nuevos: anillos, brazalete, botas, capa, guanteletes, trébol, orbes, libros,
+  guadañas, látigo, frutas, sopas, pastel, miel, cerveza y la canasta del festín.
+
+### Editor
+- Objetos: rareza, nivel, el tipo Accesorio con todos sus efectos, y los efectos nuevos
+  (daño, aturdir, maldecir, limpiar, todo al máximo, salvarte una vez) con elemento, a
+  quién y qué efecto deja. "Así lo ve el jugador" muestra cómo queda la ficha.
+- Armas: precisión extra y maná. Armaduras: maná e inmunidades. El peso llega hasta 12.
+
+### Arreglos
+- En combate, usar una poción desde la mochila curaba sin gastar el turno. Ahora gasta el
+  turno como desde el botón "Objeto".
+- El Elixir de fuerza y el Pergamino de escape se gastaban sin hacer nada.
+- La tienda vieja mostraba "[object Object]" en las pociones.
+- Se puede vender una copia de lo que tenés puesto.
+- Curar a la mascota usa la poción de curación más barata.
+
+## Versión 2.3.0: criaturas parejas, descanso con límite y todo en una pantalla
+
+### Criaturas
+- **Balance de las 104 criaturas** (`js/data/seed-enemies.js`), medido con el motor real:
+  cada una pelea cientos de veces contra un humano de su mismo nivel (con el mejor equipo
+  común, sin pociones). Ahora todas las del mismo tipo cuestan lo mismo: una débil le saca
+  cerca del 7% de la vida, una normal el 24%, una fuerte el 42% y un jefe el 80%.
+
+  | Tipo | Antes | Ahora |
+  |---|---|---|
+  | Débil | 5% a 14% | 6% a 9% |
+  | Normal | 14% a 37% | 21% a 28% |
+  | Fuerte | 27% a 72% | 39% a 46% |
+  | Jefe | 67% a 97% | 78% a 83% |
+
+  Cada una conserva su forma de ser (precisión, defensa, armadura, velocidad y rasgos):
+  solo cambian la vida y, si hacía falta, el dado de daño. Ejemplo: el Jabalí pasó de
+  20 de vida y 2d6 a 17 y 2d4+1 (antes costaba 37%, ahora 24%).
+- Las zonas quedaron más parejas: se gana entre el 91% y el 98% de las peleas en todas
+  (antes 88% a 98%). La diferencia entre clases sigue en menos del 10%.
+- **Sugerir números** (editor, ficha de criatura): elegís cómo es (Pareja, Aguanta
+  mucho, Pega fuerte, Rápida, Acorazada) y propone vida, daño y defensas parejos con las
+  criaturas del juego de su nivel y tipo, afinados con peleas de prueba
+  (`EditorSim.suggest`). Con "Usar estos números" pasan a la ficha; después se guarda.
+
+### Descansar
+- Fuera de la posada nunca te cura del todo: la siesta (de día) da +15% y llega hasta la
+  mitad de la vida; dormir (de noche) da +40% al raso o +50% en el pueblo, hasta 3/4.
+- Descansar da hambre: la siesta gasta 1 de comida y dormir 2.
+- Después de descansar hay que moverse (explorar, pelear o viajar) antes de volver a
+  descansar. El botón lo avisa. La posada, pagando, sigue curando todo.
+- Los números están en `Explore.REST`.
+
+### Pantallas
+- **Barra lateral** más compacta: personaje, barras, números, equipo, mochila y misiones
+  se ven sin bajar (en 1536 x 750). Si la pantalla es muy baja, se desplaza solo la ficha.
+  La versión ahora está arriba, al lado del nombre del juego.
+- **Combate entero en la pantalla**: escenario, narrador y botones siempre a la vista; la
+  crónica usa el espacio que sobra y se desplaza por dentro.
+- **Los que pelean, en el centro**: los dos bandos se miran en el medio con el VS entre
+  ellos (antes tu lado quedaba pegado a la izquierda).
+- **La precisión se suma al dado**: el dado cae, el número de precisión vuela desde la
+  tarjeta (PREC) hasta el dado y el total sube antes de decir si pegó.
+- El narrador cuenta una cosa por vez (cada frase queda al menos un momento a la vista).
+- El cartel "en cola" ya no queda cortado, y el botón dice "Sale apenas te toque".
+- El daño se ve completo en las tarjetas (`Utils.compactDice`: "1d8+1+2" pasa a "1d8+3").
+
+### Arreglos
+- Editor: tocar un interruptor más abajo en la ficha (por ejemplo "Anda en grupo" en el
+  Orco) dejaba toda la pantalla negra. Era el casillero escondido del interruptor: el
+  navegador corría la pantalla entera para mostrarlo.
+- "Cuántas pueden venir juntas" se esconde si la criatura no anda en grupo.
 
 ## Versión 2.2.1: clases y razas parejas
 

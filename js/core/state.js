@@ -6,7 +6,7 @@
      player     - { name, raceId, level, xp, hp, maxHp, mana, maxMana,
                     hasMagic, bagId, pet,
                     stats: {speed, precision, armor, damage, dodge},
-                    equipment: {weapon, armor},
+                    equipment: {weapon, armor, accessory},
                     inventory: [{itemId, qty}],
                     coins: {copper, silver, gold},
                     spells: [spellId] }
@@ -148,6 +148,14 @@
       }
       if (typeof p.travelSteps === 'undefined') { p.travelSteps = 0; dirty = true; }
 
+      // v2.4: las mejoras y los efectos son de una pelea: al cargar no hay pelea en curso
+      if (Array.isArray(p.effects) && p.effects.length) { p.effects = []; dirty = true; }
+
+      // v2.4: casillero de accesorio y maná que da el equipo
+      if (!p.equipment) { p.equipment = { weapon: null, armor: null, accessory: null }; dirty = true; }
+      if (!('accessory' in p.equipment)) { p.equipment.accessory = null; dirty = true; }
+      if (!p.gearMana) { p.gearMana = {}; dirty = true; }
+
       // v2.1: cada raza con magia nace con su propio hechizo; las partidas de antes lo aprenden al cargar
       if (p.hasMagic && A.Data && A.Data.getById) {
         const race = A.Data.getById('races', p.raceId);
@@ -237,7 +245,8 @@
         },
         // v1.8.0: todas las razas arrancan con el MISMO equipo (justo para todos).
         // Los que usan magia arrancan sabiendo Chispa.
-        equipment: { weapon: 'daga', armor: 'tunica_cuero' },
+        equipment: { weapon: 'daga', armor: 'tunica_cuero', accessory: null },
+        gearMana: {},
         inventory: [
           { itemId: 'pocion_curacion_menor', qty: 2 },
           { itemId: 'pan', qty: 3 },

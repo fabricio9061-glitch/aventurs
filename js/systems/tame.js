@@ -318,14 +318,16 @@
     const pet = p && p.pet;
     if (!pet) return { ok: false, text: 'No tenés mascota.' };
     upgradeLegacyPet(pet);
-    const slot = (p.inventory || []).find((s) => {
+    // v2.4: usa la poción de curación más barata (no gastes el Elixir de vida en un rasguño)
+    const slot = (p.inventory || []).filter((s) => {
       const it = A.Data.getById('items', s.itemId);
       return it && s.qty > 0 && it.subtype === 'potion' && ((it.effect && it.effect.type === 'heal') || it.healAmount > 0);
-    });
+    }).sort((a, b) => ((A.Data.getById('items', a.itemId).value || 0) - (A.Data.getById('items', b.itemId).value || 0)))[0];
     if (!slot) return { ok: false, text: `No tenés pociones de curación para ${pet.name}.` };
     if (pet.health >= pet.maxHealth) return { ok: false, text: `${pet.name} ya tiene la vida completa.` };
     const it = A.Data.getById('items', slot.itemId);
-    const amount = it.effect && it.effect.amount ? A.Utils.rollDice(it.effect.amount) : (it.healAmount || 10);
+    const ef = it.effect || {};
+    const amount = ef.pct ? Math.max(1, Math.round(pet.maxHealth * ef.pct)) : ef.amount ? A.Utils.rollDice(ef.amount) : (it.healAmount || 10);
     const wasKO = pet.health <= 0;
     const before = pet.health;
     pet.health = Math.min(pet.maxHealth, pet.health + amount);

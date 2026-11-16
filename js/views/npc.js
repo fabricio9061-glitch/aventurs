@@ -31,6 +31,7 @@
     if (A.Data.getById('armors', id)) return 'armor';
     const it = A.Data.getById('items', id);
     if (it && it.subtype === 'bag') return 'bag';
+    if (it && it.subtype === 'accessory') return 'accessory';
     if (A.Data.getById('bags', id)) return 'bag';
     return 'item';
   }
@@ -60,6 +61,13 @@
     return A.Data.getById('bags', bagId) || A.Data.getById('bags', String(id).replace(/^item_/, '')) || null;
   }
 
+  /** v2.4: velocidad que te queda con esa arma y esa armadura (el peso que pase de 4 frena). */
+  function speedWith(p, weapon, armor) {
+    const free = (A.Balance && A.Balance.FREE_WEIGHT) || 4;
+    const w = (weapon ? weapon.weight || 0 : 0) + (armor ? armor.weight || 0 : 0);
+    return Math.max(1, ((p.stats && p.stats.speed) || 10) - Math.max(0, w - free));
+  }
+
   /**
    * Devuelve { verdict: 'better'|'worse'|'same'|null, lines: [texto], note }
    */
@@ -82,10 +90,17 @@
       const dSp = p.hasMagic ? spC - spE : 0;
       const lines = [];
       lines.push({ label: 'Daño medio', value: avgC.toFixed(1), diff: dDmg });
-      if (fitC.atk || dAtk) lines.push({ label: 'Precisión', value: `${fitC.atk >= 0 ? '+' : ''}${fitC.atk}`, diff: fitE.atk ? dAtk : 0 });
+      const precC = fitC.atk + (cand.precision || 0);
+      const precE = fitE.atk + (cur && cur.precision ? cur.precision : 0);
+      if (precC || precE) lines.push({ label: 'Precisión', value: `${precC >= 0 ? '+' : ''}${precC}`, diff: precC - precE });
+      // v2.4: el peso frena
+      const armorNow = p.equipment.armor ? A.Data.getById('armors', p.equipment.armor) : null;
+      const spdC = speedWith(p, cand, armorNow);
+      const spdE = speedWith(p, cur, armorNow);
+      if (spdC !== spdE || (cand.weight || 0) > 4) lines.push({ label: 'Velocidad', value: `${spdC}`, diff: spdC - spdE });
       if (p.hasMagic) lines.push({ label: 'Poder mágico', value: `+${spC}`, diff: dSp });
       const type = B.classOf(p);
-      const score = dDmg + dAtk * 0.7 + dSp * (type === 'mage' ? 2 : 1);
+      const score = dDmg + (precC - precE) * 0.7 + dSp * (type === 'mage' ? 2 : 1) + (spdC - spdE) * 0.1;
       return { verdict: id === curId ? 'equipped' : score > 0.25 ? 'better' : score < -0.25 ? 'worse' : 'same', lines, note: fitC.note, current: cur };
     }
     if (kind === 'armor') {
@@ -93,7 +108,19 @@
       const curId = p.equipment.armor;
       const cur = curId ? A.Data.getById('armors', curId) : null;
       const d = (cand.defense || 0) - (cur ? cur.defense || 0 : 0);
-      return { verdict: id === curId ? 'equipped' : d > 0 ? 'better' : d < 0 ? 'worse' : 'same', lines: [{ label: 'Armadura', value: `+${cand.defense || 0}`, diff: d }], current: cur };
+      const dd = (cand.dodge || 0) - (cur ? cur.dodge || 0 : 0);
+      const weaponNow = p.equipment.weapon ? A.Data.getById('weapons', p.equipment.weapon) : null;
+      const spdC = speedWith(p, weaponNow, cand);
+      const spdE = speedWith(p, weaponNow, cur);
+      const lines = [{ label: 'Armadura', value: `+${cand.defense || 0}`, diff: d }];
+      if (cand.dodge || dd) lines.push({ label: 'Esquiva', value: `${(cand.dodge || 0) >= 0 ? '+' : ''}${cand.dodge || 0}`, diff: dd });
+      if (spdC !== spdE || (cand.weight || 0) > 4) lines.push({ label: 'Velocidad', value: `${spdC}`, diff: spdC - spdE });
+      const score = d + dd * 0.8 + (spdC - spdE) * 0.1;
+      return { verdict: id === curId ? 'equipped' : score > 0.2 ? 'better' : score < -0.2 ? 'worse' : 'same', lines, current: cur };
+    }
+    if (kind === 'accessory') {
+      const cur = p.equipment.accessory ? A.Data.getById('items', p.equipment.accessory) : null;
+      return { verdict: id === p.equipment.accessory ? 'equipped' : null, lines: [], current: cur, note: cur ? `Ahora llevás ${cur.name}: se lleva uno por vez.` : '' };
     }
     if (kind === 'bag') {
       const cand = bagData(id);
@@ -177,12 +204,10 @@
     const kind = kindOf(id);
     const d = U().itemData(id);
     if (!d) return '';
-    if (kind === 'weapon') return `${d.damage}${d.magic ? ' · mágica' : ''}${(d.weight || 0) >= 4 ? ' · pesada' : ''}`;
-    if (kind === 'armor') return `Armadura +${d.defense || 0}`;
+    if (kind === 'weapon') return `${d.damage}${d.magic ? ' · mágica' : ''} · peso ${d.weight || 0}`;
+    if (kind === 'armor') return `Armadura +${d.defense || 0}${d.dodge ? ` · esquiva +${d.dodge}` : ''} · peso ${d.weight || 0}`;
     if (kind === 'bag') { const b = bagData(id); return b ? `${b.slots} espacios` : ''; }
-    if (d.effect && d.effect.type === 'heal') return `Cura ${d.effect.amount || d.effect.value || ''}`.trim();
-    if (d.foodValue) return `+${d.foodValue} comida`;
-    return RARITY[d.rarity] || '';
+    return '';
   }
 
   function buyDetail(npc, id) {
@@ -200,11 +225,19 @@
           <span class="shop-detail-sprite">${U().itemSprite(d, 64)}</span>
           <div>
             <div class="shop-detail-name">${U().esc(d.name)}</div>
-            <div class="shop-detail-meta">${U().esc(RARITY[d.rarity] || 'Común')}${itemStatsLine(id) ? ` · ${U().esc(itemStatsLine(id))}` : ''}</div>
+            <div class="shop-detail-meta"><span class="rarity-tag rarity-${U().esc(d.rarity || 'common')}">${U().esc(RARITY[d.rarity] || 'Común')}</span>${itemStatsLine(id) ? ` ${U().esc(itemStatsLine(id))}` : ''}</div>
             ${verdictBadge(cmp.verdict)}
           </div>
         </div>
         ${d.description ? `<p class="shop-detail-desc">${U().esc(d.description)}</p>` : ''}
+        ${(() => {
+          // v2.4: lo que hace (pociones, comida, pergaminos y accesorios)
+          const lines = d.subtype === 'accessory' ? (A.Accessories ? A.Accessories.describe(d) : []) : (A.ItemFx && (d.effect || d.healAmount || d.foodValue) ? A.ItemFx.describe(d) : []);
+          if (!lines.length) return '';
+          const fight = A.ItemFx && A.ItemFx.combatOnly(d);
+          return `<ul class="effect-list shop-effects">${lines.map((l) => `<li>${U().icon(d.subtype === 'accessory' ? 'star' : fight ? 'swords' : 'heal', 14)}<span>${U().esc(l)}</span></li>`).join('')}${fight ? `<li class="dim">${U().icon('swords', 14)}<span>Se usa en combate (gasta tu turno).</span></li>` : ''}</ul>`;
+        })()}
+        ${cmp.note && !cmp.lines.length ? `<p class="shop-hint">${U().esc(cmp.note)}</p>` : ''}
         ${cmp.lines.length ? `
           <div class="shop-cmp">
             <div class="shop-cmp-head">Comparado con ${cmp.current ? `<b>${U().esc(cmp.current.name)}</b>` : 'nada puesto'}</div>
@@ -231,7 +264,7 @@
             const price = priceOf(npc, id);
             const cmp = compare(id);
             return `
-              <button class="shop-card ${sel === id ? 'is-selected' : ''} ${A.Currency.canPay(price) ? '' : 'is-pricey'}" data-shop-sel="${U().esc(id)}" title="${U().esc(d.name)}">
+              <button class="shop-card ${sel === id ? 'is-selected' : ''} ${A.Currency.canPay(price) ? '' : 'is-pricey'} rarity-${U().esc(d.rarity || 'common')}" data-shop-sel="${U().esc(id)}" title="${U().esc(d.name)}${d.rarity && d.rarity !== 'common' ? ` (${RARITY[d.rarity] || d.rarity})` : ''}">
                 <span class="shop-card-sprite">${U().itemSprite(d, 44)}</span>
                 <span class="shop-card-name">${U().esc(d.name)}</span>
                 <span class="shop-card-price">${U().price(price, 14)}</span>
@@ -265,7 +298,7 @@
           const each = sellPrice(d);
           const quest = need.has(s.itemId);
           return `
-            <div class="sell-row ${quest ? 'is-quest' : ''}">
+            <div class="sell-row ${quest ? 'is-quest' : ''} rarity-${U().esc(d.rarity || 'common')}">
               <span class="sell-sprite">${U().itemSprite(d, 32)}</span>
               <span class="sell-name">${U().esc(d.name)}${s.qty > 1 ? ` <span class="num dim">×${s.qty}</span>` : ''}${quest ? `<span class="sell-tag">${U().icon('quest', 12)}Misión</span>` : ''}</span>
               <span class="sell-price">${U().price(each, 14)}</span>

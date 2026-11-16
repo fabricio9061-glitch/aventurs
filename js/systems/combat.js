@@ -27,6 +27,10 @@
        Despierta con una poción o descansando (ver js/systems/tame.js).
      - Con hambre (saciedad 0) pega la mitad.
 
+   v2.4: accesorios (A.Accessories) y pociones/pergaminos (A.ItemFx):
+     mejoras por turnos, espinas, robo de vida, doble golpe, contraataque,
+     superviviente, iniciativa, y pergaminos de daño, aturdir y maldecir.
+
    API:
      start({ enemies | enemyId | regionId, fromTravel, ambush })
      setTarget(instanceId), getTarget(), aliveEnemies()
@@ -61,6 +65,8 @@
     acid: { type: 'bleed', turns: 2 },
   };
   const TAG_EFFECT_CHANCE = 0.25;
+  // v2.4: si una misión en curso pide un objeto y todavía te falta, cae al menos la mitad de las veces
+  const QUEST_DROP_CHANCE = 0.5;
 
   // Ritmo del combate (ms). Dan tiempo a que se vea el dado y el golpe.
   const ENEMY_DELAY = 900;
@@ -156,6 +162,8 @@
       surprise: !!opts.surprise,
     };
 
+    // v2.4: Amuleto de la iniciativa: actuás primero (menos si te emboscan)
+    const goFirst = !combat.ambush && A.Accessories && A.Accessories.has(p, 'first') && combat.initiative[0] && combat.initiative[0].kind !== 'player';
     if (combat.ambush) {
       const firstEnemyIdx = initiative.findIndex((e) => e.kind === 'enemy');
       if (firstEnemyIdx > 0) combat.initiative = initiative.slice(firstEnemyIdx).concat(initiative.slice(0, firstEnemyIdx));
@@ -164,6 +172,8 @@
       const mine = initiative.filter((e) => e.kind !== 'enemy');
       const theirs = initiative.filter((e) => e.kind === 'enemy');
       combat.initiative = mine.concat(theirs);
+    } else if (goFirst) {
+      combat.initiative = initiative.filter((e) => e.kind === 'player').concat(initiative.filter((e) => e.kind !== 'player'));
     }
     combat.turn = currentTurnKind(combat);
     State().combat = combat;
@@ -171,6 +181,7 @@
     addLog(combat, 'system', { text: `Comienza el combate contra ${A.Encounter.describeGroup(instances)}.`, fx: { kind: 'start', group: A.Encounter.describeGroup(instances), ambush: combat.ambush } });
     if (combat.ambush) addLog(combat, 'system', { text: 'Te emboscaron. Los enemigos atacan primero.' });
     if (combat.surprise) addLog(combat, 'system', { text: 'Los agarraste desprevenidos. Actuás primero.' });
+    if (goFirst && !combat.surprise) addLog(combat, 'system', { text: 'Amuleto de la iniciativa: actuás primero.', fx: { kind: 'buff', target: 'player', label: 'Primero', icon: 'boot' }, say: { text: 'Tu amuleto zumba: te movés antes que nadie.', tone: 'good' } });
     addLog(combat, 'system', { text: `Orden por velocidad: ${combat.initiative.map((i) => `${i.name} (vel ${i.speed})`).join(' → ')}` });
     for (const tg of tieGroups) {
       addLog(combat, 'system', { text: `Empate de velocidad ${tg.speed}, desempate con D20: ${tg.members.map((m) => `${m.name}: ${m.tieRoll}`).join(', ')}` });
@@ -281,7 +292,40 @@
 
   /** Opciones de tirada del jugador según su pasiva. */
   function playerRollOpts(p) {
-    return P() ? { critMin: P().critMin(p), reroll1: P().rerollOnes(p) } : {};
+    const base = P() ? { critMin: P().critMin(p), reroll1: P().rerollOnes(p) } : { critMin: 20 };
+    // v2.4: Anillo del golpe certero: críticos desde más abajo
+    const extra = A.Accessories ? A.Accessories.bonus(p, 'crit') : 0;
+    if (extra > 0) base.critMin = Math.max(2, (base.critMin || 20) - extra);
+    return base;
+  }
+
+  /**
+   * v2.4: todo lo que protege al jugador antes de perder vida:
+   * pasivas de raza (Piel de roca, Determinación) y luego objetos
+   * (Invencible, Amuleto del superviviente, Pergamino de resurrección).
+   */
+  function shieldPlayer(c, p, dmg, opts = {}) {
+    const ab = P() ? P().absorbHit(c, p, dmg, opts) : { dmg, passive: null };
+    const gd = A.ItemFx ? A.ItemFx.guard(c, p, ab.dmg) : { dmg: ab.dmg, tag: null };
+    return { dmg: gd.dmg, passive: ab.passive, guard: gd.tag };
+  }
+
+  /** Cuenta lo que hizo un objeto que te salvó (después del golpe). */
+  function announceGuard(c, tag) {
+    if (!tag || tag === 'invincible') return;
+    const p = State().player;
+    if (tag === 'survivor') {
+      const it = A.Data.getById('items', p.equipment && p.equipment.accessory);
+      addLog(c, 'system', { text: `${it ? it.name : 'Tu amuleto'}: quedás con 1 de vida.`, fx: { kind: 'buff', target: 'player', label: '¡En pie!', icon: 'heart' }, say: { text: `¡Tu ${(it ? it.name : 'amuleto').toLowerCase()} brilla! El golpe que te iba a matar te deja con 1 de vida.`, tone: 'crit' } });
+    } else if (tag === 'resurrect') {
+      addLog(c, 'system', { text: `Pergamino de resurrección: quedás con ${p.hp} de vida.`, fx: { kind: 'buff', target: 'player', label: '¡En pie!', icon: 'heart' }, say: { text: `¡La luz del pergamino te sostiene! Quedás en pie con ${p.hp} de vida.`, tone: 'crit' } });
+    }
+  }
+
+  /** v2.4: ¿te protege algo de este efecto? { passive } (raza) o { name } (equipo o mejora). */
+  function immunityOf(p, type) {
+    if (P() && P().immune(p, type)) return { passive: P().idOf(p) };
+    return A.ItemFx ? A.ItemFx.immunityOf(p, type) : null;
   }
 
   /**
@@ -319,7 +363,7 @@
 
   function applyStatus(target, type, opts = {}) {
     if (!target) return false;
-    if (target === State().player && P() && P().immune(target, type)) return false;
+    if (target === State().player && immunityOf(target, type)) return false;
     if (!target.effects) target.effects = [];
     const turns = opts.turns || 3;
     const value = opts.value || 1;
@@ -346,6 +390,7 @@
     return ({
       bleed: 'sangrado', poison: 'veneno', fire: 'fuego', cold: 'frío',
       shock: 'choque', blind: 'ceguera', silence: 'silencio',
+      stun: 'aturdido', curse: 'maldición', buff: 'mejora',
     })[type] || type;
   }
 
@@ -375,22 +420,26 @@
     const parts = [];
     let stunned = false;
     for (const ef of entity.effects) {
+      // v2.4: las mejoras (pociones, pergaminos) se descuentan después de cada acción tuya
+      if (ef.type === 'buff') continue;
       if (ef.type === 'bleed' || ef.type === 'poison' || ef.type === 'fire') {
         dmg += ef.value;
         if (!tickType) tickType = ef.type;
         parts.push(`${effectLabel(ef.type)} ${ef.value}`);
       }
       if (ef.type === 'shock' && Math.random() < STUN_CHANCE) stunned = true;
+      if (ef.type === 'stun') stunned = true; // v2.4: pergaminos que paralizan
       ef.turns -= 1;
     }
-    entity.effects = entity.effects.filter((e) => e.turns > 0);
+    entity.effects = entity.effects.filter((e) => e.type === 'buff' || e.turns > 0);
 
     const name = targetName(entity);
     if (dmg > 0) {
       if (kind === 'player') {
-        const ab = P() ? P().absorbHit(c, entity, dmg, { tick: true }) : { dmg, passive: null };
+        const ab = shieldPlayer(c, entity, dmg, { tick: true });
         A.State.damagePlayer(ab.dmg);
         addLog(c, 'system', { text: `Efectos: ${parts.join(', ')}. -${ab.dmg} salud (HP ${entity.hp}/${entity.maxHp})`, passive: ab.passive, fx: { kind: 'tick', target: 'player', amount: ab.dmg, effect: tickType } });
+        announceGuard(c, ab.guard);
         if (entity.hp <= 0) return { skip: true, died: true };
         maybeAnnounceFury(c, entity);
       } else if (kind === 'pet') {
@@ -486,6 +535,13 @@
   /** Pasivas que actúan al empezar tu turno (en silencio: solo el número flotante). */
   function playerTurnPassives(c, p) {
     if (!p) return;
+    // v2.4: Orbe de regeneración y Poción/Pergamino de regenerar
+    const regen = (A.Accessories ? A.Accessories.bonus(p, 'regen') : 0) + (A.ItemFx ? A.ItemFx.buffMods(p).regen : 0);
+    if (regen > 0 && p.hp > 0 && p.hp < p.maxHp) {
+      const before = p.hp;
+      A.State.healHp(regen);
+      if (p.hp > before) addLog(c, 'system', { text: `Regeneración: +${p.hp - before} de vida.`, fx: { kind: 'heal', actor: 'player', target: 'player', amount: p.hp - before }, say: { text: `Tus heridas se cierran solas: +${p.hp - before} de vida.`, tone: 'good' } });
+    }
     // v2.1: los magos recuperan maná al empezar cada turno (cada raza, una cantidad distinta)
     const mana = B().manaRegenOf ? B().manaRegenOf(p).turn : 0;
     if (mana > 0 && p.hasMagic && p.mana < p.maxMana && c.round > 1) {
@@ -580,6 +636,25 @@
     const p = State().player;
     const pw = power ? (B().warriorPower ? B().warriorPower(p) : null) : null;
     if (pw) c.powerCd = pw.cooldown;
+    playerStrike(c, p, target, { pw });
+    // v2.4: Guantes del doble golpe: a veces pegás otra vez
+    const dbl = A.Accessories ? A.Accessories.bonus(p, 'double') : 0;
+    if (dbl > 0 && p.hp > 0 && Math.random() < dbl) {
+      const t2 = getTarget();
+      if (t2) {
+        addLog(c, 'system', { text: '¡Doble golpe!', fx: { kind: 'buff', target: 'player', label: 'Doble golpe', icon: 'swords' }, say: { text: 'Tu brazo es más rápido que su guardia: ¡pegás otra vez!', tone: 'crit' } });
+        playerStrike(c, p, t2, {});
+      }
+    }
+    afterPlayerAction();
+  }
+
+  /**
+   * Un golpe del jugador con el arma (también el doble golpe y el contraataque).
+   * opts.pw: golpe fuerte del guerrero · opts.counter: contraataque.
+   */
+  function playerStrike(c, p, target, opts = {}) {
+    const pw = opts.pw || null;
     const st = playerStats();
     const es = enemyStats(target);
     const r = attackRoll(st.attack, es.defense, playerRollOpts(p));
@@ -589,57 +664,66 @@
     if (!r.hit) {
       addLog(c, 'player', {
         power: !!pw,
+        counter: !!opts.counter,
         text: r.fumble ? `Atacaste a ${target.displayName} pero fallaste por completo` : `${target.displayName} esquivó tu ${pw ? 'golpe fuerte' : 'ataque'}`,
         actor: p.name, target: target.displayName, actorIcon: '', weapon: weaponName,
         roll: r.roll, bonus: st.attack, total: r.total, vs: es.defense, vsLabel: 'defensa',
         result: r.fumble ? 'fumble' : 'evaded',
         fx: { kind: 'attack', actor: 'player', target: fxKey(target) },
       });
-    } else {
-      const dmgRoll = rollPlayerDamage(p);
-      let rawDmg = dmgRoll.total;
-      if (pw) rawDmg *= pw.mult;
-      if (r.crit) rawDmg = Math.round(rawDmg * (P() ? P().critMult(p) : 2));
-      const finalDmg = mitigate(rawDmg, es.armor);
-      target.hp = Math.max(0, target.hp - finalDmg);
-      let passive = null;
-      if (r.crit && P() && P().has(p, 'golpe_gigante')) passive = 'golpe_gigante';
-      else if (r.crit && r.roll < 20) passive = 'ojo_certero';
-      addLog(c, 'player', {
-        passive,
-        power: !!pw,
-        text: r.crit ? `¡Golpe crítico${pw ? ' y fuerte' : ''} a ${target.displayName}!` : (pw ? `¡Golpe fuerte a ${target.displayName}!` : `Atacaste a ${target.displayName}`),
-        actor: p.name, target: target.displayName, actorIcon: '', weapon: weaponName,
-        damageDice: dmgRoll.composed.expression,
-        damageBreakdown: dmgRoll.composed.components.map((cmp, i) => ({
-          label: cmp.label, expr: cmp.expr,
-          rolled: dmgRoll.res.components && dmgRoll.res.components[i] ? dmgRoll.res.components[i].rolled : 0,
-          icon: cmp.icon,
-        })),
-        roll: r.roll, bonus: st.attack, total: r.total, vs: es.defense, vsLabel: 'defensa',
-        rawDmg, targetArmor: es.armor, dmg: finalDmg, hpAfter: target.hp, hpMax: target.maxHp,
-        result: r.crit ? 'crit' : 'hit',
-        fx: { kind: 'attack', actor: 'player', target: fxKey(target) },
-      });
-      // v2.2.1: los híbridos recuperan maná al acertar con el arma
-      const moh = B().manaOnHit ? B().manaOnHit(p) : 0;
-      if (moh > 0 && p.mana < p.maxMana) {
-        const before = p.mana;
-        A.State.setMana(Math.min(p.maxMana, p.mana + moh));
-        if (p.mana > before) addLog(c, 'system', { text: `Recuperás ${p.mana - before} de maná.`, fx: { kind: 'heal', actor: 'player', target: 'player', amount: 0, mana: p.mana - before, quiet: true } });
-      }
-      if (target.hp > 0) maybeInflictStatusOnHit(st.weapon, target, c);
-      // Sangre de dragón: a veces el golpe prende fuego
-      if (target.hp > 0 && P() && Math.random() < P().burnChance(p)) {
-        applyStatus(target, 'fire', { turns: 2, value: P().burnValue(p), source: 'sangre_dragon' });
-        addLog(c, 'system', { text: `${target.displayName} se prende fuego.`, fx: { kind: 'status', target: fxKey(target), effect: 'fire', passive: 'sangre_dragon' } });
-      }
-      if (target.hp <= 0) {
-        addLog(c, 'system', { text: `${target.displayName} cayó.`, killed: target.displayName, fx: { kind: 'death', target: fxKey(target) } });
-        maybeDropEquippedWeapon(c, target);
-      }
+      return r;
     }
-    afterPlayerAction();
+    const dmgRoll = rollPlayerDamage(p);
+    let rawDmg = dmgRoll.total;
+    if (pw) rawDmg *= pw.mult;
+    if (r.crit) rawDmg = Math.round(rawDmg * (P() ? P().critMult(p) : 2));
+    const finalDmg = mitigate(rawDmg, es.armor);
+    target.hp = Math.max(0, target.hp - finalDmg);
+    let passive = null;
+    if (r.crit && P() && P().has(p, 'golpe_gigante')) passive = 'golpe_gigante';
+    else if (r.crit && r.roll < 20 && P() && P().has(p, 'ojo_certero')) passive = 'ojo_certero';
+    addLog(c, 'player', {
+      passive,
+      power: !!pw,
+      counter: !!opts.counter,
+      text: r.crit ? `¡Golpe crítico${pw ? ' y fuerte' : ''} a ${target.displayName}!` : (pw ? `¡Golpe fuerte a ${target.displayName}!` : `Atacaste a ${target.displayName}`),
+      actor: p.name, target: target.displayName, actorIcon: '', weapon: weaponName,
+      damageDice: dmgRoll.composed.expression,
+      damageBreakdown: dmgRoll.composed.components.map((cmp, i) => ({
+        label: cmp.label, expr: cmp.expr,
+        rolled: dmgRoll.res.components && dmgRoll.res.components[i] ? dmgRoll.res.components[i].rolled : 0,
+        icon: cmp.icon,
+      })),
+      roll: r.roll, bonus: st.attack, total: r.total, vs: es.defense, vsLabel: 'defensa',
+      rawDmg, targetArmor: es.armor, dmg: finalDmg, hpAfter: target.hp, hpMax: target.maxHp,
+      result: r.crit ? 'crit' : 'hit',
+      fx: { kind: 'attack', actor: 'player', target: fxKey(target) },
+    });
+    // v2.2.1: los híbridos recuperan maná al acertar con el arma
+    const moh = B().manaOnHit ? B().manaOnHit(p) : 0;
+    if (moh > 0 && p.mana < p.maxMana) {
+      const before = p.mana;
+      A.State.setMana(Math.min(p.maxMana, p.mana + moh));
+      if (p.mana > before) addLog(c, 'system', { text: `Recuperás ${p.mana - before} de maná.`, fx: { kind: 'heal', actor: 'player', target: 'player', amount: 0, mana: p.mana - before, quiet: true } });
+    }
+    // v2.4: Amuleto vampírico: parte del daño vuelve como vida
+    const ls = A.Accessories ? A.Accessories.bonus(p, 'lifesteal') : 0;
+    if (ls > 0 && p.hp > 0 && p.hp < p.maxHp) {
+      const before = p.hp;
+      A.State.healHp(Math.max(1, Math.round(finalDmg * ls)));
+      if (p.hp > before) addLog(c, 'system', { text: `Robo de vida: +${p.hp - before}.`, fx: { kind: 'heal', actor: 'player', target: 'player', amount: p.hp - before }, say: { text: `Tu amuleto bebe de la herida: recuperás ${p.hp - before} de vida.`, tone: 'good' } });
+    }
+    if (target.hp > 0) maybeInflictStatusOnHit(st.weapon, target, c);
+    // Sangre de dragón: a veces el golpe prende fuego
+    if (target.hp > 0 && P() && Math.random() < P().burnChance(p)) {
+      applyStatus(target, 'fire', { turns: 2, value: P().burnValue(p), source: 'sangre_dragon' });
+      addLog(c, 'system', { text: `${target.displayName} se prende fuego.`, fx: { kind: 'status', target: fxKey(target), effect: 'fire', passive: 'sangre_dragon' } });
+    }
+    if (target.hp <= 0) {
+      addLog(c, 'system', { text: `${target.displayName} cayó.`, killed: target.displayName, fx: { kind: 'death', target: fxKey(target) } });
+      maybeDropEquippedWeapon(c, target);
+    }
+    return r;
   }
 
   function maybeDropEquippedWeapon(c, enemy) {
@@ -673,7 +757,9 @@
 
     if (spell.heal) {
       // v2.1: la curación suma solo la mitad del poder mágico (si no, con maná que vuelve solo sería vida infinita)
-      const heal = A.Utils.rollDice(spell.heal) + Math.floor(power / 2);
+      let heal = A.Utils.rollDice(spell.heal) + Math.floor(power / 2);
+      const boost = A.Accessories ? A.Accessories.bonus(p, 'heal') : 0; // v2.4: Cruz sagrada
+      if (boost > 0) heal = Math.round(heal * (1 + boost));
       const before = p.hp;
       A.State.healHp(heal);
       addLog(c, 'player', { text: `Lanzaste ${spell.name} y recuperaste ${p.hp - before} de salud.`, fx: { kind: 'heal', actor: 'player', target: 'player', amount: p.hp - before, icon: '' } });
@@ -707,24 +793,55 @@
     afterPlayerAction();
   }
 
+  /** v2.4: lo que necesita ItemFx para que un objeto actúe en la pelea. */
+  function itemCtx(c) {
+    return {
+      log: (type, payload) => addLog(c, type, payload),
+      alive: aliveEnemies,
+      target: getTarget,
+      fxKey,
+      applyStatus,
+      effectLabel,
+      died: (t) => {
+        addLog(c, 'system', { text: `${t.displayName} cayó.`, killed: t.displayName, fx: { kind: 'death', target: fxKey(t) } });
+        maybeDropEquippedWeapon(c, t);
+      },
+    };
+  }
+
+  /** Usa una poción, comida o pergamino (gasta el turno). Devuelve true si se usó. */
   function playerUseItem(itemId) {
     const c = State().combat;
-    if (!c || c.result || !isPlayerTurn(c)) return;
+    if (!c || c.result) return false;
+    if (!isPlayerTurn(c)) {
+      addLog(c, 'system', { text: 'Esperá tu turno para usar algo.', fx: { kind: 'note' } });
+      return false;
+    }
     const item = A.Data.getById('items', itemId);
-    if (!item) return;
-    const slot = State().player.inventory.find((s) => s.itemId === itemId);
-    if (!slot) return;
-    const before = State().player.hp;
-    const beforeMana = State().player.mana;
-    const used = A.Inventory.use(itemId);
-    if (!used) return;
-    const hpDelta = State().player.hp - before;
-    const manaDelta = State().player.mana - beforeMana;
-    let text = `Usaste ${item.name}.`;
-    if (hpDelta > 0) text += ` (+${hpDelta} salud)`;
-    if (manaDelta > 0) text += ` (+${manaDelta} maná)`;
-    addLog(c, 'player', { text, fx: { kind: 'heal', actor: 'player', target: 'player', amount: hpDelta, mana: manaDelta, icon: '' } });
+    if (!item) return false;
+    const p = State().player;
+    if (!p.inventory.find((s) => s.itemId === itemId)) return false;
+    if (!A.ItemFx) return false;
+    const res = A.ItemFx.useInCombat(c, item, itemCtx(c));
+    if (!res.ok) {
+      if (res.why) addLog(c, 'system', { text: res.why, fx: { kind: 'note' } });
+      State().persist();
+      return false;
+    }
+    A.State.removeItem(itemId, 1);
+    if (res.escape) {
+      addLog(c, 'system', {
+        text: `Rompiste ${item.name} y escapaste.`, result: 'hit',
+        fx: { kind: 'flee', actor: 'player' },
+        say: { text: 'Rompés el pergamino: el aire se cierra a tu alrededor y aparecés lejos de la pelea.', tone: 'good' },
+      });
+      c.result = 'flee';
+      A.Bus.emit('combat:ended', { result: 'flee' });
+      State().persist();
+      return true;
+    }
     afterPlayerAction();
+    return true;
   }
 
   /**
@@ -799,6 +916,7 @@
   function afterPlayerAction() {
     const c = State().combat;
     if (!c) return;
+    if (A.ItemFx) A.ItemFx.tickBuffs(State().player); // v2.4: las mejoras duran tantos turnos tuyos
     State().persist();
     A.Bus.emit('combat:action', { actor: 'player' });
     if (checkEnd()) return;
@@ -897,34 +1015,54 @@
       r.crit = false;
       lucky = true;
     }
+    // v2.4: invisible (poción o pergamino): no te encuentra
+    let unseen = false;
+    const mods = A.ItemFx ? A.ItemFx.buffMods(p) : {};
+    if (r.hit && !targetPet && mods.invisible) {
+      r.hit = false;
+      r.crit = false;
+      unseen = true;
+    }
     const enemyIcon = '';
     const damageNotation = enemy.damage;
+    const E = A.Narrator && A.Narrator.enemyNoun ? A.Narrator.enemyNoun(enemy) : enemy.displayName;
+    const capE = E.charAt(0).toUpperCase() + E.slice(1);
 
     if (!r.hit) {
-      addLog(c, 'enemy', {
+      const missEntry = {
         passive: lucky ? 'suerte' : null,
-        text: r.fumble ? `${enemy.displayName} ataca a ${targetName} pero falla por completo` : lucky ? `¡Suerte! El golpe de ${enemy.displayName} pasa de largo` : `${enemy.displayName} ataca pero ${targetName} esquiva`,
+        text: r.fumble ? `${enemy.displayName} ataca a ${targetName} pero falla por completo` : lucky ? `¡Suerte! El golpe de ${enemy.displayName} pasa de largo` : unseen ? `${enemy.displayName} no te encuentra` : `${enemy.displayName} ataca pero ${targetName} esquiva`,
         actor: enemy.displayName, target: targetName, actorIcon: enemyIcon,
         roll: r.roll, bonus: es.attack, total: r.total, vs: defense, vsLabel: 'defensa',
         result: r.fumble ? 'fumble' : 'evaded',
         fx: { kind: 'attack', actor: fxKey(enemy), target: targetPet ? 'pet' : 'player' },
-      });
+      };
+      if (unseen && !r.fumble) missEntry.say = { text: `${capE} te busca, pero no te ve: el golpe pasa de largo.`, tone: 'good' };
+      addLog(c, 'enemy', missEntry);
+      // v2.4: Brazalete de contraataque: cuando te fallan, a veces devolvés el golpe
+      const counter = !targetPet && A.Accessories ? A.Accessories.bonus(p, 'counter') : 0;
+      if (counter > 0 && p.hp > 0 && enemy.hp > 0 && !c.result && Math.random() < counter) {
+        addLog(c, 'system', { text: 'Contraataque.', fx: { kind: 'buff', target: 'player', label: 'Contraataque', icon: 'swords' }, say: { text: 'Lo esquivás y aprovechás el hueco para devolver el golpe.', tone: 'good' } });
+        playerStrike(c, p, enemy, { counter: true });
+      }
       return;
     }
     let rawDmg = rollDamage(damageNotation);
     if (r.crit) rawDmg *= 2;
     let finalDmg = mitigate(rawDmg, armor);
     let passive = null;
+    let guard = null;
     const victim = targetPet ? pet : p;
     if (targetPet) {
       pet.health = Math.max(0, pet.health - finalDmg);
     } else {
-      const ab = P() ? P().absorbHit(c, p, finalDmg) : { dmg: finalDmg, passive: null };
+      const ab = shieldPlayer(c, p, finalDmg);
       finalDmg = ab.dmg;
       passive = ab.passive;
+      guard = ab.guard;
       A.State.damagePlayer(finalDmg);
     }
-    addLog(c, 'enemy', {
+    const hitEntry = {
       text: opts.free ? `${enemy.displayName} te golpea por la huida fallida`
         : r.crit ? `${enemy.displayName} golpea CRÍTICO a ${targetName}`
         : targetPet ? `${enemy.displayName} hiere a ${pet.name}` : `${enemy.displayName} te hiere`,
@@ -934,8 +1072,25 @@
       hpAfter: targetPet ? pet.health : p.hp, hpMax: targetPet ? pet.maxHealth : p.maxHp,
       result: r.crit ? 'crit' : 'hit',
       fx: { kind: 'attack', actor: fxKey(enemy), target: targetPet ? 'pet' : 'player' },
-    });
+    };
+    if (guard === 'invincible') hitEntry.say = { text: `${capE} te pega con todo, pero el golpe rebota: no te hace nada.`, tone: 'good' };
+    addLog(c, 'enemy', hitEntry);
+    announceGuard(c, guard);
     if (!targetPet) maybeAnnounceFury(c, p);
+    // v2.4: Anillo de espinas y Pergamino de espinas/reflejar: el que te pega se lastima
+    if (!targetPet && finalDmg > 0 && enemy.hp > 0) {
+      const frac = (A.Accessories ? A.Accessories.bonus(p, 'thorns') : 0) + (mods.reflect || 0);
+      if (frac > 0) {
+        const back = Math.max(1, Math.round(finalDmg * frac));
+        enemy.hp = Math.max(0, enemy.hp - back);
+        addLog(c, 'system', {
+          text: `Espinas: ${enemy.displayName} recibe ${back} de daño.`,
+          fx: { kind: 'tick', target: fxKey(enemy), amount: back, effect: 'bleed' },
+          say: { text: `${capE} se lastima con tus espinas: ${back} de daño.`, tone: 'good' },
+        });
+        if (enemy.hp <= 0) addLog(c, 'system', { text: `${enemy.displayName} cayó.`, killed: enemy.displayName, fx: { kind: 'death', target: fxKey(enemy) } });
+      }
+    }
     // Efectos por tags del enemigo (veneno, fuego, hielo, ácido)
     if (targetPet ? pet.health > 0 : p.hp > 0) {
       for (const tag of enemy.tags || []) {
@@ -943,7 +1098,11 @@
         if (te && Math.random() < TAG_EFFECT_CHANCE) {
           const took = applyStatus(victim, te.type, { turns: te.turns, value: 1 + Math.floor(((enemy.tier || 1) - 1) / 3), source: enemy.id });
           if (took) addLog(c, 'system', { text: `${targetName} sufre ${effectLabel(te.type)}.`, fx: { kind: 'status', target: targetPet ? 'pet' : 'player', effect: te.type } });
-          else addLog(c, 'system', { text: `${targetName} no sufre ${effectLabel(te.type)} (pasiva).`, fx: { kind: 'passive', passive: P() ? P().idOf(p) : null, effect: te.type } });
+          else {
+            const im = immunityOf(p, te.type) || {};
+            if (im.passive) addLog(c, 'system', { text: `${targetName} no sufre ${effectLabel(te.type)} (pasiva).`, fx: { kind: 'passive', passive: im.passive, effect: te.type } });
+            else addLog(c, 'system', { text: `${targetName} no sufre ${effectLabel(te.type)} (${im.name || 'protección'}).`, fx: { kind: 'buff', target: 'player', label: 'Inmune', icon: 'star' }, say: { text: `${im.name ? `Gracias a ${im.name.toLowerCase()}, ` : ''}${({ poison: 'el veneno', fire: 'el fuego', cold: 'el frío', shock: 'la descarga', bleed: 'el sangrado' })[te.type] || 'eso'} no te hace nada.`.replace(/^./, (ch) => ch.toUpperCase()), tone: 'good' } });
+          }
           break;
         }
       }
@@ -969,8 +1128,11 @@
   /** XP, subida de nivel, XP de mascota y loot de los enemigos indicados. */
   function grantRewards(c, defeated) {
     const p = A.State.player;
+    const acc = (k) => (A.Accessories ? A.Accessories.bonus(p, k) : 0);
     let totalXp = 0;
     for (const e of defeated) totalXp += A.Progression.xpForEnemy(e);
+    // v2.4: Amuleto de sabiduría
+    if (acc('xp') > 0) totalXp = Math.round(totalXp * (1 + acc('xp')));
     if (totalXp > 0) {
       p.xp = (p.xp || 0) + totalXp;
       addLog(c, 'system', { text: `Ganaste ${totalXp} XP.`, fx: { kind: 'reward', xp: totalXp } });
@@ -993,11 +1155,15 @@
     // Loot
     let totalCoins = 0;
     const aggregated = {};
+    // v2.4: Talismán de la fortuna y Trébol; y lo que pide una misión en curso cae más seguido
+    const goldMult = 1 + acc('gold');
+    const dropMult = 1 + acc('drops');
+    const wanted = A.Quests && A.Quests.wantedItems ? A.Quests.wantedItems() : new Set();
     for (const inst of defeated) {
       const enemyData = A.Data.getById('enemies', inst.id);
       if (!enemyData) continue;
       // v2.0: cada enemigo suelta monedas SIEMPRE, según su peligro
-      const sure = B().Economy && B().Economy.coinsFor ? B().Economy.coinsFor(enemyData) : 0;
+      const sure = B().Economy && B().Economy.coinsFor ? Math.round(B().Economy.coinsFor(enemyData) * goldMult) : 0;
       if (sure > 0) {
         totalCoins += sure;
         if (A.Currency && A.Currency.add) A.Currency.add(sure); else A.State.addItem('coin_copper', sure);
@@ -1005,7 +1171,9 @@
       for (const d of enemyData.drops || []) {
         // las monedas automáticas ya se pagaron arriba; solo cuentan las puestas a mano en el editor
         if (d.itemId === 'coin_copper' && (d.source === 'balance' || d.source === 'auto' || !d.source)) continue;
-        if (Math.random() >= (d.chance || 0)) continue;
+        let chance = Math.min(0.95, (d.chance || 0) * dropMult);
+        if (wanted.has(d.itemId)) chance = Math.max(chance, QUEST_DROP_CHANCE);
+        if (Math.random() >= chance) continue;
         const qMin = Math.max(1, d.qtyMin || 1);
         const qMax = Math.max(qMin, d.qtyMax || qMin);
         const qty = qMin + Math.floor(Math.random() * (qMax - qMin + 1));
@@ -1122,8 +1290,11 @@
     if (typeof payload === 'string') entry.text = payload;
     else Object.assign(entry, payload);
     // v1.9.1: el narrador cuenta la acción con palabras (se elige una sola vez)
-    if (A.Narrator) {
+    // v2.4: si la acción trae su propia frase (objetos, accesorios), se usa esa
+    if (A.Narrator && !entry.say) {
       try { entry.say = A.Narrator.say(entry, c); } catch (err) { entry.say = null; }
+    } else if (entry.say && entry.say.text && A.Narrator && A.Narrator.contract) {
+      entry.say.text = A.Narrator.contract(entry.say.text); // "a el orco" -> "al orco"
     }
     // v1.9.1: foto de la vida de todos después de esta acción. La vista la usa
     // para no adelantar el resultado mientras el dado todavía rueda.
@@ -1150,7 +1321,7 @@
     const p = State().player;
     return (p.inventory || []).filter((s) => {
       const it = A.Data.getById('items', s.itemId);
-      return it && (it.subtype === 'potion' || it.subtype === 'food');
+      return it && (it.subtype === 'potion' || it.subtype === 'food' || it.subtype === 'scroll');
     });
   }
 

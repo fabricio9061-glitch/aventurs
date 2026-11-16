@@ -102,13 +102,14 @@
       layout = 'arena';
       resultFor = null;
       mainEl.innerHTML = `
-        <section class="combat-view cb">
+        <section class="combat-view cb is-arena">
           ${secs.header}
           <div class="cb-stage">${secs.arena}${secs.narrator}</div>
           ${secs.actions}
           <section class="cb-log">${secs.loghead}${secs.loglist}</section>
         </section>`;
       lastHtml = { ...secs };
+      fitToScreen();
       const list = mainEl.querySelector('[data-sec="loglist"]');
       if (list) list.scrollTop = list.scrollHeight;
     } else {
@@ -139,6 +140,19 @@
     if (Fx()) Fx().afterRender();
     if (ready) maybeRunQueued();
   }
+
+  /**
+   * v2.3: el combate entra entero en la pantalla (la crónica se desplaza por dentro).
+   * Se mide dónde empieza la vista para darle el alto justo, y la página vuelve arriba.
+   */
+  function fitToScreen() {
+    const view = mainEl && mainEl.querySelector('.combat-view.is-arena');
+    if (!view) return;
+    if (window.scrollY > 0) window.scrollTo(0, 0);
+    const top = Math.round(view.getBoundingClientRect().top + window.scrollY);
+    view.style.setProperty('--cb-top', `${top}px`);
+  }
+  function onResize() { fitToScreen(); }
 
   function isPlayerTurnLocal(c) {
     if (!c || !c.initiative) return false;
@@ -240,15 +254,17 @@
     if (!list.length) return '';
     const max = list.length > 3 ? 2 : 3; // a la derecha va el dado: entran 3
     const chips = list.slice(0, max).map((ef) => {
-      const label = A.Combat.effectLabel ? A.Combat.effectLabel(ef.type) : ef.type;
-      return `<span class="cb-fx effect-${esc(ef.type)}" title="${esc(label)}: ${ef.turns} ${ef.turns === 1 ? 'turno' : 'turnos'}">${icon(ef.type, 16, 'px-soft')}<b>${ef.turns}</b></span>`;
+      // v2.4: mejoras de pociones y pergaminos, aturdido y maldición también se ven
+      const ch = A.ItemFx ? A.ItemFx.chip(ef) : { icon: ef.type, label: A.Combat.effectLabel ? A.Combat.effectLabel(ef.type) : ef.type, cls: ef.type };
+      return `<span class="cb-fx effect-${esc(ch.cls || ef.type)}" title="${esc(ch.label)}: ${ef.turns} ${ef.turns === 1 ? 'turno' : 'turnos'}">${icon(ch.icon, 16, 'px-soft')}<b>${ef.turns}</b></span>`;
     }).join('');
     const more = list.length > max ? `<span class="cb-fx cb-fx-more" title="${list.length - max} efectos más">+${list.length - max}</span>` : '';
     return `<div class="cb-fx-row">${chips}${more}</div>`;
   }
 
   function stat(label, value, title, down) {
-    return `<span class="cb-stat ${down ? 'is-down' : ''}" title="${esc(title)}"><i>${label}</i><b>${esc(value)}</b></span>`;
+    const long = String(value).length > 6 ? 'is-long' : '';
+    return `<span class="cb-stat ${down ? 'is-down' : ''} ${long}" title="${esc(title)}"><i>${label}</i><b>${esc(value)}</b></span>`;
   }
 
   function unitCard(u) {
@@ -299,7 +315,7 @@
     const st = A.Balance && A.Balance.playerCombatStats ? A.Balance.playerCombatStats(p) : { attack: 0, defense: 10, armor: 0 };
     const m = mods(p);
     const composed = A.Combat.composePlayerDamage ? A.Combat.composePlayerDamage(p) : null;
-    const dmg = composed ? String(composed.expression).replace(/\s+/g, '') : '1d3';
+    const dmg = composed ? (A.Utils.compactDice ? A.Utils.compactDice(composed.expression) : String(composed.expression).replace(/\s+/g, '')) : '1d3';
     const dmgTip = composed && composed.components ? composed.components.map((x) => `${x.label}: ${x.expr}`).join(' · ') : 'Daño de tu arma';
     const hp = c && c.result === 'defeat' ? 0 : shown('player', p.hp);
     const mana = shown('mana', p.mana);
@@ -504,8 +520,13 @@
       <section class="cb-actions ${ready ? 'is-your-turn' : 'is-waiting'}" data-sec="actions">
         <div class="cb-turn-line">${ready ? yourTurnText(c, p, target, need, hit) : waitingText(c, busy)}</div>
         <div class="combat-action-row cb-action-row">
-          ${btn('attack', attackIcon, 'Atacar', {
-            cls: `is-primary ${queuedAction === 'attack' ? 'is-queued' : ''}`,
+          ${queuedAction === 'attack' && !ready ? btn('attack', attackIcon, 'Atacar', {
+            cls: 'is-primary is-queued',
+            title: 'Tu ataque está en cola: sale apenas te toque. Tocalo de nuevo para cancelarlo.',
+            hint: 'Sale apenas te toque',
+            hint2: 'Tocá de nuevo para cancelar',
+          }) : btn('attack', attackIcon, 'Atacar', {
+            cls: 'is-primary',
             title: ready ? 'Atacar al objetivo marcado' : 'Tocalo ahora y atacás apenas te toque',
             hint: need != null ? `Acierto ${hit != null ? `${Math.round(hit * 100)}% ` : ''}(${need}+)` : '',
             hint2: dmgRange ? `Daño ${rangeTxt(dmgRange)}` : '',
@@ -791,6 +812,8 @@
         mainEl.addEventListener('change', onChange);
       }
       if (Fx()) Fx().mount(container, { rerender: render });
+      window.removeEventListener('resize', onResize);
+      window.addEventListener('resize', onResize);
       render();
       introIfNew();
       unsubscribe();
@@ -798,6 +821,7 @@
     },
     unmount() {
       unsubscribe();
+      window.removeEventListener('resize', onResize);
       clearTimeout(resultTimer);
       clearTimeout(revealTimer);
       clearTimeout(queueTimer);

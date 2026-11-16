@@ -42,6 +42,7 @@
           <div class="shell-brand">
             <span class="brand-icon">${A.UI ? A.UI.icon('swords', 26) : ''}</span>
             <span class="brand-name">Aventurs</span>
+            <span class="version-pill" title="Versión del juego">v2.4.0</span>
           </div>
           ${tabs.length > 1 ? `
             <nav class="shell-nav">
@@ -68,9 +69,6 @@
           <aside class="shell-sidebar" id="shell-sidebar"></aside>
         </div>
 
-        <footer class="shell-footer">
-          <span class="version-pill">v2.2.1</span>
-        </footer>
       </div>
     `;
 
@@ -135,8 +133,32 @@
       </div>`;
   }
 
-  function statChip(iconName, label, value, title) {
-    return `<div class="sb-stat" title="${escH(title || label)}">${ic(iconName, 18)}<span class="sb-stat-val num">${escH(value)}</span><span class="sb-stat-label">${escH(label)}</span></div>`;
+  function statChip(iconName, label, value, title, down) {
+    return `<div class="sb-stat ${down ? 'is-down' : ''}" title="${escH(title || label)}">${ic(iconName, 18)}<span class="sb-stat-val num">${escH(value)}</span><span class="sb-stat-label">${escH(label)}</span></div>`;
+  }
+
+  /** v2.4: la velocidad cuenta el peso de arma y armadura. */
+  function speedTitle(p, st) {
+    const base = 'Velocidad: el más rápido actúa primero, y te ayuda a huir.';
+    if (!st) return base;
+    if (st.weightPenalty > 0) return `${base} Tu equipo pesa ${st.weight}: por pasar de ${A.Balance.FREE_WEIGHT || 4} perdés ${st.weightPenalty} de velocidad.`;
+    return `${base} Tu equipo pesa ${st.weight} (hasta ${A.Balance.FREE_WEIGHT || 4} no frena).`;
+  }
+
+  /** v2.4: número corto de un accesorio para la etiqueta de la esquina. */
+  function accBadge(item) {
+    const a = (item && item.acc) || {};
+    const pc = (x) => `${Math.round(x * 100)}%`;
+    if (a.precision) return `+${a.precision}`;
+    if (a.damage) return `+${a.damage}`;
+    if (a.armor) return `+${a.armor}`;
+    if (a.defense) return `+${a.defense}`;
+    if (a.speed) return `+${a.speed}`;
+    if (a.mana) return `+${a.mana}`;
+    if (a.regen) return `+${a.regen}`;
+    if (a.crit) return `${20 - a.crit}+`;
+    for (const k of ['xp', 'gold', 'drops', 'thorns', 'lifesteal', 'double', 'counter', 'heal']) if (a[k]) return pc(a[k]);
+    return '';
   }
 
   function renderSidebar() {
@@ -148,12 +170,12 @@
     const race = A.Data.getById('races', p.raceId);
     const weapon = p.equipment.weapon ? A.Data.getById('weapons', p.equipment.weapon) : null;
     const armor = p.equipment.armor ? A.Data.getById('armors', p.equipment.armor) : null;
+    const accessory = p.equipment.accessory ? A.Data.getById('items', p.equipment.accessory) : null;
     const xpPrev = xpForLevel(p.level);
     const xpNext = xpForLevel(p.level + 1);
     const xpIn = Math.max(0, p.xp - xpPrev);
     const xpSpan = Math.max(1, xpNext - xpPrev);
     const maxLevel = A.Progression && p.level >= A.Progression.MAX_LEVEL;
-    const region = A.State.world ? A.Data.getById('regions', A.State.world.regionId) : null;
     const bag = A.Data.getById('bags', p.bagId) || A.Data.getById('bags', 'bag_starter');
     const st = A.Balance && A.Balance.playerCombatStats ? A.Balance.playerCombatStats(p) : null;
     const type = A.Balance && A.Balance.classOf ? A.Balance.classOf(p) : 'hybrid';
@@ -169,13 +191,13 @@
     sidebarEl.innerHTML = `
       <div class="sb">
         <header class="sb-head sb-type-${type}">
-          <div class="sb-portrait">${A.Sprites ? A.Sprites.heroFor(p, { size: 64 }) : ''}<span class="sb-level" title="Nivel ${p.level}">${p.level}</span></div>
+          <div class="sb-portrait">${A.Sprites ? A.Sprites.heroFor(p, { size: 52 }) : ''}<span class="sb-level" title="Nivel ${p.level}">${p.level}</span></div>
           <div class="sb-id">
             <div class="sb-name">${escH(p.name)}</div>
             <div class="sb-sub">${escH(race ? race.name : '')} · ${TYPE_NAME[type] || ''}</div>
             ${passiveLine(p)}
           </div>
-          ${p.hasMagic ? `<button class="sb-magic" data-action="open-magic" title="Tus hechizos">${ic('spell', 22)}</button>` : ''}
+          ${p.hasMagic ? `<button class="sb-magic" data-action="open-magic" title="Tus hechizos">${ic('spell', 20)}</button>` : ''}
           <div class="sb-xp" title="Experiencia: ${p.xp} de ${xpNext}">
             <span class="sb-xp-track"><span style="width:${maxLevel ? 100 : pct(xpIn, xpSpan)}%"></span></span>
             <span class="sb-xp-text num">${maxLevel ? 'Nivel máximo' : `${xpIn} / ${xpSpan} XP`}</span>
@@ -191,22 +213,25 @@
 
           ${p.pet ? renderPetSidebar(p.pet) : ''}
 
-          <section class="sb-stats">
-            ${st ? statChip('target', 'Precisión', `${st.attack >= 0 ? '+' : ''}${st.attack}`, 'Para acertar: se suma al dado de 20 cuando atacás') : ''}
-            ${statChip('swords', 'Daño', formatDamageDisplay(weapon, p.stats.damage), 'La vida que le sacás al enemigo cuando acertás (tu arma más tus bonus)')}
-            ${st ? statChip('d20', 'Defensa', st.defense, 'Lo que un enemigo tiene que sacar (dado de 20 más su precisión) para pegarte') : ''}
-            ${statChip('shield', 'Armadura', st ? st.armor : (p.stats.armor || 0), 'Se resta a cada golpe que recibís')}
-            ${statChip('boot', 'Velocidad', p.stats.speed, 'El más rápido actúa primero')}
-            ${p.hasMagic && st ? statChip('arcane', 'Magia', `+${st.spellPower || 0}`, 'Se suma al daño de tus hechizos') : ''}
-            <button class="sb-stats-help" data-action="rules">${ic('question', 14)}<span>¿Qué es cada número?</span></button>
+          <section class="sb-sec">
+            <h3 class="sb-title"><span>Tus números</span><button class="sb-title-link" data-action="rules" title="Qué es cada número">${ic('question', 12)}<span>¿Qué es cada uno?</span></button></h3>
+            <div class="sb-stats">
+              ${st ? statChip('target', 'Precisión', `${st.attack >= 0 ? '+' : ''}${st.attack}`, 'Precisión: se suma al dado de 20 cuando atacás') : ''}
+              ${statChip('swords', 'Daño', formatDamageDisplay(weapon, p.stats.damage), 'Daño: la vida que le sacás al enemigo cuando acertás (tu arma más tus bonus)')}
+              ${st ? statChip('d20', 'Defensa', st.defense, 'Defensa: lo que un enemigo tiene que sacar (dado de 20 más su precisión) para pegarte') : ''}
+              ${statChip('shield', 'Armadura', st ? st.armor : (p.stats.armor || 0), 'Armadura: se resta a cada golpe que recibís')}
+              ${statChip('boot', 'Velocidad', st ? st.speed : p.stats.speed, speedTitle(p, st), st && st.weightPenalty > 0)}
+              ${p.hasMagic && st ? statChip('arcane', 'Magia', `+${st.spellPower || 0}`, 'Magia: se suma al daño de tus hechizos') : ''}
+            </div>
           </section>
           ${classNote(p, weapon)}
 
           <section class="sb-sec">
-            <h3 class="sb-title">Equipo</h3>
+            <h3 class="sb-title"><span>Equipo</span></h3>
             <div class="sb-equip">
               ${equipTile('Arma', weapon, 'weapon')}
               ${equipTile('Armadura', armor, 'armor')}
+              ${equipTile('Accesorio', accessory, 'accessory')}
               ${equipTile('Mochila', bag, 'bag')}
             </div>
           </section>
@@ -214,8 +239,6 @@
           ${renderBag(bag)}
 
           ${questTracker()}
-
-          ${region ? `<div class="sb-loc">${A.UI ? A.UI.biomeIcon(region, 16) : ''}<span>${escH(region.name)}</span></div>` : ''}
         </div>
       </div>
     `;
@@ -236,7 +259,7 @@
     return `
       <section class="sb-pet ${isKO ? 'is-ko' : ''}">
         <div class="sb-pet-head">
-          <span class="sb-pet-sprite">${A.Sprites ? A.Sprites.petHtml(pet, { size: 44 }) : ''}</span>
+          <span class="sb-pet-sprite">${A.Sprites ? A.Sprites.petHtml(pet, { size: 36 }) : ''}</span>
           <div class="sb-pet-id">
             <div class="sb-pet-name">${escH(pet.name)} <span class="sb-pet-lvl">Nv ${lvl}</span></div>
             <div class="sb-pet-meta">${isKO ? 'Inconsciente' : hungry ? 'Con hambre' : (diet ? `Come: ${escH(diet.eats)}` : 'Tu compañera')}</div>
@@ -246,8 +269,10 @@
             <button class="sb-pet-btn" data-pet-action="feed" title="Darle comida de su dieta" ${isKO ? 'disabled' : ''}>${ic('food', 18)}</button>
           </div>
         </div>
-        ${hudBar('is-hp is-small', 'heart', 'Vida de tu mascota', pet.health, pet.maxHealth)}
-        ${hudBar('is-food is-small', 'food', 'Saciedad', food, maxFood)}
+        <div class="sb-pet-bars">
+          ${hudBar('is-hp is-small', 'heart', 'Vida de tu mascota', pet.health, pet.maxHealth)}
+          ${hudBar('is-food is-small', 'food', 'Saciedad', food, maxFood)}
+        </div>
         <div class="sb-pet-xp" title="Experiencia de tu mascota: ${xp}/${xpNeeded}"><span style="width:${pct(xp, xpNeeded)}%"></span></div>
       </section>
     `;
@@ -255,21 +280,22 @@
 
   function equipTile(label, equipped, slotName) {
     if (!equipped) {
-      return `<div class="sb-eq is-empty"><span class="sb-eq-label">${label}</span><span class="sb-eq-none">Nada</span></div>`;
+      return `<div class="sb-eq is-empty" title="${label}: nada puesto"><span class="sb-eq-label">${label}</span><span class="sb-eq-none">Nada</span></div>`;
     }
     let stat = '';
     if (slotName === 'weapon') stat = `${equipped.damage}`;
     else if (slotName === 'armor') stat = `+${equipped.defense}`;
+    else if (slotName === 'accessory') stat = accBadge(equipped);
     else if (slotName === 'bag') stat = `${equipped.slots}`;
     const dataAttr = slotName === 'bag'
       ? `data-equipped-bag="${escH(equipped.id)}"`
       : `data-equipped-slot="${slotName}"`;
+    const tip = slotName === 'accessory' && A.Accessories ? A.Accessories.describe(equipped).join('. ') : stat;
     return `
-      <button class="sb-eq ${RARITY_CLS[equipped.rarity] || ''}" ${dataAttr} title="${escH(equipped.name)}">
-        <span class="sb-eq-label">${label}</span>
-        <span class="sb-eq-sprite">${A.ItemSprites ? A.ItemSprites.html(equipped, { size: 40 }) : ''}</span>
+      <button class="sb-eq ${RARITY_CLS[equipped.rarity] || ''}" ${dataAttr} title="${escH(label)}: ${escH(equipped.name)}${tip ? ` (${escH(tip)})` : ''}">
+        <span class="sb-eq-sprite">${A.ItemSprites ? A.ItemSprites.html(equipped, { size: 28 }) : ''}</span>
         <span class="sb-eq-name">${escH(equipped.name)}</span>
-        <span class="sb-eq-stat num">${stat}</span>
+        ${stat ? `<span class="sb-eq-stat num">${escH(stat)}</span>` : ''}
       </button>
     `;
   }
@@ -284,7 +310,7 @@
     let occupied = 0;
     for (const slot of items) {
       const data = A.Inventory.resolveData(slot.itemId);
-      const sprite = data && A.ItemSprites ? A.ItemSprites.html(data, { size: 32 }) : '';
+      const sprite = data && A.ItemSprites ? A.ItemSprites.html(data, { size: 28 }) : '';
       const qty = slot.qty > 1 ? `<span class="sb-slot-qty num">${slot.qty}</span>` : '';
       const itemSlots = A.State.itemSlots(slot.itemId);
       cells.push(`
@@ -311,6 +337,8 @@
   function renderActiveView() {
     if (!mainEl) return;
     const shellBody = rootEl.querySelector('.shell-body');
+    const gameShell = rootEl.querySelector('.game-shell');
+    if (gameShell) gameShell.classList.toggle('is-combat-mode', !!A.State.combat);
     // Si hay combate activo, renderizar Combat y ocultar paneles laterales
     if (A.State.combat) {
       if (shellBody) {
@@ -439,7 +467,7 @@
     }
     return `
       <div class="quests2">
-        <button class="quests2-head" data-action="journal">${A.UI.icon('quest', 16)}<span>Misiones</span><span class="quests2-more">Diario</span></button>
+        <button class="quests2-head" data-action="journal">${A.UI.icon('quest', 16)}<span>Misiones</span><span class="quests2-more">${active.length > 3 ? `+${active.length - 3} en el Diario` : 'Diario'}</span></button>
         ${active.slice(0, 3).map((q) => {
           const idx = q.objectives.findIndex((o, i) => !A.Quests.objectiveProgress(q, i).done);
           const ready = idx < 0;
@@ -473,7 +501,7 @@
     sidebarEl.querySelectorAll('[data-equipped-slot]').forEach((btn) => {
       btn.addEventListener('click', () => {
         const slot = btn.dataset.equippedSlot;
-        const itemId = slot === 'weapon' ? A.State.player.equipment.weapon : A.State.player.equipment.armor;
+        const itemId = A.State.player.equipment[slot];
         if (itemId) A.State.openModal('item-detail', { itemId, equipped: true });
       });
     });
@@ -528,7 +556,7 @@
     const p = A.State.player;
     if (p && A.Combat && A.Combat.composePlayerDamage) {
       const composed = A.Combat.composePlayerDamage(p);
-      return composed.expression;
+      return A.Utils.compactDice ? A.Utils.compactDice(composed.expression) : composed.expression;
     }
     // Fallback legacy
     const dice = weapon ? weapon.damage : '1d3';
