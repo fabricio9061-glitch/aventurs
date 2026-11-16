@@ -19,6 +19,15 @@
 (function (A) {
   'use strict';
 
+  // v2.2.1: números de las clases que se afinan con el simulador (tools/simulador.js)
+  const Balance_TUNE = {
+    hpPerLevel: { warrior: 6, hybrid: 6, mage: 5 },   // vida que gana cada clase al subir de nivel
+    warriorPower: { mult: 2, cooldown: 5 },           // Golpe fuerte: x2 de daño, después esperar
+    hybridManaOnHit: 1,                               // maná que recupera un híbrido al acertar con el arma
+    hybridManaEvery: 4,                               // ...y 1 más cada tantos niveles (0 = no crece)
+    mageRegenEvery: 4,                                // el maná por turno de los magos se multiplica cada tantos niveles (0 = no crece)
+  };
+
   const MAX_LEVEL = 10;
   const MAX_TIER = 10;
 
@@ -157,7 +166,7 @@
      */
     gainsForLevel(newLevel, hasMagic, combatType) {
       // v2.1.1: el guerrero es el que más aguanta
-      const HP_BY_TYPE = { warrior: 7, hybrid: 6, mage: 4 };
+      const HP_BY_TYPE = Balance_TUNE.hpPerLevel;
       return {
         maxHp: HP_BY_TYPE[combatType] || 6,
         precision: 1,
@@ -222,9 +231,15 @@
    * v2.1.1: Golpe fuerte de los guerreros (su "hechizo"): doble daño,
    * y después hay que esperar unos turnos. null si no es guerrero.
    */
-  const WARRIOR_POWER = { mult: 2, cooldown: 4 };
   function warriorPower(p) {
-    return classOf(p) === 'warrior' ? { ...WARRIOR_POWER } : null;
+    return classOf(p) === 'warrior' ? { ...Balance_TUNE.warriorPower } : null;
+  }
+
+  /** v2.2.1: los híbridos recuperan maná cada vez que aciertan con el arma. */
+  function manaOnHit(p) {
+    if (!(p && p.hasMagic && classOf(p) === 'hybrid')) return 0;
+    const every = Balance_TUNE.hybridManaEvery;
+    return Balance_TUNE.hybridManaOnHit + (every > 0 ? Math.floor((Math.max(1, p.level || 1) - 1) / every) : 0);
   }
 
   /**
@@ -279,7 +294,10 @@
     const race = A.Data && A.Data.getById ? A.Data.getById('races', p.raceId) : null;
     const type = (race && race.combatType) || 'hybrid';
     const base = (race && race.manaRegen) || (type === 'mage' ? { turn: 1, win: 0.2 } : { turn: 0, win: 0 });
-    return { turn: base.turn || 0, win: base.win || 0 };
+    // v2.2.1: con más nivel vuelve más maná por turno (+1 desde nivel 5, +2 desde nivel 9)
+    const every = Balance_TUNE.mageRegenEvery;
+    const extra = every > 0 && (base.turn || 0) > 0 ? Math.floor((Math.max(1, p.level || 1) - 1) / every) : 0;
+    return { turn: (base.turn || 0) + extra, win: base.win || 0 };
   }
 
   // ---------- Stats de combate del jugador (incluye equipo y hambre) ----------
@@ -293,9 +311,9 @@
     const fit = weaponFit(p, weapon);
     return {
       fit,
-      attack: (p.stats.precision || 0) + fit.atk - fx.attackPenalty,
+      attack: (p.stats.precision || 0) + fit.atk - fx.attackPenalty + (A.Passives && A.Passives.precisionBonus ? A.Passives.precisionBonus(p) : 0),
       defense: 8 + (p.stats.dodge || 0) + (armor && armor.dodge ? armor.dodge : 0) - pen('dodge') - fx.defensePenalty,
-      armor: (p.stats.armor || 0) + (armor ? armor.defense || 0 : 0),
+      armor: (p.stats.armor || 0) + (armor ? armor.defense || 0 : 0) + (A.Passives && A.Passives.armorBonus ? A.Passives.armorBonus(p) : 0),
       // v1.9.2: + Furia del orco (solo con la mitad de la vida o menos) · v2.0: + maestría del guerrero
       damageBonus: (p.stats.damage || 0) - pen('damage') + fit.dmg + (A.Passives ? A.Passives.damageBonus(p) : 0),
       // El peso solo frena si pasa de 4 (una daga y ropa no pesan nada)
@@ -402,6 +420,8 @@
     manaRegenOf,
     hpRegenOf,
     warriorPower,
+    manaOnHit,
+    TUNE: Balance_TUNE,
     spellPowerOf,
     classOf,
     statusMods,

@@ -210,6 +210,47 @@ Explorar siempre hace pasar algo (`js/systems/explore.js` + `js/data/seed-events
 - En el celular, una franja arriba con vida, maná, comida y dinero.
 - Sin emojis en el juego (desde la v2.2, tampoco en el editor).
 
+## Versión 2.2.1: clases y razas parejas
+
+Medido con peleas simuladas: cuántas peleas seguidas gana cada raza en zonas de su
+nivel, con 2 pociones de vida y sin descansar (máximo 8), 1500 partidas por raza y nivel.
+Promedio de cada clase, antes (v2.2.0) y ahora:
+
+| Nivel | Híbridos | Guerreros | Magos |
+|---|---|---|---|
+| 1 | 4,77 → 5,58 | 5,82 → 5,77 | 5,05 → 5,11 |
+| 3 | 2,20 → 2,57 | 2,91 → 2,75 | 2,92 → 3,08 |
+| 5 | 1,98 → 2,83 | 2,88 → 2,63 | 2,19 → 2,86 |
+| 8 | 1,43 → 1,81 | 2,11 → 1,90 | 1,31 → 1,77 |
+
+La diferencia entre clases en nivel 8 bajó de −19%..+30% a −3%..+4%; entre razas, de
+−25%..+40% a −11%..+10%. Ojo: la prueba les da a los que usan magia todos los hechizos
+de su nivel; en el juego hay que aprenderlos.
+
+Los números están juntos para poder afinarlos: `Balance.TUNE` (clases) y
+`Passives.TUNE` (pasivas). Los textos de las pasivas se arman solos con esos números.
+
+### Clases
+- **Guerreros**: +6 de vida por nivel (antes 7). Golpe fuerte: doble daño, una vez cada
+  5 turnos (antes cada 4).
+- **Magos**: +5 de vida por nivel (antes 4). Recuperan 1 de maná más por turno desde el
+  nivel 5 (y otro más desde el 9).
+- **Híbridos**: cada golpe con arma que acierta les devuelve 1 de maná (2 desde el nivel
+  5, 3 desde el 9). Se ve en la barra de maná de la barra lateral.
+
+### Pasivas
+- **Golpe de gigante** (Goliat): críticos con 18, 19 o 20, al doble (antes solo con 20,
+  al triple). Probado también "18-20 al triple": el Goliat quedaba la raza más fuerte por
+  lejos. Con la versión final, los críticos salen unas 3 veces más seguido pero pegan
+  menos: el golpe más grande en nivel 5 bajó de 112 a unos 70.
+- **Ojo certero** (Elfo): además de los críticos con 19-20, +2 de precisión.
+- **Suerte** (Mediano): 1 de cada 10 golpes que le iban a pegar termina fallando (antes
+  volvía a tirar los 1, y casi no se notaba).
+- **Determinación** (Humano): el golpe que lo iba a voltear lo deja con el 15% de su vida
+  (antes con 1).
+- **Cuerpo de metal** (Robot): sin cambios (con +1 de armadura el Robot quedaba muy fuerte).
+- **Dracónido**: esquiva 0 (antes −1).
+
 ## Versión 2.2: editor del mundo nuevo
 
 El editor se rehizo de cero (`js/editor/`, `css/editor2.css`). Se abre con el botón

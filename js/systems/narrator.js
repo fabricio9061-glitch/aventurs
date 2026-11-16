@@ -254,7 +254,7 @@
   // Lo que agrega una pasiva al final de un golpe recibido
   const PASSIVE_SUFFIX = {
     piel_roca: ' Tu piel de roca frena la mitad del golpe.',
-    determinacion: ' ¡Pero tu determinación te mantiene en pie con 1 de vida!',
+    determinacion: ' ¡Pero tu determinación te mantiene en pie!',
   };
 
   function say(entry, c) {
@@ -333,6 +333,7 @@
         return { text: fill(pick([`{E} te ${st.v}: {d} de daño.`, `{E} ${alt(pick(st.alt))}: {d} de daño.`, `{E} ${alt(pick(st.alt))}. Perdés {d} de vida.`]), v), tone: 'bad' };
       }
       if (entry.result === 'fumble') return { text: fill(pick(['{E} se tropieza y pierde el ataque.', '{E} ataca sin ninguna puntería.']), v), tone: 'good' };
+      if (entry.passive === 'suerte') return { text: fill(pick(['¡Suerte! {E} te tenía, pero el golpe pasa de largo.', '¡Suerte! Te tropezás justo a tiempo y {e} no te toca.']), v), tone: 'good' };
       return { text: fill(pick([`{E} intenta ${st.inf}, pero lo esquivás.`, 'Te corrés a tiempo y {e} no te alcanza.', '{E} falla por poco.']), v), tone: 'good' };
     }
 

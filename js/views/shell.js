@@ -69,7 +69,7 @@
         </div>
 
         <footer class="shell-footer">
-          <span class="version-pill">v2.2.0</span>
+          <span class="version-pill">v2.2.1</span>
         </footer>
       </div>
     `;
@@ -159,9 +159,12 @@
     const type = A.Balance && A.Balance.classOf ? A.Balance.classOf(p) : 'hybrid';
     const hunger = A.Survival ? A.Survival.getStatus() : null;
     const regen = A.Balance && A.Balance.manaRegenOf ? A.Balance.manaRegenOf(p) : { turn: 0, win: 0 };
+    const onHit = A.Balance && A.Balance.manaOnHit ? A.Balance.manaOnHit(p) : 0;
     const manaHint = !p.hasMagic ? '' : regen.turn > 0
       ? `Recuperás ${regen.turn} de maná por turno y ${Math.round(regen.win * 100)}% al ganar una pelea.`
-      : 'Tu maná no vuelve solo: pociones de maná o dormir.';
+      : onHit > 0
+        ? `Cada golpe con arma que acierta te da ${onHit} de maná. Si no, pociones de maná o dormir.`
+        : 'Tu maná no vuelve solo: pociones de maná o dormir.';
 
     sidebarEl.innerHTML = `
       <div class="sb">

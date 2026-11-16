@@ -117,7 +117,7 @@
   /** Muchas peleas contra una criatura (o grupo). */
   function fight(enemyDatas, level, n = 300, opts = {}) {
     const hero = heroAt(level, opts.raceId);
-    const power = opts.power ? (A.Balance.warriorPower ? { mult: 2, cooldown: 4 } : null) : null;
+    const power = opts.power && A.Balance.TUNE ? { ...A.Balance.TUNE.warriorPower } : null;
     let wins = 0, rounds = 0, hpLeft = 0;
     for (let i = 0; i < n; i++) {
       const foes = enemyDatas.map(instanceOf);

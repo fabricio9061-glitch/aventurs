@@ -78,7 +78,7 @@
       magic: true,
       passive: 'sangre_dragon',
       startSpell: 'aliento_de_brasas',
-      bonuses: { hp: 2, mana: 0, speed: 0, precision: 1, armor: 1, damage: 1, dodge: -1 },
+      bonuses: { hp: 2, mana: 0, speed: 0, precision: 1, armor: 1, damage: 1, dodge: 0 },
       description: 'Descendientes de dragones antiguos. Escamas duras, sangre caliente y orgullo más antiguo que los reinos.',
     },
 

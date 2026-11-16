@@ -21,15 +21,15 @@
   };
 
   const GROUPS = [
-    { type: 'hybrid', name: 'Híbridos', desc: 'Arma y algo de magia: el maná no vuelve solo' },
+    { type: 'hybrid', name: 'Híbridos', desc: 'Arma y algo de magia: el maná vuelve al pegar' },
     { type: 'warrior', name: 'Guerreros', desc: 'Sin magia, pero maestros con las armas' },
     { type: 'mage', name: 'Magos', desc: 'Magia en cada turno: el maná les vuelve solo' },
   ];
 
-  const TYPE_LINE = { hybrid: 'Híbrido · arma y algo de magia', warrior: 'Guerrero · golpe fuerte y mucha vida', mage: 'Mago · el maná le vuelve solo' };
+  const TYPE_LINE = { hybrid: 'Híbrido · arma y magia: pegar le da maná', warrior: 'Guerrero · golpe fuerte y maestría con armas', mage: 'Mago · el maná le vuelve solo' };
   const TYPE_KIT = {
-    hybrid: 'Usa cualquier arma sin problema. Su maná no vuelve solo: lo recupera con pociones o durmiendo, así que sus hechizos son para los momentos clave.',
-    warrior: 'Golpe fuerte: doble daño, una vez cada 4 turnos. Maestría: +1 de daño con cualquier arma (+2 desde el nivel 5) y +1 de precisión con armas pesadas. Es el que más vida gana al subir de nivel.',
+    hybrid: 'Usa cualquier arma sin problema. Cada golpe con arma que acierta le devuelve 1 de maná (2 desde el nivel 5). Fuera de eso, el maná no le vuelve solo.',
+    warrior: 'Golpe fuerte: doble daño, una vez cada 5 turnos. Maestría: +1 de daño con cualquier arma (+2 desde el nivel 5) y +1 de precisión con armas pesadas.',
     mage: 'Vive de la magia. Las armas pesadas le quitan 3 de precisión, y es el más frágil de todos.',
   };
 
@@ -52,8 +52,8 @@
           <span class="cc-passive-name">${esc(spell.name)}</span>
           <span class="cc-passive-text">${esc(what)}</span>
           <span class="cc-passive-text cc-regen">${regen
-            ? `Recupera maná solo: +${regen.turn} por turno y ${Math.round(regen.win * 100)}% al ganar.`
-            : 'No recupera maná solo: pociones o dormir.'}</span>
+            ? `Recupera maná solo: +${regen.turn} por turno (+1 más desde el nivel 5) y ${Math.round(regen.win * 100)}% al ganar.`
+            : race.combatType === 'hybrid' ? 'Recupera maná al acertar golpes con el arma.' : 'No recupera maná solo: pociones o dormir.'}</span>
         </span>
       </div>`;
   }

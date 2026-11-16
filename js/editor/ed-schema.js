@@ -365,7 +365,7 @@
       sections: [
         { title: 'Lo básico', fields: [
           F.text('name', 'Nombre'),
-          F.sel('combatType', 'Clase', opts(L.CLASS), { help: 'Guerrero: golpe fuerte y más vida. Mago: maná que vuelve solo. Híbrido: un poco de todo.' }),
+          F.sel('combatType', 'Clase', opts(L.CLASS), { help: 'Guerrero: golpe fuerte y maestría con armas. Mago: el maná le vuelve solo. Híbrido: pegar con el arma le devuelve maná.' }),
           F.tog('magic', 'Usa magia', { on: 'Sí', off: 'No' }),
           F.sel('passive', 'Habilidad propia', () => Object.keys((A.Passives && A.Passives.LIST) || {}).map((k) => ({ value: k, label: A.Passives.LIST[k].name })), { help: (d) => Ed.panels.passiveHelp(d) }),
           F.ref('startSpell', 'Hechizo con el que nace', 'spells', { when: (d) => d.magic !== false && d.combatType !== 'warrior' }),

@@ -14,6 +14,18 @@
 (function (A) {
   'use strict';
 
+  // v2.2.1: números de las pasivas que se afinan con el simulador
+  const TUNE = {
+    gigante: { critMin: 18, mult: 2 },     // Golpe de gigante: desde qué número es crítico y cuánto multiplica
+    certero: { critMin: 19, prec: 2 },     // Ojo certero: críticos con 19-20 y precisión extra
+    suerte: { dodge: 0.1 },                // Suerte: parte de los golpes que te iban a pegar, fallan
+    metal: { armor: 0 },                   // Cuerpo de metal: armadura extra (medido: con +1 el robot quedaba muy fuerte)
+    determinacion: { keep: 0.15 },         // Determinación: con cuánta vida quedás (parte de la máxima; 0 = con 1)
+    sangre: { chance: 0.33 },              // Sangre de dragón: chance de prender fuego al pegar
+  };
+  const pctTxt = (x) => `${Math.round(x * 100)}%`;
+  const oneIn = (x) => (x > 0 ? `uno de cada ${Math.round(1 / x)}` : 'ninguno');
+
   const lvl = (p) => Math.max(1, (p && p.level) || 1);
   const step = (p, every) => Math.floor((lvl(p) - 1) / every);
 
@@ -21,19 +33,21 @@
   const LIST = {
     determinacion: {
       name: 'Determinación', icon: 'heart',
-      text: () => 'Una vez por combate, un golpe que te iba a voltear te deja en pie con 1 de vida.',
+      text: () => (TUNE.determinacion.keep > 0
+        ? `Una vez por combate, el golpe que te iba a voltear te deja en pie con el ${pctTxt(TUNE.determinacion.keep)} de tu vida.`
+        : 'Una vez por combate, un golpe que te iba a voltear te deja en pie con 1 de vida.'),
     },
     ojo_certero: {
       name: 'Ojo certero', icon: 'target',
-      text: () => 'Tus ataques son críticos con 19 o 20 en el dado (no solo con 20).',
+      text: () => `+${TUNE.certero.prec} de precisión, y tus ataques son críticos con ${TUNE.certero.critMin} o más en el dado (no solo con 20).`,
     },
     suerte: {
       name: 'Suerte', icon: 'clover',
-      text: () => 'Si sacás un 1 en el dado, se vuelve a tirar. Vale al atacar y al huir.',
+      text: () => `${oneIn(TUNE.suerte.dodge).replace(/^u/, 'U')} golpes que te iban a pegar termina fallando (${pctTxt(TUNE.suerte.dodge)}).`,
     },
     sangre_dragon: {
       name: 'Sangre de dragón', icon: 'fire',
-      text: () => 'Tus golpes prenden fuego al enemigo 1 de cada 4 veces. El fuego no te hace nada.',
+      text: () => `Tus golpes prenden fuego al enemigo ${oneIn(TUNE.sangre.chance).replace(/^uno/, 'una')} veces. El fuego no te hace nada.`,
     },
     piel_roca: {
       name: 'Piel de roca', icon: 'shield',
@@ -45,11 +59,18 @@
     },
     cuerpo_metal: {
       name: 'Cuerpo de metal', icon: 'gear',
-      text: () => 'El veneno y el sangrado no te afectan.',
+      text: () => (TUNE.metal.armor > 0
+        ? `+${TUNE.metal.armor} de armadura, y el veneno y el sangrado no te afectan.`
+        : 'El veneno y el sangrado no te afectan.'),
     },
     golpe_gigante: {
       name: 'Golpe de gigante', icon: 'hammer',
-      text: () => 'Tus golpes críticos hacen el triple de daño (no el doble).',
+      text: () => {
+        const g = TUNE.gigante;
+        const when = g.critMin < 20 ? `con ${g.critMin} o más en el dado (no solo con 20)` : 'con 20 en el dado';
+        const how = g.mult === 2 ? 'el doble' : g.mult === 3 ? 'el triple' : `x${String(g.mult).replace('.', ',')}`;
+        return `Tus ataques son críticos ${when} y hacen ${how} de daño.`;
+      },
     },
     ingenio: {
       name: 'Ingenio', icon: 'book',
@@ -57,7 +78,7 @@
     },
     mente_expansiva: {
       name: 'Mente expansiva', icon: 'arcane',
-      text: () => 'Recuperás el doble de maná que cualquier otro mago, en cada turno y al ganar.',
+      text: () => 'Recuperás más maná que cualquier otro mago: 1 más en cada turno, y más al ganar.',
     },
     llama_interior: {
       name: 'Llama interior', icon: 'fireball',
@@ -97,10 +118,20 @@
   }
 
   // ---------- Ataque ----------
-  function critMin(p) { return has(p, 'ojo_certero') ? 19 : 20; }
-  function critMult(p) { return has(p, 'golpe_gigante') ? 3 : 2; }
-  function rerollOnes(p) { return has(p, 'suerte'); }
-  function burnChance(p) { return has(p, 'sangre_dragon') ? 0.25 : 0; }
+  function critMin(p) {
+    if (has(p, 'golpe_gigante')) return TUNE.gigante.critMin;
+    return has(p, 'ojo_certero') ? TUNE.certero.critMin : 20;
+  }
+  function critMult(p) { return has(p, 'golpe_gigante') ? TUNE.gigante.mult : 2; }
+  /** v2.2.1: Suerte ya no vuelve a tirar los 1 (casi no se notaba). */
+  function rerollOnes() { return false; }
+  /** v2.2.1: precisión extra (Ojo certero). */
+  function precisionBonus(p) { return has(p, 'ojo_certero') ? TUNE.certero.prec : 0; }
+  /** v2.2.1: armadura extra (Cuerpo de metal). */
+  function armorBonus(p) { return has(p, 'cuerpo_metal') ? TUNE.metal.armor : 0; }
+  /** v2.2.1: chance de que un golpe que te iba a pegar falle (Suerte). */
+  function luckyDodge(p) { return has(p, 'suerte') ? TUNE.suerte.dodge : 0; }
+  function burnChance(p) { return has(p, 'sangre_dragon') ? TUNE.sangre.chance : 0; }
   function burnValue(p) { return 1 + step(p, 2); }
 
   /** Daño extra de la Furia (solo con la mitad de la vida o menos). */
@@ -156,7 +187,14 @@
     }
     if (has(p, 'determinacion') && !used.determinacion && p.hp > 0 && p.hp - out <= 0) {
       used.determinacion = true;
-      out = p.hp - 1;
+      // v2.2.1: quedás en pie con una parte de tu vida (si tenías menos, te cura hasta ahí)
+      const keep = Math.max(1, Math.round((p.maxHp || 1) * (TUNE.determinacion.keep || 0)));
+      if (p.hp > keep) {
+        out = p.hp - keep;
+      } else {
+        out = 0;
+        if (keep > p.hp && A.State && A.State.healHp && A.State.player === p) A.State.healHp(keep - p.hp);
+      }
       tag = 'determinacion';
     }
     return { dmg: out, passive: tag };
@@ -172,7 +210,11 @@
   }
 
   A.Passives = {
+    TUNE,
     LIST,
+    precisionBonus,
+    armorBonus,
+    luckyDodge,
     info,
     idOf,
     has,

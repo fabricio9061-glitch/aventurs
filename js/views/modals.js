@@ -491,7 +491,7 @@
         <p>Cada vez que explorás pasa algo: aparece una criatura (y elegís cómo encararla) o te toca una escena con dos o tres caminos. Explorar hace pasar el tiempo y da hambre.</p>
 
         <h3>Clases</h3>
-        <p><b>Guerreros</b>: sin magia, pero son los que más vida tienen, pegan más fuerte con cualquier arma y tienen el <b>Golpe fuerte</b>: un ataque con el doble de daño que se puede usar una vez cada 4 turnos. <b>Magos</b>: viven de la magia; el maná les vuelve solo, un poco en cada turno y otro poco al ganar (cada raza recupera distinto), pero son frágiles y las armas pesadas les quitan precisión. <b>Híbridos</b>: usan cualquier arma y algo de magia, pero su maná no vuelve solo: pociones o dormir. Cada raza con magia nace con su propio hechizo.</p>
+        <p><b>Guerreros</b>: sin magia, pero pegan más fuerte con cualquier arma y tienen el <b>Golpe fuerte</b>: un ataque con el doble de daño que se puede usar una vez cada 5 turnos. <b>Magos</b>: viven de la magia; el maná les vuelve solo, un poco en cada turno (más desde el nivel 5) y otro poco al ganar, pero son frágiles y las armas pesadas les quitan precisión. <b>Híbridos</b>: usan cualquier arma y algo de magia; cada golpe con arma que aciertan les devuelve maná (más desde el nivel 5). Cada raza con magia nace con su propio hechizo.</p>
 
         <h3>Descansar</h3>
         <p>De día, un rato de descanso te recupera un poco y pasa la tarde. De noche dormís hasta la mañana; al raso, algo puede acercarse. En la posada dormís seguro y te recuperás del todo.</p>

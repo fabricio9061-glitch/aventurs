@@ -599,7 +599,7 @@
       const dmgRoll = rollPlayerDamage(p);
       let rawDmg = dmgRoll.total;
       if (pw) rawDmg *= pw.mult;
-      if (r.crit) rawDmg *= P() ? P().critMult(p) : 2;
+      if (r.crit) rawDmg = Math.round(rawDmg * (P() ? P().critMult(p) : 2));
       const finalDmg = mitigate(rawDmg, es.armor);
       target.hp = Math.max(0, target.hp - finalDmg);
       let passive = null;
@@ -621,6 +621,13 @@
         result: r.crit ? 'crit' : 'hit',
         fx: { kind: 'attack', actor: 'player', target: fxKey(target) },
       });
+      // v2.2.1: los híbridos recuperan maná al acertar con el arma
+      const moh = B().manaOnHit ? B().manaOnHit(p) : 0;
+      if (moh > 0 && p.mana < p.maxMana) {
+        const before = p.mana;
+        A.State.setMana(Math.min(p.maxMana, p.mana + moh));
+        if (p.mana > before) addLog(c, 'system', { text: `Recuperás ${p.mana - before} de maná.`, fx: { kind: 'heal', actor: 'player', target: 'player', amount: 0, mana: p.mana - before, quiet: true } });
+      }
       if (target.hp > 0) maybeInflictStatusOnHit(st.weapon, target, c);
       // Sangre de dragón: a veces el golpe prende fuego
       if (target.hp > 0 && P() && Math.random() < P().burnChance(p)) {
@@ -883,12 +890,20 @@
       defense = st.defense; armor = st.armor; targetName = p.name;
     }
     const r = attackRoll(es.attack, defense);
+    // v2.2.1: Suerte: parte de los golpes que te iban a pegar, fallan
+    let lucky = false;
+    if (r.hit && !targetPet && P() && P().luckyDodge && Math.random() < P().luckyDodge(p)) {
+      r.hit = false;
+      r.crit = false;
+      lucky = true;
+    }
     const enemyIcon = '';
     const damageNotation = enemy.damage;
 
     if (!r.hit) {
       addLog(c, 'enemy', {
-        text: r.fumble ? `${enemy.displayName} ataca a ${targetName} pero falla por completo` : `${enemy.displayName} ataca pero ${targetName} esquiva`,
+        passive: lucky ? 'suerte' : null,
+        text: r.fumble ? `${enemy.displayName} ataca a ${targetName} pero falla por completo` : lucky ? `¡Suerte! El golpe de ${enemy.displayName} pasa de largo` : `${enemy.displayName} ataca pero ${targetName} esquiva`,
         actor: enemy.displayName, target: targetName, actorIcon: enemyIcon,
         roll: r.roll, bonus: es.attack, total: r.total, vs: defense, vsLabel: 'defensa',
         result: r.fumble ? 'fumble' : 'evaded',
