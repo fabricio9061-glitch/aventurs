@@ -69,11 +69,13 @@ node tools/simulador.js viaje      # pasos y niveles del mapa
 
 ## Contenido del juego (seed)
 
-- **12 razas** parejas, cada una con su pasiva (ver *Razas y pasivas*)
-- **17 regiones** ordenadas por nivel (1 a 10)
-- **78 enemigos** (24 domables) con tier, categoría, familia y tags
-- **33 armas**, **13 armaduras**, **153 items**, **5 mochilas**
-- **7 hechizos**, **19 recetas**, **4 NPCs**
+- **12 razas** parejas, cada una con su pasiva (ver *Razas y pasivas*); las 8 que usan
+  magia nacen con su propio hechizo
+- **31 regiones** (24 de combate y 7 pueblos) ordenadas por nivel (1 a 10)
+- **104 enemigos** (29 domables), cada uno con su zona propia: 4 a 7 criaturas por zona
+- **35 armas**, **13 armaduras**, **159 items**, **5 mochilas**
+- **15 hechizos** (8 de nacimiento), **19 recetas**, **13 habitantes**
+- **22 misiones** (8 de la historia principal) y **43 escenas** para explorar
 
 ## Reglas (v1.8.0)
 
@@ -207,6 +209,56 @@ Explorar siempre hace pasar algo (`js/systems/explore.js` + `js/data/seed-events
   se cuentan con ×N).
 - En el celular, una franja arriba con vida, maná, comida y dinero.
 - Sin emojis en el juego (el editor todavía los usa para cargar íconos).
+
+## Versión 2.1
+
+### Subir de nivel
+- Experiencia por nivel (`Progression.XP_TABLE`): 45 · 100 · 250 · 390 · 580 · 820 ·
+  1240 · 1800 · 1950. Del nivel 1 al 2 son unas 4 o 5 peleas; más adelante, unas 8.
+- Los encuentros miran tu nivel (`js/systems/encounter.js`): las criaturas de tier más
+  alto que vos aparecen menos y vienen solas, hay como mucho un enemigo fuerte por
+  grupo y los grupos son más chicos mientras estés por debajo del nivel de la zona.
+- Las criaturas que pide una misión de "derrotar" aparecen mucho más seguido.
+
+### Mundo
+- **31 regiones**. Nuevas zonas de combate: Llanos del Alba, Minas Olvidadas, Colinas
+  Rotas, Costa de los Naufragios, Mar de las Calaveras, Bosque de los Sueños, Ruinas de
+  la Antorcha, Bosque de los Susurros, Pradera de los Cíclopes y Jardín Carmesí.
+- **Pueblos nuevos**: Aldea Piedrahonda (enanos), Puerto Calavera (piratas), Santuario
+  del Roble (druida, enseña magia) y Velmora (la ciudad de los vampiros).
+- **Cada criatura tiene su lugar**: los 104 enemigos están repartidos por zona (4 a 7
+  por zona), con 26 nuevos: piratas, criaturas del sueño, vampiros, huargos, centauros...
+- 7 encargos nuevos y 13 escenas nuevas para explorar.
+
+### Clases y maná
+- **Guerreros**: sin magia; maestría con armas (+1 de daño, +2 desde nivel 5, +3 desde
+  nivel 9) y +1 de precisión con armas pesadas. +6 de vida por nivel.
+- **Magos** (Gnomo, Alienígena, Infernal, Ángel): el maná les vuelve solo, en cada turno
+  (desde la segunda ronda) y al ganar. Cada raza recupera distinto (`manaRegen` en la
+  raza): Gnomo 1 por turno, Alienígena 2 (Mente expansiva), Infernal 1, Ángel 1. Poder
+  mágico nivel/2 (+ bastón). Son frágiles: +4 de vida y +4 de maná por nivel. Las armas
+  pesadas les quitan 3 de precisión; las medianas no mágicas, 1.
+- **Híbridos**: usan cualquier arma y algo de magia, pero el maná no les vuelve solo
+  (pociones o dormir). Poder mágico (nivel-1)/2. +6 de vida y +3 de maná por nivel.
+- **Hechizo de nacimiento** (`startSpell` en la raza, `racial` en el hechizo): Dardo
+  arcano (Humano), Flecha lunar (Elfo), Dardo venenoso (Mediano), Aliento de brasas
+  (Dracónido), Descarga (Gnomo), Rayo de plasma (Alienígena), Ascua infernal
+  (Infernal) y Luz sagrada (Ángel). No se venden ni se enseñan.
+- Los hechizos de curación suman solo la mitad del poder mágico.
+
+### Números claros
+- "Ataque" ahora se llama **Precisión**: lo que se suma al dado de 20 para acertar.
+  El **Daño** es la vida que sacás cuando acertás. La **Defensa** es lo que el enemigo
+  tiene que sacar para pegarte. La **Armadura** se resta de cada golpe.
+- En la creación, cada número tiene una línea que dice para qué sirve.
+- En combate, el botón de atacar muestra el % de acierto, qué número necesitás y
+  cuánto daño hacés; la línea de turno lo explica con el enemigo marcado.
+- En las reglas hay una sección "Tus números" (también desde la barra lateral).
+
+### Pantallas
+- Barra lateral nueva: retrato con nivel, experiencia, vida, maná y comida, atributos
+  con íconos, equipo, mochila con monedas, misiones en curso y lugar.
+- Creación: el botón de empezar queda siempre a la vista.
 
 ## Idioma
 

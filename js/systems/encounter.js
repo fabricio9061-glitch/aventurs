@@ -41,6 +41,43 @@
     return { region, cfg: { ...DEFAULT_ENCOUNTER, ...region.encounter } };
   }
 
+  // ---------- v2.1: el peligro se adapta a tu nivel ----------
+  // Las criaturas de más nivel que vos aparecen menos y siempre solas;
+  // los jefes van solos y en un grupo hay como mucho una "fuerte".
+  function playerLevel() {
+    const p = A.State && A.State.player;
+    return p ? (p.level || 1) : 99;
+  }
+  function levelFactor(e, lvl) {
+    // una "fuerte" cuenta como un nivel más; un jefe, dos; una "débil", uno menos
+    const extra = ({ weak: -1, strong: 1, boss: 2 })[e.category] || 0;
+    const d = (e.tier || 1) + extra - lvl;
+    if (d <= 0) return 1;
+    if (d === 1) return 0.55;
+    if (d === 2) return 0.25;
+    return 0.1;
+  }
+  // Si una misión te pide derrotar a alguien de esta zona, aparece mucho más seguido
+  let targetsCache = null;
+  function questTargets() {
+    const set = new Set();
+    if (!A.Quests || !A.Quests.activeList) return set;
+    for (const q of A.Quests.activeList()) {
+      q.objectives.forEach((o, i) => {
+        if (o.type !== 'kill' || A.Quests.objectiveProgress(q, i).done) return;
+        for (const id of (Array.isArray(o.enemy) ? o.enemy : [o.enemy])) set.add(id);
+      });
+    }
+    return set;
+  }
+  function spawnFactor(e, lvl) {
+    return levelFactor(e, lvl) * (targetsCache && targetsCache.has(e.id) ? 8 : 1);
+  }
+
+  function mustGoAlone(e, lvl) {
+    return (e.tier || 1) > lvl || e.category === 'boss';
+  }
+
   /**
    * Genera un grupo de enemigos para la región dada.
    * Devuelve array de instancias (puede estar vacío si no hay candidatos).
@@ -54,7 +91,11 @@
     if (candidates.length === 0) return [];
 
     // Cantidad de enemigos
-    const count = randInt(cfg.minEnemies || 1, cfg.maxEnemies || 1);
+    // v2.1: mientras no llegues al tier más alto de la zona, los grupos son de uno menos
+    const topTier = (region.tier && region.tier[1]) || 1;
+    const lvlNow = playerLevel();
+    const maxE = Math.max(cfg.minEnemies || 1, (cfg.maxEnemies || 1) - (lvlNow < topTier && (cfg.maxEnemies || 1) > 2 ? 1 : 0));
+    const count = randInt(cfg.minEnemies || 1, maxE);
     if (count <= 0) return [];
 
     // Agrupar por categoría
@@ -65,11 +106,15 @@
     }
 
     // Pesos por categoría desde la región (filtrar sólo categorías con candidatos)
+    // v2.1: cada categoría pesa según qué tan accesibles son sus criaturas para tu nivel
+    const lvl = playerLevel();
+    targetsCache = questTargets();
     const sw = cfg.spawnWeights || {};
     const catWeights = {};
     for (const cat of ['weak', 'normal', 'strong', 'boss']) {
       if (byCat[cat].length > 0 && (sw[cat] || 0) > 0) {
-        catWeights[cat] = sw[cat];
+        const fit = byCat[cat].reduce((s, e) => s + spawnFactor(e, lvl), 0) / byCat[cat].length;
+        catWeights[cat] = sw[cat] * fit;
       }
     }
     if (Object.keys(catWeights).length === 0) return [];
@@ -90,8 +135,15 @@
         if (lockedSolo) break; // ya hay un solitario, no agregar más
 
         const cat = A.Utils.weightedPick(catWeights);
-        const enemy = pickFromCategory(byCat[cat]);
+        const enemy = pickFromCategory(byCat[cat], lvl);
         if (!enemy) continue;
+        // v2.1: los de más nivel que vos y los jefes van solos; una sola "fuerte" por grupo
+        if (mustGoAlone(enemy, lvl)) {
+          if (result.length > 0) continue;
+          result.push(spawnInstance(enemy));
+          break;
+        }
+        if (enemy.category === 'strong' && result.some((r) => r.category === 'strong')) continue;
         const groupable = enemy.spawn && enemy.spawn.groupable !== false;
         const enemyMax = (enemy.spawn && enemy.spawn.max) || 1;
         const here = counts[enemy.id] || 0;
@@ -120,11 +172,11 @@
 
     // ---- Modo NO mixto: un solo tipo, grupo respetando spawn.min/max ----
     const cat = A.Utils.weightedPick(catWeights);
-    const baseEnemy = pickFromCategory(byCat[cat]);
+    const baseEnemy = pickFromCategory(byCat[cat], lvl);
     if (!baseEnemy) return [];
 
     const groupable = baseEnemy.spawn && baseEnemy.spawn.groupable !== false;
-    if (!groupable) return [spawnInstance(baseEnemy)];
+    if (!groupable || mustGoAlone(baseEnemy, lvl) || baseEnemy.category === 'strong') return [spawnInstance(baseEnemy)];
 
     const min = (baseEnemy.spawn && baseEnemy.spawn.min) || 1;
     const max = Math.min(count, (baseEnemy.spawn && baseEnemy.spawn.max) || 1);
@@ -172,11 +224,11 @@
   /**
    * Picks an enemy from a category list, weighted by enemy.spawn.weight.
    */
-  function pickFromCategory(list) {
+  function pickFromCategory(list, lvl) {
     if (!list || list.length === 0) return null;
     const w = {};
     list.forEach((e, i) => {
-      w[i] = (e.spawn && e.spawn.weight) || 1;
+      w[i] = ((e.spawn && e.spawn.weight) || 1) * (lvl ? spawnFactor(e, lvl) : 1);
     });
     const idx = parseInt(A.Utils.weightedPick(w), 10);
     return list[idx] || list[0];

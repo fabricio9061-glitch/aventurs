@@ -57,7 +57,7 @@
     },
     mente_expansiva: {
       name: 'Mente expansiva', icon: 'arcane',
-      text: (p) => `Cada dos turnos recuperás ${manaAmount(p)} de maná.`,
+      text: () => 'Recuperás el doble de maná que cualquier otro mago, en cada turno y al ganar.',
     },
     llama_interior: {
       name: 'Llama interior', icon: 'fireball',
@@ -117,9 +117,9 @@
   }
   function spellBonus(p) { return has(p, 'llama_interior') ? spellAmount(p) : 0; }
   /** Mente expansiva: maná al empezar tu turno, en las rondas pares. */
-  function manaPerTurn(p, round) {
-    if (!has(p, 'mente_expansiva')) return 0;
-    return round % 2 === 0 ? manaAmount(p) : 0;
+  function manaPerTurn() {
+    // v2.1: la recuperación de maná ahora es de todos los magos (Balance.manaRegenOf)
+    return 0;
   }
 
   // ---------- Defensa ----------

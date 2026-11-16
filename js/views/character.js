@@ -21,17 +21,42 @@
   };
 
   const GROUPS = [
-    { type: 'hybrid', name: 'Híbridos', desc: 'Arma y magia, un poco de cada una' },
+    { type: 'hybrid', name: 'Híbridos', desc: 'Arma y algo de magia: el maná no vuelve solo' },
     { type: 'warrior', name: 'Guerreros', desc: 'Sin magia, pero maestros con las armas' },
-    { type: 'mage', name: 'Magos', desc: 'Hechizos fuertes; las armas pesadas les cuestan' },
+    { type: 'mage', name: 'Magos', desc: 'Magia en cada turno: el maná les vuelve solo' },
   ];
 
-  const TYPE_LINE = { hybrid: 'Híbrido · arma y magia', warrior: 'Guerrero · maestría con armas', mage: 'Mago · hechizos que crecen con el nivel' };
+  const TYPE_LINE = { hybrid: 'Híbrido · arma y algo de magia', warrior: 'Guerrero · maestría con armas', mage: 'Mago · el maná le vuelve solo' };
   const TYPE_KIT = {
-    hybrid: 'Usa cualquier arma sin problema y lanza hechizos a medias.',
-    warrior: 'Maestría: +1 de daño con cualquier arma (+2 desde el nivel 5) y +1 al ataque con armas pesadas.',
-    mage: 'Sus hechizos pegan más fuerte y crecen con cada nivel y con un bastón. Las armas pesadas le quitan 3 de ataque.',
+    hybrid: 'Usa cualquier arma sin problema. Su maná no vuelve solo: lo recupera con pociones o durmiendo, así que sus hechizos son para los momentos clave.',
+    warrior: 'Maestría: +1 de daño con cualquier arma (+2 desde el nivel 5) y +1 de precisión con armas pesadas.',
+    mage: 'Vive de la magia. Las armas pesadas le quitan 3 de precisión, y es el más frágil de todos.',
   };
+
+  /** v2.1: el hechizo con el que nace la raza y cuánto maná recupera. */
+  function magicBox(race) {
+    const spell = race.startSpell ? A.Data.getById('spells', race.startSpell) : null;
+    if (!spell) return '';
+    const regen = race.manaRegen || null;
+    const what = [
+      spell.damage ? `${spell.damage} de daño${spell.area ? ' a todos' : ''}` : '',
+      spell.selfHeal ? 'te cura un poco' : '',
+      spell.statusEffect ? ({ fire: 'puede quemar', poison: 'envenena', blind: 'puede cegar', shock: 'puede aturdir', cold: 'enfría' })[spell.statusEffect.type] || '' : '',
+      `${A.Passives && A.Passives.spellCost ? A.Passives.spellCost({ raceId: race.id, level: 1 }, spell) : spell.manaCost} de maná`,
+    ].filter(Boolean).join(' · ');
+    return `
+      <div class="cc-passive cc-spell">
+        <span class="cc-passive-icon">${A.ItemSprites ? A.ItemSprites.spellIcon(spell, { size: 32 }) : ''}</span>
+        <span class="cc-passive-body">
+          <span class="cc-passive-label">Hechizo de nacimiento</span>
+          <span class="cc-passive-name">${esc(spell.name)}</span>
+          <span class="cc-passive-text">${esc(what)}</span>
+          <span class="cc-passive-text cc-regen">${regen
+            ? `Recupera maná solo: +${regen.turn} por turno y ${Math.round(regen.win * 100)}% al ganar.`
+            : 'No recupera maná solo: pociones o dormir.'}</span>
+        </span>
+      </div>`;
+  }
 
   function esc(s) { return A.Utils.escapeHtml(String(s == null ? '' : s)); }
   function icon(name, size, cls) { return A.ItemSprites ? A.ItemSprites.icon(name, { size, cls }) : ''; }
@@ -153,7 +178,9 @@
     const mastery = race.combatType === 'warrior' ? 1 : 0;
     const dmgBonus = st.damage + mastery;
     const dmg = dmgBonus > 0 ? `1d4+${dmgBonus}` : '1d4';
-    const spellPower = !magic ? 0 : race.combatType === 'mage' ? 1 : 0;
+    const dmgRange = A.Balance && A.Balance.rangeOf ? A.Balance.rangeOf(dmg) : { min: 1, max: 4 };
+    const tunic = A.Data.getById('armors', 'tunica_cuero');
+    const startArmor = tunic ? (tunic.defense || 0) : 0;
     return `
       <div class="cc-hero">
         <div class="cc-hero-portrait">${portrait(race, 128)}</div>
@@ -181,14 +208,15 @@
       </div>
 
       <div class="cc-stats">
-        <div class="cc-stat" title="Lo que sumás al D20 para pegar"><span>Ataque</span><b>+${st.precision}</b></div>
-        <div class="cc-stat" title="Daño con la daga del comienzo"><span>Daño</span><b>${dmg}</b></div>
-        <div class="cc-stat" title="Se resta a cada golpe que recibís"><span>Armadura</span><b>${st.armor}</b></div>
-        <div class="cc-stat" title="Suma a tu dificultad: lo que el enemigo tiene que sacar para pegarte"><span>Esquiva</span><b>${st.dodge}</b></div>
+        <div class="cc-stat"><span>Precisión</span><b>+${st.precision}</b><small>Se suma al dado para acertar</small></div>
+        <div class="cc-stat"><span>Daño</span><b>${dmg}</b><small>Lo que sacás al acertar: ${dmgRange.min}&nbsp;a&nbsp;${dmgRange.max}</small></div>
+        <div class="cc-stat"><span>Defensa</span><b>${8 + st.dodge}</b><small>Lo que el enemigo necesita para pegarte</small></div>
+        <div class="cc-stat"><span>Armadura</span><b>${st.armor + startArmor}</b><small>Se resta de cada golpe que recibís</small></div>
       </div>
-      <p class="cc-kit is-class">${esc(TYPE_KIT[race.combatType] || TYPE_KIT.hybrid)}${magic ? ` Poder mágico inicial: +${spellPower}.` : ''}</p>
+      <p class="cc-kit is-class">${esc(TYPE_KIT[race.combatType] || TYPE_KIT.hybrid)}</p>
 
-      <p class="cc-kit">Empieza con daga, túnica de cuero, dos pociones y algo de comida${magic ? '. Ya sabe el hechizo <b>Chispa</b>' : ''}.</p>
+      ${magic ? magicBox(race) : ''}
+      <p class="cc-kit">Empieza con daga, túnica de cuero, dos pociones y algo de comida.</p>
     `;
   }
 

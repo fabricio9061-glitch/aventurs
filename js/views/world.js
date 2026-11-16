@@ -588,6 +588,8 @@
       ruins: 'Ruinas', crypt: 'Cripta', cave: 'Cueva',
       sea: 'Mar abierto', volcano: 'Volcán', hell: 'Infierno',
       lair: 'Guarida', abyss: 'Abismo',
+      hills: 'Colinas', meadow: 'Pradera', darkwood: 'Bosque oscuro', dream: 'Bosque encantado',
+      grove: 'Santuario', gothic: 'Ciudad de la noche', pirate: 'Puerto pirata', bloodwood: 'Jardín maldito',
     };
     return map[b] || b;
   }

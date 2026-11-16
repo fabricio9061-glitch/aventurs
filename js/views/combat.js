@@ -312,9 +312,9 @@
       sub: p.hasMagic ? { cls: 'is-mana', cur: mana, max: p.maxMana, title: `Maná ${mana}/${p.maxMana}` } : null,
       effects: p.effects,
       dc: st.defense,
-      dcTitle: `Tu dificultad: un enemigo tiene que llegar a ${st.defense} (D20 + su ataque) para pegarte.${m.defensePenalty > 0 ? ' Bajó por el frío.' : ''}`,
+      dcTitle: `Tu defensa: un enemigo tiene que llegar a ${st.defense} (dado de 20 + su precisión) para pegarte.${m.defensePenalty > 0 ? ' Bajó por el frío.' : ''}`,
       stats: [
-        stat('ATQ', `+${st.attack || 0}`, 'Ataque: lo que sumás al D20 para pegar', m.attackPenalty > 0),
+        stat('PREC', `+${st.attack || 0}`, 'Precisión: lo que sumás al dado de 20 para acertar', m.attackPenalty > 0),
         stat('DAÑO', dmg, dmgTip),
         stat('ARM', st.armor || 0, 'Armadura: se resta a cada golpe que recibís'),
         stat('VEL', st.speed || 10, 'Velocidad: el más rápido actúa primero'),
@@ -338,7 +338,7 @@
       dc: 8 + (pet.dodge || 0) - m.defensePenalty,
       dcTitle: `Dificultad de tu mascota: un enemigo tiene que llegar a ${8 + (pet.dodge || 0) - m.defensePenalty} para pegarle.`,
       stats: [
-        stat('ATQ', `+${atk}`, 'Ataque de tu mascota', m.attackPenalty > 0),
+        stat('PREC', `+${atk}`, 'Precisión de tu mascota: lo que suma al dado para acertar', m.attackPenalty > 0),
         stat('DAÑO', String(pet.damage || '1d3').replace(/\s+/g, ''), 'Daño de tu mascota'),
         stat('ARM', pet.armor || 0, 'Armadura de tu mascota'),
         stat('VEL', pet.speed || 10, 'Velocidad de tu mascota'),
@@ -367,7 +367,7 @@
       dc: (e.difficulty || 10) - m.defensePenalty,
       dcTitle: dcText(e, m),
       stats: [
-        stat('ATQ', `+${(e.attack || 0) - m.attackPenalty}`, 'Ataque: lo que suma al D20', m.attackPenalty > 0),
+        stat('PREC', `+${(e.attack || 0) - m.attackPenalty}`, 'Precisión: lo que suma al dado de 20 para pegarte', m.attackPenalty > 0),
         stat('DAÑO', String(e.damage || '1d3').replace(/\s+/g, ''), 'Daño de sus golpes'),
         stat('ARM', e.armor || 0, 'Armadura: se resta a tus golpes'),
         stat('VEL', e.speed || 10, 'Velocidad: el más rápido actúa primero'),
@@ -385,7 +385,7 @@
   function dcText(e, m) {
     const dc = (e.difficulty || 10) - (m ? m.defensePenalty : 0);
     const need = neededRoll(dc);
-    return `Dificultad del dado: ${dc}. Con tu ataque necesitás sacar ${need} o más en el D20${need >= 20 ? ' (solo con un 20)' : ''}.`;
+    return `Dificultad del dado: ${dc}. Con tu precisión necesitás sacar ${need} o más en el dado de 20${need >= 20 ? ' (solo con un 20)' : ''}.`;
   }
 
   // ============================================================
@@ -450,6 +450,29 @@
     return null;
   }
 
+  /**
+   * v2.1: en tu turno se explica el golpe con los números de ESTA pelea:
+   * con cuánto acertás (precisión) y cuánta vida sacás (daño).
+   */
+  function damageRangeVs(p, target) {
+    try {
+      const r = A.Combat.composePlayerDamage(p).range;
+      const arm = (target && target.armor) || 0;
+      return { min: Math.max(1, r.min - arm), max: Math.max(1, r.max - arm) };
+    } catch (err) { return null; }
+  }
+  const rangeTxt = (r) => (r.min === r.max ? `${r.min}` : `${r.min}&nbsp;a&nbsp;${r.max}`);
+
+  function yourTurnText(c, p, target, need, hit) {
+    if (!target || need == null) return '<strong>Tu turno.</strong> Elegí qué hacer.';
+    const range = damageRangeVs(p, target);
+    const many = A.Combat.aliveEnemies().length > 1;
+    const pctTxt = hit != null ? ` (${Math.round(hit * 100)}%)` : '';
+    return `<strong>Tu turno.</strong> Para acertarle a ${esc(target.displayName || target.name)} necesitás <b>${need} o más</b> en el dado${pctTxt}.`
+      + (range ? ` Si acertás le sacás <b>${rangeTxt(range)}</b> de vida.` : '')
+      + (many ? ' Tocá a otro enemigo para cambiar de objetivo.' : '');
+  }
+
   function actionsHtml(c, frozen, ready, busy) {
     if (frozen) {
       return `<section class="cb-actions is-waiting" data-sec="actions"><div class="cb-turn-line">&nbsp;</div><div class="cb-action-row is-empty"></div></section>`;
@@ -461,6 +484,7 @@
     const target = A.Combat.getTarget();
     const hit = target && A.Combat.hitChanceVs ? A.Combat.hitChanceVs(target) : null;
     const need = target ? neededRoll((target.difficulty || 10) - mods(target).defensePenalty) : null;
+    const dmgRange = target ? damageRangeVs(p, target) : null;
     const attackIcon = p.equipment && p.equipment.weapon && A.ItemSprites
       ? A.ItemSprites.html(p.equipment.weapon, { size: 32 }) : icon('fist', 32);
     const off = !ready;
@@ -471,17 +495,19 @@
         <span class="cb-btn-text">
           <span class="combat-action-label">${label}</span>
           <span class="cb-btn-hint">${opts.hint || '&nbsp;'}</span>
+          ${opts.hint2 ? `<span class="cb-btn-hint is-2">${opts.hint2}</span>` : ''}
         </span>
       </button>`;
 
     return `
       <section class="cb-actions ${ready ? 'is-your-turn' : 'is-waiting'}" data-sec="actions">
-        <div class="cb-turn-line">${ready ? '<strong>Tu turno.</strong> Elegí qué hacer. Tocá a un enemigo para apuntarle.' : waitingText(c, busy)}</div>
+        <div class="cb-turn-line">${ready ? yourTurnText(c, p, target, need, hit) : waitingText(c, busy)}</div>
         <div class="combat-action-row cb-action-row">
           ${btn('attack', attackIcon, 'Atacar', {
             cls: `is-primary ${queuedAction === 'attack' ? 'is-queued' : ''}`,
             title: ready ? 'Atacar al objetivo marcado' : 'Tocalo ahora y atacás apenas te toque',
-            hint: need != null ? `Necesitás ${need} o más${hit != null ? ` · ${Math.round(hit * 100)}%` : ''}` : '',
+            hint: need != null ? `Acierto ${hit != null ? `${Math.round(hit * 100)}% ` : ''}(${need}+)` : '',
+            hint2: dmgRange ? `Daño ${rangeTxt(dmgRange)}` : '',
           })}
           ${p.hasMagic ? btn('spell', icon('spell', 32), 'Hechizo', {
             disabled: off || spells.length === 0,
@@ -545,6 +571,7 @@
     if (fx.kind === 'reward') {
       if (fx.levelUp) return icon('up', 32);
       if (fx.coins) return icon('coin', 32);
+      if (fx.mana) return icon('spell', 32);
       if (fx.items && fx.items[0] && A.ItemSprites) return A.ItemSprites.html(fx.items[0].itemId, { size: 32 });
       return icon('xp', 32);
     }
@@ -618,6 +645,7 @@
       if (fx.xp) chips.push(`<span class="cb-chip">${icon('xp', 32)}<span><b>+${fx.xp}</b> experiencia</span></span>`);
       if (fx.coins) coins += fx.coins;
       if (fx.levelUp) chips.push(`<span class="cb-chip is-gold">${icon('up', 32)}<span>¡Nivel <b>${fx.levelUp}</b>!</span></span>`);
+      if (fx.mana) chips.push(`<span class="cb-chip">${icon('spell', 32)}<span><b>+${fx.mana}</b> de maná</span></span>`);
       if (fx.petXp && A.State.player.pet) chips.push(`<span class="cb-chip">${A.Sprites ? A.Sprites.petHtml(A.State.player.pet, { size: 32 }) : ''}<span><b>+${fx.petXp}</b> para ${esc(A.State.player.pet.name)}</span></span>`);
       for (const it of fx.items || []) {
         const d = A.Inventory && A.Inventory.resolveData ? A.Inventory.resolveData(it.itemId) : null;

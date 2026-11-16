@@ -69,7 +69,7 @@
         </div>
 
         <footer class="shell-footer">
-          <span class="version-pill">v2.0.0</span>
+          <span class="version-pill">v2.1.0</span>
         </footer>
       </div>
     `;
@@ -111,6 +111,34 @@
     `;
   }
 
+  // ============================================================
+  // v2.1: ficha del personaje (barra lateral rediseñada)
+  //   cabecera oscura con retrato, nivel y experiencia
+  //   barras de vida, maná y comida
+  //   mascota (si hay), atributos con ícono, equipo en 3 casillas,
+  //   mochila con el dinero y, al final, las misiones
+  // ============================================================
+
+  const RARITY_CLS = { common: '', uncommon: 'is-uncommon', rare: 'is-rare', epic: 'is-epic', legendary: 'is-legendary' };
+  const TYPE_NAME = { warrior: 'Guerrero', hybrid: 'Híbrido', mage: 'Mago' };
+
+  function ic(name, size, cls) { return A.UI ? A.UI.icon(name, size, cls) : ''; }
+  function escH(v) { return A.Utils.escapeHtml(String(v == null ? '' : v)); }
+
+  function hudBar(cls, iconName, label, cur, max, extra) {
+    return `
+      <div class="sb-bar ${cls}" title="${escH(label)} ${cur}/${max}">
+        <span class="sb-bar-icon">${ic(iconName, 18)}</span>
+        <span class="sb-bar-track"><span class="sb-bar-fill" style="width:${pct(cur, max)}%"></span></span>
+        <span class="sb-bar-val num">${cur}<span class="sb-bar-max">/${max}</span></span>
+        ${extra || ''}
+      </div>`;
+  }
+
+  function statChip(iconName, label, value, title) {
+    return `<div class="sb-stat" title="${escH(title || label)}">${ic(iconName, 18)}<span class="sb-stat-val num">${escH(value)}</span><span class="sb-stat-label">${escH(label)}</span></div>`;
+  }
+
   function renderSidebar() {
     if (!sidebarEl) return;
     const p = A.State.player;
@@ -120,155 +148,125 @@
     const race = A.Data.getById('races', p.raceId);
     const weapon = p.equipment.weapon ? A.Data.getById('weapons', p.equipment.weapon) : null;
     const armor = p.equipment.armor ? A.Data.getById('armors', p.equipment.armor) : null;
-    const xpToNext = xpForLevel(p.level + 1);
+    const xpPrev = xpForLevel(p.level);
+    const xpNext = xpForLevel(p.level + 1);
+    const xpIn = Math.max(0, p.xp - xpPrev);
+    const xpSpan = Math.max(1, xpNext - xpPrev);
+    const maxLevel = A.Progression && p.level >= A.Progression.MAX_LEVEL;
     const region = A.State.world ? A.Data.getById('regions', A.State.world.regionId) : null;
     const bag = A.Data.getById('bags', p.bagId) || A.Data.getById('bags', 'bag_starter');
+    const st = A.Balance && A.Balance.playerCombatStats ? A.Balance.playerCombatStats(p) : null;
+    const type = A.Balance && A.Balance.classOf ? A.Balance.classOf(p) : 'hybrid';
+    const hunger = A.Survival ? A.Survival.getStatus() : null;
+    const regen = A.Balance && A.Balance.manaRegenOf ? A.Balance.manaRegenOf(p) : { turn: 0, win: 0 };
+    const manaHint = !p.hasMagic ? '' : regen.turn > 0
+      ? `Recuperás ${regen.turn} de maná por turno y ${Math.round(regen.win * 100)}% al ganar una pelea.`
+      : 'Tu maná no vuelve solo: pociones de maná o dormir.';
 
     sidebarEl.innerHTML = `
-      <div class="sidebar-card">
-        <div class="char-header">
-          <div class="char-avatar">${A.Sprites ? A.Sprites.heroFor(p, { size: 52 }) : ''}</div>
-          <div class="char-id">
-            <div class="char-name-row">
-              <span class="char-name">${A.Utils.escapeHtml(p.name)}</span>
-              ${p.hasMagic ? `<button class="magic-btn" data-action="open-magic" title="Magia">${A.ItemSprites ? A.ItemSprites.icon('spell', { size: 20, cls: 'px-soft' }) : 'Magia'}</button>` : ''}
-            </div>
-            <div class="char-meta dim">${race ? race.name : '—'} · Nv ${p.level}</div>
+      <div class="sb">
+        <header class="sb-head sb-type-${type}">
+          <div class="sb-portrait">${A.Sprites ? A.Sprites.heroFor(p, { size: 64 }) : ''}<span class="sb-level" title="Nivel ${p.level}">${p.level}</span></div>
+          <div class="sb-id">
+            <div class="sb-name">${escH(p.name)}</div>
+            <div class="sb-sub">${escH(race ? race.name : '')} · ${TYPE_NAME[type] || ''}</div>
             ${passiveLine(p)}
           </div>
-        </div>
-
-        <div class="bar-group">
-          <div class="bar-row">
-            <span class="bar-label">Salud</span>
-            <span class="bar-val num">${p.hp}/${p.maxHp}</span>
+          ${p.hasMagic ? `<button class="sb-magic" data-action="open-magic" title="Tus hechizos">${ic('spell', 22)}</button>` : ''}
+          <div class="sb-xp" title="Experiencia: ${p.xp} de ${xpNext}">
+            <span class="sb-xp-track"><span style="width:${maxLevel ? 100 : pct(xpIn, xpSpan)}%"></span></span>
+            <span class="sb-xp-text num">${maxLevel ? 'Nivel máximo' : `${xpIn} / ${xpSpan} XP`}</span>
           </div>
-          <div class="bar bar-hp"><span style="width:${pct(p.hp, p.maxHp)}%"></span></div>
+        </header>
 
-          ${p.hasMagic ? `
-            <div class="bar-row">
-              <span class="bar-label">Maná</span>
-              <span class="bar-val num">${p.mana}/${p.maxMana}</span>
+        <div class="sb-body">
+          <section class="sb-bars">
+            ${hudBar('is-hp', 'heart', 'Vida', p.hp, p.maxHp)}
+            ${p.hasMagic ? hudBar('is-mana', 'spell', `Maná. ${manaHint}`, p.mana, p.maxMana, regen.turn > 0 ? `<span class="sb-bar-tag" title="${escH(manaHint)}">+${regen.turn}</span>` : '') : ''}
+            ${hudBar(`is-food ${hunger ? 'hunger-' + hunger.id : ''}`, 'food', `Comida${hunger ? ` (${hunger.label})` : ''}`, p.food || 0, p.maxFood || 20, hunger && ['hungry', 'weak', 'starving'].includes(hunger.id) ? `<span class="sb-bar-tag is-warn">${escH(hunger.label)}</span>` : '')}
+          </section>
+
+          ${p.pet ? renderPetSidebar(p.pet) : ''}
+
+          <section class="sb-stats">
+            ${st ? statChip('target', 'Precisión', `${st.attack >= 0 ? '+' : ''}${st.attack}`, 'Para acertar: se suma al dado de 20 cuando atacás') : ''}
+            ${statChip('swords', 'Daño', formatDamageDisplay(weapon, p.stats.damage), 'La vida que le sacás al enemigo cuando acertás (tu arma más tus bonus)')}
+            ${st ? statChip('d20', 'Defensa', st.defense, 'Lo que un enemigo tiene que sacar (dado de 20 más su precisión) para pegarte') : ''}
+            ${statChip('shield', 'Armadura', st ? st.armor : (p.stats.armor || 0), 'Se resta a cada golpe que recibís')}
+            ${statChip('boot', 'Velocidad', p.stats.speed, 'El más rápido actúa primero')}
+            ${p.hasMagic && st ? statChip('arcane', 'Magia', `+${st.spellPower || 0}`, 'Se suma al daño de tus hechizos') : ''}
+            <button class="sb-stats-help" data-action="rules">${ic('question', 14)}<span>¿Qué es cada número?</span></button>
+          </section>
+          ${classNote(p, weapon)}
+
+          <section class="sb-sec">
+            <h3 class="sb-title">Equipo</h3>
+            <div class="sb-equip">
+              ${equipTile('Arma', weapon, 'weapon')}
+              ${equipTile('Armadura', armor, 'armor')}
+              ${equipTile('Mochila', bag, 'bag')}
             </div>
-            <div class="bar bar-mana"><span style="width:${pct(p.mana, p.maxMana)}%"></span></div>
-          ` : ''}
+          </section>
 
-          <div class="bar-row">
-            <span class="bar-label">XP</span>
-            <span class="bar-val num">${p.xp}/${xpToNext}</span>
-          </div>
-          <div class="bar bar-xp"><span style="width:${pct(p.xp, xpToNext)}%"></span></div>
+          ${renderBag(bag)}
 
-          <div class="bar-row">
-            <span class="bar-label">Comida${A.Survival ? ` <span class="hunger-badge hunger-${A.Survival.getStatus().id}">${A.Survival.getStatus().label}</span>` : ''}</span>
-            <span class="bar-val num">${p.food || 0}/${p.maxFood || 20}</span>
-          </div>
-          <div class="bar bar-food ${A.Survival ? 'hunger-' + A.Survival.getStatus().id : ''}"><span style="width:${pct(p.food || 0, p.maxFood || 20)}%"></span></div>
+          ${questTracker()}
+
+          ${region ? `<div class="sb-loc">${A.UI ? A.UI.biomeIcon(region, 16) : ''}<span>${escH(region.name)}</span></div>` : ''}
         </div>
-
-        <div class="stat-grid">
-          <div class="stat" title="Daño del arma + bonus de fuerza"><div class="stat-label dim">Daño</div><div class="stat-val num">${formatDamageDisplay(weapon, p.stats.damage)}</div></div>
-          <div class="stat"><div class="stat-label dim">Armadura</div><div class="stat-val num">${(p.stats.armor || 0) + (armor ? armor.defense : 0)}</div></div>
-          <div class="stat"><div class="stat-label dim">Esquiva</div><div class="stat-val num">${p.stats.dodge}</div></div>
-          <div class="stat"><div class="stat-label dim">Velocidad</div><div class="stat-val num">${p.stats.speed}</div></div>
-          ${spellPowerStat(p)}
-        </div>
-        ${classNote(p, weapon)}
-
-        <div class="wallet2" title="Tu dinero">
-          <span class="wallet2-label">${A.UI ? A.UI.icon('coins', 18) : ''}<span>Dinero</span></span>
-          <span class="wallet2-val">${A.Currency.walletHtml ? A.Currency.walletHtml(16) : A.Currency.formatWallet()}</span>
-        </div>
-
-        ${questTracker()}
-
-        <div class="equip-block">
-          <div class="block-subtitle dim">Equipado</div>
-          <div class="equip-grid-side">
-            ${equipMini('Arma', weapon, 'weapon')}
-            ${equipMini('Armadura', armor, 'armor')}
-            ${equipMini('Mochila', bag, 'bag')}
-          </div>
-        </div>
-
-        ${p.pet ? renderPetSidebar(p.pet) : ''}
-
-        ${renderBag(bag)}
-
-        ${region ? `<div class="loc-pill">${A.UI ? A.UI.biomeIcon(region, 18) : ''}<span>${A.Utils.escapeHtml(region.name)}</span></div>` : ''}
       </div>
     `;
 
     bindSidebarEvents();
   }
 
-  /**
-   * v1.5.9: card de mascota en sidebar con HP visible + botones curar/alimentar.
-   */
+  /** Mascota: retrato, barras y sus dos botones. */
   function renderPetSidebar(pet) {
     const lvl = pet.level || 1;
     const xp = pet.xp || 0;
     const xpNeeded = pet.xpNeeded || (lvl * 30);
     const isKO = pet.health <= 0;
-    // v1.8.0: saciedad y dieta
     const food = pet.food != null ? pet.food : 10;
     const maxFood = pet.maxFood || 10;
     const diet = A.Tame && A.Tame.dietInfo ? A.Tame.dietInfo(pet) : null;
     const hungry = food <= 0;
     return `
-      <div class="pet-card-sidebar ${isKO ? 'is-ko' : ''}">
-        <div class="pet-card-header">
-          <span class="pet-icon">${A.Sprites ? A.Sprites.petHtml(pet, { size: 40 }) : ''}</span>
-          <div class="pet-card-id">
-            <div class="pet-card-name">${A.Utils.escapeHtml(pet.name)}</div>
-            <div class="pet-card-meta dim">Nv ${lvl}${isKO ? ' · inconsciente' : ''}${hungry && !isKO ? ' · con hambre' : ''}</div>
+      <section class="sb-pet ${isKO ? 'is-ko' : ''}">
+        <div class="sb-pet-head">
+          <span class="sb-pet-sprite">${A.Sprites ? A.Sprites.petHtml(pet, { size: 44 }) : ''}</span>
+          <div class="sb-pet-id">
+            <div class="sb-pet-name">${escH(pet.name)} <span class="sb-pet-lvl">Nv ${lvl}</span></div>
+            <div class="sb-pet-meta">${isKO ? 'Inconsciente' : hungry ? 'Con hambre' : (diet ? `Come: ${escH(diet.eats)}` : 'Tu compañera')}</div>
+          </div>
+          <div class="sb-pet-actions">
+            <button class="sb-pet-btn" data-pet-action="heal" title="Curarla con una poción (también la despierta)">${ic('potion', 18)}</button>
+            <button class="sb-pet-btn" data-pet-action="feed" title="Darle comida de su dieta" ${isKO ? 'disabled' : ''}>${ic('food', 18)}</button>
           </div>
         </div>
-        <div class="pet-card-bars">
-          <div class="bar-row">
-            <span class="bar-label">Salud</span>
-            <span class="bar-val num">${pet.health}/${pet.maxHealth}</span>
-          </div>
-          <div class="bar bar-hp"><span style="width:${pct(pet.health, pet.maxHealth)}%"></span></div>
-          <div class="bar-row">
-            <span class="bar-label">XP</span>
-            <span class="bar-val num">${xp}/${xpNeeded}</span>
-          </div>
-          <div class="bar bar-xp"><span style="width:${pct(xp, xpNeeded)}%"></span></div>
-          <div class="bar-row">
-            <span class="bar-label">Saciedad</span>
-            <span class="bar-val num">${food}/${maxFood}</span>
-          </div>
-          <div class="bar bar-food"><span style="width:${pct(food, maxFood)}%"></span></div>
-          ${diet ? `<div class="pet-card-meta dim small">Come: ${A.Utils.escapeHtml(diet.eats)}</div>` : ''}
-        </div>
-        <div class="pet-card-actions">
-          <button class="btn-mini" data-pet-action="heal" title="Usar una poción de curación (también la despierta)">${A.UI ? A.UI.icon('potion', 14) : ''} Curar</button>
-          <button class="btn-mini" data-pet-action="feed" title="Darle comida de su dieta" ${isKO ? 'disabled' : ''}>${A.UI ? A.UI.icon('food', 14) : ''} Alimentar</button>
-        </div>
-      </div>
+        ${hudBar('is-hp is-small', 'heart', 'Vida de tu mascota', pet.health, pet.maxHealth)}
+        ${hudBar('is-food is-small', 'food', 'Saciedad', food, maxFood)}
+        <div class="sb-pet-xp" title="Experiencia de tu mascota: ${xp}/${xpNeeded}"><span style="width:${pct(xp, xpNeeded)}%"></span></div>
+      </section>
     `;
   }
 
-  function equipMini(label, equipped, slotName) {
+  function equipTile(label, equipped, slotName) {
     if (!equipped) {
-      return `<div class="equip-mini is-empty"><div class="equip-mini-label dim">${label}</div><div class="equip-mini-empty-mark faint">—</div></div>`;
+      return `<div class="sb-eq is-empty"><span class="sb-eq-label">${label}</span><span class="sb-eq-none">Nada</span></div>`;
     }
     let stat = '';
     if (slotName === 'weapon') stat = `${equipped.damage}`;
     else if (slotName === 'armor') stat = `+${equipped.defense}`;
-    else if (slotName === 'bag') stat = `${equipped.slots} sl`;
+    else if (slotName === 'bag') stat = `${equipped.slots}`;
     const dataAttr = slotName === 'bag'
-      ? `data-equipped-bag="${A.Utils.escapeHtml(equipped.id)}"`
+      ? `data-equipped-bag="${escH(equipped.id)}"`
       : `data-equipped-slot="${slotName}"`;
     return `
-      <button class="equip-mini equip-mini-clickable" ${dataAttr} title="${A.Utils.escapeHtml(equipped.name)}">
-        <div class="equip-mini-label dim">${label}</div>
-        <div class="equip-mini-body">
-          <span class="equip-mini-icon">${A.ItemSprites ? A.ItemSprites.html(equipped, { size: 30 }) : ''}</span>
-          <span class="equip-mini-name">${A.Utils.escapeHtml(equipped.name)}</span>
-        </div>
-        <div class="equip-mini-stat num">${stat}</div>
+      <button class="sb-eq ${RARITY_CLS[equipped.rarity] || ''}" ${dataAttr} title="${escH(equipped.name)}">
+        <span class="sb-eq-label">${label}</span>
+        <span class="sb-eq-sprite">${A.ItemSprites ? A.ItemSprites.html(equipped, { size: 40 }) : ''}</span>
+        <span class="sb-eq-name">${escH(equipped.name)}</span>
+        <span class="sb-eq-stat num">${stat}</span>
       </button>
     `;
   }
@@ -277,52 +275,33 @@
     const p = A.State.player;
     const cap = bag ? bag.slots : 5;
     const used = A.State.inventoryUsedSlots();
-
-    // v1.5.7n: monedas se muestran en mochila como cualquier item
     const items = (p.inventory || []);
 
-    // Construir las celdas: items con slots:2 ocupan 2 celdas (grid-column: span 2)
     const cells = [];
     let occupied = 0;
     for (const slot of items) {
       const data = A.Inventory.resolveData(slot.itemId);
-      const icon = data && A.ItemSprites ? A.ItemSprites.html(data, { size: 34 }) : '';
-      const qty = slot.qty > 1 ? `<span class="bag-side-qty num">${slot.qty}</span>` : '';
+      const sprite = data && A.ItemSprites ? A.ItemSprites.html(data, { size: 32 }) : '';
+      const qty = slot.qty > 1 ? `<span class="sb-slot-qty num">${slot.qty}</span>` : '';
       const itemSlots = A.State.itemSlots(slot.itemId);
-      const spanClass = itemSlots > 1 ? 'is-large' : '';
-      const sizeBadge = itemSlots > 1 ? '<span class="bag-side-size-badge" title="Ocupa 2 slots">×2</span>' : '';
       cells.push(`
-        <button class="bag-side-slot is-filled ${spanClass}" data-mini-item="${A.Utils.escapeHtml(slot.itemId)}" title="${A.Utils.escapeHtml(data ? data.name : slot.itemId)}${itemSlots > 1 ? ' (ocupa 2 slots)' : ''}">
-          <span class="bag-side-icon">${icon}</span>
-          ${qty}
-          ${sizeBadge}
+        <button class="sb-slot is-filled ${itemSlots > 1 ? 'is-large' : ''} ${data ? (RARITY_CLS[data.rarity] || '') : ''}" data-mini-item="${escH(slot.itemId)}" title="${escH(data ? data.name : slot.itemId)}${itemSlots > 1 ? ' (ocupa 2 espacios)' : ''}">
+          ${sprite}${qty}
         </button>
       `);
       occupied += itemSlots;
     }
-    // Slots vacíos restantes
-    for (let i = occupied; i < cap; i++) {
-      cells.push(`<div class="bag-side-slot is-empty"></div>`);
-    }
-
-    // Calcular columnas: para mochila básica de 10 va bien con 5 cols
-    const cols = cap <= 5 ? 5 : cap <= 16 ? 4 : 5;
+    for (let i = occupied; i < cap; i++) cells.push('<div class="sb-slot is-empty"></div>');
 
     return `
-      <div class="bag-side-block">
-        <div class="bag-side-header">
-          <div class="bag-side-header-main">
-            <div class="bag-side-name">${bag ? A.Utils.escapeHtml(bag.name) : 'Mochila'}</div>
-            <div class="bag-side-cap">
-              <span class="num">${used} / ${cap}</span>
-              <span class="dim small">slots</span>
-            </div>
-          </div>
-        </div>
-        <div class="bag-side-grid" style="grid-template-columns: repeat(${cols}, 1fr)">
-          ${cells.join('')}
-        </div>
-      </div>
+      <section class="sb-sec">
+        <h3 class="sb-title">
+          <span>${bag ? escH(bag.name) : 'Mochila'}</span>
+          <span class="sb-title-meta num ${used >= cap ? 'is-full' : ''}">${used}/${cap}</span>
+          <span class="sb-wallet" title="Tu dinero">${A.Currency.walletHtml ? A.Currency.walletHtml(16) : A.Currency.formatWallet()}</span>
+        </h3>
+        <div class="sb-bag">${cells.join('')}</div>
+      </section>
     `;
   }
 

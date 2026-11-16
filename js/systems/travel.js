@@ -335,6 +335,49 @@
    * con peso de rareza propio.
    */
   const BIOME_LOOT_POOLS = {
+    // v2.1: biomas nuevos
+    hills: [
+      { itemId: 'mineral_hierro',   weight: 30, qty: [1, 1], msg: 'Una piedra con vetas de hierro entre el pasto.' },
+      { itemId: 'hierba_silvestre', weight: 40, qty: [1, 3], msg: 'Hierbas duras que crecen entre las grietas.' },
+      { itemId: 'fragmento_cuarzo', weight: 20, qty: [1, 1], msg: 'Un cristal de cuarzo asoma de la tierra.' },
+      { itemId: 'mat_pluma',        weight: 10, qty: [1, 2], msg: 'Plumas de arpía enganchadas en una roca.' },
+    ],
+    meadow: [
+      { itemId: 'flor_silvestre',   weight: 40, qty: [1, 3], msg: 'Flores que crecen más altas que vos.' },
+      { itemId: 'fragmento_hueso_antiguo', weight: 30, qty: [1, 1], msg: 'Un hueso gigante, del tamaño de un brazo.' },
+      { itemId: 'espiga_dorada',    weight: 30, qty: [1, 4], msg: 'Espigas doradas que nadie cosechó.' },
+    ],
+    darkwood: [
+      { itemId: 'mat_hongo_rojo',   weight: 35, qty: [1, 2], msg: 'Hongos rojos al pie de un árbol muerto.' },
+      { itemId: 'mat_belladona',    weight: 25, qty: [1, 1], msg: 'Bayas negras que más vale no comer.' },
+      { itemId: 'hierba_silvestre', weight: 25, qty: [1, 2], msg: 'Hierbas que crecen en la sombra.' },
+      { itemId: 'mat_piel_lobo',    weight: 15, qty: [1, 1], msg: 'Un mechón de pelo de lobo enganchado en una rama.' },
+    ],
+    dream: [
+      { itemId: 'polvo_hada',       weight: 40, qty: [1, 2], msg: 'Polvo brillante que cae de las hojas.' },
+      { itemId: 'flor_sueno',       weight: 30, qty: [1, 1], msg: 'Una flor pálida que se abre al verte.' },
+      { itemId: 'cristal_mana',     weight: 15, qty: [1, 1], msg: 'Un cristal que zumba como una abeja.' },
+      { itemId: 'hierba_silvestre', weight: 15, qty: [1, 2], msg: 'Hierbas con rocío que no se seca.' },
+    ],
+    grove: [
+      { itemId: 'mat_hierba_curativa', weight: 50, qty: [1, 2], msg: 'Hierba curativa que los druidas dejan crecer.' },
+      { itemId: 'flor_silvestre',      weight: 50, qty: [1, 2], msg: 'Flores alrededor de las piedras.' },
+    ],
+    pirate: [
+      { itemId: 'ron_anejo',        weight: 30, qty: [1, 1], msg: 'Una botella de ron olvidada en un barril.' },
+      { itemId: 'doblon',           weight: 20, qty: [1, 1], msg: 'Un doblón de oro entre las tablas del muelle.' },
+      { itemId: 'mat_cuerda',       weight: 50, qty: [1, 2], msg: 'Cuerda de barco en buen estado.' },
+    ],
+    gothic: [
+      { itemId: 'rosa_carmesi',     weight: 40, qty: [1, 1], msg: 'Una flor carmesí sobre una reja.' },
+      { itemId: 'moneda_antigua',   weight: 40, qty: [1, 2], msg: 'Monedas viejas con la cara de un conde.' },
+      { itemId: 'vial_sangre',      weight: 20, qty: [1, 1], msg: 'Un vial sellado con lacre rojo.' },
+    ],
+    bloodwood: [
+      { itemId: 'rosa_carmesi',     weight: 45, qty: [1, 2], msg: 'Flores carmesí que trepan sobre una tumba.' },
+      { itemId: 'mat_hueso',        weight: 25, qty: [1, 2], msg: 'Huesos limpios entre las raíces.' },
+      { itemId: 'mat_ala_murcielago', weight: 30, qty: [1, 1], msg: 'Un ala de murciélago enorme.' },
+    ],
     forest: [
       { itemId: 'hierba_silvestre', weight: 40, qty: [1, 3], msg: 'Recogiste hierbas silvestres del suelo.' },
       { itemId: 'baya_negra',       weight: 35, qty: [1, 4], msg: 'Encontraste un arbusto con bayas negras maduras.' },
@@ -531,6 +574,53 @@
     const biome = region ? region.biome : 'plains';
     // v1.6.9: narrativas por bioma expandidas (5+ por bioma) con icons y kinds variados
     const NARRATIVES = {
+      // v2.1: biomas nuevos
+      hills: [
+        { text: 'El viento silba entre las lomas peladas.', icon: '' },
+        { text: 'Humo de una fogata a lo lejos. Mejor no averiguar de quién.', icon: '' },
+        { text: 'Una piedra rodó sola cuesta abajo. O casi sola.', icon: '' },
+        { text: 'Desde lo alto se ve el camino que dejaste atrás.', icon: '' },
+      ],
+      meadow: [
+        { text: 'El pasto te llega a la cintura y se mueve como el mar.', icon: '' },
+        { text: 'Una costilla gigante sale de la tierra como un arco.', icon: '' },
+        { text: 'Huellas enormes, más grandes que tu cuerpo entero.', icon: '' },
+        { text: 'Un rebaño pasta tranquilo. Demasiado tranquilo.', icon: '' },
+      ],
+      darkwood: [
+        { text: 'Los árboles se inclinan cuando pasás.', icon: '' },
+        { text: 'Alguien susurra tu nombre. No hay nadie.', icon: '' },
+        { text: 'Un aullido lejano, y después silencio.', icon: '' },
+        { text: 'La luna no llega al suelo de este bosque.', icon: '' },
+      ],
+      dream: [
+        { text: 'Las hojas brillan como si tuvieran luz propia.', icon: '' },
+        { text: 'Una risa de hada se escucha y se apaga.', icon: '' },
+        { text: 'Por un momento no sabés si estás despierto.', icon: '' },
+        { text: 'Un ciervo de luz cruza el camino y se desvanece.', icon: '' },
+      ],
+      grove: [
+        { text: 'Piedras antiguas marcan el camino al santuario.', icon: '' },
+        { text: 'El aire huele a tierra mojada y a madera vieja.', icon: '' },
+        { text: 'Un druida te saluda con la cabeza y sigue en silencio.', icon: '' },
+      ],
+      gothic: [
+        { text: 'Torres negras recortadas contra la luna.', icon: '' },
+        { text: 'Un carruaje pasa sin hacer ruido.', icon: '' },
+        { text: 'Las ventanas tienen luz, pero nadie se asoma.', icon: '' },
+        { text: 'Una campana da las doce. Otra vez.', icon: '' },
+      ],
+      pirate: [
+        { text: 'Gritos, risas y vidrios rotos desde una taberna.', icon: '' },
+        { text: 'Una bandera negra flamea en el mástil más alto.', icon: '' },
+        { text: 'Huele a ron, a pescado y a pólvora.', icon: '' },
+      ],
+      bloodwood: [
+        { text: 'Rosales rojos trepan sobre lápidas de mármol.', icon: '' },
+        { text: 'Un murciélago enorme te pasa rozando.', icon: '' },
+        { text: 'El rocío de las hojas es rojo.', icon: '' },
+        { text: 'Una risa elegante se escucha entre los árboles.', icon: '' },
+      ],
       forest: [
         { text: 'El viento mueve las copas y nada se mueve abajo.', icon: '🍃' },
         { text: 'Encontrás huellas frescas, no humanas.', icon: '🐾' },

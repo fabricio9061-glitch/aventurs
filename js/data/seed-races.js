@@ -17,6 +17,12 @@
    Todos arrancan con Daga + Túnica de cuero; los que usan magia,
    además saben Chispa.
 
+   v2.1:
+     startSpell  hechizo con el que nace la raza (js/data/seed-spells.js)
+     manaRegen   solo magos: { turn: maná por turno en combate (sube con el nivel),
+                 win: parte del maná que vuelve al ganar una pelea }.
+                 Los híbridos no recuperan maná solos: pociones o dormir.
+
    bonuses son DELTAS sobre la base universal:
      hp 24, mana 12 (solo si tiene magia), speed 10, precision 1,
      armor 0, damage 0, dodge 5
@@ -35,6 +41,7 @@
       combatType: 'hybrid',
       magic: true,
       passive: 'determinacion',
+      startSpell: 'dardo_arcano',
       bonuses: { hp: 3, mana: 0, speed: 1, precision: 1, armor: 0, damage: 0, dodge: 1 },
       description: 'Adaptables y tercos. Equilibrados en todo, dominantes en nada, y nunca se dan por vencidos.',
     },
@@ -46,6 +53,7 @@
       combatType: 'hybrid',
       magic: true,
       passive: 'ojo_certero',
+      startSpell: 'flecha_lunar',
       bonuses: { hp: 3, mana: 2, speed: 3, precision: 2, armor: 0, damage: 0, dodge: 1 },
       description: 'Ágiles y de instinto certero. Viven mil años bajo los bosques antiguos y rara vez bajan al mundo de los hombres.',
     },
@@ -57,6 +65,7 @@
       combatType: 'hybrid',
       magic: true,
       passive: 'suerte',
+      startSpell: 'dardo_venenoso',
       bonuses: { hp: 1, mana: 0, speed: 3, precision: 1, armor: 0, damage: 0, dodge: 2 },
       description: 'Pequeños y silenciosos. Lo que pierden en fuerza lo ganan en velocidad, picardía y una suerte que no se explica.',
     },
@@ -68,6 +77,7 @@
       combatType: 'hybrid',
       magic: true,
       passive: 'sangre_dragon',
+      startSpell: 'aliento_de_brasas',
       bonuses: { hp: 2, mana: 0, speed: 0, precision: 1, armor: 1, damage: 1, dodge: -1 },
       description: 'Descendientes de dragones antiguos. Escamas duras, sangre caliente y orgullo más antiguo que los reinos.',
     },
@@ -127,7 +137,8 @@
       combatType: 'mage',
       magic: true,
       passive: 'ingenio',
-      bonuses: { hp: -3, mana: 4, speed: 1, precision: 2, armor: 0, damage: 0, dodge: 2 },
+      startSpell: 'descarga', manaRegen: { turn: 1, win: 0.2 },
+      bonuses: { hp: -8, mana: 4, speed: 1, precision: 2, armor: 0, damage: 0, dodge: 2 },
       description: 'Inventores natos y de mente curiosa. Encuentran la forma de hacer más magia con menos esfuerzo.',
     },
     {
@@ -138,7 +149,8 @@
       combatType: 'mage',
       magic: true,
       passive: 'mente_expansiva',
-      bonuses: { hp: -2, mana: 1, speed: 2, precision: 1, armor: 0, damage: 0, dodge: 2 },
+      startSpell: 'rayo_de_plasma', manaRegen: { turn: 2, win: 0.3 },
+      bonuses: { hp: -8, mana: 1, speed: 2, precision: 1, armor: 0, damage: 0, dodge: 2 },
       description: 'Visitantes de mundos lejanos. Sus mentes beben de corrientes de energía que los nativos apenas perciben.',
     },
     {
@@ -149,7 +161,8 @@
       combatType: 'mage',
       magic: true,
       passive: 'llama_interior',
-      bonuses: { hp: 0, mana: 4, speed: 1, precision: 2, armor: 0, damage: 0, dodge: 1 },
+      startSpell: 'ascua_infernal', manaRegen: { turn: 1, win: 0.15 },
+      bonuses: { hp: -6, mana: 4, speed: 1, precision: 2, armor: 0, damage: 0, dodge: 1 },
       description: 'Nacidos con sangre de demonio. Llevan el fuego del abismo en las venas y lo vuelcan en cada hechizo.',
     },
     {
@@ -160,7 +173,8 @@
       combatType: 'mage',
       magic: true,
       passive: 'bendicion',
-      bonuses: { hp: -3, mana: 1, speed: 1, precision: 1, armor: 0, damage: 0, dodge: 2 },
+      startSpell: 'luz_sagrada', manaRegen: { turn: 1, win: 0.25 },
+      bonuses: { hp: -6, mana: 1, speed: 1, precision: 1, armor: 0, damage: 0, dodge: 2 },
       description: 'Guardianes bajados del cielo. Una luz suave los acompaña y les cierra las heridas en plena batalla.',
     },
   ];

@@ -466,13 +466,24 @@
         <p>Elegís una raza, explorás zonas, peleás, juntás botín y volvés a los pueblos a vender, comprar, descansar y aprender. La historia principal empieza con Tomas el guardia, en el Pueblo Inicial.</p>
 
         <h3>El dado</h3>
-        <p>Casi todo se decide con un D20. Para pegarle a una criatura, el dado más tu ataque tiene que llegar a su <b>dificultad</b> (el número sobre el dado que ves en cada criatura). Al explorar, las opciones también tiran: Fuerza, Agilidad, Ingenio, Puntería o Suerte, y siempre ves el porcentaje antes de elegir.</p>
+        <p>Casi todo se decide con un dado de 20 caras. Atacar son dos pasos: primero se ve <b>si acertás</b> y después <b>cuánta vida sacás</b>. Al explorar, las opciones también tiran el dado (Fuerza, Agilidad, Ingenio, Puntería o Suerte), y siempre ves el porcentaje antes de elegir.</p>
+
+        <h3>Tus números</h3>
+        <ul class="rules-list">
+          <li><b>Precisión</b>: sirve para acertar. Se suma al dado de 20, y el total tiene que llegar a la <b>dificultad</b> de la criatura (el número que ves sobre el dado en cada una). Con precisión +3 contra dificultad 10, acertás sacando 7 o más.</li>
+          <li><b>Daño</b>: la vida que sacás cuando acertás. "1d4" quiere decir un dado de 4 caras: de 1 a 4. "1d6+2" es un dado de 6 más 2: de 3 a 8. Lo da tu arma. A eso se le resta la armadura del enemigo.</li>
+          <li><b>Defensa</b>: lo mismo, pero al revés. Es lo que el enemigo tiene que alcanzar con su dado para pegarte. Sube con la esquiva.</li>
+          <li><b>Armadura</b>: se resta de cada golpe que recibís.</li>
+          <li><b>Velocidad</b>: el más rápido pega primero.</li>
+          <li><b>Magia</b>: lo que suman tus hechizos al daño (o a la curación). Los hechizos no fallan, pero gastan maná.</li>
+        </ul>
+        <p>Si en el dado sale un 20 es golpe crítico: acierta siempre y hace el doble de daño. Con un 1 falla siempre.</p>
 
         <h3>Explorar</h3>
         <p>Cada vez que explorás pasa algo: aparece una criatura (y elegís cómo encararla) o te toca una escena con dos o tres caminos. Explorar hace pasar el tiempo y da hambre.</p>
 
         <h3>Clases</h3>
-        <p><b>Guerreros</b>: sin magia, pero con maestría en armas (más daño a medida que suben de nivel). <b>Magos</b>: su fuerte son los hechizos, que crecen con el nivel y con un bastón; las armas pesadas les quitan puntería. <b>Híbridos</b>: un poco de cada cosa.</p>
+        <p><b>Guerreros</b>: sin magia, pero con maestría en armas (más daño a medida que suben de nivel). <b>Magos</b>: viven de la magia; el maná les vuelve solo, un poco en cada turno y otro poco al ganar (cada raza recupera distinto), pero son frágiles y las armas pesadas les quitan precisión. <b>Híbridos</b>: usan cualquier arma y algo de magia, pero su maná no vuelve solo: pociones o dormir. Cada raza con magia nace con su propio hechizo.</p>
 
         <h3>Descansar</h3>
         <p>De día, un rato de descanso te recupera un poco y pasa la tarde. De noche dormís hasta la mañana; al raso, algo puede acercarse. En la posada dormís seguro y te recuperás del todo.</p>
@@ -545,7 +556,7 @@
         <div class="creature-stats">
           <div class="stat-row"><span class="dim">Salud</span><span class="num">${e.health}</span></div>
           <div class="stat-row"><span class="dim">Daño</span><span class="num">${e.damage}</span></div>
-          <div class="stat-row"><span class="dim">Ataque</span><span class="num">+${e.attack != null ? e.attack : '?'}</span></div>
+          <div class="stat-row"><span class="dim">Precisión</span><span class="num">+${e.attack != null ? e.attack : '?'}</span></div>
           <div class="stat-row"><span class="dim">Armadura</span><span class="num">${e.armor}</span></div>
           <div class="stat-row"><span class="dim">Velocidad</span><span class="num">${e.speed}</span></div>
         </div>
@@ -572,7 +583,7 @@
         ${A.ItemSprites && A.ItemSprites.dcBadge ? A.ItemSprites.dcBadge(dc, { size: 44 }) : `<b>${dc}</b>`}
         <div class="creature-dice-text">
           <div class="creature-dice-title">Dificultad del dado: ${dc}</div>
-          <div class="muted small">Con tu ataque (+${atk}) necesitás sacar <b>${need} o más</b> en el D20${pct != null ? ` (${pct}% de pegarle)` : ''}.</div>
+          <div class="muted small">Con tu precisión (+${atk}) necesitás sacar <b>${need} o más</b> en el dado de 20${pct != null ? ` (${pct}% de acertarle)` : ''}.</div>
         </div>
       </div>`;
   }

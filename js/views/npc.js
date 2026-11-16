@@ -82,7 +82,7 @@
       const dSp = p.hasMagic ? spC - spE : 0;
       const lines = [];
       lines.push({ label: 'Daño medio', value: avgC.toFixed(1), diff: dDmg });
-      if (fitC.atk || dAtk) lines.push({ label: 'Ataque', value: `${fitC.atk >= 0 ? '+' : ''}${fitC.atk}`, diff: fitE.atk ? dAtk : 0 });
+      if (fitC.atk || dAtk) lines.push({ label: 'Precisión', value: `${fitC.atk >= 0 ? '+' : ''}${fitC.atk}`, diff: fitE.atk ? dAtk : 0 });
       if (p.hasMagic) lines.push({ label: 'Poder mágico', value: `+${spC}`, diff: dSp });
       const type = B.classOf(p);
       const score = dDmg + dAtk * 0.7 + dSp * (type === 'mage' ? 2 : 1);

@@ -481,12 +481,13 @@
 
   /** Pasivas que actúan al empezar tu turno (en silencio: solo el número flotante). */
   function playerTurnPassives(c, p) {
-    if (!P() || !p) return;
-    const mana = P().manaPerTurn(p, c.round);
-    if (mana > 0 && p.hasMagic && p.mana < p.maxMana) {
+    if (!p) return;
+    // v2.1: los magos recuperan maná al empezar cada turno (cada raza, una cantidad distinta)
+    const mana = B().manaRegenOf ? B().manaRegenOf(p).turn : 0;
+    if (mana > 0 && p.hasMagic && p.mana < p.maxMana && c.round > 1) {
       const before = p.mana;
-      A.State.setMana(p.mana + mana);
-      addLog(c, 'system', { text: `Mente expansiva: +${p.mana - before} de maná.`, fx: { kind: 'heal', actor: 'player', target: 'player', amount: 0, mana: p.mana - before, passive: 'mente_expansiva', quiet: true } });
+      A.State.setMana(Math.min(p.maxMana, p.mana + mana));
+      addLog(c, 'system', { text: `Recuperás ${p.mana - before} de maná.`, fx: { kind: 'heal', actor: 'player', target: 'player', amount: 0, mana: p.mana - before, quiet: true } });
     }
   }
 
@@ -638,7 +639,8 @@
     const power = playerStats().spellPower + (spell.damage && P() ? P().spellBonus(p) : 0);
 
     if (spell.heal) {
-      const heal = A.Utils.rollDice(spell.heal) + power;
+      // v2.1: la curación suma solo la mitad del poder mágico (si no, con maná que vuelve solo sería vida infinita)
+      const heal = A.Utils.rollDice(spell.heal) + Math.floor(power / 2);
       const before = p.hp;
       A.State.healHp(heal);
       addLog(c, 'player', { text: `Lanzaste ${spell.name} y recuperaste ${p.hp - before} de salud.`, fx: { kind: 'heal', actor: 'player', target: 'player', amount: p.hp - before, icon: '' } });
@@ -659,6 +661,12 @@
         });
         if (t.hp > 0) maybeInflictStatusOnHit(spell, t, c);
         if (t.hp <= 0) addLog(c, 'system', { text: `${t.displayName} cayó.`, killed: t.displayName, fx: { kind: 'death', target: fxKey(t) } });
+      }
+      // v2.1: hechizos que además te curan (Luz sagrada)
+      if (spell.selfHeal && targets.length && p.hp < p.maxHp) {
+        const before = p.hp;
+        A.State.healHp((Number(spell.selfHeal) || 0) + Math.floor(power / 2));
+        if (p.hp > before) addLog(c, 'system', { text: `${spell.name} te devuelve ${p.hp - before} de vida.`, fx: { kind: 'heal', actor: 'player', target: 'player', amount: p.hp - before } });
       }
     } else {
       addLog(c, 'player', { text: `Lanzaste ${spell.name}.`, fx: { kind: 'cast', actor: 'player', icon: '' } });
@@ -995,6 +1003,15 @@
     if (A.Tame && A.Tame.consumePetFood) A.Tame.consumePetFood(1);
 
     const totalXp = grantRewards(c, c.enemies);
+
+    // v2.1: al ganar, los magos recuperan parte del maná
+    const pw = State().player;
+    const winShare = B().manaRegenOf ? B().manaRegenOf(pw).win : 0;
+    if (winShare > 0 && pw.hasMagic && pw.mana < pw.maxMana) {
+      const before = pw.mana;
+      A.State.setMana(Math.min(pw.maxMana, pw.mana + Math.max(1, Math.round(pw.maxMana * winShare))));
+      if (pw.mana > before) addLog(c, 'system', { text: `Recuperás ${pw.mana - before} de maná.`, fx: { kind: 'reward', mana: pw.mana - before } });
+    }
 
     if (A.State.world && A.State.world.regionId) {
       A.State.incrementRegionEncounters(A.State.world.regionId);

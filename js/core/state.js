@@ -148,6 +148,16 @@
       }
       if (typeof p.travelSteps === 'undefined') { p.travelSteps = 0; dirty = true; }
 
+      // v2.1: cada raza con magia nace con su propio hechizo; las partidas de antes lo aprenden al cargar
+      if (p.hasMagic && A.Data && A.Data.getById) {
+        const race = A.Data.getById('races', p.raceId);
+        const birth = race && race.startSpell;
+        if (birth && !p.spells.includes(birth) && A.Data.getById('spells', birth)) {
+          p.spells.push(birth);
+          dirty = true;
+        }
+      }
+
       if (!p.schemaVersion || p.schemaVersion < 16) {
         p.schemaVersion = 16;
         dirty = true;
@@ -234,7 +244,8 @@
           { itemId: 'carne_cruda', qty: 2 },
           { itemId: 'coin_copper', qty: 30 },
         ],
-        spells: hasMagic ? ['chispa'] : [],
+        // v2.1: cada raza con magia nace con su propio hechizo
+        spells: hasMagic ? [((A.Data.getById('races', raceId) || {}).startSpell) || 'chispa'] : [],
         travelSteps: 0,
         schemaVersion: 16,
       };

@@ -30,7 +30,7 @@
     fuerza: { label: 'Fuerza', icon: 'fist', hint: 'Los guerreros son los más fuertes.' },
     agilidad: { label: 'Agilidad', icon: 'boot', hint: 'Depende de tu velocidad.' },
     ingenio: { label: 'Ingenio', icon: 'book', hint: 'Los magos son los más astutos.' },
-    punteria: { label: 'Puntería', icon: 'target', hint: 'Depende de tu precisión.' },
+    punteria: { label: 'Puntería', icon: 'target', hint: 'Sale de tu precisión.' },
     suerte: { label: 'Suerte', icon: 'clover', hint: 'Solo el dado decide.' },
   };
 
@@ -395,10 +395,10 @@
         }
       }
     }
-    // 2) Criatura (40%) o escena del bioma (60%)
+    // 2) Criatura (45%) o escena del bioma (55%)
     const hasEnemies = A.Data.enemiesInRegion(region.id).length > 0;
     const pool = eventsFor(region);
-    if (hasEnemies && (Math.random() < 0.4 || !pool.length)) {
+    if (hasEnemies && (Math.random() < 0.45 || !pool.length)) {
       const group = A.Encounter.generate(region.id);
       if (group && group.length) return creatureScene(region, group);
     }
@@ -470,6 +470,8 @@
       outcome = rollRes.success ? opt.ok : (opt.fail || { text: 'No sale como esperabas.' });
     }
     outcome = outcome || { text: '' };
+    // v2.1: salir bien de una tirada también enseña algo (un poco de experiencia)
+    if (rollRes && rollRes.success && !outcome.fight) outcome = { ...outcome, xp: (outcome.xp || 0) + 0.3 };
 
     const chips = applyOutcome(outcome, { tier: sc.tier, region });
 

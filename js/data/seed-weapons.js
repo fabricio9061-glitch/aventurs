@@ -108,6 +108,9 @@
 
     { id:'mjolnir', name:'Mjölnir', type:'weapon', icon:'🔨', damage:'3d8+2', value:2833, rarity:'legendary', tier:10, weight:8, slots:2, magic:true, statusEffect:{type:'shock',chance:0.5,turns:4,value:5},
       description:'Martillo del dios del trueno. Pesa lo que pesa la fe del que lo levanta. Suelta rayos al impactar.' },
+    // ---------- v2.1 ----------
+    {"id": "sable_pirata", "name": "Espada curva pirata", "type": "weapon", "icon": "", "damage": "2d4+1", "value": 99, "rarity": "uncommon", "tier": 4, "weight": 2, "magic": false, "statusEffect": {"type": "bleed", "chance": 0.15, "turns": 3, "value": 1}, "description": "Hoja curva y corta, hecha para pelear en la cubierta de un barco."},
+    {"id": "martillo_enano", "name": "Martillo enano", "type": "weapon", "icon": "", "damage": "1d8+1", "value": 68, "rarity": "uncommon", "tier": 3, "weight": 4, "magic": false, "description": "Forjado en Piedrahonda. Pesado y honesto: lo que golpea, no se levanta rápido."},
   ];
 
   A.Seed = A.Seed || {};

@@ -865,6 +865,7 @@
       return { shape: 'coins', p: { b: col[0], c: col[1] } };
     }
     if (/moneda antigua/.test(t)) return { shape: 'oldCoin', p: { b: '#8a8a4a', c: '#b0a860' } };
+    if (/dobl[oó]n/.test(t)) return { shape: 'oldCoin', p: { b: '#d4a42c', c: '#ffe080' } };
     if (sub === 'key' || /llave/.test(t)) {
       const m = matOf(t);
       return { shape: 'key', p: { b: /oxidad/.test(t) ? '#9a5a2a' : m.m, c: m.c } };
@@ -883,6 +884,9 @@
       return { shape: 'scroll', p: { b: '#efe0b8', c: '#f8eed4', wd: '#8a5a30', e: seal, g: '#ffffff' } };
     }
     // pociones y bebidas
+    // v2.1: ron (botella ámbar) y vial de sangre
+    if (/(^|\s)ron(\s|$)/.test(t)) return { shape: 'potion', p: { b: '#b8701a', c: '#e8a040', gl: GLASS, wd: '#6a3a1a', hl: '#ffffff' }, o: { shape: 'tall' } };
+    if (/vial de sangre/.test(t)) return { shape: 'potion', p: { b: '#8a0a1a', c: '#d03040', gl: GLASS, wd: '#3a1a1a', hl: '#ffffff' }, o: { shape: 'small' } };
     if (sub === 'potion' || /poci[oó]n|elixir|ant[ií]doto|(^|\s)t[eé] de/.test(t)) {
       if (/(^|\s)t[eé] de/.test(t)) return { shape: 'potion', p: { b: '#e8e0d0', e: '#7a9a3a', hl: '#ffffff' }, o: { shape: 'cup' } };
       let col = ['#d02a2a', '#ff7a6a'];
@@ -1005,6 +1009,8 @@
     if (/madera|tronco|rama/.test(t)) return { shape: 'log', p: { b: '#7a5430', c: '#c8a070' } };
     // plantas
     if (/loto/.test(t)) return { shape: 'plant', p: { b: /negro/.test(t) ? '#3a2a4a' : '#f0a0c0', c: '#e0c040', a: '#3a7a3a' }, o: { kind: 'lotus' } };
+    if (/carmes/.test(t)) return { shape: 'plant', p: { b: '#b01a2a', c: '#e05060', a: '#2a4a2a' }, o: { kind: 'flower' } };
+    if (/flor del sue/.test(t)) return { shape: 'plant', p: { b: '#c8b8f0', c: '#fff6c0', a: '#3a6a5a' }, o: { kind: 'flower' } };
     if (/flor/.test(t)) return { shape: 'plant', p: { b: /man[aá]/.test(t) ? '#5a8af0' : '#f0d040', c: /man[aá]/.test(t) ? '#e0f0ff' : '#e07a20', a: '#3a8a3a' }, o: { kind: 'flower' } };
     if (/espiga|trigo/.test(t)) return { shape: 'plant', p: { b: '#e0b840', a: '#a08a3a' }, o: { kind: 'wheat' } };
     if (/hierba|hoja|planta/.test(t)) return { shape: 'plant', p: { b: /curativa/.test(t) ? '#4ab04a' : '#6a9a3a', a: '#3a6a2a', wd: '#a0784a' } };
@@ -1330,6 +1336,63 @@
       P.line([[13, 5.5], [26.5, 12.8]], 0.6, 0.6, 'c');
       P.line([[16.5, 13], [20, 15]], 0.9, 0.9, 'a');
     } },
+    // ---------- v2.1: biomas nuevos ----------
+    'biome-dream': { p: { b: '#5a4aa8', b2: '#7a62c8', g: '#9af0d0', wd: '#4a3a6a', gr: '#3a7a6a', y: '#fff6b0' }, d: (P) => {
+      P.rect(1, 27, 30, 3, 'gr');
+      P.rect(14.6, 14, 2.8, 14, 'wd');
+      P.ell(16, 11, 11, 7.5, 'b'); P.ell(10, 13, 6, 4.5, 'b2'); P.ell(22.5, 12.5, 6, 4.5, 'b2'); P.ell(16, 6.5, 6.5, 4.2, 'b2');
+      for (const [x, y] of [[6, 21], [25, 19], [11, 6], [21, 4], [28, 9]]) P.dot(x, y, 1.1, 'g');
+      P.dot(4, 9, 0.9, 'y'); P.dot(27, 24, 0.9, 'y');
+    } },
+    'biome-grove': { p: { st: '#9a948a', st2: '#7a746a', gr: '#4a8a3a', g: '#9af0d0', wd: '#6a4a2a', b: '#3a7a3a' }, d: (P) => {
+      P.ell(16, 26, 15, 4, 'gr');
+      for (const [x, h] of [[5, 12], [27, 12], [10, 9], [22, 9]]) { P.rect(x - 1.8, 26 - h, 3.6, h, x < 16 ? 'st' : 'st2'); P.rect(x - 2.2, 26 - h - 1, 4.4, 1.4, 'st2'); }
+      P.rect(15, 10, 2.4, 16, 'wd'); P.ell(16.2, 8, 6, 5, 'b'); P.dot(16.2, 17, 1.6, 'g');
+    } },
+    'biome-gothic': { p: { s: '#3a3446', s2: '#2a2434', w: '#ff5a5a', m: '#efe6d0', k: '#140f18' }, d: (P) => {
+      P.ell(24, 7, 4.2, 4.2, 'm'); P.ell(25.6, 6, 3.6, 3.6, 'k');
+      P.rect(3, 15, 26, 15, 's2');
+      for (const [x, w, top] of [[4, 6, 10], [12, 8, 4], [22, 6, 11]]) {
+        P.rect(x, top + 4, w, 26 - top, 's'); P.poly([[x - 0.5, top + 4], [x + w / 2, top - 2], [x + w + 0.5, top + 4]], 's');
+      }
+      for (const [x, y] of [[6, 19], [15, 12], [18, 12], [24, 20], [15.5, 20]]) P.rect(x, y, 1.6, 2.4, 'w');
+    } },
+    'biome-pirate': { p: { wd: '#7a4a2a', wd2: '#5a321a', sl: '#efe6d0', k: '#1a1418', t: '#e8e0c8', w: '#3a6aa8' }, d: (P) => {
+      P.line([[2, 29], [8, 27.5], [14, 29], [20, 27.5], [26, 29], [31, 27.5]], 0.8, 0.8, 'w');
+      P.poly([[4, 21], [28, 21], [24.5, 27], [7.5, 27]], 'wd'); P.rect(6, 21, 20, 1.6, 'wd2');
+      P.rect(15.2, 3, 1.6, 18, 'wd2');
+      P.poly([[16.8, 5], [26, 8], [26, 17], [16.8, 18]], 'sl'); P.poly([[15.2, 7], [8, 9.5], [8, 17], [15.2, 18]], 'sl');
+      P.rect(16.8, 2, 6, 3.6, 'k'); P.dot(19.6, 3.6, 1, 't');
+    } },
+    'biome-bloodwood': { p: { b: '#8a1a2a', b2: '#b02a3a', wd: '#2a1a1e', gr: '#3a1a22', m: '#efe6d0' }, d: (P) => {
+      P.rect(1, 27, 30, 3, 'gr');
+      P.dot(26, 5, 2.6, 'm');
+      for (const [x, top, k] of [[8, 9, 'b'], [24, 11, 'b'], [16, 4, 'b2']]) {
+        P.rect(x - 1, top + 6, 2, 27 - top - 6, 'wd');
+        P.line([[x, top + 9], [x - 4, top + 5]], 0.6, 0.4, 'wd'); P.line([[x, top + 8], [x + 4, top + 4]], 0.6, 0.4, 'wd');
+        P.ell(x, top + 3, 5, 4, k);
+      }
+    } },
+    'biome-hills': { p: { g: '#7aa04a', g2: '#5a8a3a', r: '#8a8070', r2: '#6a6458', k: '#3a2a1a' }, d: (P) => {
+      P.ell(9, 26, 11, 9, 'g2'); P.ell(23, 25, 12, 10, 'g'); P.rect(0, 26, 32, 6, 'g2');
+      P.poly([[13, 14], [17, 9], [21, 14]], 'r'); P.poly([[17, 9], [21, 14], [19, 14]], 'r2');
+      P.line([[7, 22], [10, 25], [8, 28]], 0.4, 0.4, 'k'); P.line([[24, 18], [22, 22], [25, 26]], 0.4, 0.4, 'k');
+    } },
+    'biome-meadow': { p: { g: '#8ab84a', g2: '#6a9a3a', t: '#ece4cc', y: '#ffd860', s: '#9ac8f0' }, d: (P) => {
+      P.rect(0, 20, 32, 12, 'g'); P.ell(16, 20, 18, 4, 'g2');
+      P.line([[4, 26], [9, 15], [15, 13], [20, 16], [24, 25]], 1.1, 0.8, 't');
+      P.line([[9, 15], [8, 25]], 0.7, 0.7, 't'); P.line([[15, 13], [15, 24]], 0.7, 0.7, 't'); P.line([[20, 16], [21, 25]], 0.7, 0.7, 't');
+      P.dot(27, 6, 3, 'y'); for (const [x, y] of [[5, 29], [12, 30], [28, 28]]) P.dot(x, y, 0.9, 'y');
+    } },
+    'biome-darkwood': { p: { b: '#2a3a4a', b2: '#1e2c3a', wd: '#2a1e18', e: '#ffd23f', m: '#c8d0e0' }, d: (P) => {
+      P.rect(1, 27, 30, 3, 'b2'); P.dot(6, 6, 2.2, 'm');
+      for (const [x, top, k] of [[9, 7, 'b'], [23, 9, 'b2'], [16, 4, 'b']]) {
+        P.poly([[x, top], [x - 5, top + 9], [x + 5, top + 9]], k);
+        P.poly([[x, top + 5], [x - 7, top + 16], [x + 7, top + 16]], k);
+        P.rect(x - 1, top + 16, 2, 27 - top - 16, 'wd');
+      }
+      P.put(14, 21, 'e'); P.put(16.5, 21, 'e');
+    } },
     // ---------- v2.0: interfaz sin emojis ----------
     sunrise: { p: { y: '#ffd040', y2: '#ffa020', h: '#c87a3a' }, d: (P) => {
       for (let i = 0; i <= 4; i++) { const a = Math.PI + i * Math.PI / 4; P.line([[16 + Math.cos(a) * 10, 21 + Math.sin(a) * 10], [16 + Math.cos(a) * 14.5, 21 + Math.sin(a) * 14.5]], 1, 0.5, 'y2'); }
@@ -1405,9 +1468,11 @@
     else if (/bola de fuego|bola_fuego/.test(t)) name = 'fireball';
     else if (/aliento/.test(t)) name = 'breath';
     else if (/tormenta/.test(t)) name = 'storm';
-    else if (/llama|fuego|ígne|igne/.test(t)) name = 'fire';
+    else if (/llama|fuego|ígne|igne|ascua|brasa/.test(t)) name = 'fire';
+    else if (/luz|sagrad/.test(t)) name = 'star';
+    else if (/lunar|luna/.test(t)) name = 'moon';
     else if (/hielo|helad/.test(t)) name = 'ice';
-    else if (/chispa|rayo|trueno/.test(t)) name = 'spark';
+    else if (/chispa|rayo|trueno|descarga/.test(t)) name = 'spark';
     else if (/veneno/.test(t)) name = 'poison';
     return icon(name, opts);
   }
@@ -1418,7 +1483,7 @@
    */
   function dcBadge(n, opts = {}) {
     const size = opts.size || 26;
-    const title = opts.title || `Dificultad del dado: para pegarle, el D20 más tu ataque tiene que llegar a ${n}.`;
+    const title = opts.title || `Dificultad del dado: para acertarle, el dado de 20 más tu precisión tiene que llegar a ${n}.`;
     return `<span class="dc-badge ${opts.cls || ''}" style="--dc-size:${size}px" title="${String(title).replace(/"/g, '&quot;')}">${icon('d20', { size })}<b>${n}</b></span>`;
   }
 

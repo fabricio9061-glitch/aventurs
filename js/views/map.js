@@ -14,8 +14,9 @@
 (function (A) {
   'use strict';
 
-  const W = 960;
-  const H = 680;
+  // v2.1: lienzo más grande para 31 zonas
+  const W = 1280;
+  const H = 860;
   const U = () => A.UI;
 
   let mainEl = null;
@@ -26,13 +27,19 @@
 
   // Posiciones de respaldo (por si una región editada perdió las suyas)
   const FALLBACK_POS = {
-    pueblo_inicial: [200, 330, 'b'], bosque_sombrio: [95, 200, 't'], cementerio: [175, 490, 'b'],
-    pantano: [305, 525, 'b'], camino_real: [340, 330, 'r'], montanas: [470, 200, 't'],
-    puerto: [480, 440, 'l'], torre_del_mago: [600, 520, 'b'], ruinas_perdidas: [720, 420, 'b'],
-    desierto: [640, 280, 't'], catacumbas: [790, 300, 'b'], cuevas_ancestrales: [585, 105, 't'],
-    volcan: [735, 125, 'b'], infierno: [885, 65, 'b'], nido_de_dragones: [885, 200, 'b'],
-    alta_mar: [500, 595, 'b'], abismo_marino: [690, 625, 'r'],
+    pueblo_inicial: [300, 430, 'l'], bosque_sombrio: [165, 305, 'r'], bosque_suenos: [230, 175, 'l'],
+    santuario_roble: [95, 80, 't'], bosque_susurros: [110, 470, 'b'], cementerio: [235, 585, 'b'],
+    llanos_alba: [445, 545, 'l'], camino_real: [470, 410, 't'], aldea_piedrahonda: [455, 260, 'l'],
+    minas_olvidadas: [355, 205, 't'], montanas: [650, 215, 't'], colinas_rotas: [675, 350, 'b'],
+    ruinas_antorcha: [790, 430, 'l'], pantano: [365, 665, 'b'], costa_naufragios: [500, 715, 'r'],
+    puerto: [650, 590, 't'], puerto_calavera: [300, 775, 'b'], mar_calaveras: [110, 740, 'b'],
+    torre_del_mago: [820, 575, 'b'], alta_mar: [800, 745, 'b'], abismo_marino: [1010, 790, 't'],
+    desierto: [890, 300, 't'], catacumbas: [1070, 320, 't'], velmora: [1195, 420, 't'],
+    jardin_carmesi: [1180, 580, 'b'], pradera_ciclopes: [1030, 650, 'b'], ruinas_perdidas: [990, 470, 'r'],
+    cuevas_ancestrales: [810, 120, 't'], volcan: [1000, 130, 'b'], infierno: [1190, 70, 'b'],
+    nido_de_dragones: [1190, 215, 'b'],
   };
+
 
   function hash(str) {
     let h = 2166136261;
@@ -159,7 +166,7 @@
     }
     const b = region.biome;
     for (const [x, y] of spots.slice(0, 4)) {
-      if (b === 'forest' || b === 'swamp') {
+      if (b === 'forest' || b === 'swamp' || b === 'darkwood' || b === 'grove') {
         out.push(`<path class="ink-tree" d="M ${x} ${y - 9} L ${x + 6} ${y + 3} L ${x - 6} ${y + 3} Z M ${x} ${y + 3} L ${x} ${y + 7}"/>`);
       } else if (b === 'mountain' || b === 'cave' || b === 'volcano') {
         out.push(`<path class="ink-mount" d="M ${x - 11} ${y + 6} L ${x - 2} ${y - 8} L ${x + 3} ${y - 1} L ${x + 6} ${y - 5} L ${x + 12} ${y + 6}"/>`);
@@ -171,6 +178,16 @@
         out.push(`<path class="ink-cross" d="M ${x} ${y - 7} L ${x} ${y + 6} M ${x - 4} ${y - 3} L ${x + 4} ${y - 3}"/>`);
       } else if (b === 'ruins') {
         out.push(`<path class="ink-mount" d="M ${x - 7} ${y + 6} L ${x - 7} ${y - 4} M ${x} ${y + 6} L ${x} ${y - 8} M ${x + 7} ${y + 6} L ${x + 7} ${y - 2}"/>`);
+      } else if (b === 'dream') {
+        out.push(`<path class="ink-spark" d="M ${x} ${y - 6} L ${x + 1.5} ${y - 1.5} L ${x + 6} ${y} L ${x + 1.5} ${y + 1.5} L ${x} ${y + 6} L ${x - 1.5} ${y + 1.5} L ${x - 6} ${y} L ${x - 1.5} ${y - 1.5} Z"/>`);
+      } else if (b === 'bloodwood' || b === 'gothic') {
+        out.push(`<path class="ink-rose" d="M ${x} ${y + 7} L ${x} ${y - 1} M ${x - 3} ${y - 2} a 3 3 0 1 0 6 0 a 3 3 0 1 0 -6 0"/>`);
+      } else if (b === 'hills') {
+        out.push(`<path class="ink-mount" d="M ${x - 12} ${y + 5} q 6 -10 12 0 q 6 -8 12 0"/>`);
+      } else if (b === 'meadow') {
+        out.push(`<path class="ink-grass" d="M ${x - 8} ${y + 4} q 8 -12 16 0 M ${x - 4} ${y + 4} l 0 -5 M ${x + 4} ${y + 4} l 0 -5"/>`);
+      } else if (b === 'pirate') {
+        out.push(`<path class="ink-wave" d="M ${x - 10} ${y + 4} l 20 0 l -4 5 l -12 0 Z M ${x} ${y + 4} l 0 -12 l 7 4 l -7 3"/>`);
       } else if (b === 'hell' || b === 'lair') {
         out.push(`<path class="ink-fire" d="M ${x - 5} ${y + 5} q -2 -8 3 -12 q 0 6 4 6 q 2 -4 1 -7 q 6 6 2 13 Z"/>`);
       } else {
@@ -242,7 +259,7 @@
           ${isFog ? '<text class="node-q" y="8" text-anchor="middle">?</text>' : `<image href="${iconUrl}" x="-16" y="-16" width="32" height="32" class="node-img"/>`}
           ${lockUrl ? `<g class="node-lock" transform="translate(17 -17)"><circle r="10"/><image href="${lockUrl}" x="-8" y="-8" width="16" height="16"/></g>` : ''}
           ${isFog ? '' : `<text class="node-label" x="${lab.x - p.x}" y="${lab.y - p.y}" text-anchor="${lab.anchor}">${U().esc(r.name)}</text>`}
-          ${!isFog && (locked || !visited.has(r.id)) && minLevel(r) > 1 ? `<text class="node-lvl" x="${lab.x - p.x}" y="${lab.y - p.y + 14}" text-anchor="${lab.anchor}">Nivel ${minLevel(r)}</text>` : ''}
+          ${!isFog && (locked || !visited.has(r.id)) && minLevel(r) > 1 ? `<text class="node-lvl" x="${lab.x - p.x}" y="${lab.y - p.y + (p.label === 't' ? -15 : 14)}" text-anchor="${lab.anchor}">Nivel ${minLevel(r)}</text>` : ''}
         </g>`;
     }).join('');
 
@@ -270,10 +287,10 @@
         </defs>
         <rect x="-400" y="-400" width="${W + 800}" height="${H + 800}" fill="#2a1f14"/>
         <rect width="${W}" height="${H}" fill="url(#mp-paper)"/>
-        <path class="map-sea" d="M 360 ${H} C 380 600, 440 548, 560 560 S 760 560, 820 600 S ${W} 610, ${W} 640 L ${W} ${H} Z" fill="url(#mp-sea)"/>
+        <path class="map-sea" d="M 0 690 C 120 660, 260 700, 380 730 S 600 660, 720 690 S 900 700, 1000 720 S ${W} 700, ${W} 720 L ${W} ${H} L 0 ${H} Z" fill="url(#mp-sea)"/>
         <rect width="${W}" height="${H}" filter="url(#mp-grain)" opacity="0.9"/>
         <rect class="map-frame" x="8" y="8" width="${W - 16}" height="${H - 16}" rx="6"/>
-        <g class="map-compass" transform="translate(70 610)">
+        <g class="map-compass" transform="translate(1215 805)">
           <circle r="30"/>
           <path d="M 0 -26 L 6 0 L 0 26 L -6 0 Z" class="cp-a"/>
           <path d="M -26 0 L 0 6 L 26 0 L 0 -6 Z" class="cp-b"/>

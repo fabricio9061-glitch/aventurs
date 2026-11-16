@@ -460,6 +460,183 @@
           ok: { text: 'Hay cosas que es mejor no despertar. Te vas con el corazón a mil.', xp: 0.3 } },
       ],
     },
+
+    // ============================================================
+    // v2.1: zonas nuevas
+    // ============================================================
+    {
+      id: 'vagoneta', biomes: ['cave'], weight: 2, icon: 'hammer',
+      title: 'Una vagoneta abandonada',
+      text: 'Sobre los rieles quedó una vagoneta a medio llenar de mineral. Las ruedas están trabadas por el óxido.',
+      options: [
+        { label: 'Empujarla hasta la salida', check: { stat: 'fuerza', dc: 11 },
+          ok: { text: 'La vagoneta cede con un chirrido. Te llevás lo mejor de la carga.', items: [['mineral_hierro', 1, 2], ['fragmento_cuarzo', 0, 1]] },
+          fail: { text: 'Se te escapa cuesta abajo y casi te lleva con ella.', hurt: 0.12 } },
+        { label: 'Revolver la carga a mano',
+          ok: { text: 'Entre piedras sin valor aparece algo que brilla.', items: [['fragmento_cuarzo', 1, 1]], time: 1 } },
+      ],
+    },
+    {
+      id: 'campamento_orco', biomes: ['hills'], weight: 3, icon: 'campfire',
+      title: 'Un campamento orco',
+      text: 'Detrás de una loma humea un campamento orco. Los guerreros duermen la siesta junto a un montón de botín.',
+      options: [
+        { label: 'Robar sin despertarlos', check: { stat: 'agilidad', dc: 13 },
+          ok: { text: 'Te llevás un saco de monedas y nadie abre un ojo.', coins: 5 },
+          fail: { text: 'Una olla cae al piso. Todos se despiertan a la vez.', fight: { ambush: true } } },
+        { label: 'Atacar mientras duermen', check: { stat: 'fuerza', dc: 11 },
+          ok: { text: 'Caés sobre ellos antes de que agarren las armas.', fight: { surprise: true } },
+          fail: { text: 'El centinela da la alarma a tiempo.', fight: {} } },
+        { label: 'Rodear la loma',
+          ok: { text: 'Das un rodeo largo. Desde arriba ves por dónde se mueven.', xp: 0.3, time: 1 } },
+      ],
+    },
+    {
+      id: 'nido_arpias', biomes: ['hills', 'mountain'], weight: 2, icon: 'star',
+      title: 'Chillidos en las rocas',
+      text: 'Un nido de arpías corona una peña. Entre las ramas brillan cosas robadas a los viajeros.',
+      options: [
+        { label: 'Trepar mientras cazan', check: { stat: 'agilidad', dc: 12 },
+          ok: { text: 'Llegás, juntás lo que brilla y bajás antes de que vuelvan.', coins: 4, items: [['mat_pluma', 1, 2]] },
+          fail: { text: 'Vuelven antes de lo pensado.', fight: { ambush: true } } },
+        { label: 'Bajarlas a pedradas', check: { stat: 'punteria', dc: 12 },
+          ok: { text: 'Le das a la que hacía guardia. Las demás huyen chillando.', xp: 0.5 },
+          fail: { text: 'Las piedras no llegan y las arpías ya te vieron.', fight: {} } },
+      ],
+    },
+    {
+      id: 'cofre_pirata', biomes: ['coast'], weight: 3, icon: 'chest',
+      title: 'Una X en la arena',
+      text: 'Alguien marcó una X con conchas en la arena, justo donde no llega la marea. Huele a tesoro... o a trampa.',
+      options: [
+        { label: 'Cavar rápido', check: { stat: 'fuerza', dc: 11 },
+          ok: { text: 'A medio metro aparece un cofre con doblones y una botella de ron.', coins: 3, items: [['doblon', 1, 1], ['ron_anejo', 0, 1]] },
+          fail: { text: 'Cavás hasta que se te ampollan las manos. Nada.', hurt: 0.08, time: 1 } },
+        { label: 'Esperar escondido a ver quién viene', check: { stat: 'ingenio', dc: 12 },
+          ok: { text: 'Los piratas que vuelven por el cofre no te ven llegar.', fight: { surprise: true } },
+          fail: { text: 'Te encuentran espiando detrás de un bote.', fight: { ambush: true } } },
+      ],
+    },
+    {
+      id: 'barril_deriva', biomes: ['coast', 'sea', 'pirate'], weight: 2, icon: 'scroll',
+      title: 'Un barril a la deriva',
+      text: 'Un barril sellado con brea flota cerca de la orilla. Tiene pintada una calavera.',
+      options: [
+        { label: 'Abrirlo', check: { stat: 'suerte', dc: 10 },
+          ok: { text: 'Ron del bueno, todavía cerrado.', items: [['ron_anejo', 1, 2]] },
+          fail: { text: 'Pólvora mojada y un olor horrible. Nada que sirva.' } },
+        { label: 'Venderlo entero en el puerto',
+          ok: { text: 'Lo arrastrás hasta el muelle y un marinero te lo compra sin abrirlo.', coins: 2, time: 1 } },
+      ],
+    },
+    {
+      id: 'claro_hadas', biomes: ['dream'], weight: 3, icon: 'spark',
+      title: 'Un claro con luces',
+      text: 'Lucecitas bailan en círculo sobre el pasto. Son hadas, y te invitan a entrar en la ronda.',
+      options: [
+        { label: 'Bailar con ellas', check: { stat: 'agilidad', dc: 13 },
+          ok: { text: 'Seguís el paso y las hadas te llenan los bolsillos de polvo brillante.', items: [['polvo_hada', 1, 3]], mana: 0.5 },
+          fail: { text: 'Te enredás en tus propios pies. Las hadas se ríen y te roban algo de comida.', food: -3, time: 1 } },
+        { label: 'Contarles un acertijo', check: { stat: 'ingenio', dc: 12 },
+          ok: { text: 'No lo adivinan y te dan una flor como premio.', items: [['flor_sueno', 1, 1]], xp: 0.5 },
+          fail: { text: 'Lo adivinan enseguida y se aburren de vos.' } },
+        { label: 'Seguir de largo',
+          ok: { text: 'Las luces te siguen un rato y después se apagan.' } },
+      ],
+    },
+    {
+      id: 'fuente_suenos', biomes: ['dream', 'grove'], weight: 2, icon: 'potion',
+      title: 'Agua que refleja otra cosa',
+      text: 'En el agua de una fuente no se ve tu cara: se ve un lugar que no conocés.',
+      options: [
+        { label: 'Beber un sorbo', check: { stat: 'suerte', dc: 11 },
+          ok: { text: 'Soñás despierto un instante y volvés más fuerte.', heal: 0.4, mana: 0.5, xp: 0.4 },
+          fail: { text: 'Te dormís sin querer y despertás horas después, con frío.', time: 3, food: -2 } },
+        { label: 'Mirar el reflejo con atención', check: { stat: 'ingenio', dc: 12 },
+          ok: { text: 'El reflejo te muestra un atajo y algo escondido entre raíces.', loot: 1, xp: 0.3 },
+          fail: { text: 'El reflejo se aleja y te mareás.', hurt: 0.08 } },
+      ],
+    },
+    {
+      id: 'susurros', biomes: ['darkwood'], weight: 3, icon: 'eye',
+      title: 'Voces entre los árboles',
+      text: 'Alguien susurra tu nombre detrás de cada tronco. Cuando te das vuelta, el susurro sigue del otro lado.',
+      options: [
+        { label: 'No hacerles caso', check: { stat: 'ingenio', dc: 13 },
+          ok: { text: 'Seguís caminando sin mirar atrás. Los susurros se cansan antes que vos.', xp: 0.6 },
+          fail: { text: 'Te metés cada vez más adentro y te perdés.', hurt: 0.12, time: 2 } },
+        { label: 'Seguir la voz', check: { stat: 'suerte', dc: 12 },
+          ok: { text: 'La voz te lleva hasta los restos de un viajero y su bolsa intacta.', coins: 4, loot: 1 },
+          fail: { text: 'La voz era de algo con hambre.', fight: { ambush: true } } },
+      ],
+    },
+    {
+      id: 'aullido', biomes: ['darkwood', 'forest'], weight: 2, icon: 'tracks',
+      title: 'Un aullido muy cerca',
+      text: 'La luna asoma entre las ramas y un aullido largo te eriza la piel. Viene de muy cerca.',
+      options: [
+        { label: 'Ir a su encuentro', check: { stat: 'agilidad', dc: 12 },
+          ok: { text: 'Lo encontrás de espaldas, olfateando.', fight: { surprise: true } },
+          fail: { text: 'Te rodean antes de que lo veas.', fight: { ambush: true } } },
+        { label: 'Prender fuego y esperar', check: { stat: 'ingenio', dc: 11 },
+          ok: { text: 'Las fieras no se acercan al fuego. Pasás la noche entero.', heal: 0.2, time: 2 },
+          fail: { text: 'La leña está húmeda. Algo se acerca igual.', fight: {} } },
+      ],
+    },
+    {
+      id: 'tumba_rosas', biomes: ['bloodwood', 'gothic'], weight: 3, icon: 'skull',
+      title: 'Una tumba cubierta de rosas',
+      text: 'Una tumba de mármol negro desaparece bajo rosas rojas. El nombre está borrado, pero la tierra está fresca.',
+      options: [
+        { label: 'Cortar algunas rosas', check: { stat: 'agilidad', dc: 12 },
+          ok: { text: 'Las espinas no te tocan. Te llevás las mejores flores.', items: [['rosa_carmesi', 1, 2]] },
+          fail: { text: 'Las espinas te cortan las manos y algo se mueve bajo la tierra.', hurt: 0.1, fight: { ambush: true } } },
+        { label: 'Leer lo que queda del epitafio', check: { stat: 'ingenio', dc: 13 },
+          ok: { text: 'Era la tumba de un noble de Velmora. Debajo de la lápida escondieron su bolsa.', coins: 6, xp: 0.4 },
+          fail: { text: 'Las letras no dicen nada que entiendas.' } },
+      ],
+    },
+    {
+      id: 'carruaje_negro', biomes: ['bloodwood'], weight: 2, icon: 'gear',
+      title: 'Un carruaje negro',
+      text: 'Un carruaje negro tirado por caballos sin ojos se detiene a tu lado. La ventanilla baja apenas.',
+      options: [
+        { label: 'Saludar con cortesía', check: { stat: 'ingenio', dc: 12 },
+          ok: { text: 'Una mano enguantada te tira una bolsa de monedas "por los buenos modales".', coins: 6 },
+          fail: { text: 'Del carruaje baja alguien con hambre.', fight: {} } },
+        { label: 'Esconderte en los rosales', check: { stat: 'agilidad', dc: 11 },
+          ok: { text: 'El carruaje sigue de largo. Respirás otra vez.', xp: 0.3 },
+          fail: { text: 'Los rosales te delatan con un crujido.', hurt: 0.1 } },
+      ],
+    },
+    {
+      id: 'huesos_gigantes', biomes: ['meadow'], weight: 3, icon: 'skulls',
+      title: 'Un esqueleto gigante',
+      text: 'Las costillas de un gigante forman un arco en medio de la pradera. Entre los huesos quedó algo de su ajuar.',
+      options: [
+        { label: 'Mover los huesos', check: { stat: 'fuerza', dc: 13 },
+          ok: { text: 'Corrés una costilla enorme y encontrás un brazalete de oro.', coins: 6, items: [['fragmento_hueso_antiguo', 1, 1]] },
+          fail: { text: 'Un hueso se desmorona y te cae encima.', hurt: 0.15 } },
+        { label: 'Revisar sin tocar nada', check: { stat: 'ingenio', dc: 11 },
+          ok: { text: 'Encontrás monedas viejas entre la tierra.', items: [['moneda_antigua', 1, 2]] },
+          fail: { text: 'Solo huesos y más huesos.' } },
+      ],
+    },
+    {
+      id: 'rebano_ciclope', biomes: ['meadow'], weight: 2, icon: 'eye',
+      title: 'El rebaño del cíclope',
+      text: 'Un cíclope pastorea un rebaño de ovejas del tamaño de vacas. Por ahora, mira para otro lado.',
+      options: [
+        { label: 'Llevarte un poco de lana y leche', check: { stat: 'agilidad', dc: 14 },
+          ok: { text: 'Te llevás comida para varios días sin que el gigante se dé cuenta.', food: 8, heal: 0.15 },
+          fail: { text: 'Una oveja bala. El ojo gigante se clava en vos.', fight: { ambush: true } } },
+        { label: 'Atacarlo por la espalda', check: { stat: 'fuerza', dc: 13 },
+          ok: { text: 'Le das antes de que se dé vuelta.', fight: { surprise: true } },
+          fail: { text: 'El cíclope se gira más rápido de lo que pensabas.', fight: {} } },
+        { label: 'Alejarte despacio',
+          ok: { text: 'Lo dejás pastorear en paz.', xp: 0.2 } },
+      ],
+    },
   ];
 
   /**
@@ -481,6 +658,13 @@
     hell: ['entre llamas negras', 'sobre un puente de huesos', 'en un pozo de azufre'],
     lair: ['sobre un montón de huesos', 'en la boca de la guarida', 'entre escamas viejas'],
     abyss: ['en la oscuridad del fondo', 'entre corales muertos', 'junto a un templo hundido'],
+    // v2.1
+    coast: ['entre los restos de un barco', 'sobre las rocas de la orilla', 'detrás de un bote dado vuelta'],
+    hills: ['en la cima de una loma', 'entre rocas partidas', 'junto a un campamento abandonado'],
+    meadow: ['entre los pastos altos', 'a la sombra de un hueso gigante', 'junto a un arroyo'],
+    darkwood: ['entre troncos negros', 'bajo un árbol que parece mirarte', 'en un claro sin luz'],
+    dream: ['entre flores que brillan', 'junto a un árbol de hojas violetas', 'en un claro lleno de luces'],
+    bloodwood: ['entre rosales rojos', 'junto a una tumba de mármol', 'bajo un sauce sin hojas'],
   };
 
   A.Seed = A.Seed || {};

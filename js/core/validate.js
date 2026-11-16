@@ -55,7 +55,8 @@
         }
       }
       for (const d of e.drops || []) {
-        if (!itemIds.has(d.itemId)) {
+        // v2.1: un enemigo también puede soltar un arma o una armadura
+        if (!itemIds.has(d.itemId) && !A.Data.getById('weapons', d.itemId) && !A.Data.getById('armors', d.itemId)) {
           out.push({ level: 'error', collection: 'enemies', entityId: e.id, msg: `"${e.name}" tiene drop a item inexistente "${d.itemId}".` });
         }
       }

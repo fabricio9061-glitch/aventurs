@@ -412,6 +412,13 @@
     { id:'polvo_arcano', name:'Polvo arcano', type:'item', subtype:'material', icon:'✨', value:35, weight:0, stack:99,
       description:'Plateado y suave. Una pizca cambia un hechizo.' },
 
+    // ---------- v2.1: piratas, sueños y vampiros ----------
+    {"id": "ron_anejo", "name": "Ron añejo", "type": "item", "subtype": "potion", "icon": "", "value": 20, "weight": 1, "effect": {"type": "heal", "amount": "1d6+3"}, "stack": 99, "description": "Quema la garganta y te devuelve el ánimo. Los piratas juran que también cura."},
+    {"id": "vial_sangre", "name": "Vial de sangre", "type": "item", "subtype": "potion", "icon": "", "value": 60, "weight": 1, "effect": {"type": "heal", "amount": "2d6+6"}, "stack": 99, "description": "Espesa, tibia y roja como un rubí. En Velmora la toman como vino; a vos te cierra las heridas."},
+    {"id": "doblon", "name": "Doblón de oro", "type": "item", "subtype": "material", "icon": "", "value": 60, "weight": 0, "stack": 99, "description": "Moneda pirata de oro macizo. Los mercaderes la aceptan sin hacer preguntas."},
+    {"id": "polvo_hada", "name": "Polvo de hada", "type": "item", "subtype": "material", "icon": "", "value": 30, "weight": 0, "stack": 99, "description": "Brilla un rato en la palma y después se apaga. Los alquimistas lo usan para pociones de maná."},
+    {"id": "flor_sueno", "name": "Flor del sueño", "type": "item", "subtype": "material", "icon": "", "value": 35, "weight": 0, "stack": 99, "description": "Una flor pálida que solo abre de noche. Su perfume da sueño hasta a los osos."},
+    {"id": "rosa_carmesi", "name": "Flor carmesí", "type": "item", "subtype": "material", "icon": "", "value": 45, "weight": 0, "stack": 99, "description": "Rosa de pétalos rojo oscuro de los jardines de Velmora. Las boticarias la pagan bien."},
   ];
 
   A.Seed = A.Seed || {};

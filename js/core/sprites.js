@@ -1066,6 +1066,12 @@
           if (o.eyes === 'color') { P.put(ex1, eyeY + 1, 'e'); P.put(ex2, eyeY + 1, 'e'); }
           if (o.brows) { P.put(ex1 - 1, eyeY - 1, 'o'); P.put(ex1, eyeY - 0.6, 'o'); P.put(ex2 + 1, eyeY - 1, 'o'); P.put(ex2, eyeY - 0.6, 'o'); }
         }
+        // v2.1: parche de pirata sobre un ojo
+        if (o.patch) {
+          const px = hx + Math.max(1.5, r * 0.42) - 1.5;
+          P.rect(px, eyeY - 0.5, 2.6, 2.6, 'k');
+          P.line([[hx - r, eyeY - 2], [px, eyeY - 0.4]], 0.35, 0.35, 'k');
+        }
       }
       if (o.nose === 'big') P.rect(hx - 1, eyeY + 1.6, 2, 1.4, `${skinKey}~`);
       if (o.nose === 'long') P.rect(hx - 0.5, eyeY + 1.2, 1.2, 2.6, `${skinKey}~`);
@@ -1149,6 +1155,12 @@
       P.put(hx - 0.5, hy - r * 0.9, 'g');
     }
     if (hat === 'gnome') P.poly([[hx - r - 0.6, hy - r * 0.3], [hx + r + 0.6, hy - r * 0.3], [hx + 1.5, hy - r - 5.5], [hx + 4.5, hy - r - 6], [hx + 0.5, hy - r - 4]], 'a');
+    // v2.1: sombrero de tres picos (capitanes pirata)
+    if (hat === 'tricorn') {
+      P.poly([[hx - r - 2.6, hy - r * 0.45], [hx + r + 2.6, hy - r * 0.45], [hx + r * 0.6, hy - r - 2.2], [hx, hy - r - 3.2], [hx - r * 0.6, hy - r - 2.2]], 'cl2');
+      P.rect(hx - r - 2, hy - r * 0.62, r * 2 + 4, 1, 'a');
+      P.put(hx - 0.5, hy - r - 1.4, 't');
+    }
     if (hat === 'bandana') { P.rect(hx - r, hy - r * 0.55, r * 2, 1.4, 'cl2'); P.line([[R - 0.5, hy - r * 0.4], [R + 2, hy + 0.8]], 0.5, 0.5, 'cl2'); }
     if (hat === 'halo') {
       const ring = [];
@@ -1226,6 +1238,34 @@
   // ============================================================
 
   const SPECIES = {
+
+    // ---------- v2.1: criaturas nuevas ----------
+    escarabajo_minero: { plan: 'scorpion', s: 0.86, p: { b: '#3a4a5a', c: '#6a8aa0', a: '#c0a060', e: '#ffcc33' } },
+    sapo_gigante: { plan: 'beast', s: 0.9, p: { b: '#5a7a2a', c: '#c8d070', a: '#e0e0a0', e: '#ffdd00' }, o: { len: 16, h: 7, leg: 3, legW: 2, head: 4.8, snout: 1.5, snoutH: 3.6, ears: 'none', tail: 'none', neck: 0, spots: true, jaw: 'open' } },
+    hombre_lagarto: { plan: 'humanoid', p: { sk: '#4a8a4a', cl: '#6a4a2a', cl2: '#4a3020', h: '#2a5a2a', a: '#d0c060', m: '#b8b8c0', wd: '#5a3a1a', e: '#ffdd00' }, o: { size: 'medium', head: 'lizard', outfit: 'loincloth', weapon: 'spear', tail: 'lizard' } },
+    grumete_pirata: { plan: 'humanoid', p: { sk: '#d8a07a', cl: '#e8e0d0', cl2: '#a02a2a', h: '#3a2414', m: '#c0c0c8', wd: '#5a3a1a', e: '#201510' }, o: { size: 'small', hat: 'bandana', outfit: 'rags', weapon: 'dagger' } },
+    contrabandista: { plan: 'humanoid', p: { sk: '#c89070', cl: '#3a3a4a', cl2: '#222230', h: '#2a1a10', m: '#b0b0b8', wd: '#5a3a1a', e: '#201510' }, o: { size: 'medium', hat: 'hood', cloak: true, outfit: 'tunic', weapon: 'dagger', mask: true } },
+    loro_pirata: { plan: 'bird', s: 0.82, p: { b: '#2aa04a', c: '#e03a2a', wg: '#2a6ad0', a: '#f0c030', e: '#101010' }, o: { beak: 'hook', chest: 'plain' } },
+    pirata: { plan: 'humanoid', p: { sk: '#c8906a', cl: '#e6dcc8', cl2: '#2a4a8a', h: '#5a3a1a', m: '#c8d0da', wd: '#5a3a1a', a: '#d4a42c', e: '#201510' }, o: { size: 'medium', hat: 'bandana', beard: 'short', outfit: 'tunic', weapon: 'sword' } },
+    ahogado: { plan: 'humanoid', p: { sk: '#7aa0a0', cl: '#3a5a5a', cl2: '#2a3a3a', h: '#2a4a3a', e: '#a0fff0' }, o: { size: 'medium', hair: 'messy', outfit: 'rags', weapon: 'none', eyes: 'glow' } },
+    momia: { plan: 'humanoid', p: { sk: '#d8ccaa', cl: '#c8bc98', cl2: '#a89c78', h: '#c8bc98', e: '#60ff60' }, o: { size: 'medium', outfit: 'rags', weapon: 'none', eyes: 'glow' } },
+    gusano_arena: { plan: 'serpent', s: 1.1, p: { b: '#b08a50', c: '#e0c890', a: '#f0e8d0', e: '#ff4020', r: '#c03020' } },
+    hada_traviesa: { plan: 'humanoid', p: { sk: '#f0d8f0', h: '#f0a0e0', cl: '#a0e0d0', cl2: '#70c0b0', a: '#fff0a0', wg: '#d0f0ff', g: '#9af0d0', e: '#7a3ac8' }, o: { size: 'tiny', hair: 'long', outfit: 'leaves', wings: 'feather', pose: 'cast' } },
+    polilla_onirica: { plan: 'bat', s: 0.86, p: { b: '#9a8ad0', c: '#d0c8f0', wg: '#b0a0e8', a: '#f0e0a0', e: '#9af0d0' } },
+    ciervo_astral: { plan: 'beast', s: 0.96, p: { b: '#c8d0f0', c: '#ffffff', a: '#9af0d0', e: '#3a6ac8' }, o: { len: 16, h: 9, leg: 7, legW: 1.2, head: 3.6, snout: 3.4, snoutH: 2.4, ears: 'pointy', tail: 'thin', neck: 3, horns: 'goat' } },
+    pesadilla: { plan: 'ghost', s: 1, p: { b: '#3a2a5a', c: '#6a4a9a', e: '#ff3a6a', t: '#d0c0f0' } },
+    esqueleto_pirata: { plan: 'humanoid', p: { t: '#e8e0c8', cl: '#5a4a3a', cl2: '#8a1a1a', m: '#a0a8b0', wd: '#5a3a1a', e: '#60c0ff' }, o: { size: 'medium', body: 'skeleton', head: 'skull', hat: 'bandana', weapon: 'sword' } },
+    contramaestre: { plan: 'humanoid', p: { sk: '#b8805a', cl: '#6a3a2a', cl2: '#2a2a2a', h: '#2a1a12', m: '#a8b0ba', wd: '#5a3a1a', a: '#d4a42c', e: '#201510' }, o: { size: 'large', hat: 'bandana', beard: 'long', outfit: 'tunic', weapon: 'axe', brows: true } },
+    capitan_pirata: { plan: 'humanoid', p: { sk: '#d0986e', h: '#141010', cl: '#7a1a1a', cl2: '#1a1418', a: '#d4a42c', t: '#e8e0c8', m: '#c8d0da', wd: '#5a3a1a', e: '#201510' }, o: { size: 'medium', hat: 'tricorn', patch: true, beard: 'long', outfit: 'suit', cloak: true, weapon: 'sword', weapon2: 'gun' } },
+    huargo: { plan: 'beast', s: 1, p: { b: '#4a4a5a', c: '#7a7a8a', a: '#e0e0e0', e: '#ffcc33' }, o: { len: 18, h: 9, leg: 5.5, legW: 1.7, head: 4.4, snout: 4.4, ears: 'pointy', tail: 'bushy', jaw: 'open', neck: 2 } },
+    bruja: { plan: 'humanoid', p: { sk: '#a8c090', h: '#3a3a3a', cl: '#2a2a3a', cl2: '#1a1a24', a: '#8a6a3a', wd: '#4a3a2a', g: '#a060ff', e: '#a0ff60' }, o: { size: 'medium', hat: 'wizard', hair: 'long', nose: 'long', outfit: 'robe', lower: 'robe', weapon: 'staff', pose: 'cast' } },
+    centauro: { plan: 'humanoid', p: { sk: '#c8906a', h: '#5a3a1a', cl: '#8a6a3a', cl2: '#6a4a2a', a: '#c9a24a', m: '#c0c0c8', wd: '#6a4a2a', e: '#201510' }, o: { size: 'large', hair: 'long', beard: 'short', outfit: 'fur', weapon: 'bow' } },
+    murcielago_vampiro: { plan: 'bat', s: 0.95, p: { b: '#3a0a14', c: '#8a1a2a', wg: '#5a0a1a', a: '#e0e0e0', e: '#ff2020' } },
+    siervo_sangre: { plan: 'humanoid', p: { sk: '#c8c0c8', h: '#3a2a2a', cl: '#4a2a2a', cl2: '#2a1a1a', m: '#a0a0a8', wd: '#5a3a1a', e: '#ff3030' }, o: { size: 'medium', hair: 'messy', outfit: 'rags', weapon: 'dagger', mouth: 'fangs', eyes: 'glow' } },
+    noble_vampira: { plan: 'humanoid', p: { sk: '#ece6f0', h: '#f0eef4', cl: '#5a0a1a', cl2: '#1a0a12', a: '#d4af37', g: '#ff3050', e: '#ff1a2a', m: '#c0c0c8' }, o: { size: 'medium', hair: 'long', outfit: 'dress', cloak: true, mouth: 'fangs', eyes: 'glow', weapon: 'whip' } },
+    bestia_sangre: { plan: 'beast', s: 1.05, p: { b: '#4a0e16', c: '#8a2a2a', a: '#e0e0e0', e: '#ff2020' }, o: { len: 18, h: 9, leg: 5.5, legW: 1.8, head: 4.6, snout: 4.2, ears: 'pointy', tail: 'bushy', jaw: 'open', eyes: 'glow', neck: 2 } },
+    draconido_salvaje: { plan: 'humanoid', p: { sk: '#3a7a4a', cl: '#6a4a2a', cl2: '#4a3020', h: '#2a4a2a', a: '#e0d080', m: '#b0b0b8', wd: '#5a3a1a', e: '#ffdd00' }, o: { size: 'large', head: 'lizard', horns: 'small', outfit: 'loincloth', tail: 'lizard', weapon: 'spear' } },
+    guiverno: { plan: 'dragon', s: 0.84, p: { b: '#5a6a7a', c: '#b0c0c8', a: '#e0e0d0', wg: '#7a8a9a', e: '#ffdd00' } },
     // ---------- Tier 1 ----------
     cuervo: { plan: 'bird', s: 0.86, p: { b: '#2a2a38', c: '#3e3e56', wg: '#26263a', a: '#d9a030', e: '#ffd23f' }, o: { beak: 'short' } },
     murcielago: { plan: 'bat', s: 0.9, p: { b: '#5a3d5c', c: '#7a5a7a', wg: '#6e4466', a: '#3a2638', e: '#ff5050' } },
@@ -1506,6 +1546,14 @@
     villager: { p: { sk: '#e2b08a', h: '#7a5a3a', cl: '#8a7a5a', cl2: '#5a4a3a', a: '#6a4a2a', e: '#2a1a10' }, o: { size: 'medium', hair: 'short', outfit: 'tunic', weapon: 'none' } },
     // v2.0: la capitana del puerto (casaca azul, pelo largo, sable)
     captain: { p: { sk: '#d8a07a', h: '#2a1a14', cl: '#2a4a7a', cl2: '#1a2a4a', a: '#d4a42c', m: '#c8d0da', wd: '#5a3a1a', e: '#2a1a10' }, o: { size: 'medium', hair: 'long', outfit: 'armor', tabard: true, weapon: 'sword' } },
+    // v2.1: ciudades nuevas
+    dwarf: { p: { sk: '#d8a07a', h: '#8a3a1a', cl: '#5a4a3a', cl2: '#3a2a20', a: '#c9a24a', m: '#9aa2ac', wd: '#5a3a1a', e: '#2a1a10' }, o: { size: 'small', hair: 'short', beard: 'long', brows: true, outfit: 'tunic', weapon: 'hammer' } },
+    dwarf_woman: { p: { sk: '#e8b890', h: '#c86a2a', cl: '#6a3a4a', cl2: '#4a2a3a', a: '#e8dcc0', e: '#2a1a10' }, o: { size: 'small', hair: 'long', outfit: 'dress', weapon: 'none' } },
+    pirate: { p: { sk: '#c8906a', h: '#2a1a12', cl: '#e6dcc8', cl2: '#8a1a1a', a: '#d4a42c', m: '#c8d0da', wd: '#5a3a1a', e: '#201510' }, o: { size: 'medium', hat: 'bandana', patch: true, beard: 'short', outfit: 'tunic', weapon: 'none' } },
+    pirate_woman: { p: { sk: '#d8a07a', h: '#5a1a0a', cl: '#2a4a3a', cl2: '#1a1418', a: '#d4a42c', t: '#e8e0c8', m: '#c8d0da', wd: '#5a3a1a', e: '#201510' }, o: { size: 'medium', hair: 'long', hat: 'tricorn', outfit: 'tunic', weapon: 'dagger' } },
+    druid: { p: { sk: '#e8c8a0', h: '#5a8a3a', cl: '#3a6a3a', cl2: '#2a4a2a', a: '#c9a24a', wd: '#6a4a2a', g: '#9af0d0', e: '#2a5a2a' }, o: { size: 'medium', hair: 'leaves', outfit: 'robe', lower: 'robe', weapon: 'staff' } },
+    noble: { p: { sk: '#ece6f0', h: '#f0eef4', cl: '#5a0a1a', cl2: '#1a0a12', a: '#d4af37', g: '#ff3050', e: '#ff1a2a' }, o: { size: 'medium', hair: 'long', hat: 'crown', outfit: 'dress', cloak: true, mouth: 'fangs', eyes: 'glow', weapon: 'none' } },
+    noble_apothecary: { p: { sk: '#e6e0ea', h: '#2a1a2a', cl: '#3a1a3a', cl2: '#5a0a1a', a: '#c0c0c0', g: '#ff3050', e: '#ff2a3a', wd: '#3a2a2a' }, o: { size: 'medium', hair: 'slick', outfit: 'robe', lower: 'robe', mouth: 'fangs', weapon: 'wand' } },
   };
   const NPC_ROLE_LOOK = {
     merchant: 'merchant', shopkeeper: 'merchant', vendor: 'merchant',
@@ -1513,7 +1561,7 @@
     blacksmith: 'blacksmith',
     sage: 'sage', wizard: 'sage', mage: 'sage',
     healer: 'healer', priest: 'healer',
-    guard: 'guard', quest: 'guard', captain: 'captain',
+    guard: 'guard', quest: 'guard', captain: 'captain', noble: 'noble',
   };
 
   function npcSpec(npc) {

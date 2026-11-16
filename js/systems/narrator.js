@@ -410,6 +410,7 @@
     }
     if (fx.kind === 'reward') {
       if (fx.xp) return { text: `Ganás ${fx.xp} de experiencia.`, tone: 'good' };
+      if (fx.mana) return { text: `Respirás hondo y recuperás ${fx.mana} de maná.`, tone: 'good' };
       if (fx.coins) return { text: `Juntás ${coinsInWords(fx.coins)}.`, tone: 'good' };
       if (fx.items && fx.items.length) {
         const list = fx.items.map((it) => {

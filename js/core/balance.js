@@ -99,6 +99,20 @@
     return total;
   }
 
+  /** Mínimo y máximo de una notación de dados ('1d4+1' -> { min: 2, max: 5 }). */
+  function rangeOf(notation) {
+    if (typeof notation === 'number') return { min: notation, max: notation };
+    let min = 0, max = 0;
+    const re = /([+-]?)\s*(\d+)d(\d+)|([+-]?)\s*(\d+)/gi;
+    let m;
+    const str = String(notation || '');
+    while ((m = re.exec(str))) {
+      if (m[2]) { const sg = m[1] === '-' ? -1 : 1; const n = +m[2], f = +m[3]; if (sg > 0) { min += n; max += n * f; } else { min -= n * f; max -= n; } }
+      else if (m[5]) { const v = (m[4] === '-' ? -1 : 1) * (+m[5]); min += v; max += v; }
+    }
+    return { min, max };
+  }
+
   // ---------- Probabilidad de impacto ----------
   /** Chance de pegar con D20 + ataque >= defensa (1 falla, 20 pega). */
   function hitChance(attack, defense) {
@@ -118,11 +132,15 @@
       return Math.max(1, Math.round(base * cat(enemy && enemy.category).xp));
     },
 
-    /** XP necesaria para pasar de nivel L a L+1 (~9 combates de su tier). */
+    /**
+     * XP necesaria para pasar de nivel L a L+1 (v2.1).
+     * Medida con el simulador en la zona de cada nivel: del 1 al 2 son unas
+     * 4 o 5 peleas, y después va subiendo de a poco hasta unas 8.
+     */
+    XP_TABLE: [45, 100, 250, 390, 580, 820, 1240, 1800, 1950],
     xpToNext(level) {
-      const L = Math.max(1, Math.min(MAX_LEVEL, level));
-      const tierXp = 8 + 6 * (L - 1) + 1.2 * (L - 1) * (L - 1);
-      return Math.round((tierXp * 14) / 5) * 5;
+      const L = Math.max(1, Math.min(MAX_LEVEL - 1, level));
+      return Progression.XP_TABLE[L - 1];
     },
 
     /** XP total acumulada necesaria para llegar a nivel L. */
@@ -138,13 +156,13 @@
      * así que compensan con más vida; los magos con más maná).
      */
     gainsForLevel(newLevel, hasMagic, combatType) {
-      const HP_BY_TYPE = { warrior: 6, hybrid: 6, mage: 5 };
+      const HP_BY_TYPE = { warrior: 6, hybrid: 6, mage: 4 };
       return {
         maxHp: HP_BY_TYPE[combatType] || 6,
         precision: 1,
         dodge: newLevel % 2 === 1 ? 1 : 0,     // niveles 3, 5, 7, 9
         damage: newLevel % 3 === 1 ? 1 : 0,    // niveles 4, 7, 10
-        maxMana: hasMagic ? (combatType === 'mage' ? 5 : 3) : 0,
+        maxMana: hasMagic ? (combatType === 'mage' ? 4 : 3) : 0,
       };
     },
 
@@ -210,10 +228,10 @@
     if (type === 'warrior') {
       out.dmg = 1 + Math.floor((lvl - 1) / 4);
       if (heavy) out.atk = 1;
-      out.note = `Maestría con armas: +${out.dmg} de daño${out.atk ? ' y +1 al ataque' : ''}.`;
+      out.note = `Maestría con armas: +${out.dmg} de daño${out.atk ? ' y +1 de precisión' : ''}.`;
     } else if (type === 'mage') {
-      if (heavy) { out.atk = -3; out.note = 'Muy pesada para un mago: -3 al ataque.'; }
-      else if (medium && !magicW) { out.atk = -1; out.note = 'Incómoda para un mago: -1 al ataque.'; }
+      if (heavy) { out.atk = -3; out.note = 'Muy pesada para un mago: -3 de precisión.'; }
+      else if (medium && !magicW) { out.atk = -1; out.note = 'Incómoda para un mago: -1 de precisión.'; }
       else if (magicW) out.note = 'Arma mágica: potencia tus hechizos.';
     }
     return out;
@@ -223,10 +241,24 @@
   function spellPowerOf(p, weapon) {
     const type = classOf(p);
     const lvl = Math.max(1, (p && p.level) || 1);
-    const wBonus = weapon && weapon.magic ? 1 + Math.floor((weapon.tier || 1) / 3) : 0;
-    if (type === 'mage') return 1 + Math.floor(lvl / 2) + wBonus;
+    const wBonus = weapon && weapon.magic ? 1 + Math.floor((weapon.tier || 1) / 4) : 0;
+    if (type === 'mage') return Math.floor(lvl / 2) + wBonus;
     if (type === 'hybrid') return Math.floor((lvl - 1) / 2) + wBonus;
     return 0;
+  }
+
+  /**
+   * v2.1: recuperación de maná. Solo los magos recuperan solos:
+   *   turn - maná al empezar cada turno tuyo en combate
+   *   win  - parte del maná máximo que vuelve al ganar la pelea
+   * Los híbridos devuelven 0 y 0: pociones o dormir.
+   */
+  function manaRegenOf(p) {
+    if (!p || !p.hasMagic) return { turn: 0, win: 0 };
+    const race = A.Data && A.Data.getById ? A.Data.getById('races', p.raceId) : null;
+    const type = (race && race.combatType) || 'hybrid';
+    const base = (race && race.manaRegen) || (type === 'mage' ? { turn: 1, win: 0.2 } : { turn: 0, win: 0 });
+    return { turn: base.turn || 0, win: base.win || 0 };
   }
 
   // ---------- Stats de combate del jugador (incluye equipo y hambre) ----------
@@ -341,10 +373,12 @@
     enemyStats,
     damageToNotation,
     avgOf,
+    rangeOf,
     hitChance,
     Progression,
     playerCombatStats,
     weaponFit,
+    manaRegenOf,
     spellPowerOf,
     classOf,
     statusMods,

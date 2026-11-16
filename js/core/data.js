@@ -41,6 +41,9 @@
           // v1.9.2: una raza editada antes de que existieran las pasivas conserva la suya
           const base = byId.get(e.id);
           if (key === 'races' && base && base.passive && e.passive === undefined) e.passive = base.passive;
+          // v2.1: lo que el editor todavía no conoce se hereda del juego base
+          const INHERIT = { races: ['startSpell', 'manaRegen'], regions: ['pos', 'labelAt'], npcs: ['look', 'roleName'], spells: ['racial', 'selfHeal'] };
+          if (base) for (const f of INHERIT[key] || []) if (e[f] === undefined && base[f] !== undefined) e[f] = base[f];
           byId.set(e.id, e);
         }
 

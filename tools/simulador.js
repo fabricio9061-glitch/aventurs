@@ -75,7 +75,8 @@ function setLevel(G, p, level) {
   if (A.Progression) p.xp = A.Progression.xpForLevel(p.level);
   if (p.hasMagic) {
     // Hechizos que un mago de ese nivel podría haber aprendido
-    for (const s of A.Data.spells) if ((s.tier || 1) <= level && !p.spells.includes(s.id)) p.spells.push(s.id);
+    // (los hechizos de raza son solo de su raza)
+    for (const s of A.Data.spells) if ((s.tier || 1) <= level && !s.racial && !p.spells.includes(s.id)) p.spells.push(s.id);
   }
 }
 
