@@ -24,13 +24,16 @@
     'bruja', 'hada_traviesa', 'polilla_onirica', 'noble_vampira', 'momia', 'bestia_sangre', 'pesadilla',
   ]);
   const PROPER = new Set(['brightwing', 'alamuerte']);
+  // v3.0: femeninas que empiezan con "a" tónica llevan "el"/"un" (el hada, un hada), pero siguen siendo "la" de pronombre
+  const ART_EL = new Set(['hada_traviesa']);
+  function artOf(id) { return FEM.has(id) && !ART_EL.has(id) ? 'la' : 'el'; }
 
   function enemyNoun(inst) {
     if (!inst) return 'el enemigo';
     const name = inst.displayName || inst.name || 'enemigo';
     if (PROPER.has(inst.id)) return name;
     const lower = name.charAt(0).toLowerCase() + name.slice(1);
-    let art = FEM.has(inst.id) ? 'la' : 'el';
+    let art = artOf(inst.id);
     if (!FEM.has(inst.id) && !A.Data.getById('enemies', inst.id) && /a$/i.test(inst.name || '')) art = 'la';
     return `${art} ${lower}`;
   }
@@ -245,7 +248,7 @@
       if (PROPER.has(id)) return n > 1 ? `${NUM[n] || n} ${base}` : base;
       const lower = base.charAt(0).toLowerCase() + base.slice(1);
       if (n > 1) return `${NUM[n] || n} ${pluralName(lower)}`;
-      return `${FEM.has(id) ? 'una' : 'un'} ${lower}`;
+      return `${FEM.has(id) && !ART_EL.has(id) ? 'una' : 'un'} ${lower}`;
     });
     const text = parts.length > 1 ? `${parts.slice(0, -1).join(', ')} y ${parts[parts.length - 1]}` : parts[0];
     return { text, plural: enemies.length > 1 };
@@ -425,13 +428,16 @@
       // v2.5: si hay una criatura de élite, se avisa
       const elite = c && (c.enemies || []).find((e) => e.elite);
       const eliteNote = !elite ? '' : many ? ` ${cap(enemyNoun(elite))} los lidera: es más fuerte que el resto.` : ' Es de élite: más fuerte que los de su especie.';
+      // v3.0: en grupo, a los dos ("les cierran el paso")
+      const you = c && c.party ? 'les' : 'te';
+      const can = c && c.party ? 'puedan' : 'puedas';
       if (fx.ambush) {
-        return { text: (many ? `¡Emboscada! ${cap(g)} se te tiran encima antes de que puedas reaccionar.` : `¡Emboscada! ${cap(g)} se te tira encima antes de que puedas reaccionar.`) + eliteNote, tone: 'bad' };
+        return { text: (many ? `¡Emboscada! ${cap(g)} se ${you} tiran encima antes de que ${can} reaccionar.` : `¡Emboscada! ${cap(g)} se ${you} tira encima antes de que ${can} reaccionar.`) + eliteNote, tone: 'bad' };
       }
       return {
         text: pick(many
-          ? [`${cap(g)} te cierran el paso.`, `Aparecen ${g}. No hay vuelta atrás.`, `${cap(g)} se te plantan enfrente.`]
-          : [`${cap(g)} te cierra el paso.`, `Aparece ${g}. No hay vuelta atrás.`, `${cap(g)} se te planta enfrente.`]) + eliteNote,
+          ? [`${cap(g)} ${you} cierran el paso.`, `Aparecen ${g}. No hay vuelta atrás.`, `${cap(g)} se ${you} plantan enfrente.`]
+          : [`${cap(g)} ${you} cierra el paso.`, `Aparece ${g}. No hay vuelta atrás.`, `${cap(g)} se ${you} planta enfrente.`]) + eliteNote,
         tone: elite ? 'bad' : 'neutral',
       };
     }

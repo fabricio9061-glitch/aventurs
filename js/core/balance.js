@@ -153,14 +153,31 @@
     },
 
     /**
-     * XP necesaria para pasar de nivel L a L+1 (v2.1).
-     * Medida con el simulador en la zona de cada nivel: del 1 al 2 son unas
-     * 4 o 5 peleas, y después va subiendo de a poco hasta unas 8.
+     * XP necesaria para pasar de nivel L a L+1.
+     * v3.0: subir cuesta bastante más que antes (antes se llegaba al 10 en unas
+     * 70 peleas). Medido con el simulador en la zona de cada nivel: del 1 al 2
+     * son unas 8 peleas y va subiendo hasta unas 25 (unas 150 en total).
      */
-    XP_TABLE: [45, 100, 250, 390, 580, 820, 1240, 1800, 1950],
+    XP_TABLE: [100, 210, 470, 850, 1300, 1850, 2900, 3700, 4500],
+    /** v3.0: la tabla de antes (para pasar las partidas viejas sin perder lo avanzado). */
+    XP_TABLE_V2: [45, 100, 250, 390, 580, 820, 1240, 1800, 1950],
     xpToNext(level) {
       const L = Math.max(1, Math.min(MAX_LEVEL - 1, level));
       return Progression.XP_TABLE[L - 1];
+    },
+
+    /**
+     * v3.0: la experiencia depende de la diferencia entre tu nivel y el de la criatura.
+     * Las de tu nivel o más dan todo (un poco más si son más fuertes); las que quedaron
+     * atrás dan cada vez menos, así no se sube de nivel matando lo fácil.
+     */
+    LEVEL_GAP: { above: 0.1, aboveMax: 3, below: [1, 0.75, 0.45, 0.2, 0.1] },
+    levelGapMult(level, tier) {
+      const g = Progression.LEVEL_GAP;
+      const d = clampTier(tier) - Math.max(1, level || 1);
+      if (d >= 0) return 1 + g.above * Math.min(g.aboveMax, d);
+      const i = Math.min(g.below.length - 1, -d);
+      return g.below[i];
     },
 
     /** XP total acumulada necesaria para llegar a nivel L. */
@@ -377,6 +394,18 @@
 
   // ---------- Élite (v2.5) ----------
   // A veces una criatura sale "alfa", "campeón" o "mayor": más vida, más daño, mejor botín.
+  // v3.0: en grupo vienen más criaturas (y un poco más fuertes) y cada uno se lleva una parte
+  // (medido con el simulador: dos héroes juntos pierden más o menos lo mismo que uno solo)
+  const PARTY = {
+    extra: 0.6,      // criaturas de más: una parte del grupo (copias de las comunes)
+    maxEnemies: 5,   // tope de criaturas en la arena
+    hp: 1.15,        // vida de cada criatura
+    dmg: 1.1,        // daño de cada criatura
+    bossHp: 1.9,     // un jefe (o élite) solo: más vida...
+    bossDmg: 1.35,   // ...y más daño
+    share: 0.6,      // parte de la experiencia, las monedas y el botín que se lleva cada uno
+  };
+
   const ELITE = {
     chanceSolo: 0.05,  // si aparece sola
     chanceGroup: 0.09, // si viene en grupo (una sola del grupo)
@@ -485,6 +514,34 @@
       }
       return Math.max(2, Math.round(v));
     },
+
+    /**
+     * v3.0: precio de los pergaminos de combate según lo que hacen (y nunca menos
+     * que lo que vale algo de su nivel y rareza). Antes los comunes costaban como
+     * una manzana: un Misil arcano (1d8+2 que nunca falla) estaba a 9 de cobre.
+     *   daño seguro: 3,2 por punto (x2,2 si es a todos) · estados y aturdir aparte
+     *   mejoras: como las pociones, un poco menos (duran poco)
+     */
+    scrollPrice(item) {
+      if (!item) return 0;
+      const ef = item.effect || {};
+      let v = 0;
+      if (ef.type === 'damage') {
+        v = avgOf(ef.dice) * 3.2;
+        if (ef.status) v += (ef.status.turns || 2) * (ef.status.value || 1) * 2.8;
+        if (ef.stun) v += 22 * ef.stun;
+        if (ef.drain) v += avgOf(ef.dice) * 2.4;
+        if (ef.all) v *= 2.2;
+      } else if (ef.type === 'stun') v = 24 * (ef.turns || 1) * (ef.all ? 2.5 : 1) + (ef.status ? 10 : 0);
+      else if (ef.type === 'curse') v = (ef.amount || 1) * (ef.duration || 3) * 3.5;
+      else if (ef.type === 'cleanse') v = 14 + (ef.pct || 0) * 72;
+      else if (ef.type === 'survivor') v = 70;
+      else if (ef.type === 'restore') v = 160;
+      else if (ef.type === 'buff') v = Economy.consumablePrice(item) * 0.7;
+      else v = Economy.consumablePrice(item);
+      const byTier = Economy.gearPrice(item.tier || 1, item.rarity || 'common') * 0.35;
+      return Math.max(4, Math.round(Math.max(byTier, v * 1.3)));
+    },
   };
 
   // ---------- Viaje ----------
@@ -498,6 +555,7 @@
   };
 
   A.Balance = {
+    PARTY,
     MAX_LEVEL,
     CATEGORY,
     ELITE,

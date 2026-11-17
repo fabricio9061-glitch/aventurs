@@ -25,7 +25,7 @@ const ROOT = path.join(__dirname, '..');
 function scriptList() {
   const html = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
   const all = [...html.matchAll(/<script src="([^"]+)"><\/script>/g)].map((m) => m[1]);
-  const skip = ['js/views/', 'js/editor/', 'js/app.js', 'js/core/ui-recover.js', 'js/core/tag-input.js'];
+  const skip = ['js/views/', 'js/editor/', 'js/vendor/', 'js/app.js', 'js/core/ui-recover.js', 'js/core/tag-input.js'];
   return all.filter((f) => !skip.some((s) => f.startsWith(s)));
 }
 

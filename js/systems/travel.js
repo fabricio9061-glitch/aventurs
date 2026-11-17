@@ -229,8 +229,13 @@
 
     t.currentStep += 1;
 
-    // Consumir food por paso
-    A.State.consumeFoodForStep();
+    // Consumir food por paso (v3.0: en grupo, cada uno come lo suyo)
+    const group = A.Party && A.Party.combatHeroes ? A.Party.combatHeroes() : null;
+    if (group && group.length > 1) {
+      for (const h of group) A.State.withHero(h, () => A.State.consumeFoodForStep());
+    } else {
+      A.State.consumeFoodForStep();
+    }
 
     // v1.6.2: Si murió de hambre o HP=0 mientras viajaba, MUERTE REAL.
     // No más teleport al pueblo. La crónica ya se generó por Survival.

@@ -28,10 +28,14 @@
    * v1.7.0: Inicia el timer de auto-step si el modo es 'auto' o 'fast'.
    * Pausa automáticamente al aparecer un evento que requiere decisión.
    */
+  /** v3.0: el invitado que va junto al anfitrión no maneja el viaje. */
+  function guestFollows() { return !!(A.Party && A.Party.guestTogether && A.Party.guestTogether()); }
+
   function scheduleAutoStep() {
     clearAutoStepTimer();
     const t = A.State.traveling;
     if (!t || t.completed) return;
+    if (guestFollows()) return;
     // v1.8.0: nunca avanzar el viaje solo mientras hay un combate o un modal abierto
     if (A.State.combat || (A.State.ui && A.State.ui.openModal)) return;
     const mode = (A.State.prefs && A.State.prefs.travelMode) || 'manual';
@@ -141,7 +145,7 @@
           ${neighbors.length > 0 ? `
             <button class="act2" data-action="open-travel">
               <span class="act2-icon">${icon('map', 40)}</span>
-              <span class="act2-text"><span class="act2-label">Viajar</span><span class="act2-desc">${neighbors.length} ${neighbors.length === 1 ? 'camino' : 'caminos'} desde acá.</span></span>
+              <span class="act2-text"><span class="act2-label">Viajar</span><span class="act2-desc">${guestFollows() ? `En grupo, el destino lo elige ${esc(A.Party.hostName())}.` : `${neighbors.length} ${neighbors.length === 1 ? 'camino' : 'caminos'} desde acá.`}</span></span>
             </button>` : ''}
         </section>
 
@@ -261,14 +265,14 @@
           </div>
           <div class="travel-progress-v2">
             <span class="travel-progress-step">Paso ${t.currentStep} de ${t.totalSteps}</span>
-            ${renderTravelModeSelector()}
+            ${guestFollows() ? `<span class="travel-follow-tag">${icon('party', 16)}<span>Viajan juntos</span></span>` : renderTravelModeSelector()}
             <span class="travel-progress-pct num">${pctNum}%</span>
           </div>
         </header>
 
         <div class="travel-body-v2">
           <main class="travel-stage-v2">
-            ${pending ? renderEncounter(lastEvent) : renderTravelStage(t, lastEvent)}
+            ${guestFollows() ? renderFollowStage(t, lastEvent, pending) : pending ? renderEncounter(lastEvent) : renderTravelStage(t, lastEvent)}
           </main>
           <aside class="travel-log-v2">
             <div class="travel-log-header">
@@ -289,6 +293,22 @@
 
     // v1.7.0: si el modo es auto/fast, programar el próximo paso
     scheduleAutoStep();
+  }
+
+  /** v3.0: el invitado ve el viaje, pero lo maneja el anfitrión. */
+  function renderFollowStage(t, lastEvent, pending) {
+    const host = esc(A.Party.hostName());
+    const card = lastEvent ? renderStageEvent(lastEvent) : `
+        <div class="travel-stage-empty">
+          <div class="travel-stage-icon">${icon('compass', 48)}</div>
+          <div class="travel-stage-title">Van en camino</div>
+          <div class="travel-stage-desc dim">Viajás con ${host}.</div>
+        </div>`;
+    return `
+      <div class="travel-stage-content">${card}</div>
+      <div class="travel-actions-v2 is-follow">
+        <p class="travel-follow-note">${icon('party', 18)}<span>${pending ? `${host} decide qué hacer con lo que apareció en el camino.` : `${host} guía el viaje. Vos lo acompañás: si aparece una criatura, pelean juntos.`}</span></p>
+      </div>`;
   }
 
   /**
@@ -791,6 +811,12 @@
     mount(container) {
       mainEl = container;
       render();
+    },
+    /** v3.0: un aviso arriba de las acciones (descanso del grupo, por ejemplo). */
+    showNote(note) {
+      if (!note || !note.text) return;
+      lastNote = { icon: note.icon || 'tent', text: note.text, chips: note.chips || [] };
+      if (mainEl && !A.State.traveling && !A.State.combat) render();
     },
     unmount() {
       // v1.7.0: limpiar timer de auto-step al cambiar de vista

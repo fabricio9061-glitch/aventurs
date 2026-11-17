@@ -573,14 +573,20 @@
   // ---------- Menu ----------
 
   function renderMenu() {
+    // v3.0: la cuenta con la que entraste, y lo del editor solo para el dueño
+    const acc = A.Accounts && A.Accounts.info ? A.Accounts.info() : null;
+    const owner = !A.Accounts || A.Accounts.canEdit();
     const body = `
       <div class="menu-modal">
+        ${acc ? `<div class="menu-account">${pxi('user', 22)}<span>Cuenta: <b>${A.Utils.escapeHtml(acc.name)}</b>${acc.owner ? ' <span class="menu-owner">dueño</span>' : ''}</span></div>` : ''}
         <button class="menu-action" data-menu-action="rules">Reglas del juego</button>
+        <button class="menu-action" data-menu-action="party">Jugar en grupo</button>
         <button class="menu-action" data-menu-action="export-save">Exportar partida</button>
-        <button class="menu-action" data-menu-action="export-content">Exportar contenido del editor</button>
+        ${owner ? '<button class="menu-action" data-menu-action="export-content">Exportar contenido del editor</button>' : ''}
         <button class="menu-action" data-menu-action="import">Importar (JSON)</button>
-        <button class="menu-action danger" data-menu-action="reset">Borrar todo</button>
-        <p class="muted small">Borrar todo elimina tu partida y los cambios del editor. No se puede deshacer.</p>
+        ${acc ? `<button class="menu-action" data-menu-action="logout">${pxi('logout', 18)} Cerrar sesión</button>` : ''}
+        <button class="menu-action danger" data-menu-action="reset">${owner ? 'Borrar todo' : 'Borrar mi partida'}</button>
+        <p class="muted small">${owner ? 'Borrar todo elimina tu partida y los cambios del editor.' : 'Borrar tu partida elimina tu personaje de esta cuenta.'} No se puede deshacer.</p>
       </div>
     `;
     return modalShell('Menú', body);
@@ -1429,6 +1435,13 @@
       A.State.openModal('rules');
       return;
     }
+    if (action === 'party') { A.State.openModal('party', {}); return; }
+    if (action === 'logout') {
+      A.State.closeModal();
+      if (A.State.player && !A.State.combat) A.State.persist();
+      if (A.Accounts) A.Accounts.logout();
+      return;
+    }
     if (action === 'export-save') {
       const data = JSON.stringify({
         player: A.State.player, world: A.State.world,
@@ -1445,12 +1458,14 @@
       A.State.closeModal();
       Modals.confirm({
         title: 'Borrar todo',
-        body: '¿Seguro? Se elimina tu partida y los cambios del editor. No hay vuelta atrás.',
+        body: (!A.Accounts || A.Accounts.canEdit()) ? '¿Seguro? Se elimina tu partida y los cambios del editor. No hay vuelta atrás.' : '¿Seguro? Se elimina tu personaje de esta cuenta. No hay vuelta atrás.',
         danger: true,
         onConfirm: () => {
           try {
-            localStorage.removeItem('aventurs:save');
-            localStorage.removeItem('aventurs:content');
+            if (A.Party && A.Party.role) A.Party.leave();
+            localStorage.removeItem(A.State.storageKey ? A.State.storageKey() : 'aventurs:save');
+            // v3.0: los cambios del editor son del dueño
+            if (!A.Accounts || A.Accounts.canEdit()) localStorage.removeItem('aventurs:content');
           } catch (e) {}
           location.reload();
         },
@@ -1490,11 +1505,13 @@
               ui: parsed.ui || { activeTab: 'world', openModal: null, modalPayload: null },
               chronicles: parsed.chronicles || [],
             };
-            localStorage.setItem('aventurs:save', JSON.stringify(save));
+            localStorage.setItem(A.State.storageKey ? A.State.storageKey() : 'aventurs:save', JSON.stringify(save));
             location.reload();
-          } else {
+          } else if (!A.Accounts || A.Accounts.canEdit()) {
             A.Data.saveOverrides(parsed);
             location.reload();
+          } else {
+            alert('Ese archivo es contenido del editor: solo lo puede cargar el dueño del juego.');
           }
         } catch (err) {
           alert('Archivo inválido.');

@@ -231,10 +231,11 @@
   const accessories = C.map(([id, name, tier, rarity, acc, description]) => ({
     id, name, type: 'item', subtype: 'accessory', icon: '', value: Math.round(price(tier, rarity) * 1.1), rarity, tier, weight: 0, stack: 1, acc, description,
   }));
-  // pergaminos: el precio sigue a lo que hacen (nivel y rareza)
+  // pergaminos: el precio sigue a lo que hacen (v3.0: según su efecto, ver Economy.scrollPrice)
   const scrolls = S.map(([id, name, tier, rarity, effect, description]) => ({
     id, name, type: 'item', subtype: 'scroll', icon: '', value: Math.round(price(tier, rarity) * 0.35), rarity, tier, weight: 0, stack: 10, effect: { ...effect, combat: true }, description,
   }));
+  for (const it of scrolls) if (E() && E().scrollPrice) it.value = E().scrollPrice(it);
   const potions = P.map(([id, name, tier, rarity, effect, description]) => ({
     id, name, type: 'item', subtype: 'potion', icon: '', value: 0, rarity, tier, weight: 1, stack: 99, effect, description,
   }));

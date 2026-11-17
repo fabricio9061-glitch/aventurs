@@ -49,6 +49,8 @@
   // ============================================================
 
   function mount(container) {
+    // v3.0: el editor es solo de la cuenta del dueño
+    if (A.Accounts && A.Accounts.canEdit && !A.Accounts.canEdit()) return;
     try {
       if (A.Views.Combat && A.Views.Combat.isMounted && A.Views.Combat.isMounted()) A.Views.Combat.unmount();
       if (A.Views.Shell && A.Views.Shell.unmount) A.Views.Shell.unmount();

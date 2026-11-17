@@ -79,7 +79,8 @@
     const status = getStatus();
     if (status.penalties.hpDrain && p.food === 0) {
       const hpLost = 1;
-      p.hp = Math.max(0, p.hp - hpLost);
+      // v3.0: al compañero (jugado en esta compu) el hambre no lo mata: eso se cuenta en la suya
+      p.hp = Math.max(A.State.isForeign && A.State.isForeign() ? 1 : 0, p.hp - hpLost);
       A.Bus.emit('player:hp-changed', { current: p.hp });
       A.State.addChronicle({
         type: 'note',

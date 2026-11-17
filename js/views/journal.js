@@ -1,5 +1,5 @@
 /* ============================================================
-   Aventurs — Diario de viaje (v2.0)
+   Aventurs — Diario de viaje (v3.0)
    Un solo lugar para lo que pasó y lo que falta:
      Misiones  - la historia principal, los encargos y lo terminado
      Crónicas  - lo que hiciste, agrupado por día y por lugar,
@@ -27,13 +27,19 @@
   function objList(q) {
     return `<ul class="qc-objs">${q.objectives.map((o, i) => {
       const pr = A.Quests.objectiveProgress(q, i);
+      const hint = !pr.done && A.Quests.objectiveHint ? A.Quests.objectiveHint(o) : '';
       return `
         <li class="qc-obj ${pr.done ? 'is-done' : ''}">
           <span class="qc-box">${pr.done ? U().icon('check', 14) : ''}</span>
-          <span>${U().esc(A.Quests.objectiveText(o))}</span>
+          <span>${U().esc(A.Quests.objectiveText(o))}${hint ? ` <small class="qc-hint">(${U().esc(hint)})</small>` : ''}</span>
           ${(o.count || 1) > 1 ? `<span class="qc-count num">${pr.have}/${pr.need}</span>` : ''}
         </li>`;
     }).join('')}</ul>`;
+  }
+
+  function chapterTag(q) {
+    const total = A.Quests.mainCount ? A.Quests.mainCount() : 0;
+    return `Historia · ${q.chapter}${total ? `/${total}` : ''}`;
   }
 
   function questBlock(q) {
@@ -45,7 +51,7 @@
         <header class="qc-head">
           ${U().icon(q.main ? 'crown' : 'scroll', 22)}
           <span class="qc-title">${U().esc(q.title)}</span>
-          <span class="qc-tag">${q.main ? `Historia · ${q.chapter}/8` : 'Encargo'}</span>
+          <span class="qc-tag">${q.main ? chapterTag(q) : 'Encargo'}</span>
         </header>
         <p class="qc-text">${U().esc(q.text)}</p>
         ${objList(q)}
@@ -60,8 +66,19 @@
     const main = active.filter((q) => q.main);
     const side = active.filter((q) => !q.main);
     const done = A.Quests.doneList().slice().reverse();
+    // v3.0: si no hay capítulo en curso, a quién ir a ver para seguir la historia
     let start = '';
-    if (!main.length && A.Quests.status('mq1_humo') !== 'done') {
+    const nx = A.Quests.nextMain ? A.Quests.nextMain() : null;
+    if (nx) {
+      const g = A.Data.getById('npcs', nx.quest.giver);
+      const r = g ? A.Data.getById('regions', g.region) : null;
+      const who = `<b>${U().esc(g ? g.name : 'alguien')}</b>${r ? ` en <b>${U().esc(r.name)}</b>` : ''}`;
+      const lead = nx.quest.chapter === 1 ? 'La historia empieza acá' : `Sigue la historia: capítulo ${nx.quest.chapter}, ${U().esc(nx.quest.title)}`;
+      start = `
+        <div class="journal-hint">${U().icon('crown', 24)}
+          <span>${lead}. ${nx.status === 'locked' ? `${who} te lo va a pedir cuando llegues al nivel ${nx.quest.minLevel}.` : `Hablá con ${who}.`}</span>
+        </div>`;
+    } else if (!main.length && A.Quests.status('mq1_humo') !== 'done') {
       const g = A.Data.getById('npcs', 'npc_guardia_pueblo');
       start = `
         <div class="journal-hint">${U().icon('crown', 24)}

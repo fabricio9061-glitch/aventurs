@@ -4,10 +4,10 @@
    pasiva) es el mismo, repartido distinto. Se mide con:
      node tools/simulador.js razas
 
-   Tipos (4 de cada uno):
-     hybrid  (Humano, Elfo, Mediano, Dracónido) -> magia + arma
-     warrior (Enano, Orco, Robot, Goliat)       -> sin magia, más vida y daño
-     mage    (Gnomo, Alienígena, Infernal, Ángel) -> más maná, menos vida
+   Tipos (5 de cada uno; v3.0 suma Vampiro, Minotauro y Hada):
+     hybrid  (Humano, Elfo, Mediano, Dracónido, Vampiro) -> magia + arma
+     warrior (Enano, Orco, Robot, Goliat, Minotauro)     -> sin magia, más vida y daño
+     mage    (Gnomo, Alienígena, Infernal, Ángel, Hada)  -> más maná, menos vida
 
    passive: id de la pasiva (textos y reglas en js/systems/passives.js).
 
@@ -82,6 +82,20 @@
       description: 'Descendientes de dragones antiguos. Escamas duras, sangre caliente y orgullo más antiguo que los reinos.',
     },
 
+    // v3.0: el quinto híbrido
+    {
+      id: 'vampiro',
+      name: 'Vampiro',
+      icon: '',
+      sprite: '',
+      combatType: 'hybrid',
+      magic: true,
+      passive: 'colmillos',
+      startSpell: 'toque_vampirico',
+      bonuses: { hp: 1, mana: 0, speed: 2, precision: 1, armor: 0, damage: 0, dodge: 1 },
+      description: 'Hijos de la noche que aprendieron a caminar bajo el sol. Cada herida que abren les devuelve un poco de vida.',
+    },
+
     // ---------- Guerreros: sin magia ----------
     {
       id: 'enano',
@@ -126,6 +140,19 @@
       passive: 'golpe_gigante',
       bonuses: { hp: 8, mana: 0, speed: -2, precision: 0, armor: 0, damage: 0, dodge: 0 },
       description: 'Gigantes de piel de piedra que viven en las cumbres. Lentos para empezar, pero cuando aciertan, aplastan.',
+    },
+
+    // v3.0: el quinto guerrero
+    {
+      id: 'minotauro',
+      name: 'Minotauro',
+      icon: '',
+      sprite: '',
+      combatType: 'warrior',
+      magic: false,
+      passive: 'embestida',
+      bonuses: { hp: 5, mana: 0, speed: -1, precision: 0, armor: 0, damage: 0, dodge: -1 },
+      description: 'Fuertes como toros y tercos como montañas. Entran a cada pelea con los cuernos por delante.',
     },
 
     // ---------- Magos: mucha magia, menos vida ----------
@@ -176,6 +203,19 @@
       startSpell: 'luz_sagrada', manaRegen: { turn: 1, win: 0.25 },
       bonuses: { hp: -6, mana: 1, speed: 1, precision: 1, armor: 0, damage: 0, dodge: 2 },
       description: 'Guardianes bajados del cielo. Una luz suave los acompaña y les cierra las heridas en plena batalla.',
+    },
+    // v3.0: la quinta maga
+    {
+      id: 'hada',
+      name: 'Hada',
+      icon: '',
+      sprite: '',
+      combatType: 'mage',
+      magic: true,
+      passive: 'polvo_hada',
+      startSpell: 'chispas_de_hada', manaRegen: { turn: 1, win: 0.2 },
+      bonuses: { hp: -9, mana: 2, speed: 3, precision: 1, armor: 0, damage: 0, dodge: 3 },
+      description: 'Chiquitas, rapidísimas y traviesas. A su paso dejan un polvo brillante que adormece a cualquiera.',
     },
   ];
 

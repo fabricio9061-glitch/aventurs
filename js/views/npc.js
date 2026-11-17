@@ -175,7 +175,7 @@
         <header class="qc-head">
           ${U().icon(q.main ? 'crown' : 'scroll', 22)}
           <span class="qc-title">${U().esc(q.title)}</span>
-          ${q.main ? `<span class="qc-tag">Historia · ${q.chapter}/8</span>` : '<span class="qc-tag">Encargo</span>'}
+          ${q.main ? `<span class="qc-tag">Historia · ${q.chapter}${A.Quests.mainCount ? `/${A.Quests.mainCount()}` : ''}</span>` : '<span class="qc-tag">Encargo</span>'}
         </header>
         ${mode === 'offer' ? `<p class="qc-offer">"${U().esc(q.offer || q.text)}"</p>` : mode === 'ready' ? `<p class="qc-offer">"¿Lo conseguiste? Dejame ver..."</p>` : `<p class="qc-text">${U().esc(q.text)}</p>`}
         <ul class="qc-objs">${objectives}</ul>

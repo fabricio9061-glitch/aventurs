@@ -22,6 +22,10 @@
     metal: { armor: 0 },                   // Cuerpo de metal: armadura extra (medido: con +1 el robot quedaba muy fuerte)
     determinacion: { keep: 0.15 },         // Determinación: con cuánta vida quedás (parte de la máxima; 0 = con 1)
     sangre: { chance: 0.33 },              // Sangre de dragón: chance de prender fuego al pegar
+    // v3.0
+    colmillos: { steal: 0.15 },             // Colmillos (vampiro): parte del daño con arma vuelve como vida
+    embestida: { mult: 1.5, powerMult: 1.1 },              // Embestida (minotauro): el primer ataque de la pelea pega seguro y más fuerte
+    hada: { turns: 1 },                    // Polvo de hada: al empezar, una criatura (no jefe) se duerme
   };
   const pctTxt = (x) => `${Math.round(x * 100)}%`;
   const oneIn = (x) => (x > 0 ? `uno de cada ${Math.round(1 / x)}` : 'ninguno');
@@ -87,6 +91,19 @@
     bendicion: {
       name: 'Bendición', icon: 'heal',
       text: (p) => `La primera vez en cada combate que quedás con la mitad de la vida o menos, una luz te cura ${blessAmount(p)} de vida.`,
+    },
+    // v3.0: razas nuevas
+    colmillos: {
+      name: 'Colmillos', icon: 'bleed',
+      text: () => `Cada golpe con arma que acierta te devuelve el ${pctTxt(TUNE.colmillos.steal)} del daño como vida (si da menos de 1, la suerte decide).`,
+    },
+    embestida: {
+      name: 'Embestida', icon: 'fist',
+      text: () => `Tu primer ataque en cada pelea no falla y hace x${String(TUNE.embestida.mult).replace('.', ',')} de daño (x${String(TUNE.embestida.powerMult).replace('.', ',')} si es un Golpe fuerte).`,
+    },
+    polvo_hada: {
+      name: 'Polvo de hada', icon: 'stars',
+      text: () => 'Al empezar cada pelea, una de las criaturas (nunca un jefe) se queda dormida y pierde su primer turno.',
     },
   };
 
@@ -200,6 +217,26 @@
     return { dmg: out, passive: tag };
   }
 
+  // ---------- v3.0 ----------
+  /** Colmillos: vida que recuperás de un golpe con arma. */
+  function lifestealFrom(p, dmg) {
+    if (!has(p, 'colmillos') || !p || p.hp <= 0 || dmg <= 0) return 0;
+    // la parte con coma se redondea a la suerte: 0,6 -> 1 el 60% de las veces
+    const x = dmg * TUNE.colmillos.steal;
+    return Math.floor(x) + (Math.random() < x - Math.floor(x) ? 1 : 0);
+  }
+  /** Embestida: ¿este es el primer ataque de la pelea? (se marca como usado) */
+  function chargeReady(c, p) {
+    if (!c || !has(p, 'embestida')) return false;
+    const used = c.passives || (c.passives = {});
+    if (used.embestida) return false;
+    used.embestida = true;
+    return true;
+  }
+  function chargeMult(power) { return power ? TUNE.embestida.powerMult : TUNE.embestida.mult; }
+  /** Polvo de hada: ¿duerme a alguien al empezar? */
+  function fairyDust(p) { return has(p, 'polvo_hada') ? TUNE.hada.turns : 0; }
+
   /** ¿Se acaba de activar la Furia? (se avisa una sola vez por combate) */
   function furyJustStarted(c, p) {
     if (!c || !has(p, 'furia') || damageBonus(p) <= 0) return false;
@@ -231,5 +268,10 @@
     blessingHeal,
     absorbHit,
     furyJustStarted,
+    // v3.0
+    lifestealFrom,
+    chargeReady,
+    chargeMult,
+    fairyDust,
   };
 })(window.Aventurs);

@@ -436,6 +436,8 @@
             F.sel('type', 'Qué hay que hacer', opts(L.OBJ)),
             F.refs('enemy', 'Criaturas', 'enemies', { single: true, when: (d, o) => o && o.type === 'kill', add: 'Elegir criaturas' }),
             F.ref('item', 'Objeto', ['items', 'weapons', 'armors'], { when: (d, o) => o && (o.type === 'collect' || o.type === 'have') }),
+            // v3.0: objetos de misión que sueltan ciertas criaturas mientras la misión los pide
+            F.refs('from', 'Lo sueltan', 'enemies', { when: (d, o) => o && o.type === 'collect', add: 'Elegir criaturas', help: 'Opcional. Mientras la misión lo pida, estas criaturas lo sueltan la mitad de las veces (aunque no esté en su botín).' }),
             F.ref('region', 'Lugar', 'regions', { when: (d, o) => o && (o.type === 'explore' || o.type === 'visit') }),
             F.ref('npc', 'Con quién', 'npcs', { when: (d, o) => o && o.type === 'talk' }),
             F.num('count', 'Cuántas veces', { min: 1, max: 99, when: (d, o) => o && ['kill', 'collect', 'explore'].includes(o.type) }),

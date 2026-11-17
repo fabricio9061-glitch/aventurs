@@ -730,6 +730,7 @@
     const amount = Math.min(have, Math.max(1, Math.round(base * 3)));
     A.Currency.pay(amount);
     x.stolen = amount;
+    x.stolenFrom = A.State.hidOf ? A.State.hidOf(A.State.player) : null; // v3.0: en grupo, se lo devuelve al que robó
     const words = A.Narrator ? A.Narrator.coinsInWords(amount) : `${amount} de cobre`;
     k.log('enemy', {
       text: `${x.displayName} te robó ${words}.`,
@@ -834,33 +835,38 @@
     },
   };
 
-  /** Aliento o temblor: a vos (con tirada) y a tu mascota. */
+  /** Aliento o temblor: a vos (con tirada) y a tu mascota. v3.0: en grupo, a cada héroe con su mascota. */
   function areaHit(sk, x, k, o) {
-    const p = A.State.player;
-    const pet = p.pet && p.pet.health > 0 ? p.pet : null;
     k.log('enemy', { text: `${x.displayName} usa ${sk.name}.`, fx: { kind: 'cast', actor: k.fxKey(x), element: o.element || undefined }, say: { text: fill(sk.use, x), tone: 'bad' } });
     const base = k.rollDamage(x, { mult: sk.mult || 1 });
     const value = valueFor(o.status, x.tier);
-    // Vos
-    const ok = k.save(x, sk.save, { label: sk.name, resist: o.half ? '' : sk.resist, fail: '' });
-    if (ok && !o.half) {
-      // el temblor no te alcanza
-    } else {
-      const armor = k.playerStats().armor || 0;
-      const raw = ok ? Math.floor(base / 2) : base;
-      const dmg = Math.max(1, raw - (o.half ? Math.floor(armor / 2) : armor));
-      const got = k.hurtPlayer(x, dmg, { element: o.element, say: ok ? sk.resist : sk.fail });
-      if (!ok && got > 0 && p.hp > 0 && o.status && (!o.half || Math.random() < 0.5)) k.status(p, o.status, { turns: o.turns, value, source: x.id });
-    }
-    // Tu mascota (sin tirada: la mitad de las veces recibe la mitad)
-    if (pet && pet.health > 0 && p.hp > 0) {
-      const lucky = Math.random() < 0.5;
-      const raw = lucky && o.half ? Math.floor(base / 2) : base;
-      if (lucky && !o.half) return;
-      const dmg = Math.max(1, raw - (o.half ? Math.floor((pet.armor || 0) / 2) : pet.armor || 0));
-      k.hurtPet(x, dmg, { element: o.element, say: sk.pet });
-      if (!lucky && pet.health > 0 && o.status) k.status(pet, o.status, { turns: o.turns, value, source: x.id });
-    }
+    const hitOne = () => {
+      const p = A.State.player;
+      const pet = p.pet && p.pet.health > 0 ? p.pet : null;
+      if (x.hp <= 0 || p.hp <= 0) return;
+      // Vos
+      const ok = k.save(x, sk.save, { label: sk.name, resist: o.half ? '' : sk.resist, fail: '' });
+      if (ok && !o.half) {
+        // el temblor no te alcanza
+      } else {
+        const armor = k.playerStats().armor || 0;
+        const raw = ok ? Math.floor(base / 2) : base;
+        const dmg = Math.max(1, raw - (o.half ? Math.floor(armor / 2) : armor));
+        const got = k.hurtPlayer(x, dmg, { element: o.element, say: ok ? sk.resist : sk.fail });
+        if (!ok && got > 0 && p.hp > 0 && o.status && (!o.half || Math.random() < 0.5)) k.status(p, o.status, { turns: o.turns, value, source: x.id });
+      }
+      // Tu mascota (sin tirada: la mitad de las veces recibe la mitad)
+      if (pet && pet.health > 0 && p.hp > 0) {
+        const lucky = Math.random() < 0.5;
+        const raw = lucky && o.half ? Math.floor(base / 2) : base;
+        if (lucky && !o.half) return;
+        const dmg = Math.max(1, raw - (o.half ? Math.floor((pet.armor || 0) / 2) : pet.armor || 0));
+        k.hurtPet(x, dmg, { element: o.element, say: sk.pet });
+        if (!lucky && pet.health > 0 && o.status) k.status(pet, o.status, { turns: o.turns, value, source: x.id });
+      }
+    };
+    if (k.forEachHero) k.forEachHero(hitOne);
+    else hitOne();
   }
 
   // ============================================================

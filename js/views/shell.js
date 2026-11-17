@@ -42,7 +42,7 @@
           <div class="shell-brand">
             <span class="brand-icon">${A.UI ? A.UI.icon('swords', 26) : ''}</span>
             <span class="brand-name">Aventurs</span>
-            <span class="version-pill" title="Versión del juego">v2.5.0</span>
+            <span class="version-pill" title="Versión del juego">v3.0.0</span>
           </div>
           ${tabs.length > 1 ? `
             <nav class="shell-nav">
@@ -54,8 +54,9 @@
             </nav>
           ` : `<div class="shell-nav-spacer"></div>`}
           <div class="shell-actions">
+            <span class="pt-head-slot" id="pt-head-slot">${A.Views.Party ? A.Views.Party.headerButton() : ''}</span>
             <button class="btn-ghost head-btn" data-action="journal" title="Misiones y crónicas">${A.UI ? A.UI.icon('book', 18) : ''}<span>Diario</span></button>
-            <button class="btn-ghost head-btn" data-action="editor">Editor</button>
+            ${canEdit() ? '<button class="btn-ghost head-btn" data-action="editor">Editor</button>' : ''}
             <button class="btn-ghost head-btn" data-action="menu">Menú</button>
           </div>
         </header>
@@ -81,6 +82,17 @@
     renderSidebar();
     renderChroniclesPanel();
     renderActiveView();
+  }
+
+  /** v3.0: el editor es solo de la cuenta del dueño (ver js/core/accounts.js). */
+  function canEdit() { return !A.Accounts || !A.Accounts.canEdit || A.Accounts.canEdit(); }
+
+  /** v3.0: el botón del grupo (con su puntito) se redibuja solo. */
+  function renderPartyHead() {
+    const slot = rootEl && rootEl.querySelector('#pt-head-slot');
+    if (!slot || !A.Views.Party) return;
+    slot.innerHTML = A.Views.Party.headerButton();
+    slot.querySelectorAll('[data-action]').forEach((btn) => btn.addEventListener('click', () => handleAction(btn.dataset.action)));
   }
 
   /** v1.9.2: la pasiva de la raza, con su ícono y la explicación al pasar el mouse. */
@@ -205,6 +217,7 @@
         </header>
 
         <div class="sb-body">
+          ${A.Views.Party ? A.Views.Party.allyCard() : ''}
           <section class="sb-bars">
             ${hudBar('is-hp', 'heart', 'Vida', p.hp, p.maxHp)}
             ${p.hasMagic ? hudBar('is-mana', 'spell', `Maná. ${manaHint}`, p.mana, p.maxMana, regen.turn > 0 ? `<span class="sb-bar-tag" title="${escH(manaHint)}">+${regen.turn}</span>` : '') : ''}
@@ -539,7 +552,8 @@
 
 
   function handleAction(action) {
-    if (action === 'editor') A.Views.Editor.mount(rootEl);
+    if (action === 'party') { A.State.openModal('party', {}); return; }
+    if (action === 'editor') { if (canEdit()) A.Views.Editor.mount(rootEl); return; }
     else if (action === 'rules') A.State.openModal('rules');
     else if (action === 'menu') A.State.openModal('menu');
     else if (action === 'open-magic') A.State.openModal('magic');
@@ -614,6 +628,8 @@
     }));
     unsubscribers.push(A.Bus.on('modal:open', renderModals));
     unsubscribers.push(A.Bus.on('modal:close', renderModals));
+    // v3.0: grupo
+    unsubscribers.push(A.Bus.on('party:changed', () => { renderPartyHead(); renderSidebar(); }));
   }
 
   function renderModals() {

@@ -10,7 +10,7 @@
   'use strict';
 
   function boot() {
-    console.log('[Aventurs] Booting v1.0.0 — Fase 1');
+    console.log('[Aventurs] v3.0.0');
 
     // 1. Cargar contenido del juego (seeds + overrides del editor)
     A.Data.init();
@@ -30,16 +30,14 @@
       console.log('[UIRecover] Listo. Triple ESC = recovery. window.Aventurs.UIRecover.run() para forzar.');
     }
 
-    // 3. Cargar partida si existe
-    const loaded = A.State.load();
-    if (loaded) {
-      console.log('[State] Partida cargada:', A.State.player ? A.State.player.name : '(sin nombre)');
-    } else {
-      console.log('[State] Sin partida guardada. Va al creador.');
-    }
+    // 3. v3.0: cuentas. Si nadie entró en esta pestaña, primero la pantalla de entrar.
+    if (A.Accounts) A.Accounts.resume();
 
     // 4. Game over handling
     A.Bus.on('player:died', (payload) => {
+      // v3.0: en combate perder no borra nada: despertás en el pueblo (lo maneja el combate).
+      // Antes este aviso podía borrar la partida con un clic.
+      if (A.State.combat) return;
       // v1.6.2: si fue muerte específica por inanición, mostrar pantalla narrativa
       if (payload && payload.cause === 'starvation') {
         // El handler 'player:died-starvation' renderiza la pantalla
@@ -60,10 +58,27 @@
       }, 200);
     });
 
-    // 5. Montar vista raíz
-    mountRoot();
+    // 5. Montar vista raíz (entrar, crear personaje o jugar)
+    enter();
+    A.Bus.on('account:changed', enter);
 
     console.log('[Aventurs] Listo. Bus events:', A.Bus.debug());
+  }
+
+  /** v3.0: según la cuenta: la pantalla de entrar, o su partida. */
+  function enter() {
+    const app = document.getElementById('app');
+    if (!app) return;
+    if (A.Views.Shell && A.Views.Shell.unmount) A.Views.Shell.unmount();
+    if (A.Views.Login && A.Views.Login.unmount) A.Views.Login.unmount();
+    A.State.unload();
+    if (A.Accounts && !A.Accounts.current()) {
+      A.Views.Login.mount(app);
+      return;
+    }
+    const loaded = A.State.load();
+    console.log(loaded ? `[State] Partida cargada: ${A.State.player ? A.State.player.name : '(sin nombre)'}` : '[State] Sin partida guardada. Va al creador.');
+    mountRoot();
   }
 
   function mountRoot() {

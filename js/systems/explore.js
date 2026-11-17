@@ -41,6 +41,12 @@
 
   function S() { return A.State; }
   function player() { return A.State.player; }
+  /** v3.0: los héroes que exploran juntos (en solitario, vos). */
+  function groupHeroes() {
+    const g = A.Party && A.Party.combatHeroes ? A.Party.combatHeroes() : null;
+    return g && g.length > 1 ? g : [player()];
+  }
+  function inGroup() { return groupHeroes().length > 1; }
   function regionNow() { return A.State.world ? A.Data.getById('regions', A.State.world.regionId) : null; }
   function rnd(n) { return Math.floor(Math.random() * n); }
   function pick(list) { return list[rnd(list.length)]; }
@@ -547,13 +553,22 @@
     const region = regionNow();
     clearRestLock();
     if (A.Time) A.Time.advance(1, 'explore');
-    if (A.Survival && player()) {
-      player()._exploreCounter = (player()._exploreCounter || 0) + 1;
-      if (player()._exploreCounter % 2 === 0) A.Survival.applyTurnTick('explore');
+    // v3.0: en grupo, el hambre y las misiones de explorar cuentan para los dos
+    for (const h of groupHeroes()) {
+      A.State.withHero(h, () => {
+        if (A.Survival && h) {
+          h._exploreCounter = (h._exploreCounter || 0) + 1;
+          if (h._exploreCounter % 2 === 0) A.Survival.applyTurnTick('explore');
+        }
+        A.Bus.emit('explore:done', { regionId: region.id });
+      });
     }
-    A.Bus.emit('explore:done', { regionId: region.id });
     const scene = buildScene(region);
     if (!scene) return { ok: false };
+    if (inGroup()) {
+      scene.party = true;
+      scene.by = A.State.hidOf(player()); // quién exploró
+    }
     A.State.openModal('event', scene);
     A.State.persist();
     return { ok: true, scene };
@@ -615,8 +630,12 @@
       }
     }
 
+    // v3.0: en grupo la pelea arranca con lo que le pasó al que eligió
+    if (fight && sc.party) fight.openingHid = A.State.hidOf(p);
     sc.stage = 'result';
     sc.result = {
+      hid: sc.party ? A.State.hidOf(p) : undefined, // v3.0: quién eligió (para contarlo en tercera persona al otro)
+      by: sc.party ? p.name : undefined,
       optionIdx: idx,
       label: opt.label,
       check: opt.check || null,
@@ -663,9 +682,12 @@
       if (f.rally) {
         for (const e of f.enemies) { e.effects = e.effects || []; e.effects.push({ type: 'rally', turns: 2, value: 1, source: 'explore' }); }
       }
-      A.Combat.start({ enemies: f.enemies, surprise: f.surprise, ambush: f.ambush, opening, fromTravel: false });
+      A.Combat.start({ enemies: f.enemies, surprise: f.surprise, ambush: f.ambush, opening, openingHid: f.openingHid, fromTravel: false });
     } else if (res.tame && sc.enemies && sc.enemies[0]) {
-      A.State.openModal('tame', { enemyId: sc.enemies[0].id, fromTravel: false });
+      const payload = { enemyId: sc.enemies[0].id, fromTravel: false };
+      // v3.0: si quiso domarla el compañero, la pantalla de domar se abre en su compu
+      if (res.hid && A.Party && A.Party.openRemoteModal && res.hid !== A.State.hidOf(A.State.me())) A.Party.openRemoteModal(res.hid, 'tame', payload);
+      else A.State.openModal('tame', payload);
     }
   }
 
@@ -732,13 +754,42 @@
    *   después hay que moverse (explorar, pelear o viajar) para volver a descansar
    */
   function rest() {
+    // v3.0: en grupo descansan todos juntos (el tiempo pasa una sola vez)
+    if (inGroup()) return restGroup();
+    return restOne();
+  }
+
+  /** v3.0: descanso del grupo: cada uno se cura lo suyo; de noche, una sola emboscada para todos. */
+  function restGroup() {
+    const caller = player();
+    const heroes = groupHeroes();
+    // El que tocó Descansar decide la noche (y si algo se acerca); los demás se curan y comen igual
+    const lead = heroes.find((h) => h === caller) || heroes[0];
+    const others = heroes.filter((h) => h !== lead);
+    const w = A.State.world;
+    const night = !!(A.Time && A.Time.isNight());
+    const out = A.State.withHero(lead, () => restOne());
+    if (!out || out.kind === 'locked' || out.kind === 'night-event') return out;
+    for (const h of others) {
+      A.State.withHero(h, () => {
+        if (w) w.restLock = false;
+        const r = restOne({ noAmbush: true, noTime: true, night });
+        if (r && r.text && A.Party && A.Party.notify) A.Party.notify(A.State.hidOf(h), { icon: night ? 'moon' : 'tent', text: r.text, chips: r.chips || [] });
+      });
+    }
+    if (w) w.restLock = true;
+    A.State.persist();
+    return out;
+  }
+
+  function restOne(o = {}) {
     const p = player();
     const region = regionNow();
     if (!p || !region || !A.Time) return null;
     if (restLocked()) {
       return { kind: 'locked', text: 'Ya descansaste. Para volver a descansar tenés que moverte: explorá, peleá o viajá. Para recuperarte del todo, la posada del pueblo.', chips: [] };
     }
-    const kind = restKind(region);
+    const kind = o.night != null ? (!o.night ? 'nap' : region.type === 'safe' ? 'town' : 'wild') : restKind(region);
     const cfg = REST[kind];
     const hungry = A.Survival ? A.Survival.getStatus() : null;
     const penalty = hungry && hungry.penalties && hungry.penalties.restPenalty ? (hungry.id === 'starving' ? 0.2 : 0.5) : 1;
@@ -774,8 +825,10 @@
 
     if (kind === 'nap') {
       const chips = heal(gain).concat(eat());
-      const toNext = A.Time.PHASE_DURATION - ((w.timeProgress || 0) % A.Time.PHASE_DURATION);
-      A.Time.advance(toNext, 'nap');
+      if (!o.noTime) {
+        const toNext = A.Time.PHASE_DURATION - ((w.timeProgress || 0) % A.Time.PHASE_DURATION);
+        A.Time.advance(toNext, 'nap');
+      }
       w.restLock = true;
       const got = chips.filter((c) => c.kind !== 'food');
       const text = `Descansaste un rato${region.type === 'safe' ? '' : ' a la sombra'}. ${got.length ? got.map(chipText).join(', ') + '.' : 'No te sirvió de mucho.'}${capNote(chips)}`;
@@ -786,7 +839,7 @@
 
     // Noche
     const enemiesHere = A.Data.enemiesInRegion(region.id).length > 0;
-    if (kind === 'wild' && enemiesHere && Math.random() < REST.ambush) {
+    if (kind === 'wild' && enemiesHere && !o.noAmbush && Math.random() < REST.ambush) {
       // Dormís un poco y algo se acerca
       heal(gain / 2);
       eat();
@@ -807,7 +860,7 @@
       if (p.pet.health > before) chips.push({ kind: 'pet', value: p.pet.health - before });
     }
     const food = eat();
-    A.Time.passTo('morning');
+    if (!o.noTime) A.Time.passTo('morning');
     w.restLock = true;
     const where = kind === 'town' ? 'en un rincón tranquilo del pueblo' : 'al raso, con un ojo abierto,';
     const got = chips.filter((c) => c.kind !== 'pet');
@@ -819,9 +872,9 @@
 
   // Moverse destraba el descanso: pelear, viajar o pagar la posada
   if (A.Bus) {
-    A.Bus.on('combat:ended', clearRestLock);
-    A.Bus.on('region:changed', clearRestLock);
-    A.Bus.on('rest:done', clearRestLock);
+    A.Bus.on('combat:ended', clearRestLock, { sys: true });
+    A.Bus.on('region:changed', clearRestLock, { sys: true });
+    A.Bus.on('rest:done', clearRestLock, { sys: true });
   }
 
   A.Rewards = { apply: applyOutcome, chipText, gainXp, coinUnit, xpUnit };

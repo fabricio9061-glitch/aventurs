@@ -1076,6 +1076,12 @@
     const el = elemOf(t);
     const g = (el && el.g) || '#a8f0ff';
 
+    // v3.0: objetos de misión de la historia
+    if (/^[ií]dolo/.test(t)) return { shape: 'urn', p: { b: '#b8562a', c: '#f09a58', g: '#ff5a3a' } };
+    if (/^bit[aá]cora/.test(t)) return { shape: 'book', p: { b: '#4a2a1a', c: '#d8c8a0', a: '#8a6a3a', g: '#ff7020' } };
+    if (/^tomo de antorcha/.test(t)) return { shape: 'book', p: { b: '#3a2a4a', c: '#e0d4b0', a: '#c89a30', g: '#ff9a30' } };
+    if (/^sello de/.test(t)) return { shape: 'oldCoin', p: { b: '#5a5a62', c: '#a8a8b0' } };
+
     // monedas y llaves
     if (sub === 'coin' || /^moneda de/.test(t)) {
       const col = /oro/.test(t) ? ['#e0b030', '#fff0a0'] : /plata/.test(t) ? ['#c0c8d0', '#f4f8fc'] : ['#c87a3a', '#f0b080'];
@@ -1572,6 +1578,32 @@
       P.poly([[13, 3], [19, 3], [18, 21], [14, 21]], 'y'); P.rect(13.5, 24, 5, 5, 'y2');
     } },
     check: { p: { g: '#3aa83a' }, d: (P) => { P.line([[5, 16], [13, 24], [27, 8]], 2.2, 2.2, 'g'); } },
+    // v3.0: grupo y cuentas
+    party: { p: { a: '#d4a42c', a2: '#9a7420', b: '#5a86b0', b2: '#3a5a80', s: '#f0cfa8', k: '#3a2a1a' }, d: (P) => {
+      P.ell(21.5, 10, 4.6, 4.8, 's'); P.ell(21.5, 24, 8.5, 7, 'b'); P.rect(13, 24, 17, 7, 'b'); P.line([[18, 20], [25, 20]], 0.5, 0.5, 'b2');
+      P.ell(11.5, 12.5, 5.2, 5.4, 's'); P.ell(11.5, 27, 9.5, 7, 'a'); P.rect(2, 27, 19, 5, 'a'); P.line([[7, 23], [16, 23]], 0.5, 0.5, 'a2');
+      P.dot(10, 12, 0.8, 'k'); P.dot(13.4, 12, 0.8, 'k');
+    } },
+    // v3.0: raza al azar
+    dice: { p: { w: '#f6eedb', w2: '#c9b48a', w3: '#a08a60', k: '#2a1c0c', r: '#c83a3a' }, d: (P) => {
+      P.poly([[3, 10], [14, 5], [27, 9], [16, 14]], 'w');
+      P.poly([[3, 10], [16, 14], [16, 29], [3, 24]], 'w2');
+      P.poly([[16, 14], [27, 9], [28, 23], [16, 29]], 'w3');
+      P.ell(15, 9.4, 2.3, 1.2, 'r');
+      P.dot(6.6, 15, 1.3, 'k'); P.dot(12.4, 22.6, 1.3, 'k');
+      P.dot(19.6, 15.6, 1.2, 'k'); P.dot(24.4, 13.4, 1.2, 'k'); P.dot(19.6, 25, 1.2, 'k'); P.dot(24.6, 22.6, 1.2, 'k');
+    } },
+    user: { p: { a: '#d4a42c', a2: '#9a7420', s: '#f0cfa8', k: '#3a2a1a' }, d: (P) => {
+      P.ell(16, 11, 6.2, 6.4, 's'); P.ell(16, 27, 11.5, 8, 'a'); P.rect(4.5, 27, 23, 5, 'a'); P.line([[10, 22], [22, 22]], 0.5, 0.5, 'a2');
+      P.dot(13.8, 10.6, 0.9, 'k'); P.dot(18.2, 10.6, 0.9, 'k');
+    } },
+    logout: { p: { w: '#9a6a3a', k: '#3a2414', a: '#d4a42c' }, d: (P) => {
+      P.rect(4, 3, 13, 26, 'w'); P.rect(6.5, 5.5, 8, 21, 'k'); P.dot(13, 17, 1, 'a');
+      P.line([[15, 16], [27, 16]], 1.7, 1.7, 'a'); P.poly([[22, 9.5], [30, 16], [22, 22.5]], 'a');
+    } },
+    signal: { p: { g: '#4ab04a', c: '#a8f0a0' }, d: (P) => {
+      P.rect(4, 22, 5, 7, 'g'); P.rect(11, 16, 5, 13, 'g'); P.rect(18, 10, 5, 19, 'g'); P.rect(25, 4, 5, 25, 'g'); P.rect(25, 4, 5, 2, 'c');
+    } },
     talk: { p: { w: '#f4efe0', k: '#6a4a2a' }, d: (P) => {
       P.ell(16, 13, 13, 9.5, 'w'); P.poly([[9, 19], [7, 28], [16, 21]], 'w');
       for (const x of [10, 16, 22]) P.dot(x, 13, 1.6, 'k');

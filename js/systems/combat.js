@@ -38,8 +38,15 @@
      miedo, atrapado (no podés huir) y ácido. Criaturas de élite (alfa,
      campeón, mayor) con mejor botín.
 
+   v3.0: en grupo (js/net/party.js) pelean los dos héroes con sus mascotas. Cada
+     acción de un héroe corre "en su contexto" (A.State.withHero): State.player
+     es ese héroe y las frases salen en segunda persona para él (el otro las ve
+     en tercera persona). Los enemigos eligen a quién atacar. Lo que es de cada
+     uno en la pelea (objetivo, Golpe fuerte, pasivas usadas) se guarda aparte.
+     Las criaturas traen más vida (Balance.PARTY) y la experiencia se reparte.
+
    API:
-     start({ enemies | enemyId | regionId, fromTravel, ambush, surprise, opening })
+     start({ enemies | enemyId | regionId, fromTravel, ambush, surprise, opening, openingHid })
      setTarget(instanceId), getTarget(), aliveEnemies()
      playerAttack(), playerSpell(spellId), playerUseItem(itemId)
      playerTame(instanceId), playerFlee(), finish()
@@ -51,6 +58,113 @@
   function State() { return A.State; }
   function B() { return A.Balance; }
   function P() { return A.Passives; }
+
+  // ============================================================
+  // v3.0: héroes de la pelea (uno en solitario, dos en grupo)
+  // ============================================================
+
+  /** Lo que es de cada héroe dentro de la pelea (se intercambia al cambiar de contexto). */
+  const HERO_FIELDS = ['passives', 'itemUsed', 'itemSurvivor', 'powerCd', 'targetInstanceId'];
+
+  function hidOf(h) { return A.State.hidOf(h); }
+  function ctxHid() { return hidOf(State().player); }
+
+  /** Los héroes que siguen en la pelea (los que se desconectaron, no). */
+  function heroesOf(c) {
+    if (!c || !c.party) return State().player ? [State().player] : [];
+    const gone = c.goneHids || [];
+    return (c.heroIds || []).filter((hid) => !gone.includes(hid)).map((hid) => A.State.heroById(hid)).filter(Boolean);
+  }
+  function heroOfEntry(c, cur) {
+    if (!c || !c.party) return State().player;
+    if ((c.goneHids || []).includes(cur.hid)) return null;
+    return A.State.heroById(cur.hid);
+  }
+  /** A quién ataca una criatura: a uno de los héroes en pie (en solitario, a vos). */
+  function pickTargetHero(c) {
+    const up = heroesOf(c).filter((h) => h.hp > 0);
+    if (!up.length) return State().player;
+    return up[Math.floor(Math.random() * up.length)];
+  }
+  /** fn en el contexto de cada héroe en pie (alientos y temblores le llegan a todos). */
+  function forEachHero(fn) {
+    const c = State().combat;
+    if (!c || !c.party) return fn(State().player);
+    for (const h of heroesOf(c)) {
+      if (h.hp <= 0 || c.result) continue;
+      A.State.withHero(h, () => fn(h));
+    }
+    return undefined;
+  }
+
+  /** Lo llama A.State.withHero: guarda lo de un héroe y pone lo del otro. */
+  function swapHero(from, to) {
+    const c = State().combat;
+    if (!c || !c.party || !from || !to || from === to) return;
+    const fh = hidOf(from);
+    const th = hidOf(to);
+    if (fh === th) return;
+    if (!c.heroCtx) c.heroCtx = {};
+    const save = c.heroCtx[fh] || (c.heroCtx[fh] = {});
+    for (const k of HERO_FIELDS) save[k] = c[k];
+    const load = c.heroCtx[th] || {};
+    for (const k of HERO_FIELDS) {
+      if (load[k] === undefined) delete c[k];
+      else c[k] = load[k];
+    }
+  }
+
+  /** v3.0: un héroe se desconectó en plena pelea: deja de actuar y de recibir golpes. */
+  function dropHero(hid) {
+    const c = State().combat;
+    if (!c || !c.party || c.result || (c.goneHids || []).includes(hid)) return;
+    const h = A.State.heroById(hid);
+    c.goneHids = (c.goneHids || []).concat([hid]);
+    const name = h ? h.name : 'Tu compañero';
+    addLog(c, 'system', { text: `${name} se desconectó.`, fx: { kind: 'note' }, say: { text: `${name} se fue de la pelea.`, tone: 'neutral' } });
+    const cur = c.initiative[c.currentActorIdx];
+    if (cur && cur.hid === hid) { nextActor(); return; }
+    checkEnd();
+  }
+
+  /**
+   * v3.0: contra un grupo, las criaturas son más: se suma una parte del grupo
+   * (copias de las comunes, nunca de jefes ni élites), y todas traen un poco
+   * más de vida y de daño (Balance.PARTY). Un jefe solo, en cambio, aguanta
+   * y pega bastante más. Medido con el simulador: dos héroes juntos pierden
+   * más o menos la misma vida que uno solo.
+   */
+  function scaleForParty(instances, n) {
+    const cfg = B().PARTY || {};
+    if (n <= 1) return;
+    const commons = instances.filter((e) => !e.elite && e.category !== 'boss' && !e.summoned);
+    const max = cfg.maxEnemies || 5;
+    if (commons.length && cfg.extra > 0) {
+      const add = Math.max(1, Math.round(instances.length * cfg.extra));
+      for (let i = 0; i < add && instances.length < max; i++) {
+        const base = commons[Math.floor(Math.random() * commons.length)];
+        const data = A.Data.getById('enemies', base.id);
+        if (!data || !A.Encounter || !A.Encounter.spawnInstance) break;
+        const inst = A.Encounter.spawnInstance(data);
+        // si el original ya venía herido (ataque por sorpresa), la copia también
+        if (base.maxHp && base.hp < base.maxHp) inst.hp = Math.max(1, Math.round(inst.maxHp * (base.hp / base.maxHp)));
+        if (Array.isArray(base.effects)) inst.effects = base.effects.map((ef) => ({ ...ef }));
+        normalizeInstance(inst);
+        instances.push(inst);
+      }
+    }
+    const lone = !commons.length; // jefe o élite solos (o con su escolta especial)
+    const hpMult = lone ? (cfg.bossHp || 1.8) : (cfg.hp || 1.15);
+    const dmgMult = lone ? (cfg.bossDmg || 1.3) : (cfg.dmg || 1);
+    for (const inst of instances) {
+      if (inst._partyScaled) continue;
+      inst._partyScaled = true;
+      const ratio = inst.maxHp ? inst.hp / inst.maxHp : 1;
+      inst.maxHp = Math.max(1, Math.round((inst.maxHp || inst.hp) * hpMult));
+      inst.hp = Math.max(1, Math.round(inst.maxHp * ratio));
+      if (dmgMult !== 1) inst.dmgMult = (inst.dmgMult || 1) * dmgMult;
+    }
+  }
 
   /**
    * v1.9.2: programa una acción del combate solo si cuando llegue el momento
@@ -134,17 +248,27 @@
     assignLabels(instances);
 
     const p = State().player;
-    p.effects = [];
-    if (p.pet) {
-      p.pet.effects = [];
-      // v2.5: las habilidades de la mascota arrancan listas en cada pelea
-      p.pet._cds = {}; p.pet._used = {}; p.pet._uses = {}; p.pet._turns = 0; p.pet._regenUsed = 0;
+    // v3.0: en grupo pelean todos los héroes que están juntos (el propio primero)
+    const group = A.Party && A.Party.combatHeroes ? A.Party.combatHeroes() : null;
+    const party = !!(group && group.length > 1);
+    const heroes = party ? group : [p];
+    for (const h of heroes) {
+      h.effects = [];
+      if (h.pet) {
+        h.pet.effects = [];
+        // v2.5: las habilidades de la mascota arrancan listas en cada pelea
+        h.pet._cds = {}; h.pet._used = {}; h.pet._uses = {}; h.pet._turns = 0; h.pet._regenUsed = 0;
+      }
     }
+    if (party) { scaleForParty(instances, heroes.length); assignLabels(instances); }
 
     const initiative = [];
-    initiative.push({ kind: 'player', id: 'player', name: p.name, speed: effectivePlayerSpeed(p), tieRoll: 0 });
-    if (p.pet && p.pet.health > 0) {
-      initiative.push({ kind: 'pet', id: 'pet', name: p.pet.name, speed: p.pet.speed || 10, tieRoll: 0 });
+    for (const h of heroes) {
+      const hid = party ? hidOf(h) : undefined;
+      initiative.push({ kind: 'player', id: party ? `player:${hid}` : 'player', hid, name: h.name, speed: effectivePlayerSpeed(h), tieRoll: 0 });
+      if (h.pet && h.pet.health > 0) {
+        initiative.push({ kind: 'pet', id: party ? `pet:${hid}` : 'pet', hid, name: h.pet.name, speed: h.pet.speed || 10, tieRoll: 0 });
+      }
     }
     for (const inst of instances) {
       initiative.push({ kind: 'enemy', id: inst.instanceId, name: inst.displayName, speed: inst.speed || 10, tieRoll: 0 });
@@ -164,6 +288,7 @@
     initiative.sort((a, b) => (b.speed - a.speed) || (b.tieRoll - a.tieRoll));
 
     const combat = {
+      id: `cb${Date.now().toString(36)}${Math.floor(Math.random() * 1e6).toString(36)}`,
       enemies: instances,
       targetInstanceId: instances[0].instanceId,
       round: 1,
@@ -176,9 +301,15 @@
       ambush: !!opts.ambush && !opts.surprise,
       surprise: !!opts.surprise,
     };
+    if (party) {
+      combat.party = true;
+      combat.heroIds = heroes.map(hidOf);
+      combat.heroCtx = {};
+    }
 
     // v2.4: Amuleto de la iniciativa: actuás primero (menos si te emboscan)
-    const goFirst = !combat.ambush && A.Accessories && A.Accessories.has(p, 'first') && combat.initiative[0] && combat.initiative[0].kind !== 'player';
+    const firsts = A.Accessories ? initiative.filter((e) => e.kind === 'player' && A.Accessories.has(party ? A.State.heroById(e.hid) : p, 'first')) : [];
+    const goFirst = !combat.ambush && firsts.length > 0 && combat.initiative[0] && !firsts.includes(combat.initiative[0]);
     if (combat.ambush) {
       const firstEnemyIdx = initiative.findIndex((e) => e.kind === 'enemy');
       if (firstEnemyIdx > 0) combat.initiative = initiative.slice(firstEnemyIdx).concat(initiative.slice(0, firstEnemyIdx));
@@ -188,21 +319,42 @@
       const theirs = initiative.filter((e) => e.kind === 'enemy');
       combat.initiative = mine.concat(theirs);
     } else if (goFirst) {
-      combat.initiative = initiative.filter((e) => e.kind === 'player').concat(initiative.filter((e) => e.kind !== 'player'));
+      combat.initiative = firsts.concat(initiative.filter((e) => !firsts.includes(e)));
     }
     combat.turn = currentTurnKind(combat);
     State().combat = combat;
 
     addLog(combat, 'system', { text: `Comienza el combate contra ${A.Encounter.describeGroup(instances)}.`, fx: { kind: 'start', group: A.Encounter.describeGroup(instances), ambush: combat.ambush } });
-    if (combat.ambush) addLog(combat, 'system', { text: 'Te emboscaron. Los enemigos atacan primero.' });
-    if (combat.surprise) addLog(combat, 'system', { text: 'Los agarraste desprevenidos. Actuás primero.' });
-    if (goFirst && !combat.surprise) addLog(combat, 'system', { text: 'Amuleto de la iniciativa: actuás primero.', fx: { kind: 'buff', target: 'player', label: 'Primero', icon: 'boot' }, say: { text: 'Tu amuleto zumba: te movés antes que nadie.', tone: 'good' } });
+    if (combat.ambush) addLog(combat, 'system', { text: party ? 'Los emboscaron. Los enemigos atacan primero.' : 'Te emboscaron. Los enemigos atacan primero.' });
+    if (combat.surprise) addLog(combat, 'system', { text: party ? 'Los agarraron desprevenidos. Actúan primero.' : 'Los agarraste desprevenidos. Actuás primero.' });
+    if (goFirst && !combat.surprise) {
+      for (const e of firsts) {
+        A.State.withHero(party ? A.State.heroById(e.hid) : p, () => addLog(combat, 'system', { text: 'Amuleto de la iniciativa: actuás primero.', fx: { kind: 'buff', target: 'player', label: 'Primero', icon: 'boot' }, say: { text: 'Tu amuleto zumba: te movés antes que nadie.', tone: 'good' } }));
+      }
+    }
     addLog(combat, 'system', { text: `Orden por velocidad: ${combat.initiative.map((i) => `${i.name} (vel ${i.speed})`).join(' → ')}` });
     for (const tg of tieGroups) {
       addLog(combat, 'system', { text: `Empate de velocidad ${tg.speed}, desempate con D20: ${tg.members.map((m) => `${m.name}: ${m.tieRoll}`).join(', ')}` });
     }
     // v2.5: lo que pasó al explorar antes de la pelea (te picó la araña, los heriste por sorpresa...)
-    applyOpening(combat, opts.opening);
+    // v3.0: en grupo le pasa al que eligió la opción
+    const opener = party && opts.openingHid ? A.State.heroById(opts.openingHid) : null;
+    A.State.withHero(opener || p, () => applyOpening(combat, opts.opening));
+    // v3.0: Polvo de hada: una criatura (no jefe) se duerme y pierde su primer turno
+    for (const h of heroes) {
+      const turns = P() && P().fairyDust ? P().fairyDust(h) : 0;
+      if (!turns) continue;
+      const pool = instances.filter((e) => e.hp > 0 && e.category !== 'boss' && !(e.effects || []).some((ef) => ef.type === 'stun'));
+      if (!pool.length) continue;
+      const e = pool[Math.floor(Math.random() * pool.length)];
+      A.State.withHero(h, () => {
+        e.effects = e.effects || [];
+        e.effects.push({ type: 'stun', turns, value: 1, source: 'polvo_hada' });
+        const n = A.Skills ? A.Skills.noun(e) : e.displayName;
+        const fem = A.Narrator && A.Narrator.isFem ? A.Narrator.isFem(e.id) : false;
+        addLog(combat, 'system', { text: `Polvo de hada: ${e.displayName} se duerme.`, fx: { kind: 'status', target: fxKey(e), effect: 'stun', passive: 'polvo_hada' }, say: { text: `Soplás tu polvo de hada: ${n} se queda ${fem ? 'dormida' : 'dormido'} y pierde su primer turno.`, tone: 'good' } });
+      });
+    }
     addTurnHeader(combat, 1);
 
     A.Bus.emit('combat:started', { count: instances.length });
@@ -254,7 +406,9 @@
   function isPlayerTurn(combat) {
     if (!combat || !combat.initiative) return false;
     const cur = combat.initiative[combat.currentActorIdx];
-    return !!cur && cur.kind === 'player';
+    if (!cur || cur.kind !== 'player') return false;
+    // v3.0: en grupo, solo si es el turno del héroe en contexto
+    return !combat.party || cur.hid === ctxHid();
   }
 
   // ============================================================
@@ -612,7 +766,8 @@
     const c = State().combat;
     if (!c || c.result) return true;
     if (aliveEnemies().length === 0) { onVictory(); A.Bus.emit('combat:ended', { result: 'victory' }); return true; }
-    if (State().player.hp <= 0) { onDefeat(); A.Bus.emit('combat:ended', { result: 'defeat' }); return true; }
+    // v3.0: en grupo se pierde cuando caen todos
+    if (heroesOf(c).every((h) => h.hp <= 0)) { onDefeat(); A.Bus.emit('combat:ended', { result: 'defeat' }); return true; }
     return false;
   }
 
@@ -634,29 +789,34 @@
 
     // Saltear caídos
     let entity = null;
+    let owner = null; // v3.0: el héroe del turno (o el dueño de la mascota)
     if (cur.kind === 'enemy') {
       entity = c.enemies.find((e) => e.instanceId === cur.id);
       if (!entity || entity.hp <= 0) { c.currentActorIdx += 1; return advanceIfNotPlayer(); }
     } else if (cur.kind === 'pet') {
-      entity = State().player.pet;
+      owner = heroOfEntry(c, cur);
+      entity = owner ? owner.pet : null;
       if (!entity || entity.health <= 0) { c.currentActorIdx += 1; return advanceIfNotPlayer(); }
     } else {
-      entity = State().player;
-      if (entity.hp <= 0) { c.currentActorIdx += 1; return advanceIfNotPlayer(); }
+      owner = heroOfEntry(c, cur);
+      entity = owner;
+      if (!entity || entity.hp <= 0) { c.currentActorIdx += 1; return advanceIfNotPlayer(); }
     }
 
     // Efectos al inicio del turno (una sola vez por turno)
     const turnKey = `${c.round}:${c.currentActorIdx}`;
     if (c.turnStartedFor !== turnKey) {
       c.turnStartedFor = turnKey;
-      if (cur.kind === 'player') {
-        // v2.1.1: el golpe fuerte se recarga un turno por vez
-        if (c.powerCd > 0) c.powerCd -= 1;
-        playerTurnPassives(c, entity);
-      } else {
-        creatureTurnPassives(c, cur.kind, entity); // v2.5: Regeneración
-      }
-      const st = startOfTurn(c, cur.kind, entity);
+      const st = A.State.withHero(owner || State().player, () => {
+        if (cur.kind === 'player') {
+          // v2.1.1: el golpe fuerte se recarga un turno por vez
+          if (c.powerCd > 0) c.powerCd -= 1;
+          playerTurnPassives(c, entity);
+        } else {
+          creatureTurnPassives(c, cur.kind, entity); // v2.5: Regeneración
+        }
+        return startOfTurn(c, cur.kind, entity);
+      });
       if (checkEnd()) return;
       if (st.skip) {
         A.Bus.emit('combat:action', { actor: cur.kind });
@@ -667,12 +827,12 @@
 
     c.turn = cur.kind;
     State().persist();
-    A.Bus.emit('combat:turn', { actor: cur.kind, round: c.round });
+    A.Bus.emit('combat:turn', { actor: cur.kind, round: c.round, hid: cur.hid });
 
     // Pausas pensadas para que se vea el dado y el golpe de cada uno
-    if (cur.kind === 'enemy') later(c, () => executeEnemyAction(entity), ENEMY_DELAY);
-    else if (cur.kind === 'pet') later(c, () => executePetAction(), PET_DELAY);
-    // Jugador: espera input
+    if (cur.kind === 'enemy') later(c, () => A.State.withHero(pickTargetHero(c), () => executeEnemyAction(entity)), ENEMY_DELAY);
+    else if (cur.kind === 'pet') later(c, () => A.State.withHero(owner || State().player, () => executePetAction()), PET_DELAY);
+    // Jugador: espera input (en grupo, el del compañero llega por la red)
   }
 
   /** Pasivas que actúan al empezar tu turno (en silencio: solo el número flotante). */
@@ -854,8 +1014,11 @@
     if (r.lucky) addLog(c, 'system', { text: 'Suerte: sacaste un 1 y el dado se vuelve a tirar.', fx: { kind: 'passive', passive: 'suerte' } });
     // v2.5: Escurridizo (el primero) y Etéreo (1 de cada 4) hacen fallar un golpe que pegaba.
     // El golpe fuerte del guerrero no se esquiva con esos trucos (ni lo frena un caparazón).
-    const dodge = A.Skills && !pw ? A.Skills.dodgeHit(target, r) : null;
+    // v3.0: Embestida (minotauro): el primer ataque de la pelea no falla y pega más fuerte
+    const charge = !opts.counter && P() && P().chargeReady ? P().chargeReady(c, p) : false;
+    const dodge = A.Skills && !pw && !charge ? A.Skills.dodgeHit(target, r) : null;
     if (dodge) { r.hit = false; r.crit = false; }
+    if (charge && !r.hit) { r.hit = true; r.fumble = false; }
 
     if (!r.hit) {
       const miss = {
@@ -874,6 +1037,7 @@
     const dmgRoll = rollPlayerDamage(p);
     let rawDmg = dmgRoll.total;
     if (pw) rawDmg *= pw.mult;
+    if (charge) rawDmg = Math.round(rawDmg * P().chargeMult(!!pw)); // con Golpe fuerte, un poco menos
     if (r.crit) rawDmg = Math.round(rawDmg * (P() ? P().critMult(p) : 2));
     let finalDmg = mitigate(rawDmg, es.armor);
     // v2.5: Caparazón / Gelatinoso: el primer golpe hace la mitad (el golpe fuerte lo rompe)
@@ -883,6 +1047,7 @@
     let passive = null;
     if (r.crit && P() && P().has(p, 'golpe_gigante')) passive = 'golpe_gigante';
     else if (r.crit && r.roll < 20 && P() && P().has(p, 'ojo_certero')) passive = 'ojo_certero';
+    else if (charge) passive = 'embestida';
     addLog(c, 'player', {
       passive,
       power: !!pw,
@@ -914,6 +1079,13 @@
       const before = p.hp;
       A.State.healHp(Math.max(1, Math.round(finalDmg * ls)));
       if (p.hp > before) addLog(c, 'system', { text: `Robo de vida: +${p.hp - before}.`, fx: { kind: 'heal', actor: 'player', target: 'player', amount: p.hp - before }, say: { text: `Tu amuleto bebe de la herida: recuperás ${p.hp - before} de vida.`, tone: 'good' } });
+    }
+    // v3.0: Colmillos (vampiro): parte del daño vuelve como vida
+    const bite = P() && P().lifestealFrom ? P().lifestealFrom(p, finalDmg) : 0;
+    if (bite > 0 && p.hp < p.maxHp) {
+      const before = p.hp;
+      A.State.healHp(bite);
+      if (p.hp > before) addLog(c, 'system', { text: `Colmillos: +${p.hp - before} de vida.`, fx: { kind: 'heal', actor: 'player', target: 'player', amount: p.hp - before, passive: 'colmillos' }, say: { text: `Probás su sangre: recuperás ${p.hp - before} de vida.`, tone: 'good' } });
     }
     if (target.hp > 0) maybeInflictStatusOnHit(st.weapon, target, c);
     // Sangre de dragón: a veces el golpe prende fuego
@@ -1152,7 +1324,12 @@
       addLog(c, 'system', { text: `${fastestEnemy.displayName} aprovecha tu fallo y te ataca.` });
       enemyStrike(c, fastestEnemy, { forcePlayer: true, free: true });
     }
-    if (p.hp <= 0) { onDefeat(); A.Bus.emit('combat:ended', { result: 'defeat' }); return; }
+    if (p.hp <= 0) {
+      // v3.0: en grupo, si queda alguien en pie la pelea sigue
+      if (checkEnd()) return;
+      afterPlayerAction();
+      return;
+    }
     afterPlayerAction();
   }
 
@@ -1559,6 +1736,8 @@
     playerStats: () => playerStats(),
     alive: () => aliveEnemies(),
     fxKey,
+    // v3.0: alientos y temblores le llegan a todos los héroes del grupo
+    forEachHero: (fn) => forEachHero(fn),
   };
 
   // ============================================================
@@ -1570,10 +1749,14 @@
     const p = A.State.player;
     const acc = (k) => (A.Accessories ? A.Accessories.bonus(p, k) : 0);
     const EL = B().ELITE || { xp: 1, coin: 1, drop: 1 };
+    // v3.0: en grupo cada uno se lleva una parte (las criaturas tenían más vida)
+    const share = c && c.party && (c.heroIds || []).length > 1 ? ((B().PARTY && B().PARTY.share) || 0.85) : 1;
     // v2.5: la élite da más; lo invocado, la mitad de XP y nada de botín
     const xpMult = (e) => (e.elite ? EL.xp : 1) * (e.summoned ? 0.5 : 1);
     let totalXp = 0;
-    for (const e of defeated) totalXp += Math.round(A.Progression.xpForEnemy(e) * xpMult(e));
+    // v3.0: la experiencia depende también de la diferencia de nivel (ver Progression.levelGapMult)
+    for (const e of defeated) totalXp += Math.round(A.Progression.xpForEnemy(e) * xpMult(e) * (A.Progression.levelGapMult ? A.Progression.levelGapMult(p.level, e.tier) : 1));
+    totalXp = Math.round(totalXp * share);
     // v2.4: Amuleto de sabiduría
     if (acc('xp') > 0) totalXp = Math.round(totalXp * (1 + acc('xp')));
     if (totalXp > 0) {
@@ -1605,17 +1788,17 @@
     for (const inst of defeated) {
       const enemyData = A.Data.getById('enemies', inst.id);
       if (!enemyData) continue;
-      // v2.5: lo que te robó, vuelve
-      if (inst.stolen > 0) {
+      // v2.5: lo que te robó, vuelve (v3.0: al que se lo robó)
+      if (inst.stolen > 0 && (!inst.stolenFrom || !c || !c.party || inst.stolenFrom === hidOf(p))) {
         if (A.Currency && A.Currency.add) A.Currency.add(inst.stolen);
         addLog(c, 'loot', { text: `Recuperás lo que te robó ${inst.displayName}.`, fx: { kind: 'note' }, say: { text: `Recuperás lo que te robó ${A.Skills ? A.Skills.noun(inst) : inst.displayName}: ${A.Narrator ? A.Narrator.coinsInWords(inst.stolen) : inst.stolen}.`, tone: 'good' } });
         inst.stolen = 0;
       }
       if (inst.summoned) continue; // lo invocado no deja monedas ni botín
       const eliteMult = inst.elite ? EL.coin : 1;
-      const eliteDrop = inst.elite ? EL.drop : 1;
+      const eliteDrop = (inst.elite ? EL.drop : 1) * share;
       // v2.0: cada enemigo suelta monedas SIEMPRE, según su peligro
-      const sure = B().Economy && B().Economy.coinsFor ? Math.round(B().Economy.coinsFor(enemyData) * goldMult * eliteMult) : 0;
+      const sure = B().Economy && B().Economy.coinsFor ? Math.round(B().Economy.coinsFor(enemyData) * goldMult * eliteMult * share) : 0;
       if (sure > 0) {
         totalCoins += sure;
         if (A.Currency && A.Currency.add) A.Currency.add(sure); else A.State.addItem('coin_copper', sure);
@@ -1643,6 +1826,18 @@
           addLog(c, 'loot', { text: 'Hubo botín pero no entró en la mochila.' });
         }
       }
+      // v3.0: objetos de misión que suelta esta criatura solo mientras la misión los pide
+      for (const itemId of (A.Quests && A.Quests.questDropsFor ? A.Quests.questDropsFor(inst.id) : [])) {
+        if (Math.random() >= QUEST_DROP_CHANCE) continue;
+        const item = A.Inventory.resolveData ? A.Inventory.resolveData(itemId) : A.Data.getById('items', itemId);
+        if (!item) continue;
+        if (A.State.addItem(itemId, 1)) {
+          if (!aggregated[itemId]) aggregated[itemId] = { item, qty: 0 };
+          aggregated[itemId].qty += 1;
+        } else {
+          addLog(c, 'loot', { text: 'Hubo botín pero no entró en la mochila.' });
+        }
+      }
     }
     if (totalCoins > 0) addLog(c, 'loot', { text: `Recogiste ${A.Narrator ? A.Narrator.coinsInWords(totalCoins) : A.Currency.formatPrice(totalCoins)}.`, fx: { kind: 'reward', coins: totalCoins } });
     const dropList = Object.values(aggregated);
@@ -1660,35 +1855,46 @@
     if (!c || c.result) return;
     c.result = 'victory';
     if (A.Time) A.Time.advance(1, 'combat');
-    if (A.Survival) A.Survival.applyTurnTick('combat');
-    if (A.Tame && A.Tame.consumePetFood) A.Tame.consumePetFood(1);
 
-    const totalXp = grantRewards(c, c.enemies);
+    let firstXp = 0;
+    // v3.0: cada héroe recibe lo suyo en su contexto (sus misiones, su diario)
+    for (const pw of heroesOf(c)) {
+      A.State.withHero(pw, () => {
+        if (c.party && pw.hp <= 0) {
+          pw.hp = 1;
+          addLog(c, 'system', { text: `${pw.name} se levanta con 1 de vida.`, fx: { kind: 'heal', actor: 'player', target: 'player', amount: 1 }, say: { text: 'Te levantás del suelo con 1 de vida.', tone: 'neutral' } });
+        }
+        if (A.Survival) A.Survival.applyTurnTick('combat');
+        if (A.Tame && A.Tame.consumePetFood) A.Tame.consumePetFood(1);
 
-    // v2.1: al ganar, los magos recuperan parte del maná
-    const pw = State().player;
-    const winShare = B().manaRegenOf ? B().manaRegenOf(pw).win : 0;
-    if (winShare > 0 && pw.hasMagic && pw.mana < pw.maxMana) {
-      const before = pw.mana;
-      A.State.setMana(Math.min(pw.maxMana, pw.mana + Math.max(1, Math.round(pw.maxMana * winShare))));
-      if (pw.mana > before) addLog(c, 'system', { text: `Recuperás ${pw.mana - before} de maná.`, fx: { kind: 'reward', mana: pw.mana - before } });
-    }
-    // v2.1.1: los guerreros tienen aguante: al ganar recuperan parte de la vida
-    const hpShare = B().hpRegenOf ? B().hpRegenOf(pw).win : 0;
-    if (hpShare > 0 && pw.hp > 0 && pw.hp < pw.maxHp) {
-      const before = pw.hp;
-      A.State.healHp(Math.max(1, Math.round(pw.maxHp * hpShare)));
-      if (pw.hp > before) addLog(c, 'system', { text: `Recuperás ${pw.hp - before} de vida.`, fx: { kind: 'reward', hp: pw.hp - before } });
-    }
+        const totalXp = grantRewards(c, c.enemies);
+        if (pw === State().me()) firstXp = totalXp;
 
-    if (A.State.world && A.State.world.regionId) {
-      A.State.incrementRegionEncounters(A.State.world.regionId);
-      addLog(c, 'system', { text: `Encuentros completados aquí: ${A.State.encountersInRegion(A.State.world.regionId)}.` });
+        // v2.1: al ganar, los magos recuperan parte del maná
+        const winShare = B().manaRegenOf ? B().manaRegenOf(pw).win : 0;
+        if (winShare > 0 && pw.hasMagic && pw.mana < pw.maxMana) {
+          const before = pw.mana;
+          A.State.setMana(Math.min(pw.maxMana, pw.mana + Math.max(1, Math.round(pw.maxMana * winShare))));
+          if (pw.mana > before) addLog(c, 'system', { text: `Recuperás ${pw.mana - before} de maná.`, fx: { kind: 'reward', mana: pw.mana - before } });
+        }
+        // v2.1.1: los guerreros tienen aguante: al ganar recuperan parte de la vida
+        const hpShare = B().hpRegenOf ? B().hpRegenOf(pw).win : 0;
+        if (hpShare > 0 && pw.hp > 0 && pw.hp < pw.maxHp) {
+          const before = pw.hp;
+          A.State.healHp(Math.max(1, Math.round(pw.maxHp * hpShare)));
+          if (pw.hp > before) addLog(c, 'system', { text: `Recuperás ${pw.hp - before} de vida.`, fx: { kind: 'reward', hp: pw.hp - before } });
+        }
+
+        if (A.State.world && A.State.world.regionId) {
+          A.State.incrementRegionEncounters(A.State.world.regionId);
+          if (!c.party) addLog(c, 'system', { text: `Encuentros completados aquí: ${A.State.encountersInRegion(A.State.world.regionId)}.` });
+        }
+        A.State.addChronicle({ type: 'combat', text: `Venciste a ${A.Narrator && A.Narrator.groupPhrase ? A.Narrator.groupPhrase(c.enemies).text : A.Encounter.describeGroup(c.enemies)} (+${totalXp} XP).` });
+        // v2.0: para las misiones ("mata 3 esqueletos")
+        A.Bus.emit('combat:victory', { enemyIds: c.enemies.map((e) => e.id), regionId: A.State.world ? A.State.world.regionId : null });
+      });
     }
-    A.State.addChronicle({ type: 'combat', text: `Venciste a ${A.Narrator && A.Narrator.groupPhrase ? A.Narrator.groupPhrase(c.enemies).text : A.Encounter.describeGroup(c.enemies)} (+${totalXp} XP).` });
-    // v2.0: para las misiones ("mata 3 esqueletos")
-    A.Bus.emit('combat:victory', { enemyIds: c.enemies.map((e) => e.id), regionId: A.State.world ? A.State.world.regionId : null });
-    A.Bus.emit('combat:ended', { result: 'victory', xp: totalXp });
+    A.Bus.emit('combat:ended', { result: 'victory', xp: firstXp });
     State().persist();
   }
 
@@ -1699,10 +1905,18 @@
     c.result = 'tamed';
     if (A.Time) A.Time.advance(1, 'combat');
     const defeated = c.enemies.filter((e) => e.hp <= 0 && e.instanceId !== instanceId);
-    const xp = grantRewards(c, defeated);
+    const tamer = State().player;
     const tamed = c.enemies.find((e) => e.instanceId === instanceId);
     addLog(c, 'system', { text: `${tamed ? tamed.name : 'La criatura'} ahora te acompaña.`, fx: tamed ? { kind: 'tamed', target: fxKey(tamed) } : undefined });
-    if (xp > 0) A.State.addChronicle({ type: 'combat', text: `Combate terminado al domar (+${xp} XP).` });
+    // v3.0: lo de los caídos se reparte entre todos
+    let xp = 0;
+    for (const h of heroesOf(c)) {
+      A.State.withHero(h, () => {
+        const got = grantRewards(c, defeated);
+        if (h === tamer) xp = got;
+        if (got > 0) A.State.addChronicle({ type: 'combat', text: `Combate terminado al domar (+${got} XP).` });
+      });
+    }
     A.Bus.emit('combat:ended', { result: 'tamed', xp });
     State().persist();
   }
@@ -1711,21 +1925,27 @@
     const c = State().combat;
     if (!c || c.result) return;
     c.result = 'defeat';
-    addLog(c, 'system', { text: 'Caíste en combate.', fx: { kind: 'defeat' } });
-    const p = A.State.player;
-    p.hp = 1;
-    p.mana = Math.floor(p.maxMana / 2);
-    p.effects = [];
+    addLog(c, 'system', { text: c.party ? 'Cayeron en combate.' : 'Caíste en combate.', fx: { kind: 'defeat' } });
+    // v3.0: en grupo despiertan todos en el pueblo
+    for (const p of heroesOf(c)) {
+      A.State.withHero(p, () => {
+        p.hp = 1;
+        p.mana = Math.floor(p.maxMana / 2);
+        p.effects = [];
+        A.State.addChronicle({ type: 'combat', text: `Caíste contra ${A.Encounter.describeGroup(c.enemies)}. Despertás de vuelta en el pueblo.` });
+      });
+    }
     A.State.world.regionId = 'pueblo_inicial';
     A.State.traveling = null;
-    A.State.addChronicle({ type: 'combat', text: `Caíste contra ${A.Encounter.describeGroup(c.enemies)}. Despertás de vuelta en el pueblo.` });
     A.Bus.emit('combat:ended', { result: 'defeat' });
     State().persist();
   }
 
   function finish() {
-    const p = State().player;
-    if (p) {
+    const c = State().combat;
+    const heroes = c && c.party ? heroesOf(c) : [State().player];
+    for (const p of heroes) {
+      if (!p) continue;
       p.effects = [];
       if (p.pet) p.pet.effects = [];
     }
@@ -1748,6 +1968,18 @@
     } else if (entry.say && entry.say.text && A.Narrator && A.Narrator.contract) {
       entry.say.text = A.Narrator.contract(entry.say.text); // "a el orco" -> "al orco"
     }
+    // v3.0: en grupo, de quién es la frase ("vos" = ese héroe) y a qué tarjeta va cada efecto
+    // (las líneas del grupo entero, como el comienzo de la pelea, no son de nadie)
+    if (c.party && !(entry.fx && entry.fx.kind === 'start')) {
+      const hid = ctxHid();
+      entry.hid = hid;
+      if (entry.fx) {
+        for (const k of ['actor', 'target', 'from']) {
+          if (entry.fx[k] === 'player') entry.fx[k] = `hero:${hid}`;
+          else if (entry.fx[k] === 'pet') entry.fx[k] = `pet:${hid}`;
+        }
+      }
+    }
     // v1.9.1: foto de la vida de todos después de esta acción. La vista la usa
     // para no adelantar el resultado mientras el dado todavía rueda.
     entry._hp = hpSnapshot(c);
@@ -1756,9 +1988,21 @@
   }
 
   function hpSnapshot(c) {
-    const p = State().player;
-    const snap = { player: p.hp, mana: p.mana };
-    if (p.pet) snap.pet = p.pet.health;
+    const snap = {};
+    if (c.party) {
+      // v3.0: la vida de cada héroe y cada mascota del grupo
+      for (const h of heroesOf(c)) {
+        const hid = hidOf(h);
+        snap[`hero:${hid}`] = h.hp;
+        snap[`mana:${hid}`] = h.mana;
+        if (h.pet) snap[`pet:${hid}`] = h.pet.health;
+      }
+    } else {
+      const p = State().player;
+      snap.player = p.hp;
+      snap.mana = p.mana;
+      if (p.pet) snap.pet = p.pet.health;
+    }
     for (const e of c.enemies || []) snap[fxKey(e)] = e.hp;
     return snap;
   }
@@ -1810,5 +2054,10 @@
     enemyStats,
     petStats,
     kit,
+    // v3.0: grupo
+    heroesOf,
+    dropHero,
+    isPlayerTurn,
+    _swapHero: swapHero,
   };
 })(window.Aventurs);

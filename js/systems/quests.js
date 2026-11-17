@@ -1,5 +1,5 @@
 /* ============================================================
-   Aventurs — Misiones (v2.0)
+   Aventurs — Misiones (v3.0)
 
    Guarda el avance en player.quests:
      { active: { [id]: { progress: [n, n, ...], day } }, done: [id, ...] }
@@ -14,6 +14,14 @@
    Las que tienen turnIn hay que entregarlas al que las dio; las otras
    se cobran solas apenas se cumplen. Si la siguiente de la cadena es
    "auto", empieza sola.
+
+   v3.0:
+   - Objetos de misión: un objetivo collect puede decir "from" (qué
+     criaturas lo sueltan). Lo sueltan la mitad de las veces, solo
+     mientras la misión lo pide (ver questDropsFor y combat.js).
+   - Un capítulo de la historia que quedó atrás (porque ya vas por uno
+     posterior, por ejemplo en una partida de antes de la v3.0) no se
+     ofrece más.
    ============================================================ */
 
 (function (A) {
@@ -53,6 +61,26 @@
       if (!q) continue;
       q.objectives.forEach((o, i) => {
         if ((o.type === 'collect' || o.type === 'have') && o.item && !objectiveProgress(q, i).done) out.add(o.item);
+      });
+    }
+    return out;
+  }
+
+  /** v3.0: objetos de misión que suelta esta criatura mientras una misión en curso los pide. */
+  function questDropsFor(enemyId) {
+    const out = [];
+    if (!enemyId) return out;
+    const e = A.Data.getById('enemies', enemyId);
+    // si ya está en su botín, de eso se encarga wantedItems (no se duplica la chance)
+    const own = new Set(((e && e.drops) || []).map((d) => d.itemId));
+    for (const id of Object.keys(state().active)) {
+      const q = get(id);
+      if (!q) continue;
+      q.objectives.forEach((o, i) => {
+        if ((o.type !== 'collect' && o.type !== 'have') || !o.item) return;
+        const from = Array.isArray(o.from) ? o.from : (o.from ? [o.from] : []);
+        if (!from.includes(enemyId) || own.has(o.item) || out.includes(o.item)) return;
+        if (!objectiveProgress(q, i).done) out.push(o.item);
       });
     }
     return out;
@@ -119,9 +147,41 @@
     return q.objectives.every((_, i) => objectiveProgress(q, i).done);
   }
 
+  /** v3.0: aviso corto si el lugar de un objetivo todavía está cerrado ("se abre en el nivel 5"). */
+  function objectiveHint(o) {
+    if (!o || (o.type !== 'visit' && o.type !== 'explore')) return '';
+    const r = A.Data.getById('regions', o.region);
+    const u = r && r.unlockConditions;
+    if (!u) return '';
+    const p = player();
+    const lvl = (p && p.level) || 1;
+    if (u.minLevel && lvl < u.minLevel) return `se abre en el nivel ${u.minLevel}`;
+    const missing = (u.requiredItems || []).filter((id) => countItem(id) < 1);
+    if (missing.length) return `necesitás ${missing.map(itemName).join(' y ')}`;
+    return '';
+  }
+
   // ============================================================
   // Estado de cada misión
   // ============================================================
+
+  /** v3.0: el capítulo quedó atrás si ya terminaste o empezaste uno posterior de la historia. */
+  function passedChapter(q) {
+    if (!q.main || !q.chapter) return false;
+    const st = state();
+    for (const o of list()) {
+      if (!o.main || !((o.chapter || 0) > q.chapter)) continue;
+      if (st.done.includes(o.id) || st.active[o.id]) return true;
+    }
+    return false;
+  }
+
+  /** v3.0: cuántos capítulos tiene la historia. */
+  function mainCount() {
+    let n = 0;
+    for (const q of list()) if (q.main) n = Math.max(n, q.chapter || 0);
+    return n || list().filter((q) => q.main).length;
+  }
 
   /** 'done' | 'ready' (lista para entregar) | 'active' | 'available' | 'locked' | 'hidden' */
   function status(id) {
@@ -129,6 +189,7 @@
     if (!q) return 'hidden';
     if (isDone(id)) return 'done';
     if (isActive(id)) return allObjectivesDone(q) && q.turnIn ? 'ready' : 'active';
+    if (passedChapter(q)) return 'hidden';
     if (q.requires && !isDone(q.requires)) return 'hidden';
     if (q.auto) return 'hidden';
     const lvl = (player() && player().level) || 1;
@@ -171,6 +232,17 @@
     return ids.map(get).filter(Boolean).sort((a, b) => (b.main ? 1 : 0) - (a.main ? 1 : 0));
   }
   function doneList() { return state().done.map(get).filter(Boolean); }
+
+  /** v3.0: si no hay ningún capítulo en curso, el próximo que se puede pedir (o que espera nivel). */
+  function nextMain() {
+    if (activeList().some((q) => q.main)) return null;
+    const mains = list().filter((q) => q.main).sort((a, b) => (a.chapter || 0) - (b.chapter || 0));
+    for (const q of mains) {
+      const st = status(q.id);
+      if (st === 'available' || st === 'locked') return { quest: q, status: st };
+    }
+    return null;
+  }
 
   // ============================================================
   // Acciones
@@ -298,11 +370,13 @@
   function onCreated() { state(); }
 
   if (A.Bus) {
-    A.Bus.on('combat:victory', onVictory);
-    A.Bus.on('explore:done', onExplore);
-    A.Bus.on('region:changed', onRegion);
-    A.Bus.on('inventory:changed', onInventory);
-    A.Bus.on('player:created', onCreated);
+    // v3.0: de sistema: también avanzan las misiones del compañero cuando se juega su parte
+    const SYS = { sys: true };
+    A.Bus.on('combat:victory', onVictory, SYS);
+    A.Bus.on('explore:done', onExplore, SYS);
+    A.Bus.on('region:changed', onRegion, SYS);
+    A.Bus.on('inventory:changed', onInventory, SYS);
+    A.Bus.on('player:created', onCreated, SYS);
   }
 
   A.Quests = {
@@ -317,10 +391,16 @@
     objectiveProgress,
     allObjectivesDone,
     wantedItems,
+    questDropsFor,
+    objectiveHint,
+    mainCount,
+    nextMain,
     accept,
     turnIn,
     talkTo,
     checkAuto,
     npcName,
+    // v3.0: el grupo avisa las llegadas del compañero
+    onRegion,
   };
 })(window.Aventurs);

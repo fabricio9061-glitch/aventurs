@@ -1,9 +1,10 @@
 # Aventurs
 
-RPG narrativo single-player en español latino, jugable en navegador.
+RPG narrativo en español latino, jugable en navegador. Se juega solo o de a dos (v3.0).
 
 **Stack:** HTML/CSS/JavaScript vanilla. Sin frameworks, sin bundlers, sin TypeScript.
-**Persistencia:** localStorage (con export/import JSON desde el menú).
+**Persistencia:** localStorage, una partida por cuenta (con export/import JSON desde el menú).
+**Jugar de a dos:** conexión directa entre navegadores con PeerJS (`js/vendor/peerjs.min.js`), sin servidor propio.
 **Hosting:** GitHub Pages.
 
 ## Estructura
@@ -17,6 +18,7 @@ aventurs/
 │   ├── game.css            Estilos del juego (shell, sidebar, tabs, modales)
 │   ├── theme.css           Tema "Mezcla" (v1.9.0)
 │   ├── v2.css              Pantallas de la v2.0 (escenas, tienda, diario, mapa)
+│   ├── v3.css              Grupo, cuentas y pantalla de creación de la v3.0
 │   └── editor2.css         Editor del mundo (v2.2)
 ├── js/
 │   ├── core/
@@ -26,7 +28,8 @@ aventurs/
 │   │   ├── sprites.js      Dibujos pixel art 32×32 de criaturas y personajes (v1.9.0)
 │   │   ├── item-sprites.js Dibujos pixel art 32×32 de ítems e íconos de interfaz (v1.9.1)
 │   │   ├── data.js         Loader de seeds + cambios del editor (parches por id)
-│   │   ├── state.js        Estado de partida + persistencia
+│   │   ├── accounts.js     Cuentas de esta compu: usuario, contraseña, dueño (v3.0)
+│   │   ├── state.js        Estado de partida + persistencia (una por cuenta; withHero para el grupo)
 │   │   └── validate.js     Chequeos de coherencia (refs, regiones vacías, misiones, escenas)
 │   ├── data/               Seeds: races, regions, enemies, items, weapons,
 │   │                       armors, spells, recipes, npcs, bags,
@@ -40,7 +43,10 @@ aventurs/
 │   │                       Accessories (accesorio puesto), ItemFx (pociones,
 │   │                       comidas y pergaminos, mejoras por turnos) (v2.4),
 │   │                       Skills (pasivas y activas de las criaturas),
-│   │                       Spellbook (quién aprende cada hechizo) (v2.5)
+│   │                       Spellbook (quién aprende cada hechizo) (v2.5),
+│   │                       Persp (lo del compañero, en tercera persona) (v3.0)
+│   ├── net/                link.js (conexión con código) y party.js (el grupo) (v3.0)
+│   ├── vendor/             peerjs.min.js (PeerJS 1.5.5, licencia MIT)
 │   ├── editor/             Editor del mundo (v2.2): ed-core (guardado por parches),
 │   │                       ed-fields (campos), ed-schema (qué se edita de cada cosa),
 │   │                       ed-panels, ed-sim (prueba de combate), ed-map, ed-view
@@ -48,6 +54,7 @@ aventurs/
 │   │                       Chronicles, Combat, Modals
 │   │                       combat-fx.js: dado D20 y animaciones de combate
 │   │                       ui-kit.js, event.js, npc.js, journal.js (v2.0)
+│   │                       party.js (panel del grupo), login.js (cuentas) (v3.0)
 │   └── app.js              Bootstrap
 └── tools/
     └── simulador.js        Simulador de balance (Node, no se carga en el juego)
@@ -217,6 +224,49 @@ Explorar siempre hace pasar algo (`js/systems/explore.js` + `js/data/seed-events
   se cuentan con ×N).
 - En el celular, una franja arriba con vida, maná, comida y dinero.
 - Sin emojis en el juego (desde la v2.2, tampoco en el editor).
+
+## Versión 3.0.0: jugar de a dos, cuentas, 3 razas nuevas y una historia más larga
+
+### Jugar en grupo (`js/net/link.js`, `js/net/party.js`, `js/views/party.js`)
+- Dos jugadores, cada uno en su compu y con su personaje. Uno toca **Grupo → Crear grupo** y le pasa el código de 6 letras al otro, que toca **Grupo → Unirme**.
+- Los navegadores se conectan directo (WebRTC con PeerJS 1.5.5). Para encontrarse usan el servidor gratis de PeerJS: no hace falta servidor propio. Para probar con uno propio: `localStorage['aventurs:peer'] = '{"host":"127.0.0.1","port":9000,"path":"/myapp","secure":false}'`.
+- El que crea el grupo es el anfitrión: su juego resuelve las peleas y las escenas de los dos y le manda al otro lo que pasa. Lo que hace el invitado viaja al anfitrión y se juega con el personaje del invitado (`A.State.withHero`).
+- **Juntos**: viaja el anfitrión y el invitado lo sigue; cualquiera de los dos explora, elige en las escenas y descansa (el descanso es para los dos). **Separarme**: cada uno viaja y juega por su cuenta. **Ir con...**: se vuelven a juntar.
+- Peleas en grupo: hasta 4 aliados (los dos héroes y sus mascotas), cada uno en su turno. Aparecen más criaturas (copias de las comunes) y un poco más fuertes; los jefes tienen más vida. Cada uno gana su experiencia y su botín y avanza sus misiones.
+- El narrador cuenta lo del compañero en tercera persona ("Juan esquiva el golpe") (`js/systems/persp.js`).
+- Si se corta la conexión, cada uno sigue con su partida.
+
+### Cuentas (`js/core/accounts.js`, `js/views/login.js`)
+- Al abrir el juego se entra con usuario y contraseña. Cada cuenta tiene su partida (`aventurs:save:<usuario>`).
+- Las cuentas se guardan en el navegador de esa compu, no en internet. La contraseña se guarda cifrada (PBKDF2).
+- La primera cuenta que se crea en una compu se puede quedar con la partida que ya había.
+- El **Editor** solo lo ve la cuenta del dueño (`anibal9061`), que se crea con la llave del dueño (en el código solo está su huella, no la llave). Con la llave también se le pone contraseña nueva a cualquier cuenta de esa compu.
+
+### Razas nuevas y "Al azar"
+- **Vampiro** (híbrido): *Colmillos*, cada golpe con arma devuelve el 15% del daño como vida. Hechizo: *Toque vampírico*.
+- **Minotauro** (guerrero): *Embestida*, el primer ataque de cada pelea no falla y pega x1,5 (x1,1 si es un Golpe fuerte).
+- **Hada** (maga): *Polvo de hada*, al empezar cada pelea una criatura (nunca un jefe) se duerme y pierde su primer turno. Hechizo: *Chispas de hada* (puede encandilar).
+- 15 razas en 3 filas de 5, parejas entre sí (medidas con el simulador: `node tools/simulador.js razas`).
+- Botón **Al azar**: los dados eligen la raza (se puede volver a tirar).
+- La pantalla de creación entra entera sin scroll (desde 1280×640).
+
+### Historia y encargos (`js/data/seed-quests.js`)
+- *La sombra del dragón* pasa de 8 a 18 capítulos y recorre todo el mapa: el Cementerio, Piedrahonda y sus minas, la Costa de los Naufragios, las Ruinas de Antorcha, el Santuario del Roble, Velmora y las Catacumbas, hasta el Nido. Villano nuevo: Morvaith, el Heraldo de la Ceniza.
+- 15 encargos nuevos (28 en total) en todos los pueblos y ciudades, del nivel 1 al 9 (al final, el kraken y la hidra).
+- Objetos de misión (ídolo, bitácora, tomo, sellos): los sueltan ciertas criaturas la mitad de las veces, solo mientras la misión los pide, y entran aunque la mochila esté llena. En el Editor: "Lo sueltan", en el objetivo.
+- El diario dice con quién hablar para seguir la historia y avisa si un lugar todavía está cerrado ("se abre en el nivel 5").
+- Partidas de antes: si ya ibas más adelante en la historia, los capítulos nuevos que quedaron atrás no aparecen.
+
+### Experiencia y niveles (`js/core/balance.js`)
+- Subir de nivel cuesta más del doble: `XP_TABLE = [100, 210, 470, 850, 1300, 1850, 2900, 3700, 4500]`. Las partidas viejas conservan su avance: la experiencia se pasa a la tabla nueva en proporción.
+- Las criaturas mucho más débiles que vos dan menos experiencia; las más fuertes, un poco más (`Progression.levelGapMult`).
+- Las misiones, hechas en su nivel, dan cerca de un tercio de lo que pide subir; el resto sale de pelear.
+
+### Pergaminos
+- El precio sale de lo que hace cada uno (`Economy.scrollPrice`): el de misil arcano pasa de 9 a 27 cobre.
+
+### Arreglos
+- "el hada" (no "la hada").
 
 ## Versión 2.5.0: criaturas con habilidades, élite y más formas de encarar
 

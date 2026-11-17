@@ -36,6 +36,34 @@
 
   function Fx() { return A.CombatFx; }
   function esc(s) { return A.Utils.escapeHtml(String(s == null ? '' : s)); }
+
+  // ---------- v3.0: en grupo ----------
+  function me() { return A.State.me ? A.State.me() : A.State.player; }
+  function localHid() { return A.State.hidOf ? A.State.hidOf(me()) : 'me'; }
+  function heroOf(hid) { return A.State.heroById ? A.State.heroById(hid) : null; }
+  /** Los héroes de la pelea, el propio primero. */
+  function partyHeroes(c) {
+    if (!c || !c.party) return [];
+    const mine = localHid();
+    const ids = (c.heroIds || []).slice().sort((a, b) => (a === mine ? -1 : b === mine ? 1 : 0));
+    return ids.map((hid) => ({ hid, hero: heroOf(hid), gone: (c.goneHids || []).includes(hid) })).filter((x) => x.hero);
+  }
+  /** La frase de una acción, contada para esta compu (la del compañero, en tercera persona). */
+  function sayFor(e) {
+    if (!e || !e.say || !e.say.text) return null;
+    if (!e.hid || e.hid === localHid() || !A.Persp) return { text: e.say.text, who: null };
+    const h = heroOf(e.hid);
+    const name = h ? h.name : 'Tu compañero';
+    const text = A.Persp.third(e.say.text, name);
+    return { text, who: A.Persp.named(text, name) ? null : name };
+  }
+  function techFor(e) {
+    if (!e || !e.text) return '';
+    if (!e.hid || e.hid === localHid() || !A.Persp) return e.text;
+    const h = heroOf(e.hid);
+    return A.Persp.third(e.text, h ? h.name : 'Tu compañero');
+  }
+  function whoTag(who) { return who ? `<b class="cb-who">${esc(who)}</b> ` : ''; }
   function icon(name, size, cls) { return A.ItemSprites && A.ItemSprites.icon ? A.ItemSprites.icon(name, { size, cls }) : ''; }
   const now = () => performance.now();
 
@@ -157,7 +185,9 @@
   function isPlayerTurnLocal(c) {
     if (!c || !c.initiative) return false;
     const cur = c.initiative[c.currentActorIdx];
-    return !!cur && cur.kind === 'player';
+    if (!cur || cur.kind !== 'player') return false;
+    // v3.0: en grupo, solo el turno de tu héroe
+    return !c.party || cur.hid === localHid();
   }
 
   /** Si tocaste Atacar en el turno de otro, sale apenas te toca (y el dado anterior cayó). */
@@ -194,7 +224,8 @@
     if (!c.initiative || c.initiative.length === 0) return '';
     const items = c.initiative.map((a, idx) => {
       const isActive = !frozen && idx === c.currentActorIdx;
-      const kindCls = a.kind === 'enemy' ? 'is-enemy' : a.kind === 'pet' ? 'is-pet' : 'is-player';
+      const ally = c.party && a.kind !== 'enemy' && a.hid !== localHid();
+      const kindCls = (a.kind === 'enemy' ? 'is-enemy' : a.kind === 'pet' ? 'is-pet' : 'is-player') + (ally ? ' is-ally' : '');
       return `<span class="turn-queue-item ${kindCls} ${isActive ? 'is-active' : ''} ${isActorDead(c, a, snap) ? 'is-dead' : ''}">${esc(a.name)}</span>`;
     }).join('<span class="turn-queue-arrow">›</span>');
     return `<div class="combat-turn-queue">${items}</div>`;
@@ -206,6 +237,12 @@
     if (actor.kind === 'enemy') {
       const inst = c.enemies.find((e) => e.instanceId === actor.id);
       return !inst || hpOf(`enemy:${inst.instanceId}`, inst.hp) <= 0;
+    }
+    if (c.party && (actor.kind === 'player' || actor.kind === 'pet')) {
+      const h = heroOf(actor.hid);
+      if (!h || (c.goneHids || []).includes(actor.hid)) return true;
+      if (actor.kind === 'player') return hpOf(`hero:${actor.hid}`, h.hp) <= 0;
+      return !h.pet || hpOf(`pet:${actor.hid}`, h.pet.health) <= 0;
     }
     if (actor.kind === 'player') return hpOf('player', A.State.player.hp) <= 0;
     if (actor.kind === 'pet') return !A.State.player.pet || hpOf('pet', A.State.player.pet.health) <= 0;
@@ -221,16 +258,33 @@
     const target = frozen ? null : A.Combat.getTarget();
     const targetId = target ? target.instanceId : null;
     const cur = frozen ? null : (c.initiative ? c.initiative[c.currentActorIdx] : null);
-    const showPet = p.pet && (p.pet.health > 0 || (Fx() && Fx().isDying('pet')) || (snap && snap.pet > 0));
     const n = c.enemies.length;
-    const units = n + 1 + (showPet ? 1 : 0);
     const shown = (key, value) => (snap && snap[key] != null ? snap[key] : value);
+    let allies = '';
+    let units = n;
+    if (c.party) {
+      // v3.0: los dos héroes (el tuyo primero) con sus mascotas
+      let i = 0;
+      for (const { hid, hero, gone } of partyHeroes(c)) {
+        const hk = `hero:${hid}`;
+        const pk = `pet:${hid}`;
+        const ally = hid !== localHid();
+        allies += playerCard(hero, cur && cur.kind === 'player' && cur.hid === hid, c, shown, { key: hk, i: i++, ally, gone });
+        units += 1;
+        const pet = hero.pet;
+        const showPet = pet && (pet.health > 0 || (Fx() && Fx().isDying(pk)) || (snap && snap[pk] > 0));
+        if (showPet) { allies += petCard(pet, cur && cur.kind === 'pet' && cur.hid === hid, shown, { key: pk, i: i++, owner: ally ? hero.name : null }); units += 1; }
+      }
+    } else {
+      const showPet = p.pet && (p.pet.health > 0 || (Fx() && Fx().isDying('pet')) || (snap && snap.pet > 0));
+      allies = playerCard(p, cur && cur.kind === 'player', c, shown) + (showPet ? petCard(p.pet, cur && cur.kind === 'pet', shown) : '');
+      units += 1 + (showPet ? 1 : 0);
+    }
 
     return `
-      <div class="cb-arena ${c.ambush ? 'is-ambush' : ''} units-${Math.min(units, 7)} enemies-${Math.min(n, 5)}" data-sec="arena">
+      <div class="cb-arena ${c.ambush ? 'is-ambush' : ''} ${c.party ? 'is-party' : ''} units-${Math.min(units, 9)} enemies-${Math.min(n, 5)}" data-sec="arena">
         <div class="cb-side cb-allies">
-          ${playerCard(p, cur && cur.kind === 'player', c, shown)}
-          ${showPet ? petCard(p.pet, cur && cur.kind === 'pet', shown) : ''}
+          ${allies}
         </div>
         <div class="cb-vs" aria-hidden="true"><span>VS</span></div>
         <div class="cb-side cb-enemies">
@@ -330,25 +384,26 @@
       </${tag}>`;
   }
 
-  function playerCard(p, isActive, c, shown) {
+  function playerCard(p, isActive, c, shown, o = {}) {
+    const key = o.key || 'player';
     const race = A.Data.getById('races', p.raceId);
     const st = A.Balance && A.Balance.playerCombatStats ? A.Balance.playerCombatStats(p) : { attack: 0, defense: 10, armor: 0 };
     const m = mods(p);
     const composed = A.Combat.composePlayerDamage ? A.Combat.composePlayerDamage(p) : null;
     const dmg = composed ? (A.Utils.compactDice ? A.Utils.compactDice(composed.expression) : String(composed.expression).replace(/\s+/g, '')) : '1d3';
     const dmgTip = composed && composed.components ? composed.components.map((x) => `${x.label}: ${x.expr}`).join(' · ') : 'Daño de tu arma';
-    const hp = c && c.result === 'defeat' ? 0 : shown('player', p.hp);
-    const mana = shown('mana', p.mana);
+    const hp = c && c.result === 'defeat' ? 0 : shown(key, p.hp);
+    const mana = shown(o.key ? key.replace(/^hero:/, 'mana:') : 'mana', p.mana);
     return unitCard({
-      kind: 'player', key: 'player', i: 0, isActive,
-      name: p.name, title: `${p.name} · ${race ? race.name : ''} de nivel ${p.level}`,
-      badges: `<span class="cb-badge is-gold">Nv ${p.level}</span>`,
+      kind: o.ally ? 'player is-ally' : 'player', key, i: o.i || 0, isActive, dead: !!o.gone, ko: !o.gone && hp <= 0 && !!c.party,
+      name: p.name, title: `${p.name} · ${race ? race.name : ''} de nivel ${p.level}${o.ally ? ' (tu compañero)' : ''}`,
+      badges: `${o.ally ? '<span class="cb-badge is-ally" title="Tu compañero">Aliado</span>' : ''}<span class="cb-badge is-gold">Nv ${p.level}</span>`,
       sprite: A.Sprites ? A.Sprites.heroFor(p, { size: 128 }) : '',
       hp, hpMax: p.maxHp, barCls: 'bar-hp',
       sub: p.hasMagic ? { cls: 'is-mana', cur: mana, max: p.maxMana, title: `Maná ${mana}/${p.maxMana}` } : null,
       effects: p.effects,
       dc: st.defense,
-      dcTitle: `Tu defensa: un enemigo tiene que llegar a ${st.defense} (dado de 20 + su precisión) para pegarte.${m.defensePenalty > 0 ? ' Bajó por el frío.' : ''}`,
+      dcTitle: o.ally ? `Defensa de ${p.name}: ${st.defense}.` : `Tu defensa: un enemigo tiene que llegar a ${st.defense} (dado de 20 + su precisión) para pegarte.${m.defensePenalty > 0 ? ' Bajó por el frío.' : ''}`,
       stats: [
         stat('PREC', `+${st.attack || 0}`, 'Precisión: lo que sumás al dado de 20 para acertar', m.attackPenalty > 0),
         stat('DAÑO', dmg, dmgTip),
@@ -358,14 +413,15 @@
     });
   }
 
-  function petCard(pet, isActive, shown) {
+  function petCard(pet, isActive, shown, o = {}) {
+    const key = o.key || 'pet';
     const lvl = pet.level || 1;
     const m = mods(pet);
     const atk = (pet.attack != null ? pet.attack : (A.Balance && A.Balance.Pet ? A.Balance.Pet.attack(lvl) : 1)) - m.attackPenalty;
-    const hp = shown('pet', pet.health);
+    const hp = shown(key, pet.health);
     return unitCard({
-      kind: 'pet', key: 'pet', i: 1, isActive, ko: hp <= 0,
-      name: pet.name, title: `${pet.name}, tu mascota (nivel ${lvl})`,
+      kind: o.owner ? 'pet is-ally' : 'pet', key, i: o.i != null ? o.i : 1, isActive, ko: hp <= 0,
+      name: pet.name, title: o.owner ? `${pet.name}, la mascota de ${o.owner} (nivel ${lvl})` : `${pet.name}, tu mascota (nivel ${lvl})`,
       badges: `<span class="cb-badge is-green">Nv ${lvl}</span>`,
       sprite: A.Sprites ? A.Sprites.petHtml(pet, { size: 96 }) : '',
       hp, hpMax: pet.maxHealth, barCls: 'bar-pet-hp',
@@ -451,12 +507,15 @@
     const last = picked[picked.length - 1];
     const prev = picked.length > 1 ? picked[0] : null;
     const key = `${last.i}:${last.e.ts}`;
+    // v3.0: lo del compañero, contado sobre él
+    const sl = sayFor(last.e);
+    const sp = prev ? sayFor(prev.e) : null;
     return {
       key,
       html: `
         <div class="cb-narrator" data-sec="narrator" data-say="${esc(key)}" role="status" aria-live="polite">
-          ${prev ? `<p class="cb-say is-prev tone-${prev.e.say.tone}">${esc(prev.e.say.text)}</p>` : ''}
-          <p class="cb-say is-now tone-${last.e.say.tone}">${esc(last.e.say.text)}</p>
+          ${prev ? `<p class="cb-say is-prev tone-${prev.e.say.tone}">${whoTag(sp.who)}${esc(sp.text)}</p>` : ''}
+          <p class="cb-say is-now tone-${last.e.say.tone}">${whoTag(sl.who)}${esc(sl.text)}</p>
         </div>`,
     };
   }
@@ -468,7 +527,12 @@
   function waitingText(c, busy) {
     const cur = c && c.initiative ? c.initiative[c.currentActorIdx] : null;
     let txt = 'Nueva ronda…';
-    if (cur && cur.kind === 'player') txt = busy ? 'Ya casi es tu turno…' : 'Tu turno.';
+    const allyTurn = c && c.party && cur && cur.kind !== 'enemy' && cur.hid !== localHid();
+    const owner = allyTurn ? heroOf(cur.hid) : null;
+    if (c && c.party && me() && me().hp <= 0) txt = 'Caíste: tu compañero sigue peleando. Si ganan, te levantás.';
+    else if (allyTurn && cur.kind === 'player') txt = `Turno de ${esc(cur.name)}: le toca elegir qué hacer…`;
+    else if (allyTurn && cur.kind === 'pet') txt = `Turno de ${esc(cur.name)}, la mascota de ${esc(owner ? owner.name : 'tu compañero')}…`;
+    else if (cur && cur.kind === 'player') txt = busy ? 'Ya casi es tu turno…' : 'Tu turno.';
     else if (cur && cur.kind === 'pet') txt = `Turno de ${esc(cur.name)}, tu mascota…`;
     else if (cur && cur.kind === 'enemy') {
       const inst = c.enemies.find((e) => e.instanceId === cur.id);
@@ -621,7 +685,12 @@
   function lineAvatar(entry, c) {
     const fx = entry.fx || {};
     const p = A.State.player;
-    const key = whoKey(fx);
+    let key = whoKey(fx);
+    // v3.0: en grupo, "player"/"pet" sin dueño son del héroe de la frase
+    if (entry.hid && key === 'player') key = `hero:${entry.hid}`;
+    if (entry.hid && key === 'pet') key = `pet:${entry.hid}`;
+    if (key && String(key).startsWith('hero:')) { const h = heroOf(String(key).slice(5)); return h && A.Sprites ? A.Sprites.heroFor(h, { size: 32 }) : ''; }
+    if (key && String(key).startsWith('pet:')) { const h = heroOf(String(key).slice(4)); return h && h.pet && A.Sprites ? A.Sprites.petHtml(h.pet, { size: 32 }) : ''; }
     if (key === 'player') return A.Sprites ? A.Sprites.heroFor(p, { size: 32 }) : '';
     if (key === 'pet' && p.pet) return A.Sprites ? A.Sprites.petHtml(p.pet, { size: 32 }) : '';
     if (key && String(key).startsWith('enemy:') && c) {
@@ -669,14 +738,15 @@
       }
       const say = e.say && e.say.text ? e.say : null;
       if (!say) {
-        if (opts.rolls && e.text) out.push(`<div class="cb-line is-tech"><span class="cb-line-who"></span><span class="cb-line-body"><span class="cb-line-text">${esc(e.text)}</span></span></div>`);
+        if (opts.rolls && e.text) out.push(`<div class="cb-line is-tech"><span class="cb-line-who"></span><span class="cb-line-body"><span class="cb-line-text">${esc(techFor(e))}</span></span></div>`);
         continue;
       }
+      const told = sayFor(e) || { text: say.text, who: null };
       out.push(`
-        <div class="cb-line tone-${say.tone}">
+        <div class="cb-line tone-${say.tone} ${e.hid && e.hid !== localHid() ? 'is-ally' : ''}">
           <span class="cb-line-who">${lineAvatar(e, c)}</span>
           <span class="cb-line-body">
-            <span class="cb-line-text">${esc(say.text)}</span>
+            <span class="cb-line-text">${whoTag(told.who)}${esc(told.text)}</span>
             ${opts.rolls ? rollsHtml(e) : ''}
           </span>
         </div>`);
@@ -703,12 +773,13 @@
     for (const e of c.log || []) {
       const fx = e.fx || {};
       if (fx.kind !== 'reward') continue;
+      if (c.party && e.hid && e.hid !== localHid()) continue; // v3.0: lo que ganó el compañero, en su compu
       if (fx.xp) chips.push(`<span class="cb-chip">${icon('xp', 32)}<span><b>+${fx.xp}</b> experiencia</span></span>`);
       if (fx.coins) coins += fx.coins;
       if (fx.levelUp) chips.push(`<span class="cb-chip is-gold">${icon('up', 32)}<span>¡Nivel <b>${fx.levelUp}</b>!</span></span>`);
       if (fx.mana) chips.push(`<span class="cb-chip">${icon('spell', 32)}<span><b>+${fx.mana}</b> de maná</span></span>`);
       if (fx.hp) chips.push(`<span class="cb-chip">${icon('heart', 32)}<span><b>+${fx.hp}</b> de vida</span></span>`);
-      if (fx.petXp && A.State.player.pet) chips.push(`<span class="cb-chip">${A.Sprites ? A.Sprites.petHtml(A.State.player.pet, { size: 32 }) : ''}<span><b>+${fx.petXp}</b> para ${esc(A.State.player.pet.name)}</span></span>`);
+      if (fx.petXp && me() && me().pet) chips.push(`<span class="cb-chip">${A.Sprites ? A.Sprites.petHtml(me().pet, { size: 32 }) : ''}<span><b>+${fx.petXp}</b> para ${esc(me().pet.name)}</span></span>`);
       for (const it of fx.items || []) {
         const d = A.Inventory && A.Inventory.resolveData ? A.Inventory.resolveData(it.itemId) : null;
         chips.push(`<span class="cb-chip">${A.ItemSprites ? A.ItemSprites.html(it.itemId, { size: 32 }) : ''}<span>${esc(d ? d.name : it.itemId)}${it.qty > 1 ? ` <b>×${it.qty}</b>` : ''}</span></span>`);
@@ -730,6 +801,11 @@
       defeat: { title: 'Caíste…', icon: 'skull', sub: 'Despertás en el pueblo, magullado. Vas a necesitar curarte.' },
       flee: { title: 'Escapaste', icon: 'boot', sub: 'Corriste hasta perderlos de vista.' },
     }[r] || { title: 'Fin del combate', icon: 'swords', sub: '' };
+    // v3.0: en grupo, en plural
+    if (c.party) {
+      if (r === 'defeat') { meta.title = 'Cayeron…'; meta.sub = 'Despiertan en el pueblo, magullados. Van a necesitar curarse.'; }
+      if (r === 'flee') { meta.title = 'Escaparon'; meta.sub = 'Corrieron hasta perderlos de vista.'; }
+    }
     const chips = rewardChips(c);
     const foes = c.enemies.map((e) => `<span class="cb-result-foe ${e.hp <= 0 ? 'is-fallen' : ''}" title="${esc(e.displayName)}">${A.Sprites ? A.Sprites.html(e, { size: 64 }) : ''}</span>`).join('');
 
@@ -795,7 +871,9 @@
       const wasVictory = res === 'victory' || res === 'tamed';
       const fromTravel = c && c.fromTravel;
       A.Combat.finish();
-      if (wasVictory && fromTravel && A.State.traveling) A.Travel.step();
+      // v3.0: en grupo, el viaje lo sigue el anfitrión
+      const guest = A.Party && A.Party.guestTogether && A.Party.guestTogether();
+      if (wasVictory && fromTravel && A.State.traveling && !guest) A.Travel.step();
       if (A.Views.Shell && A.Views.Shell.rerender) A.Views.Shell.rerender();
     }
   }

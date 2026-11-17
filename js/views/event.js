@@ -12,6 +12,13 @@
 
   const U = () => A.UI;
 
+  // v3.0: en grupo, si eligió el compañero, se cuenta sobre él
+  function chooserName(res) {
+    if (!res || !res.hid || !A.State.me || A.State.hidOf(A.State.me()) === res.hid) return null;
+    const h = A.State.heroById ? A.State.heroById(res.hid) : null;
+    return (h && h.name) || res.by || 'Tu compañero';
+  }
+
   function enemiesRow(sc) {
     if (!sc.enemies || !sc.enemies.length) return '';
     const shown = sc.enemies.slice(0, 4);
@@ -68,12 +75,13 @@
     const r = res.roll;
     if (!r) return '';
     const st = A.Explore.STATS[res.check.stat] || { label: 'Tirada' };
+    const other = chooserName(res);
     return `
       <div class="scene-roll ${r.success ? 'is-ok' : 'is-fail'}">
         <span class="scene-die">${A.ItemSprites ? A.ItemSprites.dcBadge(r.d, { size: 56, title: 'Lo que salió en el dado' }) : r.d}</span>
         <span class="scene-roll-text">
-          <span class="scene-roll-math">${U().esc(st.label)}: ${r.d}${r.mod ? ` + ${r.mod}` : ''} = <b>${r.total}</b> contra ${r.dc}${r.lucky ? ' (suerte: volviste a tirar el 1)' : ''}</span>
-          <span class="scene-roll-verdict">${r.d === 20 ? '¡Veinte natural!' : r.d === 1 ? 'Uno natural...' : r.success ? '¡Lo lograste!' : 'No alcanzó.'}</span>
+          <span class="scene-roll-math">${other ? `${U().esc(other)} · ` : ''}${U().esc(st.label)}: ${r.d}${r.mod ? ` + ${r.mod}` : ''} = <b>${r.total}</b> contra ${r.dc}${r.lucky ? (other ? ' (suerte: volvió a tirar el 1)' : ' (suerte: volviste a tirar el 1)') : ''}</span>
+          <span class="scene-roll-verdict">${r.d === 20 ? '¡Veinte natural!' : r.d === 1 ? 'Uno natural...' : r.success ? (other ? '¡Lo logró!' : '¡Lo lograste!') : 'No alcanzó.'}</span>
         </span>
       </div>
     `;
@@ -81,14 +89,17 @@
 
   function resultHtml(sc) {
     const res = sc.result;
+    const other = chooserName(res);
     const btn = res.fight
-      ? `${U().icon('swords', 22)}<span>${res.fight.surprise ? '¡Atacar primero!' : res.fight.ambush ? '¡Defenderte!' : '¡A pelear!'}</span>`
-      : res.tame ? `${U().icon('paw', 22)}<span>Acercarte</span>` : `<span>Seguir</span>`;
+      ? `${U().icon('swords', 22)}<span>${res.fight.surprise ? '¡Atacar primero!' : res.fight.ambush ? (sc.party ? '¡A defenderse!' : '¡Defenderte!') : '¡A pelear!'}</span>`
+      : res.tame ? `${U().icon('paw', 22)}<span>${other ? 'Seguir' : 'Acercarte'}</span>` : `<span>Seguir</span>`;
+    const text = other && A.Persp ? A.Persp.third(res.text, other) : res.text;
     return `
       <div class="scene-result ${res.success ? 'is-ok' : 'is-fail'}">
-        <div class="scene-choice">${U().icon('check', 14)}<span>${U().esc(res.label)}</span></div>
+        <div class="scene-choice">${U().icon('check', 14)}<span>${other ? `${U().esc(other)} eligió: ` : ''}${U().esc(res.label)}</span></div>
         ${rollHtml(res)}
-        ${res.text ? `<p class="scene-outcome">${U().esc(res.text)}</p>` : ''}
+        ${text ? `<p class="scene-outcome">${U().esc(text)}</p>` : ''}
+        ${res.chips && res.chips.length && other ? `<div class="scene-for">Para ${U().esc(other)}:</div>` : ''}
         ${U().chips(res.chips)}
         <div class="scene-actions">
           <button class="btn-primary scene-next ${res.fight ? 'is-fight' : ''}" data-scene-next>${btn}</button>
@@ -109,6 +120,7 @@
         </div>
         <div class="scene-body">
           <h2 class="scene-title">${U().esc(sc.title)}</h2>
+          ${sc.party ? `<div class="scene-party">${U().icon('party', 16)}<span>En grupo: elige el que toque primero</span></div>` : ''}
           <p class="scene-text">${U().esc(sc.text)}</p>
           ${enemiesRow(sc)}
           ${sc.stage === 'result' && sc.result ? resultHtml(sc) : optionsHtml(sc)}

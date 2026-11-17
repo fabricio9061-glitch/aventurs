@@ -1,8 +1,10 @@
 /* ============================================================
-   Aventurs — View: Creación de personaje (v1.9.2)
-   - 12 razas en 3 filas de 4: Híbridos, Guerreros y Magos
+   Aventurs — View: Creación de personaje (v3.0)
+   - 15 razas en 3 filas de 5: Híbridos, Guerreros y Magos
+   - Botón "Al azar": los dados eligen una raza (se puede volver a tirar)
    - Cada raza muestra su pasiva (js/systems/passives.js)
    - A la derecha, la ficha de la raza elegida + nombre + botón
+   - Todo entra en la pantalla sin scroll (desde 1280x640)
    - Sin emojis: retratos e íconos en pixel art
    ============================================================ */
 
@@ -12,12 +14,16 @@
   let rootEl = null;
   let selectedRaceId = 'humano';
   let inputName = '';
+  let rolledId = null;     // la última raza que salió con los dados
+  let rolling = null;      // timer de la tirada en curso
 
   // Color de cada raza (anillo del retrato y detalles)
   const RACE_COLORS = {
     humano: '#c9a24a', elfo: '#6fa04a', mediano: '#b07a3a', draconido: '#c0582a',
     enano: '#a8743a', orco: '#5f8f34', robot: '#5a86b0', goliat: '#7a8ea8',
     gnomo: '#4a6ab0', alienigena: '#7a58b0', infernal: '#b8382a', angel: '#e0c060',
+    // v3.0
+    vampiro: '#9a2a3a', minotauro: '#8a5a2a', hada: '#c070c0',
   };
 
   const GROUPS = [
@@ -84,22 +90,30 @@
     const known = new Set(GROUPS.map((g) => g.type));
     const others = races.filter((r) => !known.has(r.combatType || 'hybrid'));
     if (others.length) grouped.push({ type: 'other', name: 'Otras', desc: '', races: others });
+    const cols = Math.max(4, Math.min(6, Math.max(...grouped.map((g) => g.races.length))));
 
     rootEl.innerHTML = `
-      <div class="cc-page">
+      <div class="cc-page cc3">
         <header class="cc-topbar">
           <div class="cc-brand">${icon('swords', 28)}<span>Aventurs</span></div>
-          <button class="cc-editor-btn" data-action="open-editor">Editor</button>
+          <div class="cc-top-actions">
+            ${accountChip()}
+            ${!A.Accounts || A.Accounts.canEdit() ? '<button class="cc-editor-btn" data-action="open-editor">Editor</button>' : ''}
+          </div>
         </header>
 
         <main class="cc-main">
-          <div class="cc-heading">
-            <h1 class="cc-title">Nueva aventura</h1>
-            <p class="cc-sub">Elegí tu raza. Todas tienen el mismo poder, repartido distinto, y una pasiva propia.</p>
-          </div>
-
           <div class="cc-layout">
-            <section class="cc-picker" aria-label="Razas">
+            <section class="cc-picker" aria-label="Razas" style="--cc-cols:${cols}">
+              <div class="cc-heading">
+                <div class="cc-heading-text">
+                  <h1 class="cc-title">Nueva aventura</h1>
+                  <p class="cc-sub">Elegí tu raza. Todas tienen el mismo poder, repartido distinto, y una pasiva propia.</p>
+                </div>
+                <button type="button" class="cc-random" data-action="random" title="Que los dados elijan tu raza">
+                  ${icon('dice', 26)}<span>Al azar</span>
+                </button>
+              </div>
               ${grouped.map((g) => `
                 <div class="cc-group">
                   <div class="cc-group-head">
@@ -117,11 +131,13 @@
               ${selected ? detailHtml(selected) : ''}
               <div class="cc-form">
                 <label class="cc-label" for="char-name">Nombre</label>
-                <input id="char-name" class="cc-input" type="text" maxlength="24" autocomplete="off"
-                       value="${esc(inputName)}" placeholder="Si lo dejás vacío, te damos uno">
-                <button class="cc-start" id="btn-create" ${!selected ? 'disabled' : ''}>
-                  ${icon('swords', 24)}<span>${selected ? `Comenzar como ${esc(selected.name)}` : 'Elegí una raza'}</span>
-                </button>
+                <div class="cc-form-row">
+                  <input id="char-name" class="cc-input" type="text" maxlength="24" autocomplete="off"
+                         value="${esc(inputName)}" placeholder="Si lo dejás vacío, te damos uno">
+                  <button class="cc-start" id="btn-create" ${!selected ? 'disabled' : ''}>
+                    ${icon('swords', 24)}<span>${selected ? `Comenzar como ${esc(selected.name)}` : 'Elegí una raza'}</span>
+                  </button>
+                </div>
               </div>
             </aside>
           </div>
@@ -131,13 +147,20 @@
     bindEvents();
   }
 
+  /** v3.0: con qué cuenta entraste (y para salir). */
+  function accountChip() {
+    const acc = A.Accounts && A.Accounts.info ? A.Accounts.info() : null;
+    if (!acc) return '';
+    return `<span class="cc-account">${icon('user', 20)}<span>${esc(acc.name)}</span><button class="cc-logout" data-action="logout" title="Cerrar sesión">${icon('logout', 18)}<span>Salir</span></button></span>`;
+  }
+
   function raceCard(race) {
     const isSel = race.id === selectedRaceId;
     const pas = passiveOf(race);
     return `
       <button type="button" class="cc-race ${isSel ? 'is-selected' : ''}" data-race="${esc(race.id)}"
               style="--race-color:${colorOf(race.id)}" aria-pressed="${isSel ? 'true' : 'false'}" title="${esc(race.name)}${pas ? ` · ${esc(pas.name)}` : ''}">
-        <span class="cc-race-portrait">${portrait(race, 64)}</span>
+        <span class="cc-race-portrait">${portrait(race, 56)}</span>
         <span class="cc-race-name">${esc(race.name)}</span>
         ${pas ? `<span class="cc-race-passive">${icon(pas.icon, 16, 'px-soft')}<span>${esc(pas.name)}</span></span>` : '<span class="cc-race-passive is-empty"></span>'}
       </button>
@@ -181,42 +204,54 @@
     const dmgRange = A.Balance && A.Balance.rangeOf ? A.Balance.rangeOf(dmg) : { min: 1, max: 4 };
     const tunic = A.Data.getById('armors', 'tunica_cuero');
     const startArmor = tunic ? (tunic.defense || 0) : 0;
+    const type = race.combatType || 'hybrid';
+    const classBox = `
+      <div class="cc-passive cc-class">
+        <span class="cc-passive-icon">${icon(type === 'warrior' ? 'fist' : type === 'mage' ? 'spell' : 'swords', 32)}</span>
+        <span class="cc-passive-body">
+          <span class="cc-passive-label">${type === 'warrior' ? 'Guerrero' : type === 'mage' ? 'Mago' : 'Híbrido'}</span>
+          <span class="cc-passive-text">${esc(TYPE_KIT[type] || TYPE_KIT.hybrid)}</span>
+        </span>
+      </div>`;
     return `
       <div class="cc-hero">
-        <div class="cc-hero-portrait">${portrait(race, 128)}</div>
+        <div class="cc-hero-portrait">${portrait(race, 104)}</div>
         <div class="cc-hero-text">
-          <h2 class="cc-hero-name">${esc(race.name)}</h2>
-          <div class="cc-hero-type">${esc(TYPE_LINE[race.combatType] || TYPE_LINE.hybrid)}</div>
+          <h2 class="cc-hero-name">${esc(race.name)}${rolledId === race.id ? `<span class="cc-rolled">${icon('dice', 16)}<span>Al azar</span></span>` : ''}</h2>
+          <div class="cc-hero-type">${esc(TYPE_LINE[type] || TYPE_LINE.hybrid)}</div>
+          <p class="cc-desc">${esc(race.description)}</p>
         </div>
       </div>
-      <p class="cc-desc">${esc(race.description)}</p>
 
-      ${pas ? `
-        <div class="cc-passive">
-          <span class="cc-passive-icon">${icon(pas.icon, 32)}</span>
-          <span class="cc-passive-body">
-            <span class="cc-passive-label">Pasiva</span>
-            <span class="cc-passive-name">${esc(pas.name)}</span>
-            <span class="cc-passive-text">${esc(pas.text)}</span>
-          </span>
-        </div>` : ''}
-
-      <div class="cc-bars">
-        ${bar('Vida', st.maxHp, rg.maxHp, '#c4513a')}
-        ${bar('Maná', magic ? st.maxMana : 0, rg.maxMana, '#3a78c4', 'Sin magia')}
-        ${bar('Velocidad', st.speed, rg.speed, '#7a9c3a')}
+      <div class="cc-cols">
+        <div class="cc-col">
+          ${pas ? `
+            <div class="cc-passive">
+              <span class="cc-passive-icon">${icon(pas.icon, 32)}</span>
+              <span class="cc-passive-body">
+                <span class="cc-passive-label">Pasiva</span>
+                <span class="cc-passive-name">${esc(pas.name)}</span>
+                <span class="cc-passive-text">${esc(pas.text)}</span>
+              </span>
+            </div>` : ''}
+          ${magic ? magicBox(race) : classBox}
+        </div>
+        <div class="cc-col">
+          <div class="cc-bars">
+            ${bar('Vida', st.maxHp, rg.maxHp, '#c4513a')}
+            ${bar('Maná', magic ? st.maxMana : 0, rg.maxMana, '#3a78c4', 'Sin magia')}
+            ${bar('Velocidad', st.speed, rg.speed, '#7a9c3a')}
+          </div>
+          <div class="cc-stats">
+            <div class="cc-stat" title="Se suma al dado para acertar"><span>Precisión</span><b>+${st.precision}</b><small>Se suma al dado para acertar</small></div>
+            <div class="cc-stat" title="Lo que sacás al acertar"><span>Daño</span><b>${dmg}</b><small>Al acertar: ${dmgRange.min}&nbsp;a&nbsp;${dmgRange.max}</small></div>
+            <div class="cc-stat" title="Lo que el enemigo necesita sacar para pegarte"><span>Defensa</span><b>${8 + st.dodge}</b><small>Lo que necesitan para pegarte</small></div>
+            <div class="cc-stat" title="Se resta de cada golpe que recibís"><span>Armadura</span><b>${st.armor + startArmor}</b><small>Se resta de cada golpe</small></div>
+          </div>
+          ${magic ? `<p class="cc-kit is-class">${esc(TYPE_KIT[type] || TYPE_KIT.hybrid)}</p>` : ''}
+          <p class="cc-kit">Empieza con daga, túnica de cuero, dos pociones y algo de comida.</p>
+        </div>
       </div>
-
-      <div class="cc-stats">
-        <div class="cc-stat"><span>Precisión</span><b>+${st.precision}</b><small>Se suma al dado para acertar</small></div>
-        <div class="cc-stat"><span>Daño</span><b>${dmg}</b><small>Lo que sacás al acertar: ${dmgRange.min}&nbsp;a&nbsp;${dmgRange.max}</small></div>
-        <div class="cc-stat"><span>Defensa</span><b>${8 + st.dodge}</b><small>Lo que el enemigo necesita para pegarte</small></div>
-        <div class="cc-stat"><span>Armadura</span><b>${st.armor + startArmor}</b><small>Se resta de cada golpe que recibís</small></div>
-      </div>
-      <p class="cc-kit is-class">${esc(TYPE_KIT[race.combatType] || TYPE_KIT.hybrid)}</p>
-
-      ${magic ? magicBox(race) : ''}
-      <p class="cc-kit">Empieza con daga, túnica de cuero, dos pociones y algo de comida.</p>
     `;
   }
 
@@ -227,12 +262,16 @@
   function bindEvents() {
     rootEl.querySelectorAll('[data-race]').forEach((card) => {
       card.addEventListener('click', () => {
+        stopRoll();
         selectedRaceId = card.dataset.race;
+        rolledId = null;
         render();
         const again = rootEl.querySelector(`[data-race="${selectedRaceId}"]`);
         if (again) again.focus({ preventScroll: true });
       });
     });
+    const rnd = rootEl.querySelector('[data-action="random"]');
+    if (rnd) rnd.addEventListener('click', rollRandom);
     const input = rootEl.querySelector('#char-name');
     if (input) {
       input.addEventListener('input', (e) => { inputName = e.target.value; });
@@ -241,7 +280,58 @@
     const create = rootEl.querySelector('#btn-create');
     if (create) create.addEventListener('click', onCreate);
     const editorBtn = rootEl.querySelector('[data-action="open-editor"]');
-    if (editorBtn) editorBtn.addEventListener('click', () => A.Views.Editor.mount(rootEl));
+    if (editorBtn) editorBtn.addEventListener('click', () => { if (!A.Accounts || A.Accounts.canEdit()) A.Views.Editor.mount(rootEl); });
+    const out = rootEl.querySelector('[data-action="logout"]');
+    if (out) out.addEventListener('click', () => { if (A.Accounts) A.Accounts.logout(); });
+  }
+
+  // ============================================================
+  // Al azar: los dados pasan por varias razas y se quedan en una
+  // ============================================================
+
+  function stopRoll() {
+    if (rolling) clearTimeout(rolling);
+    rolling = null;
+    if (rootEl) rootEl.querySelectorAll('.cc-race.is-rolling').forEach((c) => c.classList.remove('is-rolling'));
+  }
+
+  function rollRandom() {
+    const ids = A.Data.races.map((r) => r.id);
+    if (!ids.length || !rootEl) return;
+    stopRoll();
+    const pool = ids.length > 1 ? ids.filter((id) => id !== selectedRaceId) : ids;
+    const finalId = pool[Math.floor(Math.random() * pool.length)];
+    const land = () => {
+      stopRoll();
+      selectedRaceId = finalId;
+      rolledId = finalId;
+      render();
+      const card = rootEl && rootEl.querySelector(`[data-race="${finalId}"]`);
+      if (card) {
+        card.classList.add('is-landed');
+        card.focus({ preventScroll: true });
+        if (card.scrollIntoView && window.innerWidth <= 920) card.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      }
+    };
+    const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduce) { land(); return; }
+    const btn = rootEl.querySelector('[data-action="random"]');
+    if (btn) btn.classList.add('is-rolling');
+    let step = 0;
+    const steps = 11;
+    let last = selectedRaceId;
+    const tick = () => {
+      if (!rootEl) return;
+      rootEl.querySelectorAll('.cc-race.is-rolling').forEach((c) => c.classList.remove('is-rolling'));
+      if (step >= steps) { land(); return; }
+      const opts = ids.filter((id) => id !== last);
+      last = step === steps - 1 ? finalId : opts[Math.floor(Math.random() * opts.length)];
+      const card = rootEl.querySelector(`[data-race="${last}"]`);
+      if (card) card.classList.add('is-rolling');
+      step++;
+      rolling = setTimeout(tick, 45 + step * step * 2.4);
+    };
+    tick();
   }
 
   // Nombres de fantasía si el campo queda vacío
@@ -257,7 +347,7 @@
   }
 
   function onCreate() {
-    if (!selectedRaceId) return;
+    if (!selectedRaceId || rolling) return;
     const finalName = inputName.trim() || pickRandomName();
     A.State.createCharacter({ name: finalName, raceId: selectedRaceId });
     selectedRaceId = 'humano';
@@ -270,9 +360,11 @@
       rootEl = container;
       selectedRaceId = 'humano';
       inputName = '';
+      rolledId = null;
       render();
     },
     unmount() {
+      stopRoll();
       if (rootEl) rootEl.innerHTML = '';
     },
   };

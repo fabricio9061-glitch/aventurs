@@ -23,6 +23,12 @@
   const STORAGE_KEY = 'aventurs:save';
   const DEFAULT_BAG_ID = 'bag_basic';
 
+  /** v3.0: cada cuenta guarda su propia partida ("aventurs:save:usuario"). */
+  function storageKey() {
+    const user = A.Accounts && A.Accounts.current ? A.Accounts.current() : null;
+    return user ? `${STORAGE_KEY}:${user}` : STORAGE_KEY;
+  }
+
   const State = {
     player: null,
     world: null,
@@ -32,12 +38,15 @@
     chronicles: [],
     // v1.7.0: preferencias persistentes del jugador
     prefs: { travelMode: 'manual' },
+    // v3.0: grupo (js/net/party.js) y héroe en contexto
+    party: null,
+    _ctx: null,
 
     // ---------- Lifecycle ----------
 
     load() {
       try {
-        const raw = localStorage.getItem(STORAGE_KEY);
+        const raw = localStorage.getItem(storageKey());
         if (!raw) return false;
         const data = JSON.parse(raw);
         const player = data.player || null;
@@ -46,7 +55,7 @@
         if (player && (!player.schemaVersion || player.schemaVersion < 15)) {
           console.log('[State] Save pre-v1.5.0 detectado. Reseteando para evitar incompatibilidades.');
           State._pendingMigrationNotice = true;
-          try { localStorage.removeItem(STORAGE_KEY); } catch (e) {}
+          try { localStorage.removeItem(storageKey()); } catch (e) {}
           return false;
         }
         State.player = player;
@@ -166,8 +175,23 @@
         }
       }
 
-      if (!p.schemaVersion || p.schemaVersion < 16) {
-        p.schemaVersion = 16;
+      // v3.0: la experiencia para subir cambió: se conserva el nivel y lo avanzado dentro de él
+      if ((p.schemaVersion || 0) < 17 && A.Progression && A.Progression.XP_TABLE_V2) {
+        const oldT = A.Progression.XP_TABLE_V2;
+        const newT = A.Progression.XP_TABLE;
+        const cum = (t, lvl) => { let n = 0; for (let l = 1; l < lvl; l++) n += t[Math.min(t.length, l) - 1]; return n; };
+        const lvl = Math.max(1, p.level || 1);
+        const oldBase = cum(oldT, lvl);
+        const oldSpan = lvl < A.Progression.MAX_LEVEL ? oldT[lvl - 1] : 1;
+        const newSpan = lvl < A.Progression.MAX_LEVEL ? newT[lvl - 1] : 1;
+        const frac = Math.max(0, Math.min(0.99, ((p.xp || 0) - oldBase) / Math.max(1, oldSpan)));
+        p.xp = cum(newT, lvl) + Math.floor(frac * newSpan);
+        if (p.pet) p.pet.xpNeeded = A.Balance && A.Balance.Pet ? A.Balance.Pet.xpToNext(p.pet.level || 1) : p.pet.xpNeeded;
+        dirty = true;
+      }
+
+      if (!p.schemaVersion || p.schemaVersion < 17) {
+        p.schemaVersion = 17;
         dirty = true;
       }
       if (dirty) {
@@ -177,16 +201,18 @@
     },
 
     persist() {
+      // v3.0: si se está jugando el turno del compañero, se guarda igual el héroe propio
+      if (!State.me()) return;
       try {
         const data = {
-          player: State.player,
+          player: State.me(),
           world: State.world,
           traveling: State.traveling,
           ui: State.ui,
           chronicles: State.chronicles,
           prefs: State.prefs || { travelMode: 'manual' },
         };
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+        localStorage.setItem(storageKey(), JSON.stringify(data));
         A.Bus.emit('state:saved');
       } catch (err) {
         console.error('[State] No se pudo guardar:', err);
@@ -200,9 +226,80 @@
       State.traveling = null;
       State.ui = { activeTab: 'world', openModal: null, modalPayload: null, showMap: false };
       State.chronicles = [];
-      try { localStorage.removeItem(STORAGE_KEY); } catch (e) {}
+      try { localStorage.removeItem(storageKey()); } catch (e) {}
       A.Bus.emit('state:reset');
     },
+
+    /** v3.0: deja la memoria vacía sin borrar nada guardado (cambio de cuenta). */
+    unload() {
+      State.player = null;
+      State.world = null;
+      State.combat = null;
+      State.traveling = null;
+      State.party = null;
+      State._ctx = null;
+      State.ui = { activeTab: 'world', openModal: null, modalPayload: null, showMap: false };
+      State.chronicles = [];
+    },
+
+    storageKey,
+
+    // ============================================================
+    // v3.0: jugar en grupo
+    //   State.party (lo maneja js/net/party.js):
+    //     { localHid, heroes: { hid: héroe }, order: [hid, ...] }
+    //   State.player es el héroe "en contexto": el propio casi siempre, y el del
+    //   compañero mientras el anfitrión juega su parte (withHero). Así todo el
+    //   motor (combate, misiones, monedas) sigue escrito para "el jugador".
+    // ============================================================
+
+    /** El héroe de esta compu, aunque se esté jugando el turno del compañero. */
+    me() {
+      const pt = State.party;
+      if (pt && pt.heroes && pt.heroes[pt.localHid]) return pt.heroes[pt.localHid];
+      return State.player;
+    },
+
+    /** Id del héroe en el grupo (en solitario, 'me'). */
+    hidOf(p) {
+      if (!p) return null;
+      if (p._hid) return p._hid;
+      return 'me';
+    },
+
+    heroById(hid) {
+      const pt = State.party;
+      if (pt && pt.heroes && pt.heroes[hid]) return pt.heroes[hid];
+      const me = State.me();
+      return me && State.hidOf(me) === hid ? me : null;
+    },
+
+    /** ¿Se está jugando ahora la parte del compañero? */
+    isForeign() { return !!(State._ctx && State._ctx.foreign); },
+
+    /**
+     * Ejecuta fn con `hero` como State.player (el turno, la tirada o el premio de ese héroe).
+     * Si no es el propio, los eventos de pantalla esperan y las crónicas van a su dueño.
+     */
+    withHero(hero, fn) {
+      if (!hero || hero === State.player) return fn();
+      const prevPlayer = State.player;
+      const prevCtx = State._ctx;
+      const foreign = hero !== State.me();
+      if (A.Combat && A.Combat._swapHero) A.Combat._swapHero(prevPlayer, hero);
+      State.player = hero;
+      State._ctx = { hid: State.hidOf(hero), foreign };
+      if (foreign) A.Bus.beginDefer();
+      try {
+        return fn();
+      } finally {
+        if (A.Combat && A.Combat._swapHero) A.Combat._swapHero(hero, prevPlayer);
+        State.player = prevPlayer;
+        State._ctx = prevCtx;
+        if (foreign) A.Bus.endDefer();
+      }
+    },
+
 
     hasGame() {
       return !!State.player;
@@ -256,7 +353,7 @@
         // v2.1: cada raza con magia nace con su propio hechizo
         spells: hasMagic ? [((A.Data.getById('races', raceId) || {}).startSpell) || 'chispa'] : [],
         travelSteps: 0,
-        schemaVersion: 16,
+        schemaVersion: 17,
       };
 
       State.world = {
@@ -431,7 +528,8 @@
         return true;
       }
 
-      if (!State.inventoryHasSpaceFor(itemId)) {
+      // v3.0: los objetos de misión entran siempre (no pesan y no se pueden perder por la mochila llena)
+      if (!item.quest && !State.inventoryHasSpaceFor(itemId)) {
         A.Bus.emit('inventory:full');
         return false;
       }
@@ -528,6 +626,11 @@
     // ---------- Crónicas ----------
 
     addChronicle({ type, text, regionId }) {
+      // v3.0: lo que le pasó al compañero va a su diario (en su compu), no al tuyo
+      if (State.isForeign() && A.Party && A.Party.pushChronicle) {
+        A.Party.pushChronicle(State._ctx.hid, { type: type || 'note', text: text || '', regionId: regionId || (State.world && State.world.regionId) || null, day: (State.world && State.world.day) || null, ts: Date.now() });
+        return;
+      }
       const entry = {
         ts: Date.now(),
         type: type || 'note',

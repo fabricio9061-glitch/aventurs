@@ -40,6 +40,11 @@
       description:'Una brasa del abismo que se pega a la piel y sigue quemando.' },
     { id:'luz_sagrada', name:'Luz sagrada', icon:'', damage:'1d4', manaCost:3, tier:1, school:'holy', racial:'angel', selfHeal:1,
       description:'Un rayo de luz que hiere al enemigo y, de paso, te cierra las heridas.' },
+    // v3.0: razas nuevas
+    { id:'toque_vampirico', name:'Toque vampírico', icon:'', damage:'1d4', manaCost:3, tier:1, school:'shadow', racial:'vampiro', selfHeal:2,
+      description:'Una sombra fría que le roba la vida al enemigo y te la pasa a vos.' },
+    { id:'chispas_de_hada', name:'Chispas de hada', icon:'', damage:'1d6', manaCost:3, tier:1, school:'light', racial:'hada', statusEffect:{type:'blind',chance:0.3,turns:2,value:1},
+      description:'Un puñado de chispas de colores que queman un poco y encandilan mucho.' },
   ];
 
   A.Seed = A.Seed || {};

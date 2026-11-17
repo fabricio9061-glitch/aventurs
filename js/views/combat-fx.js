@@ -423,11 +423,19 @@
     holdUntil = Math.max(holdUntil, entry._at + (fx.kind === 'death' ? DEATH_MS + 350 : 850));
   }
 
+  /** v3.0: la tarjeta del héroe de esta frase (en grupo, "hero:<id>"; solo, "player"). */
+  function selfKey(entry) { return entry && entry.hid ? `hero:${entry.hid}` : 'player'; }
+  /** v3.0: ¿es la tarjeta de un héroe? ("player" o "hero:<id>") */
+  function isHeroKey(k) { return k === 'player' || String(k || '').startsWith('hero:'); }
+  /** "¡Resistís!" para vos; "¡Resiste!" para el compañero. */
+  function mine(entry) { return !entry || !entry.hid || !A.State.me || A.State.hidOf(A.State.me()) === entry.hid; }
+
   function play(entry) {
     if (!entry || !entry.fx || !layer || !root) return;
     const fx = entry.fx;
     const t = now();
     const at = entry._at != null ? entry._at : t;
+    const me = selfKey(entry);
 
     switch (fx.kind) {
       case 'attack': {
@@ -441,7 +449,7 @@
         // v2.5: el dado para resistir una habilidad de la criatura
         if (entry._diceAt != null) showDice(entry, entry._diceAt);
         later(at - t, () => {
-          if (entry.result === 'hit') floatText('player', '¡Resistís!', 'is-status is-buff', -20, 'shield');
+          if (entry.result === 'hit') floatText(me, mine(entry) ? '¡Resistís!' : '¡Resiste!', 'is-status is-buff', -20, 'shield');
         });
         break;
       }
@@ -456,14 +464,14 @@
       case 'flee': {
         if (entry._diceAt != null) showDice(entry, entry._diceAt);
         later(at - t, () => {
-          if (entry.result === 'hit') playCardFx('player', 'fx-flee', 600);
-          else floatText('player', 'No escapás', 'is-miss');
+          if (entry.result === 'hit') playCardFx(me, 'fx-flee', 600);
+          else floatText(me, mine(entry) ? 'No escapás' : 'No escapan', 'is-miss');
         });
         break;
       }
       case 'spell': {
-        playCardFx(fx.actor || 'player', 'fx-cast', CAST_MS + 120);
-        castGlow(fx.actor || 'player', fx.element);
+        playCardFx(fx.actor || me, 'fx-cast', CAST_MS + 120);
+        castGlow(fx.actor || me, fx.element);
         later(at - t, () => {
           burst(fx.target, fx.element || 'arcane');
           if (entry.dmg != null) floatNumber(fx.target, `-${entry.dmg}`, `is-dmg is-spell-${fx.element || 'arcane'}`);
@@ -473,23 +481,23 @@
       }
       case 'heal': {
         later(at - t, () => {
-          if (fx.amount > 0) floatNumber(fx.target || 'player', `+${fx.amount}`, 'is-heal');
-          if (fx.mana > 0) later(fx.amount > 0 ? 220 : 0, () => floatNumber(fx.target || 'player', `+${fx.mana}`, 'is-mana'));
-          sparkles(fx.target || 'player', 'heal');
-          playCardFx(fx.target || 'player', 'fx-heal', 600);
+          if (fx.amount > 0) floatNumber(fx.target || me, `+${fx.amount}`, 'is-heal');
+          if (fx.mana > 0) later(fx.amount > 0 ? 220 : 0, () => floatNumber(fx.target || me, `+${fx.mana}`, 'is-mana'));
+          sparkles(fx.target || me, 'heal');
+          playCardFx(fx.target || me, 'fx-heal', 600);
         });
         break;
       }
       case 'cast': {
-        playCardFx(fx.actor || 'player', 'fx-cast', 480);
-        castGlow(fx.actor || 'player', 'arcane');
+        playCardFx(fx.actor || me, 'fx-cast', 480);
+        castGlow(fx.actor || me, 'arcane');
         break;
       }
       case 'buff': {
         // v2.4: mejoras, accesorios que actúan (doble golpe, contraataque, superviviente)
         later(at - t, () => {
-          floatText(fx.target || 'player', fx.label || 'Mejora', 'is-status is-buff', -20, fx.icon || 'star');
-          playCardFx(fx.target || 'player', 'fx-heal', 500);
+          floatText(fx.target || me, fx.label || 'Mejora', 'is-status is-buff', -20, fx.icon || 'star');
+          playCardFx(fx.target || me, 'fx-heal', 500);
         });
         break;
       }
@@ -522,7 +530,7 @@
       }
       case 'passive': {
         const info = A.Passives && fx.passive ? A.Passives.info(fx.passive, A.State.player) : null;
-        if (info) later(at - t, () => floatText('player', info.name, 'is-status is-passive', -20, info.icon));
+        if (info) later(at - t, () => floatText(me, info.name, 'is-status is-passive', -20, info.icon));
         break;
       }
       case 'tamed': {
@@ -551,9 +559,9 @@
       slash(target, crit);
       sparks(target, crit ? 14 : 8, crit ? 'crit' : 'hit');
       playCardFx(target, crit ? 'fx-hit-crit' : 'fx-hit', crit ? 560 : 420);
-      if (target === 'player' && (entry.passive === 'piel_roca' || entry.passive === 'determinacion') && A.Passives) {
+      if (isHeroKey(target) && (entry.passive === 'piel_roca' || entry.passive === 'determinacion') && A.Passives) {
         const info = A.Passives.info(entry.passive, A.State.player);
-        if (info) later(260, () => floatText('player', info.name, 'is-status is-passive', -20, info.icon));
+        if (info) later(260, () => floatText(target, info.name, 'is-status is-passive', -20, info.icon));
       }
       if (crit) {
         const label = entry.passive === 'golpe_gigante' ? '¡GOLPE DE GIGANTE!' : entry.passive === 'ojo_certero' ? '¡OJO CERTERO!' : '¡CRÍTICO!';

@@ -1368,6 +1368,10 @@
     goliat: { p: { sk: '#8fa0b4', h: '#2a2a34', cl: '#6a4a32', cl2: '#3e3226', c: '#d8c8a0', a: '#c9a24a', m: '#c0c8d0', wd: '#5a3a1a', e: '#101820' }, o: { size: 'large', outfit: 'loincloth', hair: 'short', brows: true, defaultWeapon: 'hammer' } },
     infernal: { p: { sk: '#c0483a', h: '#1e141a', cl: '#4a1e3e', cl2: '#2a1024', a: '#e8b040', m: '#c0c8d0', wd: '#4a2a1a', e: '#ffd040', g: '#ff8030' }, o: { size: 'medium', hair: 'long', horns: 'curved', tail: 'demon', outfit: 'robe', lower: 'robe', defaultWeapon: 'staff' } },
     angel: { p: { sk: '#f4dcc4', h: '#f0cc78', cl: '#f4efe2', cl2: '#cbc2ae', a: '#d4a42c', wg: '#ffffff', m: '#d8dce4', wd: '#8a6a3a', e: '#3a6ab8', g: '#ffe680' }, o: { size: 'medium', hair: 'long', wings: 'feather', hat: 'halo', outfit: 'robe', lower: 'robe', defaultWeapon: 'sword' } },
+    // v3.0: tres razas nuevas
+    vampiro: { p: { sk: '#ece4ee', h: '#1c1418', cl: '#6a0e1e', cl2: '#1e1016', a: '#d4af37', m: '#c8d0da', wd: '#3a2a2a', e: '#e02030', g: '#ff3040' }, o: { size: 'medium', hair: 'short', cloak: true, mouth: 'fangs', outfit: 'suit', eyes: 'glow', defaultWeapon: 'sword' } },
+    minotauro: { p: { sk: '#9a6a42', c: '#c8a070', cl: '#4a5a2a', cl2: '#3a2a1a', a: '#e8dcc0', m: '#b0b0b8', wd: '#5a3a1a', e: '#2a1a10' }, o: { size: 'large', head: 'bull', outfit: 'loincloth', ring: true, defaultWeapon: 'greataxe' } },
+    hada: { p: { sk: '#f6e0f2', h: '#ff9ad8', cl: '#9ae6d4', cl2: '#6cc4b0', a: '#fff0a0', wg: '#e0f6ff', g: '#b0f8e0', e: '#6a3ac8', m: '#d0d8e0', wd: '#8a6a3a' }, o: { size: 'tiny', hair: 'long', outfit: 'leaves', wings: 'feather', defaultWeapon: 'wand' } },
   };
 
   // ============================================================

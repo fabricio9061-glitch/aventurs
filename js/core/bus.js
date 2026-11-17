@@ -62,6 +62,11 @@
    editor:closed              - Editor desmontado
 
    view:changed               - { tab }   cambio de tab principal del juego
+
+   v3.0 (cuentas y grupo):
+   account:changed            - { user }   entró o salió una cuenta
+   party:changed              - { }        cambió el grupo (alguien entró, salió, se separó)
+   party:status               - { text }   aviso corto del grupo (conectando, error...)
    ============================================================ */
 
 (function (A) {
@@ -69,9 +74,28 @@
 
   const handlers = new Map(); // event -> Set<fn>
 
+  // v3.0: mientras se juega el turno del COMPAÑERO (en la compu del anfitrión), los
+  // eventos de pantalla esperan a que vuelva el héroe propio: así la ficha y el
+  // combate nunca se dibujan con los datos del otro. Los oyentes de sistema
+  // (misiones, descanso) se marcan con { sys: true } y responden en el acto.
+  let deferDepth = 0;
+  let deferred = [];
+  // Eventos que no tienen sentido para la pantalla propia si los generó el compañero
+  const DROP_FOREIGN = new Set(['player:died', 'player:died-starvation']);
+
+  function call(fn, event, payload) {
+    try {
+      fn(payload);
+    } catch (err) {
+      console.error(`[Bus] Handler error for "${event}":`, err);
+    }
+  }
+
   const Bus = {
-    on(event, handler) {
+    /** opts.sys: oyente de sistema (responde aunque se esté jugando el turno del compañero). */
+    on(event, handler, opts) {
       if (!handlers.has(event)) handlers.set(event, new Set());
+      if (opts && opts.sys) handler._sys = true;
       handlers.get(event).add(handler);
       return () => Bus.off(event, handler);
     },
@@ -85,14 +109,36 @@
       const set = handlers.get(event);
       if (!set) return;
       // Copia para permitir off() durante emit sin romper iteración
-      [...set].forEach((fn) => {
-        try {
-          fn(payload);
-        } catch (err) {
-          console.error(`[Bus] Handler error for "${event}":`, err);
+      for (const fn of [...set]) {
+        if (deferDepth > 0 && !fn._sys) {
+          if (!DROP_FOREIGN.has(event)) deferred.push([fn, event, payload]);
+          continue;
         }
-      });
+        call(fn, event, payload);
+      }
     },
+
+    /** v3.0: solo los oyentes de pantalla (el invitado redibuja lo que le manda el anfitrión). */
+    emitView(event, payload) {
+      const set = handlers.get(event);
+      if (!set) return;
+      for (const fn of [...set]) if (!fn._sys) call(fn, event, payload);
+    },
+
+    /** v3.0: empieza/termina un tramo con los eventos de pantalla en espera. */
+    beginDefer() { deferDepth += 1; },
+    endDefer() {
+      deferDepth = Math.max(0, deferDepth - 1);
+      if (deferDepth > 0 || !deferred.length) return;
+      const list = deferred;
+      deferred = [];
+      for (const [fn, event, payload] of list) {
+        // si el oyente se dio de baja mientras esperaba, no se llama
+        const set = handlers.get(event);
+        if (set && set.has(fn)) call(fn, event, payload);
+      }
+    },
+    isDeferring() { return deferDepth > 0; },
 
     /**
      * Quita todos los handlers de un evento o de todos los eventos.
