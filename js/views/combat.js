@@ -262,9 +262,28 @@
     return `<div class="cb-fx-row">${chips}${more}</div>`;
   }
 
-  function stat(label, value, title, down) {
+  /** state: true o 'down' (bajó por un estado) · 'up' (subió: envalentonado, en guardia...). */
+  function stat(label, value, title, state) {
     const long = String(value).length > 6 ? 'is-long' : '';
-    return `<span class="cb-stat ${down ? 'is-down' : ''} ${long}" title="${esc(title)}"><i>${label}</i><b>${esc(value)}</b></span>`;
+    const cls = state === 'up' ? 'is-up' : state ? 'is-down' : '';
+    return `<span class="cb-stat ${cls} ${long}" title="${esc(title)}"><i>${label}</i><b>${esc(value)}</b></span>`;
+  }
+
+  /** v2.5: los números reales de la criatura en esta pelea (estados y pasivas incluidos). */
+  function enemyNow(e) {
+    if (A.Combat.enemyStats) return A.Combat.enemyStats(e);
+    const m = mods(e);
+    return { attack: (e.attack || 0) - m.attackPenalty, defense: (e.difficulty || 10) - m.defensePenalty, armor: e.armor || 0 };
+  }
+  const updown = (now, base) => (now > base ? 'up' : now < base ? 'down' : null);
+
+  /** "2d4+1" con +1 -> "2d4+2"; si no se puede leer, "2d4+1+1". */
+  function withFlat(dice, n) {
+    if (!n) return dice;
+    const m = /^(\d+d\d+)([+-]\d+)?$/.exec(dice);
+    if (!m) return `${dice}${n > 0 ? '+' : ''}${n}`;
+    const total = (m[2] ? Number(m[2]) : 0) + n;
+    return total ? `${m[1]}${total > 0 ? '+' : ''}${total}` : m[1];
   }
 
   function unitCard(u) {
@@ -274,7 +293,7 @@
       ? `<div class="cb-subbar ${u.sub.cls}" title="${esc(u.sub.title)}"><span style="width:${pct(u.sub.cur, u.sub.max)}%"></span></div>`
       : '<div class="cb-subbar is-empty" aria-hidden="true"></div>';
     const tag = u.clickable ? 'button' : 'div';
-    const cls = ['cb-unit', `is-${u.kind}`, u.cat ? `cat-${u.cat}` : '',
+    const cls = ['cb-unit', `is-${u.kind}`, u.cat ? `cat-${u.cat}` : '', u.elite ? 'is-elite' : '',
       u.isActive ? 'is-active' : '', u.isTarget ? 'is-target' : '', u.dead ? 'is-dead' : '', u.ko ? 'is-ko' : ''].filter(Boolean).join(' ');
     const attrs = [
       tag === 'button' ? 'type="button"' : '',
@@ -295,6 +314,7 @@
           ${u.isTarget && !u.dead ? '<span class="cb-target-mark" aria-label="objetivo">▼</span>' : ''}
         </div>
         <div class="cb-plate">
+          ${u.elite ? `<span class="cb-elite-mark" aria-hidden="true">${icon('elite', 40)}</span>` : ''}
           <div class="cb-plate-head">
             <span class="cb-name">${esc(u.name)}</span>
             <span class="cb-badges">${u.badges || ''}</span>
@@ -368,24 +388,33 @@
     const dying = Fx() && Fx().isDying(key);
     const dead = hp <= 0 && !dying;
     const cat = e.category || 'normal';
-    const m = mods(e);
-    const catBadge = cat === 'boss' ? '<span class="cb-badge is-cat-boss">Jefe</span>'
+    const now = enemyNow(e);
+    // v2.5: la élite lleva su marca (y le gana a "Fuerte")
+    // (para que entre el nombre, la élite muestra su título en vez del nivel: "Lobo [ALFA]")
+    const catBadge = e.elite ? `<span class="cb-badge is-elite" title="Criatura de élite (nivel ${e.tier}): más vida, más daño y mejor botín">${esc(e.eliteTitle || 'Élite')}</span>`
+      : cat === 'boss' ? '<span class="cb-badge is-cat-boss">Jefe</span>'
       : cat === 'strong' ? '<span class="cb-badge is-cat-strong">Fuerte</span>' : '';
+    const shownName = e.elite && e.baseName ? `${e.baseName}${e.label ? ` ${e.label}` : ''}` : e.displayName;
+    const skills = A.Skills ? A.Skills.listFor(e).map((sk) => sk.name).join(', ') : '';
+    const fx = mods(e);
+    // v2.5: envalentonado (+daño) o con miedo (-daño): se suma al dado ("2d4+1" -> "2d4+2")
+    const dmgTxt = withFlat(String(e.damage || '1d3').replace(/\s+/g, ''), -(fx.damagePenalty || 0));
     return unitCard({
       kind: 'enemy', key, targetId: e.instanceId, clickable: true, i: idx + 2,
-      cat, isTarget: isTarget && !dead, isActive, dead,
-      name: e.displayName, title: dead ? `${e.displayName} (caído)` : `${e.displayName}: tocá para apuntarle`,
-      badges: `<span class="cb-badge" title="Nivel de peligro">Nv ${e.tier}</span>${catBadge}`,
+      cat, elite: !!e.elite, isTarget: isTarget && !dead, isActive, dead,
+      name: shownName,
+      title: dead ? `${e.displayName} (caído)` : `${e.displayName}: tocá para apuntarle${skills ? `\nHabilidades: ${skills}` : ''}`,
+      badges: `${e.elite ? '' : `<span class="cb-badge" title="Nivel de peligro">Nv ${e.tier}</span>`}${catBadge}`,
       sprite: A.Sprites ? A.Sprites.html(e, { size: 128 }) : '',
       hp, hpMax: e.maxHp, barCls: 'bar-enemy-hp',
       sub: null,
       effects: e.effects,
-      dc: (e.difficulty || 10) - m.defensePenalty,
-      dcTitle: dcText(e, m),
+      dc: now.defense,
+      dcTitle: dcText(e, now.defense),
       stats: [
-        stat('PREC', `+${(e.attack || 0) - m.attackPenalty}`, 'Precisión: lo que suma al dado de 20 para pegarte', m.attackPenalty > 0),
-        stat('DAÑO', String(e.damage || '1d3').replace(/\s+/g, ''), 'Daño de sus golpes'),
-        stat('ARM', e.armor || 0, 'Armadura: se resta a tus golpes'),
+        stat('PREC', `+${now.attack}`, 'Precisión: lo que suma al dado de 20 para pegarte', updown(now.attack, e.attack || 0)),
+        stat('DAÑO', dmgTxt, 'Daño de sus golpes', fx.damagePenalty < 0 ? 'up' : fx.damagePenalty > 0 ? 'down' : null),
+        stat('ARM', now.armor, 'Armadura: se resta a tus golpes', updown(now.armor, e.armor || 0)),
         stat('VEL', e.speed || 10, 'Velocidad: el más rápido actúa primero'),
       ],
     });
@@ -398,8 +427,8 @@
     return Math.max(2, Math.min(20, defense - (st.attack || 0)));
   }
 
-  function dcText(e, m) {
-    const dc = (e.difficulty || 10) - (m ? m.defensePenalty : 0);
+  function dcText(e, dcNow) {
+    const dc = dcNow != null ? dcNow : (e.difficulty || 10);
     const need = neededRoll(dc);
     return `Dificultad del dado: ${dc}. Con tu precisión necesitás sacar ${need} o más en el dado de 20${need >= 20 ? ' (solo con un 20)' : ''}.`;
   }
@@ -473,7 +502,7 @@
   function damageRangeVs(p, target, mult = 1) {
     try {
       const r = A.Combat.composePlayerDamage(p).range;
-      const arm = (target && target.armor) || 0;
+      const arm = target ? enemyNow(target).armor : 0;
       return { min: Math.max(1, r.min * mult - arm), max: Math.max(1, r.max * mult - arm) };
     } catch (err) { return null; }
   }
@@ -499,7 +528,8 @@
     const tame = tameInfoFor(c, p);
     const target = A.Combat.getTarget();
     const hit = target && A.Combat.hitChanceVs ? A.Combat.hitChanceVs(target) : null;
-    const need = target ? neededRoll((target.difficulty || 10) - mods(target).defensePenalty) : null;
+    const need = target ? neededRoll(enemyNow(target).defense) : null;
+    const flee = A.Combat.canFlee ? A.Combat.canFlee() : { ok: true };
     const dmgRange = target ? damageRangeVs(p, target) : null;
     const power = A.Combat.powerInfo ? A.Combat.powerInfo() : null;
     const attackIcon = p.equipment && p.equipment.weapon && A.ItemSprites
@@ -555,10 +585,10 @@
             hint: tame.chance != null ? `${tame.chance}% de lograrlo` : 'no se puede',
             attrs: `data-tame-instance-id="${esc(tame.instanceId || '')}"`,
           }) : ''}
-          ${btn('flee', icon('boot', 32), 'Huir', {
-            disabled: off,
-            title: 'Intentar escapar (hasta 2 intentos)',
-            hint: `${Math.max(0, 2 - (c.fleeAttempts || 0))} intentos`,
+          ${btn('flee', icon(flee.ok ? 'boot' : 'lock', 32), 'Huir', {
+            disabled: off || !flee.ok,
+            title: flee.ok ? 'Intentar escapar (hasta 2 intentos)' : flee.why,
+            hint: flee.ok ? `${Math.max(0, 2 - (c.fleeAttempts || 0))} intentos` : ((A.State.player.effects || []).some((e) => e.type === 'grab') ? 'Atrapado' : 'Sin intentos'),
           })}
         </div>
       </section>`;
@@ -581,8 +611,9 @@
 
   function whoKey(fx) {
     if (!fx) return null;
-    if (['attack', 'spell', 'heal', 'cast', 'flee'].includes(fx.kind)) return fx.actor || 'player';
+    if (['attack', 'spell', 'heal', 'cast', 'flee', 'save'].includes(fx.kind)) return fx.actor || 'player';
     if (['tick', 'status', 'stun', 'death', 'tamed', 'tame-fail'].includes(fx.kind)) return fx.target;
+    if (fx.kind === 'summon' || fx.kind === 'note') return fx.actor || null; // v2.5
     if (fx.kind === 'passive') return 'player';
     return null;
   }

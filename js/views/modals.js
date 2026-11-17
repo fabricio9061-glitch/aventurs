@@ -268,6 +268,7 @@
               const known = (p.spells || []).includes(s.id);
               const price = A.NPC.spellPrice(s.id);
               const canPay = A.Currency.canPay(price);
+              const mageOnly = !known && A.Spellbook && A.Spellbook.canLearn ? !!A.Spellbook.canLearn(p, s).mageOnly : false;
               const dmgStr = s.damage ? `${s.damage} daño` : s.heal ? `${s.heal} cura` : '';
               return `
                 <div class="learn-row ${known ? 'is-known' : ''}">
@@ -280,6 +281,7 @@
                   <div class="learn-price num">${price}c</div>
                   ${known
                     ? `<span class="pill">aprendido</span>`
+                    : mageOnly ? `<span class="pill" title="Los híbridos no pueden aprender los grandes hechizos de área">solo magos</span>`
                     : `<button class="btn-mini" data-learn-spell="${A.Utils.escapeHtml(s.id)}" data-npc-id="${A.Utils.escapeHtml(npc.id)}" ${canPay ? '' : 'disabled'}>Aprender</button>`}
                 </div>
               `;
@@ -435,6 +437,7 @@
         ${data.magic ? row('Mágica', 'Sí (potencia tus hechizos)') : ''}
         ${data.mana ? row('Maná máximo', `<span class="num">+${data.mana}</span> <span class="dim">(si usás magia)</span>`) : ''}
         ${data.statusEffect ? row('Al pegar', `${Math.round((data.statusEffect.chance || 0) * 100)}% de ${esc((A.Combat && A.Combat.effectLabel ? A.Combat.effectLabel(data.statusEffect.type) : data.statusEffect.type))}`) : ''}
+        ${data.statusEffect && A.ItemFx && A.ItemFx.weaponEffectLine ? `<div class="class-note is-good">${pxi(data.statusEffect.type, 14)}<span>${esc(A.ItemFx.weaponEffectLine(data))}.</span></div>` : ''}
         ${sellRow}
         ${slotsLine}
         ${weightRows()}
@@ -493,7 +496,10 @@
       if (!can.ok && can.why && !(A.ItemFx && A.ItemFx.combatOnly(data))) hint = `<div class="item-modal-hint dim">${esc(can.why)}</div>`;
     }
     if (data.subtype === 'scroll_spell') {
-      actions.push(`<button class="btn-primary" data-detail-action="use">Aprender hechizo</button>`);
+      // v2.5: avisá antes si no lo podés aprender (solo magos, ya lo sabés...)
+      const can = A.Spellbook && A.Spellbook.canLearn && p ? A.Spellbook.canLearn(p, data.teachesSpell) : { ok: true };
+      actions.push(`<button class="btn-primary" data-detail-action="use" ${can.ok ? '' : 'disabled'}>Aprender hechizo</button>`);
+      if (!can.ok && can.why) hint = `<div class="item-modal-hint dim">${esc(can.why)}</div>`;
     }
     if (kind === 'bag') {
       actions.push(`<button class="btn-primary" data-detail-action="use">Equipar mochila</button>`);
@@ -629,8 +635,17 @@
           <div class="stat-row"><span class="dim">Armadura</span><span class="num">${e.armor}</span></div>
           <div class="stat-row"><span class="dim">Velocidad</span><span class="num">${e.speed}</span></div>
         </div>
+        ${(() => {
+          // v2.5: pasivas y activas de la criatura
+          const list = A.Skills ? A.Skills.listFor(e) : [];
+          if (!list.length) return '';
+          return `<div class="creature-skills">
+            <div class="creature-skills-title">Habilidades</div>
+            ${list.map((sk) => `<div class="creature-skill">${A.ItemSprites ? A.ItemSprites.icon(sk.icon || 'star', { size: 20 }) : ''}<span><b>${A.Utils.escapeHtml(sk.name)}</b> <span class="dim">· ${sk.kind === 'passive' ? 'pasiva' : 'activa'}</span><br><span class="dim small">${A.Utils.escapeHtml(sk.text || '')}</span></span></div>`).join('')}
+          </div>`;
+        })()}
         <div class="creature-notes">
-          <p class="muted small">Aparece al explorar o al viajar por la zona.</p>
+          <p class="muted small">Aparece al explorar o al viajar por la zona. A veces sale de élite (alfa, campeón o mayor): más fuerte y con mejor botín.</p>
           ${canTame && !tameBlocked ? `<p class="muted small">Se puede domar si es el último enemigo en pie y tenés la comida que le gusta${diet ? ` (come ${A.Utils.escapeHtml(diet.eats)})` : ''}.</p>` : ''}
           ${tameBlocked ? `<p class="muted small">No se puede domar: ${A.Utils.escapeHtml(A.Tame.reasonText(tameCheck.reason))}${tameCheck.requiredLevel ? ` (nivel ${tameCheck.requiredLevel})` : ''}.</p>` : ''}
           ${canTame && havePet ? `<p class="muted small">Ya tenés una mascota: liberá a ${A.Utils.escapeHtml(A.State.player.pet.name)} antes de domar otra.</p>` : ''}

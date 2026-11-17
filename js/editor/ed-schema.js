@@ -299,6 +299,10 @@
           F.custom('enemySim', (d) => Ed.panels.enemySim(d), { live: true, heavy: true }),
           F.custom('enemySuggest', (d) => Ed.panels.enemySuggest(d), { live: true }),
         ] },
+        { title: 'Habilidades', help: 'Pasivas (actúan solas) y activas (las usa a veces en su turno).', fields: [
+          F.tags('skills', 'Habilidades', () => (A.Skills ? A.Skills.all().filter((sk) => sk.id !== 'lider').map((sk) => ({ value: sk.id, label: `${sk.name} (${sk.kind === 'passive' ? 'pasiva' : 'activa'})` })) : []), { add: 'Agregar habilidad' }),
+          F.custom('enemySkills', (d) => Ed.panels.enemySkills(d), { live: true }),
+        ] },
         { title: 'Botín', help: 'Lo que puede soltar al caer.', fields: [
           F.list('drops', '', [
             F.ref('itemId', 'Objeto', ['items', 'weapons', 'armors']),
@@ -655,6 +659,7 @@
           F.num('tier', 'Nivel', { min: 1, max: 10 }),
           F.num('manaCost', 'Maná que cuesta', { min: 0, max: 40 }),
           F.ref('racial', 'De nacimiento de', 'races', { none: 'Nadie (se aprende)', help: 'Si es de una raza, no se vende ni se enseña.' }),
+          F.tog('mageOnly', 'Solo para magos', { on: 'Sí, los híbridos no lo pueden aprender', off: 'No, también los híbridos', when: (d) => !d.racial }),
           F.area('description', 'Descripción', { rows: 2 }),
         ] },
         { title: 'Efecto', fields: [
@@ -665,7 +670,7 @@
           ...statusFields('statusEffect'),
         ] },
       ],
-      normalize: (d) => { if (!d.racial) delete d.racial; if (!d.selfHeal) delete d.selfHeal; },
+      normalize: (d) => { if (!d.racial) delete d.racial; if (!d.selfHeal) delete d.selfHeal; if (!d.mageOnly) delete d.mageOnly; },
     },
   ];
 

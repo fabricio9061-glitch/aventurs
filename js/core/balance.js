@@ -21,11 +21,11 @@
 
   // v2.2.1: números de las clases que se afinan con el simulador (tools/simulador.js)
   const Balance_TUNE = {
-    hpPerLevel: { warrior: 6, hybrid: 6, mage: 5 },   // vida que gana cada clase al subir de nivel
+    hpPerLevel: { warrior: 7, hybrid: 6, mage: 5 },   // vida que gana cada clase al subir de nivel (v2.5: guerreros 7, aguantan las habilidades de las criaturas)
     warriorPower: { mult: 2, cooldown: 5 },           // Golpe fuerte: x2 de daño, después esperar
     hybridManaOnHit: 1,                               // maná que recupera un híbrido al acertar con el arma
-    hybridManaEvery: 4,                               // ...y 1 más cada tantos niveles (0 = no crece)
-    mageRegenEvery: 4,                                // el maná por turno de los magos se multiplica cada tantos niveles (0 = no crece)
+    hybridManaEvery: 5,                               // ...y 1 más cada tantos niveles (0 = no crece) · v2.5: 5 (antes 4)
+    mageRegenEvery: 3,                                // el maná por turno de los magos se multiplica cada tantos niveles (0 = no crece) · v2.5: 3 (antes 4)
   };
 
   const MAX_LEVEL = 10;
@@ -337,9 +337,10 @@
       fit,
       attack: (p.stats.precision || 0) + fit.atk + weaponPrec + acc('precision') + bm.precision - fx.attackPenalty + (A.Passives && A.Passives.precisionBonus ? A.Passives.precisionBonus(p) : 0),
       defense: 8 + (p.stats.dodge || 0) + (armor && armor.dodge ? armor.dodge : 0) + acc('defense') + bm.defense - pen('dodge') - fx.defensePenalty,
-      armor: (p.stats.armor || 0) + (armor ? armor.defense || 0 : 0) + acc('armor') + bm.armor + (A.Passives && A.Passives.armorBonus ? A.Passives.armorBonus(p) : 0),
-      // v1.9.2: + Furia del orco (solo con la mitad de la vida o menos) · v2.0: + maestría del guerrero
-      damageBonus: (p.stats.damage || 0) - pen('damage') + fit.dmg + acc('damage') + bm.damage + (A.Passives ? A.Passives.damageBonus(p) : 0),
+      // v2.5: el ácido de las criaturas te baja la armadura
+      armor: Math.max(0, (p.stats.armor || 0) + (armor ? armor.defense || 0 : 0) + acc('armor') + bm.armor + (A.Passives && A.Passives.armorBonus ? A.Passives.armorBonus(p) : 0) - (fx.armorPenalty || 0)),
+      // v1.9.2: + Furia del orco (solo con la mitad de la vida o menos) · v2.0: + maestría del guerrero · v2.5: - miedo
+      damageBonus: (p.stats.damage || 0) - pen('damage') + fit.dmg + acc('damage') + bm.damage + (A.Passives ? A.Passives.damageBonus(p) : 0) - (fx.damagePenalty || 0),
       // El peso solo frena si pasa de 4 (una daga y ropa no pesan nada)
       speed: Math.max(1, (p.stats.speed || 10) - w.penalty + acc('speed') + bm.speed - pen('speed')),
       weight: w.total,
@@ -350,17 +351,38 @@
     };
   }
 
-  /** Penalizaciones por efectos de estado (frío, ceguera, maldición). */
+  /**
+   * Penalizaciones por efectos de estado (frío, ceguera, maldición...).
+   * v2.5: derribado (-3 defensa), miedo (-2 precisión, -1 daño), atrapado (-2 precisión),
+   * ácido (-2 armadura). Y lo que ayuda a las criaturas: envalentonado (+precisión y daño)
+   * y en guardia (+defensa), que se cuentan como penalización negativa.
+   */
   function statusMods(entity) {
-    const out = { attackPenalty: 0, defensePenalty: 0 };
+    const out = { attackPenalty: 0, defensePenalty: 0, armorPenalty: 0, damagePenalty: 0 };
     for (const ef of (entity && entity.effects) || []) {
+      const v = Number(ef.value) || 1;
       if (ef.type === 'cold') { out.defensePenalty += 2; out.attackPenalty += 1; }
       if (ef.type === 'blind') out.attackPenalty += 4;
       // v2.4: Pergamino de maldición: -N a su precisión y a su defensa
-      if (ef.type === 'curse') { const v = Number(ef.value) || 1; out.attackPenalty += v; out.defensePenalty += v; }
+      if (ef.type === 'curse') { out.attackPenalty += v; out.defensePenalty += v; }
+      if (ef.type === 'prone') out.defensePenalty += 3;
+      if (ef.type === 'fear') { out.attackPenalty += 2; out.damagePenalty += 1; }
+      if (ef.type === 'grab') out.attackPenalty += 2;
+      if (ef.type === 'corrode') out.armorPenalty += 2;
+      if (ef.type === 'rally') { out.attackPenalty -= v; out.damagePenalty -= v; }
+      if (ef.type === 'guard') out.defensePenalty -= v;
     }
     return out;
   }
+
+  // ---------- Élite (v2.5) ----------
+  // A veces una criatura sale "alfa", "campeón" o "mayor": más vida, más daño, mejor botín.
+  const ELITE = {
+    chanceSolo: 0.05,  // si aparece sola
+    chanceGroup: 0.09, // si viene en grupo (una sola del grupo)
+    hp: 1.5, dmg: 1.2, atk: 1, def: 1, armorFromTier: 4, speed: 1,
+    xp: 2.5, coin: 2.5, drop: 1.5,
+  };
 
   // ---------- Mascota ----------
   const Pet = {
@@ -478,6 +500,7 @@
   A.Balance = {
     MAX_LEVEL,
     CATEGORY,
+    ELITE,
     RARITY,
     Enemy,
     enemyStats,

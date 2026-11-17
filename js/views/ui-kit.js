@@ -38,6 +38,8 @@
           : `<span class="ui-chip is-bad">-${price(-c.value, 14)}</span>`;
       case 'item':
         return `<span class="ui-chip is-good">${itemSprite(it, 22)}<span>${esc(it ? it.name : c.itemId)}${c.value > 1 ? ` ×${c.value}` : ''}</span></span>`;
+      case 'used':
+        return `<span class="ui-chip is-bad">${itemSprite(it, 22)}<span>-${esc(it ? it.name : c.itemId)}${c.value > 1 ? ` ×${c.value}` : ''}</span></span>`;
       case 'full':
         return `<span class="ui-chip is-bad">${icon('bag', 18)}<span>${esc(it ? it.name : 'Algo')} no entró en la mochila</span></span>`;
       case 'heal': return `<span class="ui-chip is-good">${icon('heart', 18)}<span>+${c.value} vida</span></span>`;

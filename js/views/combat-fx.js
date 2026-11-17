@@ -256,6 +256,8 @@
   function verdictOf(entry) {
     const isFlee = entry.fx && entry.fx.kind === 'flee';
     if (isFlee) return entry.result === 'hit' ? { cls: 'hit', text: '¡Escapás!' } : { cls: 'miss', text: 'No lográs huir' };
+    // v2.5: tirada para resistir una habilidad
+    if (entry.fx && entry.fx.kind === 'save') return entry.result === 'hit' ? { cls: 'hit', text: '¡Resistís!' } : { cls: 'miss', text: 'No resistís' };
     if (entry.result === 'crit') return { cls: 'crit', text: '¡Crítico!' };
     if (entry.result === 'hit') return entry.power ? { cls: 'crit', text: '¡Golpe fuerte!' } : { cls: 'hit', text: '¡Impacto!' };
     if (entry.result === 'fumble') return { cls: 'fumble', text: '¡Pifia!' };
@@ -290,7 +292,7 @@
     const side = entry.fx && String(entry.fx.actor || '').startsWith('enemy') ? 1 : -1;
     const sx = f ? f.left + f.width / 2 : tx + side * 130;
     const sy = f ? f.top + f.height / 2 : ty;
-    const what = entry.fx && entry.fx.kind === 'flee' ? 'para huir' : 'precisión';
+    const what = entry.fx && entry.fx.kind === 'flee' ? 'para huir' : entry.fx && entry.fx.kind === 'save' ? (entry.fx.stat || 'para resistir') : 'precisión';
     const chip = spawn(`fx-bonus ${bonus < 0 ? 'is-neg' : ''}`, sx, sy,
       `<b>${bonus > 0 ? '+' : '−'}${Math.abs(bonus)}</b><small>${what}</small>`, addMs + 300);
     if (!chip) return;
@@ -390,7 +392,7 @@
       return;
     }
     const fx = entry.fx;
-    if (entry.roll != null && (fx.kind === 'attack' || fx.kind === 'flee')) {
+    if (entry.roll != null && (fx.kind === 'attack' || fx.kind === 'flee' || fx.kind === 'save')) {
       const addMs = addMsFor(entry);
       const startAt = Math.max(t, diceFreeAt, minAt - DICE_ROLL_MS - addMs);
       entry._diceAt = startAt;
@@ -411,7 +413,7 @@
     }
     if (says && entry._at < minAt) entry._at = minAt;
     if (says) lastSayAt = entry._at;
-    if (fx.target && (fx.kind === 'attack' || fx.kind === 'spell' || fx.kind === 'tick' || fx.kind === 'heal')) {
+    if (fx.target && (fx.kind === 'attack' || fx.kind === 'spell' || fx.kind === 'tick' || fx.kind === 'heal' || fx.kind === 'save')) {
       impactAt.set(fx.target, entry._at);
     }
     if (fx.kind === 'death' && fx.target) {
@@ -433,6 +435,22 @@
         const lunge = String(fx.actor || '').startsWith('enemy') ? 'fx-lunge-left' : 'fx-lunge-right';
         later(at - t - 170, () => playCardFx(fx.actor, lunge, 380));
         later(at - t, () => impact(entry));
+        break;
+      }
+      case 'save': {
+        // v2.5: el dado para resistir una habilidad de la criatura
+        if (entry._diceAt != null) showDice(entry, entry._diceAt);
+        later(at - t, () => {
+          if (entry.result === 'hit') floatText('player', '¡Resistís!', 'is-status is-buff', -20, 'shield');
+        });
+        break;
+      }
+      case 'summon': {
+        later(at - t, () => {
+          sparkles(fx.target, 'summon');
+          floatText(fx.target, '¡Aparece!', 'is-status is-status-summon', 0, 'skulls');
+          playCardFx(fx.target, 'fx-summon', 700);
+        });
         break;
       }
       case 'flee': {
@@ -483,7 +501,7 @@
         break;
       }
       case 'status': {
-        later(at - t, () => floatText(fx.target, effectName(fx.effect), `is-status is-status-${fx.effect}`, 0, ({ stun: 'hourglass', curse: 'skull' })[fx.effect] || fx.effect));
+        later(at - t, () => floatText(fx.target, effectName(fx.effect), `is-status is-status-${fx.effect}`, 0, statusIcon(fx.effect)));
         break;
       }
       case 'stun': {
@@ -630,7 +648,7 @@
   function sparkles(key, kind) {
     const r = spriteRect(key);
     if (!r) return;
-    const glyph = pxIcon(kind === 'love' ? 'heart' : 'heal', 16);
+    const glyph = pxIcon(kind === 'love' ? 'heart' : kind === 'summon' ? 'spark' : 'heal', 16);
     for (let i = 0; i < 6; i++) {
       const s = spawn(`fx-sparkle is-${kind}`, r.left + r.width * (0.2 + Math.random() * 0.6), r.top + r.height * (0.45 + Math.random() * 0.4), glyph, 1100);
       if (s) s.style.animationDelay = `${i * 70}ms`;
@@ -655,7 +673,18 @@
   }
 
   function effectName(type) {
-    return ({ bleed: 'Sangrado', poison: 'Envenenado', fire: 'En llamas', cold: 'Congelado', shock: 'Electrizado', blind: 'Cegado', silence: 'Silenciado', stun: 'Paralizado', curse: 'Maldito' })[type] || type;
+    return ({
+      bleed: 'Sangrado', poison: 'Envenenado', fire: 'En llamas', cold: 'Congelado', shock: 'Electrizado', blind: 'Cegado', silence: 'Silenciado', stun: 'Paralizado', curse: 'Maldito',
+      // v2.5
+      prone: 'Derribado', fear: 'Asustado', grab: 'Atrapado', corrode: 'Corroído', rally: '¡Envalentonado!', guard: 'En guardia',
+      immune: 'Inmune', fury: '¡Furia!', steal: '¡Te roba!',
+    })[type] || type;
+  }
+
+  /** v2.5: ícono del número flotante de cada estado. */
+  function statusIcon(type) {
+    const map = { stun: 'hourglass', curse: 'skull', prone: 'arrow-down', fear: 'warning', grab: 'lock', corrode: 'poison', rally: 'arrow-up', guard: 'shield', immune: 'star', fury: 'fist', steal: 'coins' };
+    return map[type] || type;
   }
 
   // ---------------------------------------------------------------

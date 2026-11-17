@@ -103,6 +103,9 @@
     if ((p.spells || []).includes(spellId)) {
       return { ok: false, error: 'Ya conoces ese hechizo.' };
     }
+    // v2.5: los grandes hechizos de área son solo para magos
+    const can = A.Spellbook && A.Spellbook.canLearn ? A.Spellbook.canLearn(p, spellId) : { ok: true };
+    if (!can.ok) return { ok: false, error: can.why };
     const price = spellPrice(spellId);
     if (!A.Currency.canPay(price)) {
       return { ok: false, error: `Cuesta ${price} cobre.` };

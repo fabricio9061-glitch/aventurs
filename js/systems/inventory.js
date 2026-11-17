@@ -130,6 +130,12 @@
         });
         return false;
       }
+      // v2.5: los grandes hechizos de área son solo para magos
+      const can = A.Spellbook && A.Spellbook.canLearn ? A.Spellbook.canLearn(p, spell) : { ok: true };
+      if (!can.ok) {
+        A.State.addChronicle({ type: 'note', text: `Leés ${item.name}, pero es magia demasiado grande para vos: ${can.why.charAt(0).toLowerCase()}${can.why.slice(1)} El pergamino se quedó intacto.` });
+        return false;
+      }
       p.spells = p.spells || [];
       p.spells.push(spellId);
       A.State.removeItem(itemId, 1);

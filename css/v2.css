@@ -1360,3 +1360,84 @@ button.sb-eq:hover { transform: translateY(-2px); border-color: #a8833a; }
 .shop-detail-meta .rarity-tag { margin-right: 4px; font-size: 11px; }
 .shop-effects { margin: 6px 0 10px; }
 .shop-effects li { font-size: 12.5px; }
+
+/* ============================================================
+   15. Habilidades de criaturas, élite y exploración (v2.5)
+   ============================================================ */
+
+/* Élite: marco dorado y el dragón sobre la barra de vida */
+.cb-unit.is-elite .cb-plate {
+  border-color: #c99a2a;
+  box-shadow: inset 0 0 0 1px rgba(255, 226, 140, 0.75), 0 0 14px rgba(242, 190, 60, 0.45), 0 8px 22px rgba(0, 0, 0, 0.45);
+}
+.cb-unit.is-elite .cb-plate .bar { box-shadow: 0 0 0 1px #d8a83a, inset 0 1px 2px rgba(0, 0, 0, 0.6); }
+.cb-unit.is-elite .cb-shadow { width: 84%; background: radial-gradient(ellipse at center, rgba(242, 190, 60, 0.5), transparent 70%); }
+.cb-unit.is-elite.is-active .cb-plate { box-shadow: 0 0 0 2px #f2c844, 0 0 20px rgba(242, 190, 60, 0.6), 0 8px 22px rgba(0, 0, 0, 0.45); }
+.cb-elite-mark {
+  position: absolute;
+  left: -18px;
+  top: -30px;
+  z-index: 3;
+  line-height: 0;
+  pointer-events: none;
+  filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.55)) drop-shadow(0 0 6px rgba(255, 210, 90, 0.6));
+  animation: elite-glow 2.4s ease-in-out infinite;
+}
+@keyframes elite-glow { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-2px); } }
+.cb-badge.is-elite { color: #3a2604; border-color: #9a6a10; background: linear-gradient(180deg, #ffe08a, #e2a830); }
+
+/* Números que subieron (envalentonado, en guardia) */
+.cb-stat.is-up b { color: #2f7a1a; }
+
+/* Estados nuevos sobre la tarjeta */
+.cb-fx.effect-prone { border-color: rgba(230, 110, 70, 0.7); }
+.cb-fx.effect-fear { border-color: rgba(200, 160, 255, 0.7); }
+.cb-fx.effect-grab { border-color: rgba(220, 190, 120, 0.8); }
+.cb-fx.effect-corrode { border-color: rgba(170, 230, 90, 0.75); }
+.cb-fx.effect-rally { border-color: rgba(255, 120, 80, 0.85); background: rgba(60, 18, 8, 0.9); }
+.cb-fx.effect-guard { border-color: rgba(190, 200, 215, 0.85); }
+.fx-text.is-status-prone { color: #ffb08a; }
+.fx-text.is-status-fear { color: #d8c0ff; }
+.fx-text.is-status-grab { color: #f0d79a; }
+.fx-text.is-status-corrode { color: #c8f07a; }
+.fx-text.is-status-rally,
+.fx-text.is-status-fury { color: #ff9a6a; }
+.fx-text.is-status-guard { color: #dfe6ee; }
+.fx-text.is-status-immune { color: #fff2b0; }
+.fx-text.is-status-steal { color: #ffd76a; }
+.fx-text.is-status-summon { color: #e0c8ff; }
+
+/* Golpes de tierra (pisotón, temblor) */
+.fx-burst.is-earth { background: radial-gradient(circle, #fff 0%, rgba(214, 170, 110, 0.95) 25%, rgba(120, 80, 40, 0) 70%); }
+.fx-spark.is-spell-earth { background: #c89a5a; }
+.fx-num.is-spell-earth { color: #f0c890; }
+.fx-cast-ring.is-earth { border-color: rgba(214, 170, 110, 0.9); box-shadow: 0 0 16px rgba(180, 130, 70, 0.8); }
+.fx-burst.is-holy { background: radial-gradient(circle, #fff 0%, rgba(255, 240, 170, 0.95) 25%, rgba(255, 220, 120, 0) 70%); }
+
+/* Algo invocado aparece en la pelea */
+.fx-sparkle.is-summon { color: #d8b8ff; text-shadow: 0 0 8px rgba(190, 150, 255, 0.95); }
+.cb-unit.fx-summon .cb-sprite { animation: summon-in 700ms ease-out var(--fx-delay, 0ms) both; }
+@keyframes summon-in { 0% { opacity: 0; transform: translateY(14px) scale(0.85); filter: brightness(2) saturate(0); } 60% { opacity: 1; } 100% { opacity: 1; transform: none; filter: none; } }
+
+/* Exploración: muchas opciones en dos columnas */
+.scene-options.is-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.scene-options.is-grid .scene-opt { padding: 10px 12px; }
+.scene-options.is-grid .scene-opt-label { font-size: 15px; }
+@media (max-width: 560px) { .scene-options.is-grid { grid-template-columns: 1fr; } }
+
+/* Élite en la escena */
+.scene-foe.is-elite {
+  border-color: #e2b040;
+  box-shadow: 0 0 0 1px rgba(255, 226, 140, 0.6), 0 0 14px rgba(242, 190, 60, 0.45);
+}
+.scene-foe.is-elite .scene-foe-name { color: #ffd76a; }
+.scene-foe-elite {
+  position: absolute; top: -10px; left: -10px; line-height: 0;
+  filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.55)) drop-shadow(0 0 5px rgba(255, 210, 90, 0.6));
+}
+
+/* Habilidades en la ficha de la criatura */
+.creature-skills { margin: 10px 0 4px; padding: 8px 10px; border-radius: 10px; background: rgba(255, 248, 230, 0.6); border: 1px solid rgba(160, 130, 80, 0.35); }
+.creature-skills-title { font-family: var(--font-display); font-weight: 700; font-size: 14px; margin-bottom: 4px; color: #3a2a12; }
+.creature-skill { display: flex; align-items: flex-start; gap: 8px; padding: 4px 0; line-height: 1.3; font-size: 13px; }
+.creature-skill .px-icon { flex: 0 0 auto; margin-top: 1px; }

@@ -20,6 +20,8 @@
   const FEM = new Set([
     'rata', 'arana', 'serpiente', 'tortuga', 'arpia', 'rata_gigante', 'banshee', 'gargola', 'sirena',
     'driade', 'salamandra', 'medusa', 'naga', 'manticora', 'serp_marina', 'aparicion', 'quimera', 'hidra', 'tarrasca',
+    // v2.5: las que se sumaron después ("la bruja", no "el bruja")
+    'bruja', 'hada_traviesa', 'polilla_onirica', 'noble_vampira', 'momia', 'bestia_sangre', 'pesadilla',
   ]);
   const PROPER = new Set(['brightwing', 'alamuerte']);
 
@@ -158,10 +160,16 @@
   const STATUS_PLAYER = {
     bleed: 'Empezás a sangrar.', poison: 'El veneno te entra en la sangre.', fire: 'Te prendés fuego.',
     cold: 'El frío te entumece los músculos.', shock: 'Una corriente te recorre el cuerpo.', blind: 'No ves nada.', silence: 'Te quedás sin voz.',
+    // v2.5
+    stun: 'Quedás aturdido: perdés el próximo turno.', curse: 'Una maldición cae sobre vos.', prone: 'Caés al suelo: te cuesta defenderte.',
+    fear: 'El miedo te paraliza las manos.', grab: 'Quedás atrapado: no podés huir.', corrode: 'El ácido te carcome la armadura.',
   };
   const STATUS_OTHER = {
     bleed: '{E} empieza a sangrar.', poison: 'El veneno entra en la sangre de {e}.', fire: '{E} se prende fuego.',
     cold: 'El frío entumece a {e}.', shock: 'Una corriente recorre a {e}.', blind: '{E} no ve nada.', silence: '{E} se queda sin voz.',
+    // v2.5
+    stun: '{E} queda aturdido: pierde su próximo turno.', curse: 'Una maldición cae sobre {e}.', prone: '{E} cae al suelo.',
+    fear: '{E} tiembla de miedo.', grab: '{E} queda atrapado.', corrode: 'El ácido carcome la coraza de {e}.',
   };
   const TICK_PLAYER = {
     bleed: 'Seguís sangrando: perdés {n} de vida.', poison: 'El veneno te quema por dentro: perdés {n} de vida.', fire: 'Las llamas te queman: perdés {n} de vida.',
@@ -224,13 +232,16 @@
     const order = [];
     const byId = new Map();
     for (const e of enemies) {
-      if (!byId.has(e.id)) { byId.set(e.id, { inst: e, n: 0 }); order.push(e.id); }
-      byId.get(e.id).n += 1;
+      // v2.5: la élite ("lobo alfa") se nombra aparte
+      const key = e.elite ? `${e.id}#elite` : e.id;
+      if (!byId.has(key)) { byId.set(key, { inst: e, n: 0 }); order.push(key); }
+      byId.get(key).n += 1;
     }
-    const parts = order.map((id) => {
-      const { inst, n } = byId.get(id);
+    const parts = order.map((key) => {
+      const { inst, n } = byId.get(key);
+      const id = inst.id;
       const data = A.Data.getById('enemies', id);
-      const base = (data && data.name) || inst.name || inst.displayName || 'enemigo';
+      const base = inst.elite ? inst.name : (data && data.name) || inst.name || inst.displayName || 'enemigo';
       if (PROPER.has(id)) return n > 1 ? `${NUM[n] || n} ${base}` : base;
       const lower = base.charAt(0).toLowerCase() + base.slice(1);
       if (n > 1) return `${NUM[n] || n} ${pluralName(lower)}`;
@@ -256,6 +267,13 @@
     piel_roca: ' Tu piel de roca frena la mitad del golpe.',
     determinacion: ' ¡Pero tu determinación te mantiene en pie!',
   };
+  function passiveSuffix(id) { return PASSIVE_SUFFIX[id] || ''; }
+
+  // v2.5: el primer golpe contra una criatura con caparazón (o gelatinosa) hace la mitad
+  const SOFT_SUFFIX = {
+    caparazon: ' Su caparazón frena la mitad del golpe.',
+    gelatinoso: ' El golpe se hunde en su cuerpo blando y pierde fuerza.',
+  };
 
   function say(entry, c) {
     const out = sayRaw(entry, c);
@@ -263,6 +281,7 @@
       const fx = entry.fx || {};
       const toPlayer = fx.target === 'player' && (fx.kind === 'attack' || fx.kind === 'tick');
       if (toPlayer && entry.passive && PASSIVE_SUFFIX[entry.passive]) out.text += PASSIVE_SUFFIX[entry.passive];
+      if (entry.softened && SOFT_SUFFIX[entry.softened]) out.text += SOFT_SUFFIX[entry.softened];
       out.text = contract(out.text);
     }
     return out;
@@ -319,7 +338,7 @@
       }
       // enemigo
       const st = styleOf(actorInst);
-      Object.assign(v, { e: enemyNoun(actorInst), E: cap(enemyNoun(actorInst)), w: st.w, p: petNoun(pet), P: cap(petNoun(pet)) });
+      Object.assign(v, { e: enemyNoun(actorInst), E: cap(enemyNoun(actorInst)), w: st.w, p: petNoun(pet), P: cap(petNoun(pet)), lo: actorInst && FEM.has(actorInst.id) ? 'la' : 'lo' });
       const alt = (s) => s.replace('{w}', st.w);
       if (fx.target === 'pet') {
         if (entry.result === 'crit') return { text: fill(`¡{E} ${st.v} a {p} con furia! {d} de daño.`, v), tone: 'bad' };
@@ -334,7 +353,7 @@
       }
       if (entry.result === 'fumble') return { text: fill(pick(['{E} se tropieza y pierde el ataque.', '{E} ataca sin ninguna puntería.']), v), tone: 'good' };
       if (entry.passive === 'suerte') return { text: fill(pick(['¡Suerte! {E} te tenía, pero el golpe pasa de largo.', '¡Suerte! Te tropezás justo a tiempo y {e} no te toca.']), v), tone: 'good' };
-      return { text: fill(pick([`{E} intenta ${st.inf}, pero lo esquivás.`, 'Te corrés a tiempo y {e} no te alcanza.', '{E} falla por poco.']), v), tone: 'good' };
+      return { text: fill(pick([`{E} intenta ${st.inf}, pero {lo} esquivás.`, 'Te corrés a tiempo y {e} no te alcanza.', '{E} falla por poco.']), v), tone: 'good' };
     }
 
     // --- Hechizos y objetos ---
@@ -403,14 +422,17 @@
       const grp = groupPhrase(c && c.enemies);
       const g = grp ? grp.text : (fx.group || 'enemigos');
       const many = grp ? grp.plural : true;
+      // v2.5: si hay una criatura de élite, se avisa
+      const elite = c && (c.enemies || []).find((e) => e.elite);
+      const eliteNote = !elite ? '' : many ? ` ${cap(enemyNoun(elite))} los lidera: es más fuerte que el resto.` : ' Es de élite: más fuerte que los de su especie.';
       if (fx.ambush) {
-        return { text: many ? `¡Emboscada! ${cap(g)} se te tiran encima antes de que puedas reaccionar.` : `¡Emboscada! ${cap(g)} se te tira encima antes de que puedas reaccionar.`, tone: 'bad' };
+        return { text: (many ? `¡Emboscada! ${cap(g)} se te tiran encima antes de que puedas reaccionar.` : `¡Emboscada! ${cap(g)} se te tira encima antes de que puedas reaccionar.`) + eliteNote, tone: 'bad' };
       }
       return {
         text: pick(many
           ? [`${cap(g)} te cierran el paso.`, `Aparecen ${g}. No hay vuelta atrás.`, `${cap(g)} se te plantan enfrente.`]
-          : [`${cap(g)} te cierra el paso.`, `Aparece ${g}. No hay vuelta atrás.`, `${cap(g)} se te planta enfrente.`]),
-        tone: 'neutral',
+          : [`${cap(g)} te cierra el paso.`, `Aparece ${g}. No hay vuelta atrás.`, `${cap(g)} se te planta enfrente.`]) + eliteNote,
+        tone: elite ? 'bad' : 'neutral',
       };
     }
     if (fx.kind === 'reward') {
@@ -434,5 +456,7 @@
     return null;
   }
 
-  A.Narrator = { say, enemyNoun, petNoun, coinsInWords, groupPhrase, contract };
+  function isFem(id) { return FEM.has(id); }
+
+  A.Narrator = { say, enemyNoun, petNoun, coinsInWords, groupPhrase, contract, passiveSuffix, isFem };
 })(window.Aventurs);

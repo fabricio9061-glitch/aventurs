@@ -590,3 +590,8 @@
 .ed-sug-table tr.is-diff td { background: rgba(232, 196, 110, 0.14); }
 .ed-sug-table .ed-sug-arrow { color: #8a6a2c; width: 18px; text-align: center; }
 .ed-sug-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+
+/* v2.5: habilidades de la criatura en el editor */
+.ed-skill { display: flex; align-items: flex-start; gap: 8px; padding: 5px 0; border-bottom: 1px dashed rgba(0, 0, 0, 0.08); }
+.ed-skill:last-of-type { border-bottom: none; }
+.ed-skill > .px-icon, .ed-skill > img { flex: 0 0 auto; margin-top: 2px; }

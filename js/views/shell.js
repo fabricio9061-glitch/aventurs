@@ -42,7 +42,7 @@
           <div class="shell-brand">
             <span class="brand-icon">${A.UI ? A.UI.icon('swords', 26) : ''}</span>
             <span class="brand-name">Aventurs</span>
-            <span class="version-pill" title="Versión del juego">v2.4.0</span>
+            <span class="version-pill" title="Versión del juego">v2.5.0</span>
           </div>
           ${tabs.length > 1 ? `
             <nav class="shell-nav">
@@ -290,7 +290,12 @@
     const dataAttr = slotName === 'bag'
       ? `data-equipped-bag="${escH(equipped.id)}"`
       : `data-equipped-slot="${slotName}"`;
-    const tip = slotName === 'accessory' && A.Accessories ? A.Accessories.describe(equipped).join('. ') : stat;
+    let tip = slotName === 'accessory' && A.Accessories ? A.Accessories.describe(equipped).join('. ') : stat;
+    // v2.5: el arma avisa si deja un estado al pegar
+    if (slotName === 'weapon' && A.ItemFx && A.ItemFx.weaponEffectLine) {
+      const proc = A.ItemFx.weaponEffectLine(equipped);
+      if (proc) tip = `${stat}. ${proc}`;
+    }
     return `
       <button class="sb-eq ${RARITY_CLS[equipped.rarity] || ''}" ${dataAttr} title="${escH(label)}: ${escH(equipped.name)}${tip ? ` (${escH(tip)})` : ''}">
         <span class="sb-eq-sprite">${A.ItemSprites ? A.ItemSprites.html(equipped, { size: 28 }) : ''}</span>

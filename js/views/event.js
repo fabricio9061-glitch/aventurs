@@ -21,10 +21,14 @@
         ${shown.map((e) => {
           const data = A.Data.getById('enemies', e.id) || e;
           const dc = e.difficulty != null ? e.difficulty : (data.difficulty != null ? data.difficulty : 10);
+          // v2.5: habilidades en el globito y marca dorada para la élite
+          const skills = A.Skills ? A.Skills.listFor(e).map((sk) => sk.name).join(', ') : '';
+          const tip = `${e.name || data.name}${e.elite ? ' (élite: más vida, más daño y mejor botín)' : ''}${skills ? `\nHabilidades: ${skills}` : ''}`;
           return `
-            <div class="scene-foe" title="${U().esc(data.name)}">
+            <div class="scene-foe ${e.elite ? 'is-elite' : ''}" title="${U().esc(tip)}">
               <span class="scene-foe-sprite">${A.Sprites ? A.Sprites.html(e, { size }) : ''}</span>
-              <span class="scene-foe-name">${U().esc(e.displayName || data.name)}</span>
+              ${e.elite ? `<span class="scene-foe-elite">${U().icon('elite', 26)}</span>` : ''}
+              <span class="scene-foe-name">${U().esc(e.displayName || e.name || data.name)}</span>
               ${A.ItemSprites ? A.ItemSprites.dcBadge(dc, { size: 24, cls: 'scene-foe-dc' }) : ''}
             </div>`;
         }).join('')}
@@ -34,13 +38,17 @@
   }
 
   function optionsHtml(sc) {
+    // v2.5: con muchas opciones van en dos columnas (entra todo sin bajar)
+    const many = sc.options.length > 3;
     return `
-      <div class="scene-options">
+      <div class="scene-options ${many ? 'is-grid' : ''}">
         ${sc.options.map((o, i) => {
           const blocked = A.Explore.optionBlocked(o);
+          const needItem = o.needs && o.needs.item ? (A.Inventory && A.Inventory.resolveData ? A.Inventory.resolveData(o.needs.item) : A.Data.getById('items', o.needs.item)) : null;
           const cost = o.needs && o.needs.coins
             ? `<span class="ui-check is-cost">${U().icon('coins', 16)}<span>Cuesta</span>${U().price(Math.max(1, Math.round(A.Explore && A.Rewards ? A.Rewards.coinUnit(sc.tier) * o.needs.coins : 1)), 14)}</span>`
-            : o.needs && o.needs.food ? `<span class="ui-check is-cost">${U().icon('food', 16)}<span>${o.needs.food} de comida</span></span>` : '';
+            : o.needs && o.needs.food ? `<span class="ui-check is-cost">${U().icon('food', 16)}<span>${o.needs.food} de comida</span></span>`
+            : needItem ? `<span class="ui-check is-cost">${A.ItemSprites ? A.ItemSprites.html(needItem.id, { size: 18 }) : ''}<span>Gastás 1</span></span>` : '';
           return `
             <button class="scene-opt ${blocked ? 'is-blocked' : ''}" data-scene-opt="${i}" ${blocked ? 'disabled' : ''}>
               <span class="scene-opt-label">${U().esc(o.label)}</span>

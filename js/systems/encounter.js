@@ -83,7 +83,82 @@
    * Devuelve array de instancias (puede estar vacío si no hay candidatos).
    */
   /** opts.level: nivel a usar en vez del tuyo (lo usa el editor para probar zonas). */
+  /**
+   * Arma el grupo de criaturas de un encuentro en la región.
+   * v2.5: a veces una sale de élite (alfa, campeón o mayor). opts.noElite la evita.
+   */
   function generate(regionId, opts = {}) {
+    const group = buildGroup(regionId, opts);
+    return opts.noElite ? group : maybeElite(group);
+  }
+
+  // ============================================================
+  // v2.5: Élite
+  // ============================================================
+
+  /** "alfa" para bestias, "campeón/campeona" para gente y no muertos, "mayor" para lo demás. */
+  function eliteTitle(inst) {
+    const fam = inst.family || [];
+    const fem = A.Narrator && A.Narrator.isFem ? A.Narrator.isFem(inst.id) : false;
+    if (fam.includes('spirit')) return 'mayor';
+    if (fam.includes('humanoid') || fam.includes('fey') || fam.includes('giant') || fam.includes('undead')) return fem ? 'campeona' : 'campeón';
+    if (fam.includes('beast') || fam.includes('insect') || fam.includes('marine') || fam.includes('dragon')) return 'alfa';
+    return 'mayor';
+  }
+
+  /** "2d4+1" con 25% más de daño promedio -> "2d4+3". Si no se puede, null. */
+  function boostDice(expr, mult) {
+    const m = /^\s*(\d+)d(\d+)\s*([+-]\s*\d+)?\s*$/.exec(String(expr || ''));
+    if (!m) return null;
+    const n = +m[1];
+    const f = +m[2];
+    const flat = m[3] ? +m[3].replace(/\s/g, '') : 0;
+    const avg = (n * (f + 1)) / 2 + flat;
+    const total = flat + Math.max(1, Math.round(avg * (mult - 1)));
+    return `${n}d${f}${total >= 0 ? '+' : ''}${total}`;
+  }
+
+  /** Convierte una instancia en élite: más vida, más daño, +1 a todo y la pasiva Líder. */
+  function makeElite(inst) {
+    const EL = (A.Balance && A.Balance.ELITE) || null;
+    if (!inst || !EL || inst.elite) return inst;
+    inst.elite = true;
+    inst.eliteTitle = eliteTitle(inst);
+    inst.baseName = inst.name;
+    inst.name = `${inst.name} ${inst.eliteTitle}`;
+    inst.displayName = inst.name;
+    inst.maxHp = Math.round((inst.maxHp || 1) * EL.hp);
+    inst.hp = inst.maxHp;
+    const dice = boostDice(inst.damage, EL.dmg);
+    if (dice) inst.damage = dice; else inst.dmgMult = EL.dmg;
+    inst.attack = (inst.attack || 0) + EL.atk;
+    inst.difficulty = (inst.difficulty || 10) + EL.def;
+    if ((inst.tier || 1) >= EL.armorFromTier) inst.armor = (inst.armor || 0) + 1;
+    inst.speed = (inst.speed || 10) + EL.speed;
+    inst.skills = (inst.skills || []).filter((s) => s !== 'lider').concat('lider');
+    return inst;
+  }
+
+  /** Tira la chance de élite para un grupo (una sola por grupo, nunca un jefe). */
+  function maybeElite(group) {
+    const EL = A.Balance && A.Balance.ELITE;
+    if (!EL || !Array.isArray(group) || !group.length) return group;
+    const pool = group.filter((e) => e.category !== 'boss');
+    if (!pool.length) return group;
+    const chance = group.length > 1 ? EL.chanceGroup : EL.chanceSolo;
+    if (Math.random() >= chance) return group;
+    // la especie con más miembros pone al jefe de la manada
+    const count = {};
+    for (const e of pool) count[e.id] = (count[e.id] || 0) + 1;
+    const top = Math.max(...Object.values(count));
+    const ids = Object.keys(count).filter((id) => count[id] === top);
+    const id = ids[Math.floor(Math.random() * ids.length)];
+    const list = pool.filter((e) => e.id === id);
+    makeElite(list[Math.floor(Math.random() * list.length)]);
+    return group;
+  }
+
+  function buildGroup(regionId, opts = {}) {
     const conf = configFor(regionId);
     if (!conf) return [];
     const { region, cfg } = conf;
@@ -275,6 +350,7 @@
       tier: enemyData.tier,
       family: (enemyData.family || []).slice(),
       tags: (enemyData.tags || []).slice(),
+      skills: (enemyData.skills || []).slice(), // v2.5: pasivas y activas de la especie
       effects: [],
       equippedWeapon: null,
       equippedArmor: null,
@@ -354,11 +430,19 @@
    */
   function describeGroup(instances) {
     const counts = new Map();
-    for (const i of instances) counts.set(i.id, (counts.get(i.id) || 0) + 1);
+    const names = new Map();
+    for (const i of instances) {
+      // v2.5: la élite va aparte ("2× Lobo, Lobo alfa")
+      const key = i.elite ? `${i.id}#elite` : i.id;
+      counts.set(key, (counts.get(key) || 0) + 1);
+      if (!names.has(key)) {
+        const e = A.Data.getById('enemies', i.id);
+        names.set(key, i.elite ? i.name : (e ? e.name : i.id));
+      }
+    }
     const parts = [];
-    for (const [id, n] of counts) {
-      const e = A.Data.getById('enemies', id);
-      const name = e ? e.name : id;
+    for (const [key, n] of counts) {
+      const name = names.get(key);
       parts.push(n > 1 ? `${n}× ${name}` : name);
     }
     return parts.join(', ');
@@ -382,6 +466,8 @@
     generate,
     configFor,
     describeGroup,
+    makeElite,
+    eliteTitle,
     spawnInstance,
     DEFAULT_ENCOUNTER,
   };

@@ -233,6 +233,9 @@
         ${(() => {
           // v2.4: lo que hace (pociones, comida, pergaminos y accesorios)
           const lines = d.subtype === 'accessory' ? (A.Accessories ? A.Accessories.describe(d) : []) : (A.ItemFx && (d.effect || d.healAmount || d.foodValue) ? A.ItemFx.describe(d) : []);
+          // v2.5: armas que dejan un estado al pegar (la daga hace sangrar)
+          const proc = A.ItemFx && A.ItemFx.weaponEffectLine ? A.ItemFx.weaponEffectLine(d) : null;
+          if (proc) return `<ul class="effect-list shop-effects"><li>${U().icon(d.statusEffect.type, 14)}<span>${U().esc(proc)}.</span></li></ul>`;
           if (!lines.length) return '';
           const fight = A.ItemFx && A.ItemFx.combatOnly(d);
           return `<ul class="effect-list shop-effects">${lines.map((l) => `<li>${U().icon(d.subtype === 'accessory' ? 'star' : fight ? 'swords' : 'heal', 14)}<span>${U().esc(l)}</span></li>`).join('')}${fight ? `<li class="dim">${U().icon('swords', 14)}<span>Se usa en combate (gasta tu turno).</span></li>` : ''}</ul>`;
@@ -321,6 +324,7 @@
           const known = (p.spells || []).includes(s.id);
           const price = A.NPC.spellPrice(s.id);
           const canPay = A.Currency.canPay(price);
+          const mageOnly = !known && A.Spellbook && A.Spellbook.canLearn ? !!A.Spellbook.canLearn(p, s).mageOnly : false;
           const cost = A.Passives && A.Passives.spellCost ? A.Passives.spellCost(p, s) : s.manaCost;
           const what = s.damage ? `${s.damage} de daño${s.area ? ' a todos' : ''}` : s.heal ? `cura ${s.heal}` : '';
           return `
@@ -331,7 +335,8 @@
                 <span class="learn2-meta">${U().esc(what)} · ${cost} de maná</span>
                 <span class="learn2-desc">${U().esc(s.description || '')}</span>
               </span>
-              ${known ? `<span class="cmp-badge is-eq">${U().icon('check', 12)}<span>Aprendido</span></span>` : `
+              ${known ? `<span class="cmp-badge is-eq">${U().icon('check', 12)}<span>Aprendido</span></span>` : mageOnly ? `
+                <span class="cmp-badge is-worse" title="Los híbridos no pueden aprender los grandes hechizos de área">${U().icon('lock', 12)}<span>Solo magos</span></span>` : `
                 <span class="learn2-buy">${U().price(price, 14)}<button class="btn-mini" data-learn="${U().esc(s.id)}" ${canPay ? '' : 'disabled'}>${canPay ? 'Aprender' : 'Sin dinero'}</button></span>`}
             </div>`;
         }).join('')}

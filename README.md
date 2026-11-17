@@ -32,12 +32,15 @@ aventurs/
 │   │                       armors, spells, recipes, npcs, bags,
 │   │                       events (escenas al explorar), quests (misiones),
 │   │                       extra (lo de "RPG Plugins": equipo, accesorios,
-│   │                       pergaminos, pociones y comidas; v2.4)
+│   │                       pergaminos, pociones y comidas; v2.4),
+│   │                       skills (qué habilidades tiene cada criatura; v2.5)
 │   ├── systems/            Combat, Encounter, Travel, Tame (mascotas),
 │   │                       Inventory, Currency, Crafting, NPC,
 │   │                       Explore (escenas y descanso), Quests (misiones),
 │   │                       Accessories (accesorio puesto), ItemFx (pociones,
-│   │                       comidas y pergaminos, mejoras por turnos) (v2.4)
+│   │                       comidas y pergaminos, mejoras por turnos) (v2.4),
+│   │                       Skills (pasivas y activas de las criaturas),
+│   │                       Spellbook (quién aprende cada hechizo) (v2.5)
 │   ├── editor/             Editor del mundo (v2.2): ed-core (guardado por parches),
 │   │                       ed-fields (campos), ed-schema (qué se edita de cada cosa),
 │   │                       ed-panels, ed-sim (prueba de combate), ed-map, ed-view
@@ -214,6 +217,97 @@ Explorar siempre hace pasar algo (`js/systems/explore.js` + `js/data/seed-events
   se cuentan con ×N).
 - En el celular, una franja arriba con vida, maná, comida y dinero.
 - Sin emojis en el juego (desde la v2.2, tampoco en el editor).
+
+## Versión 2.5.0: criaturas con habilidades, élite y más formas de encarar
+
+### Habilidades de las criaturas (`js/systems/skills.js` + `js/data/seed-skills.js`)
+- Las 104 criaturas tienen **pasivas** (actúan solas) y **activas** (a veces las usan en su
+  turno en vez del ataque de siempre). Cada una tiene su frase del narrador, su ícono y su
+  número flotante.
+- **Pasivas (19):** Manada (+1 de precisión por cada compañero de su especie), Caparazón y
+  Gelatinoso (el primer golpe hace la mitad), Escurridizo (esquiva el primer golpe), Vuela
+  (+1 de defensa), Furia (pega más fuerte con media vida), Regeneración (el fuego la frena),
+  No muerto / Constructo / Ser elemental / Etéreo / Escamas ignífugas (inmunidades), Sed de
+  sangre (se cura con lo que te saca), Cuerpo de fuego y de hielo (te quemás o te congelás
+  al pegarle), Espinas, Venenoso, Renacer (el fénix vuelve una vez) y Líder (la élite).
+- **Activas (41):** Mordida feroz, Zarpazo, Mordida infecciosa, Colmillos venenosos, Aguijón,
+  Hoja envenenada, Picotazo a los ojos, Ataque en picada, Embestida, Derribo, Golpe
+  aturdidor, Agarre, Lengua pegajosa, Escupitajo ácido, Drenar vida, Beber sangre, Disparo
+  certero, Robar (las monedas vuelven si lo vencés), Doble ataque, Coletazo, Aliento de fuego
+  y helado, Pisotón, Hechizo (de fuego, hielo, sombra o energía según la criatura), Chillido,
+  Telaraña, Encantar, Polvo de sueño, Mirada de piedra, Aterrar, Rugido, Maldición,
+  Oscuridad, Nube de tinta, Tierra a los ojos, Ojo antimagia, Curarse, Guardia, Aullido,
+  Grito de guerra e Invocar (el nigromante levanta un esqueleto, el capitán pirata llama a
+  un grumete...).
+- **Tirada para resistir:** muchas se resisten con D20 + fuerza, agilidad o ingenio (el
+  mismo modificador que al explorar) contra 10 + la mitad del tier (+2 los jefes, +1 la
+  élite). El dado aparece en el combate con "¡Resistís!" o "No resistís".
+- **Estados nuevos:** derribado (−3 de defensa), miedo (−2 de precisión y −1 de daño),
+  atrapado (no podés huir y pegás peor), ácido (−2 de armadura). También envalentonado y en
+  guardia para las criaturas. Sangrado y veneno se acumulan hasta 3 a la vez.
+- **Mascotas:** usan las activas de su especie a tu favor (un lobo domado muerde, aúlla y te
+  da ánimo; un fénix escupe fuego).
+- **Balance:** con las habilidades puestas, cada criatura cuesta casi lo mismo que en la 2.4
+  (un 3% a 5% más), ajustando solo su vida con el simulador: las que tienen habilidades
+  fuertes (aliento, regeneración, renacer) tienen menos vida; las que pierden turnos en
+  maldecir o asustar, un poco más. Regeneración cura como mucho un cuarto de su vida por
+  pelea.
+
+### Élite
+- A veces una criatura sale de élite: **5%** si viene sola y **9%** si viene en grupo (una
+  sola por grupo, nunca un jefe). Se llama "alfa" (bestias), "campeón/campeona" (gente y no
+  muertos) o "mayor" (espíritus, elementales, demonios...). Una manada de lobos puede traer
+  a su lobo alfa.
+- Tiene 50% más de vida, 20% más de daño, +1 de precisión y de defensa (+1 de armadura
+  desde el nivel 4), +1 de velocidad, la pasiva Líder (+1 de precisión a sus compañeros) y
+  usa sus habilidades más seguido.
+- Da **2,5 veces** la experiencia y las monedas, y suelta botín un 50% más seguido.
+- Se ve: un dragón dorado sobre su tarjeta (como los jefes de los MMO), marco dorado y su
+  título en lugar del nivel; en la escena de exploración también.
+
+### Clases parejas otra vez
+- Las habilidades castigan más al que pelea con el arma, así que los **guerreros** suman
+  **+2 para resistir con agilidad o ingenio**, ganan **7 de vida por nivel** (antes 6), y su
+  **Golpe fuerte** no lo esquivan Escurridizo ni Etéreo ni lo frena un Caparazón.
+- Los **híbridos** recuperan 1 de maná más al acertar cada 5 niveles (antes cada 4) y los
+  **magos** suman maná por turno cada 3 niveles (antes cada 4).
+- Rachas de peleas ganadas (simulador, 500 por raza): nivel 1 híbrido 5,0 · guerrero 5,3 ·
+  mago 4,9; nivel 5: 3,5 · 3,5 · 3,7; nivel 8: 3,2 · 3,0 · 3,1. Las zonas se ganan entre el
+  89% y el 100% de las veces al nivel de entrada (sin pociones); contra una élite, 3 de 4.
+
+### Explorar: más formas de encarar a las criaturas
+- **Atacar por sorpresa** (la tirada depende de tu clase): si sale bien, actuás primero y
+  **arrancan con un 25% menos de vida**. Si sale mal, la criatura te hace algo antes de
+  empezar según lo que es: la araña te atrapa en su tela, la serpiente te envenena, el
+  dragón te quema, el slime te carcome la armadura, el lobo te muerde... (o perdés un poco
+  de vida).
+- **Pelear de frente:** sin tirada.
+- **Huir** (antes "Escabullirte"): agilidad, más difícil cuanto más rápidos son ellos.
+- Una opción más según quiénes son: **tirarles comida** a las bestias (gasta una), **pagarles**
+  a bandidos y piratas, o **intimidarlos** con fuerza (si sale mal, se envalentonan).
+- Con muchas opciones, la escena las muestra en dos columnas.
+
+### Armas que dejan estados
+- La daga (y toda arma que haga sangrar, quemar, envenenar...) ahora lo dice en la ficha,
+  en la tienda y en la barra lateral: "20% de chance de hacer sangrar al pegar: 1 de daño
+  por turno durante 3 turnos". Y el narrador lo cuenta: "Tu daga le abre una herida al
+  goblin: empieza a sangrar".
+
+### Hechizos solo para magos
+- Bola de fuego, Tormenta arcana y Aliento de dragón (los grandes de área) solo los
+  aprenden los magos (gnomo, alienígena, infernal, ángel). Los híbridos (humano, elfo,
+  mediano, dracónido) siguen con Chispa, Llama, Rayo helado, Curación y su hechizo de raza.
+  Si un híbrido ya sabía uno de esos de antes, lo conserva. En el sabio aparecen como
+  "Solo magos"; el pergamino avisa antes de gastarse. En el editor: "Solo para magos".
+
+### Editor
+- Criaturas: sección **Habilidades** para elegir pasivas y activas, con lo que hace cada una.
+- Hechizos: interruptor **Solo para magos**.
+
+### Arreglos
+- "El bruja del bosque", "el hada traviesa", "el momia": ahora con su artículo correcto.
+- "La araña intenta morderte, pero lo esquivás" → "pero la esquivás".
+- Los dragones, la quimera y el dracónido salvaje ya no se prenden fuego con tus hechizos de fuego.
 
 ## Versión 2.4.0: rarezas, accesorios, pergaminos y botín justo
 

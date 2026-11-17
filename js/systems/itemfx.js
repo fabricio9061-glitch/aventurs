@@ -23,9 +23,10 @@
 (function (A) {
   'use strict';
 
-  const BAD = ['bleed', 'poison', 'fire', 'cold', 'shock', 'blind', 'silence'];
+  // v2.5: también lo que te dejan las criaturas (derribado, miedo, atrapado, ácido, maldición, aturdido)
+  const BAD = ['bleed', 'poison', 'fire', 'cold', 'shock', 'blind', 'silence', 'prone', 'fear', 'grab', 'corrode', 'curse', 'stun'];
   const COMBAT_ONLY = ['buff', 'escape', 'damage', 'stun', 'curse', 'survivor'];
-  const WORD = { poison: 'el veneno', fire: 'el fuego', cold: 'el frío', shock: 'los rayos', bleed: 'el sangrado', blind: 'la ceguera', silence: 'el silencio' };
+  const WORD = { poison: 'el veneno', fire: 'el fuego', cold: 'el frío', shock: 'los rayos', bleed: 'el sangrado', blind: 'la ceguera', silence: 'el silencio', prone: 'caer al suelo', fear: 'el miedo', grab: 'quedar atrapado', corrode: 'el ácido', curse: 'las maldiciones', stun: 'quedar aturdido' };
   const ELEMENT_WORD = { fire: 'de fuego', cold: 'de hielo', shock: 'eléctrico', poison: 'venenoso' };
   const FX_ELEMENT = { fire: 'fire', cold: 'ice', ice: 'ice', shock: 'shock', poison: 'poison', holy: 'holy' };
   const BUFF_ICON = { dodge: 'boot', damage: 'swords', armor: 'shield', precision: 'target', defense: 'boot', speed: 'boot', regen: 'heal', reflect: 'spark', invisible: 'eye', immune: 'star', invincible: 'crown', resist: 'star' };
@@ -142,6 +143,16 @@
     }
     if (ef.type === 'stun') return { icon: 'hourglass', label: 'Aturdido', cls: 'stun' };
     if (ef.type === 'curse') return { icon: 'skull', label: 'Maldición', cls: 'curse' };
+    // v2.5: estados de las criaturas
+    const NEW = {
+      prone: { icon: 'arrow-down', label: 'Derribado (−3 de defensa)' },
+      fear: { icon: 'warning', label: 'Miedo (−2 de precisión, −1 de daño)' },
+      grab: { icon: 'lock', label: 'Atrapado (no puede huir, −2 de precisión)' },
+      corrode: { icon: 'poison', label: 'Ácido (−2 de armadura)' },
+      rally: { icon: 'arrow-up', label: `Envalentonado (+${ef.value || 1} de precisión y daño)` },
+      guard: { icon: 'shield', label: `En guardia (+${ef.value || 3} de defensa)` },
+    };
+    if (NEW[ef.type]) return { ...NEW[ef.type], cls: ef.type };
     const label = A.Combat && A.Combat.effectLabel ? A.Combat.effectLabel(ef.type) : ef.type;
     return { icon: ef.type, label: cap(label), cls: ef.type };
   }
@@ -587,8 +598,53 @@
     return { dmg, tag: null };
   }
 
+  // ============================================================
+  // v2.5: armas que dejan un estado al pegar (la daga hace sangrar)
+  // ============================================================
+
+  const PROC_WORD = { bleed: 'hacer sangrar', poison: 'envenenar', fire: 'prender fuego', cold: 'congelar', shock: 'electrizar', blind: 'cegar', silence: 'dejar sin voz', stun: 'aturdir', prone: 'tirar al suelo', fear: 'asustar' };
+
+  /** "20% de hacer sangrar: 1 de daño por turno durante 3 turnos" (o null si el arma no tiene). */
+  function weaponEffectLine(w) {
+    const st = w && w.statusEffect;
+    if (!st || !st.type || !st.chance) return null;
+    const pct = `${Math.round(st.chance * 100)}%`;
+    const v = st.value || 1;
+    const t = turnsTxt(st.turns || 3);
+    switch (st.type) {
+      case 'bleed': case 'poison': case 'fire':
+        return `${pct} de chance de ${PROC_WORD[st.type]} al pegar: ${v} de daño por turno durante ${t}`;
+      case 'cold': return `${pct} de chance de congelar al pegar: pega peor y le pegás más fácil durante ${t}`;
+      case 'shock': return `${pct} de chance de electrizar al pegar: puede perder el turno durante ${t}`;
+      case 'blind': return `${pct} de chance de cegar al pegar: casi no acierta durante ${t}`;
+      default: return `${pct} de chance de ${PROC_WORD[st.type] || st.type} al pegar (${t})`;
+    }
+  }
+
+  /** Lo que cuenta el narrador cuando tu arma deja el estado. Para hechizos devuelve null. */
+  function weaponProcLine(source, target) {
+    if (!source || !source.statusEffect || source.manaCost != null || !A.Data.getById('weapons', source.id)) return null;
+    const w = source.name.toLowerCase();
+    const e = A.Narrator && A.Narrator.enemyNoun ? A.Narrator.enemyNoun(target) : (target.displayName || 'el enemigo');
+    const E = cap(e);
+    const pick = (a) => a[Math.floor(Math.random() * a.length)];
+    let out;
+    switch (source.statusEffect.type) {
+      case 'bleed': out = pick([`Tu ${w} le abre una herida a ${e}: empieza a sangrar.`, `El filo de tu ${w} deja un tajo profundo: ${e} sangra.`]); break;
+      case 'poison': out = `El veneno de tu ${w} entra en la sangre de ${e}.`; break;
+      case 'fire': out = pick([`Tu ${w} le prende fuego a ${e}.`, `Las llamas de tu ${w} alcanzan a ${e}: se prende fuego.`]); break;
+      case 'cold': out = `El frío de tu ${w} entumece a ${e}.`; break;
+      case 'shock': out = `Tu ${w} suelta una descarga que sacude a ${e}.`; break;
+      case 'blind': out = `Tu ${w} encandila a ${e}: no ve nada.`; break;
+      default: out = `${E} sufre el efecto de tu ${w}.`;
+    }
+    return A.Narrator && A.Narrator.contract ? A.Narrator.contract(out) : out;
+  }
+
   A.ItemFx = {
     BAD,
+    weaponEffectLine,
+    weaponProcLine,
     modsOf,
     buffMods,
     addBuff,

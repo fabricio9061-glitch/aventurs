@@ -303,6 +303,18 @@
   // Razas y armas
   // ============================================================
 
+  /** v2.5: qué hace cada habilidad elegida para la criatura. */
+  function enemySkills(d) {
+    const list = A.Skills && d ? A.Skills.listFor({ skills: d.skills || [] }) : [];
+    if (!list.length) return card('Habilidades', '<div class="ed-dim">Sin habilidades: solo ataca. Agregale una pasiva o una activa para que la pelea sea más interesante.</div>', { icon: 'spark' });
+    const rows = list.map((sk) => `
+      <div class="ed-skill">
+        ${icon(sk.icon || 'star', 18)}
+        <div><b>${esc(sk.name)}</b> <span class="ed-dim">· ${sk.kind === 'passive' ? 'pasiva' : 'activa'}</span><div class="ed-dim">${esc(sk.text || '')}</div></div>
+      </div>`).join('');
+    return card('Habilidades', `${rows}<div class="ed-dim" style="margin-top:6px">Las activas las usa a veces en su turno en vez de atacar. La prueba de combate de arriba no las cuenta.</div>`, { icon: 'spark' });
+  }
+
   function passiveHelp(d) {
     const P = A.Passives && A.Passives.LIST && d ? A.Passives.LIST[d.passive] : null;
     if (!P) return '';
@@ -357,7 +369,7 @@
 
   Ed.panels = {
     regionMap, regionCreatures, regionTest, regionPeople, creaturesIn,
-    homeHelp, enemySim, enemySuggest, suggestSig, dcHelp, eventPreview, npcQuests, priceHelp, questPreview, passiveHelp, racePreview, weaponFit,
+    homeHelp, enemySim, enemySuggest, suggestSig, dcHelp, eventPreview, npcQuests, priceHelp, questPreview, passiveHelp, racePreview, weaponFit, enemySkills,
     itemEffects,
   };
 })(window.Aventurs);

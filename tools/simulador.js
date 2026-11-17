@@ -76,7 +76,12 @@ function setLevel(G, p, level) {
   if (p.hasMagic) {
     // Hechizos que un mago de ese nivel podría haber aprendido
     // (los hechizos de raza son solo de su raza)
-    for (const s of A.Data.spells) if ((s.tier || 1) <= level && !s.racial && !p.spells.includes(s.id)) p.spells.push(s.id);
+    // v2.5: respetando quién puede aprender cada uno (los grandes de área, solo magos)
+    for (const s of A.Data.spells) {
+      if ((s.tier || 1) > level || s.racial || p.spells.includes(s.id)) continue;
+      if (A.Spellbook && A.Spellbook.canLearn && !A.Spellbook.canLearn(p, s).ok) continue;
+      p.spells.push(s.id);
+    }
   }
 }
 
@@ -410,4 +415,4 @@ if (require.main === module) {
   report(process.argv[2]);
 }
 
-module.exports = { createGame, newCharacter, runFight, spawn, reportRaces, setLevel, gearForLevel };
+module.exports = { createGame, newCharacter, runFight, spawn, reportRaces, setLevel, gearForLevel, playerAI };

@@ -180,6 +180,14 @@
       if (A.State.addItem(id, qty)) chips.push({ kind: 'item', itemId: id, value: qty });
       else chips.push({ kind: 'full', itemId: id });
     }
+    // v2.5: lo que gastás (la comida que les tirás a las bestias)
+    for (const it of out.consume || []) {
+      const [id, qty] = it;
+      if (A.State.removeItem && (p.inventory || []).some((s) => s.itemId === id)) {
+        A.State.removeItem(id, qty || 1);
+        chips.push({ kind: 'used', itemId: id, value: qty || 1 });
+      }
+    }
     for (let i = 0; i < (out.loot || 0); i++) {
       const got = biomeLootPick(region);
       if (got) chips.push({ kind: 'item', itemId: got.itemId, value: got.qty });
@@ -226,6 +234,7 @@
     switch (c.kind) {
       case 'coins': return c.value > 0 ? `+${A.Currency.formatPrice(c.value)}` : `-${A.Currency.formatPrice(-c.value)}`;
       case 'item': return `${it ? it.name : c.itemId}${c.value > 1 ? ` ×${c.value}` : ''}`;
+      case 'used': return `-${it ? it.name : c.itemId}${c.value > 1 ? ` ×${c.value}` : ''}`;
       case 'full': return `${it ? it.name : 'algo'} (no entró en la mochila)`;
       case 'heal': return `+${c.value} vida`;
       case 'hurt': return `-${c.value} vida`;
@@ -278,6 +287,78 @@
     return places && places.length ? pick(places) : 'cerca del camino';
   }
 
+  /** v2.5: la criatura que "manda" en el grupo (la élite, o la de más tier). */
+  function leaderOf(group) {
+    return group.find((e) => e.elite) || group.slice().sort((a, b) => (b.tier || 1) - (a.tier || 1))[0];
+  }
+
+  function nounOf(inst) {
+    return A.Narrator && A.Narrator.enemyNoun ? A.Narrator.enemyNoun(inst) : (inst.displayName || inst.name || 'la criatura');
+  }
+  const capFirst = (t) => (t ? t.charAt(0).toUpperCase() + t.slice(1) : t);
+
+  /**
+   * v2.5: si el ataque por sorpresa sale mal, la criatura te hace algo antes de empezar
+   * (la araña te atrapa en su tela, la serpiente te envenena...). Si no, perdés un poco de vida.
+   */
+  function surpriseFail(group, tier) {
+    const lead = leaderOf(group);
+    const N = capFirst(nounOf(lead));
+    const ids = A.Skills ? A.Skills.idsOf(lead) : [];
+    const tags = lead.tags || [];
+    const value = (type) => (A.Skills ? A.Skills.valueFor(type, lead.tier || tier) : 1);
+    const st = (status, turns, text) => ({ text, opening: [{ type: 'status', status, turns, value: value(status), say: text }] });
+    if (ids.includes('telarana')) return st('grab', 3, 'Pisás una telaraña escondida: arrancás la pelea atrapado.');
+    if (tags.includes('poison') || ids.includes('venenoso') || ids.includes('picadura') || ids.includes('colmillos_veneno')) return st('poison', 3, `${N} te pica antes de que llegues: arrancás envenenado.`);
+    if (tags.includes('fire')) return st('fire', 2, `${N} te recibe con una llamarada: arrancás quemándote.`);
+    if (tags.includes('ice')) return st('cold', 2, 'Una ráfaga helada te frena en seco: arrancás entumecido.');
+    if (tags.includes('acid') || ids.includes('acido')) return st('corrode', 3, `${N} te salpica ácido: te carcome la armadura.`);
+    if (ids.includes('miedo') || ids.includes('etereo') || ids.includes('rugido')) return st('fear', 3, 'Un grito helado te paraliza: arrancás con miedo.');
+    if (ids.includes('derribo') || ids.includes('embestida') || tags.includes('charge')) return st('prone', 2, `${N} te sale al cruce y te tira al suelo.`);
+    if (ids.includes('picotazo') || ids.includes('tierra_ojos') || ids.includes('oscuridad')) return st('blind', 2, `${N} se te tira a la cara: arrancás medio ciego.`);
+    if (ids.includes('mordida') || ids.includes('zarpazo') || ids.includes('infectar') || ids.includes('beber_sangre')) return st('bleed', 2, `${N} te muerde al pasar: arrancás sangrando.`);
+    if (ids.includes('agarre') || ids.includes('lengua')) return st('grab', 3, `${N} te atrapa antes de que puedas reaccionar.`);
+    const p = player();
+    const amount = Math.max(1, Math.round(((p && p.maxHp) || 10) * 0.1));
+    const text = 'Te ven venir y te reciben con un golpe: arrancás la pelea con menos vida.';
+    return { text, opening: [{ type: 'damage', amount, effect: 'bleed', say: text }] };
+  }
+
+  /** v2.5: comida que les podés tirar a unas bestias para que te dejen en paz. */
+  function foodFor(group) {
+    const p = player();
+    if (!p || !A.Tame || !A.Tame.dietInfo) return null;
+    const beasts = group.every((e) => {
+      const fam = e.family || [];
+      return !fam.includes('humanoid') && !fam.includes('undead') && !fam.includes('construct') && !fam.includes('elemental')
+        && !fam.includes('spirit') && !fam.includes('plant') && !fam.includes('demon') && e.category !== 'boss'
+        && (fam.includes('beast') || fam.includes('insect') || fam.includes('marine'));
+    });
+    if (!beasts) return null;
+    const diet = A.Tame.dietInfo(A.Data.getById('enemies', leaderOf(group).id) || leaderOf(group));
+    const have = (diet.foods || []).filter((id) => (p.inventory || []).some((s) => s.itemId === id && s.qty > 0));
+    if (!have.length) return null;
+    have.sort((a, b) => ((A.Data.getById('items', a) || {}).value || 0) - ((A.Data.getById('items', b) || {}).value || 0));
+    return A.Data.getById('items', have[0]);
+  }
+
+  /** v2.5: ¿son gente con la que se puede negociar? (bandidos, piratas, goblins...) */
+  function canBribe(group) {
+    return group.every((e) => {
+      const fam = e.family || [];
+      return fam.includes('humanoid') && !fam.includes('undead') && !fam.includes('demon') && e.category !== 'boss'
+        && !(e.tags || []).includes('magic');
+    });
+  }
+
+  /** ¿Se los puede asustar? (seres vivos que no son jefes) */
+  function canScare(group) {
+    return group.every((e) => {
+      const fam = e.family || [];
+      return e.category !== 'boss' && !fam.includes('undead') && !fam.includes('construct') && !fam.includes('elemental') && !fam.includes('spirit');
+    });
+  }
+
   /** Escena con criaturas: se elige cómo encararlas. */
   function creatureScene(region, group, opts = {}) {
     const tier = regionTier(region);
@@ -288,31 +369,45 @@
     const p = player();
     const type = classOf(p);
     const night = opts.night;
+    const lead = leaderOf(group);
+    const elite = group.find((e) => e.elite);
 
-    const text = night
+    let text = night
       ? `En plena noche te despierta un ruido. ${Text} ${phrase.plural ? 'rondan' : 'ronda'} el campamento.`
       : pick([
         `${Text} ${phrase.plural ? 'merodean' : 'merodea'} ${where}. Todavía no te ${phrase.plural ? 'vieron' : 'vio'}.`,
         `Ves ${phrase.text} ${where}. ${phrase.plural ? 'Están distraídos' : 'Está distraído'}, buscando comida.`,
-        `${where.charAt(0).toUpperCase() + where.slice(1)} aparece${phrase.plural ? 'n' : ''} ${phrase.text}. Por ahora no notaron tu presencia.`,
+        `${where.charAt(0).toUpperCase() + where.slice(1)} aparece${phrase.plural ? 'n' : ''} ${phrase.text}. Por ahora no ${phrase.plural ? 'notaron' : 'notó'} tu presencia.`,
       ]);
+    // v2.5: la élite se nota de lejos
+    if (elite) text += n > 1 ? ` ${capFirst(nounOf(elite))} los encabeza: es más fuerte que el resto.` : ' Es de élite: más fuerte que los de su especie.';
 
-    // El ataque por sorpresa depende de tu clase
+    // v2.5: el ataque por sorpresa depende de tu clase. Si sale bien, arrancan heridos;
+    // si sale mal, la criatura te hace algo antes de empezar.
+    const wound = 0.25;
+    const failSurprise = surpriseFail(group, tier);
+    // singular o plural, masculino o femenino ("los agarrás desprevenidos" / "la agarrás desprevenida")
+    const fem = n === 1 && A.Narrator && A.Narrator.isFem ? A.Narrator.isFem(group[0].id) : false;
+    const them = n > 1 ? 'los' : fem ? 'la' : 'lo';
+    const adj = (m) => (n > 1 ? `${m}s` : fem ? `${m.slice(0, -1)}a` : m);
+    const one = nounOf(group[0]);
+    const onThem = n > 1 ? 'ellos' : one;
+    const starts = n > 1 ? `arrancan ${adj('herido')}` : `arranca ${adj('herido')}`;
     const attack = night
       ? { label: 'Levantarte de un salto', check: { stat: 'agilidad', dc: 11 + (n - 1) },
         ok: { text: 'Te levantás con el arma en la mano antes de que lleguen.', fight: { surprise: true } },
         fail: { text: 'Todavía estás medio dormido cuando se te tiran encima.', fight: { ambush: true } } }
       : type === 'warrior'
-        ? { label: 'Cargar contra ellos', check: { stat: 'fuerza', dc: 11 + (n - 1) },
-          ok: { text: 'Te lanzás con todo y los agarrás desprevenidos.', fight: { surprise: true } },
-          fail: { text: 'Te ven venir de lejos. No hay sorpresa, pero tampoco vuelta atrás.', fight: {} } }
+        ? { label: n > 1 ? 'Cargar contra ellos' : capFirst(`cargar contra ${one}`), check: { stat: 'fuerza', dc: 11 + (n - 1) },
+          ok: { text: `Te lanzás con todo y ${them} agarrás ${adj('desprevenido')}: tu primer golpe ya ${them} dejó ${adj('tocado')}.`, fight: { surprise: true, wound } },
+          fail: { text: `Te ven venir de lejos. ${failSurprise.text}`, fight: { opening: failSurprise.opening } } }
         : type === 'mage'
           ? { label: 'Lanzar un hechizo desde las sombras', check: { stat: 'ingenio', dc: 11 + (n - 1) },
-            ok: { text: 'Preparás el hechizo en silencio y actuás antes de que reaccionen.', fight: { surprise: true } },
-            fail: { text: 'El zumbido del maná te delata. Se dan vuelta para mirarte.', fight: {} } }
+            ok: { text: `Tu hechizo cae sobre ${onThem} antes de que ${n > 1 ? 'reaccionen' : 'reaccione'}: ${starts}.`, fight: { surprise: true, wound } },
+            fail: { text: `El zumbido del maná te delata. ${failSurprise.text}`, fight: { opening: failSurprise.opening } } }
           : { label: 'Atacar por sorpresa', check: { stat: 'agilidad', dc: 11 + (n - 1) },
-            ok: { text: 'Te acercás sin hacer ruido y caés sobre ellos.', fight: { surprise: true } },
-            fail: { text: 'Una rama cruje bajo tu pie. Te escucharon.', fight: {} } };
+            ok: { text: `Te acercás sin hacer ruido y caés sobre ${onThem}: ${starts}.`, fight: { surprise: true, wound } },
+            fail: { text: `Una rama cruje bajo tu pie. ${failSurprise.text}`, fight: { opening: failSurprise.opening } } };
 
     const options = [attack];
     if (night) {
@@ -320,9 +415,29 @@
         ok: { text: 'Olfatean un rato y se van. Volvés a dormirte con el arma en la mano.', heal: 0.2 },
         fail: { text: 'Te encuentran entre las mantas.', fight: { ambush: true } } });
     } else {
-      options.push({ label: 'Escabullirte', check: { stat: 'agilidad', dc: 10 + (n - 1) * 2 },
-        ok: { text: 'Te alejás sin hacer ruido. Nadie te siguió.', xp: 0.1 },
-        fail: { text: 'Te vieron. Te atacan antes de que puedas reaccionar.', fight: { ambush: true } } });
+      // Pelear de frente: sin tirada, como siempre
+      options.push({ label: 'Pelear de frente', ok: { text: 'Te plantás delante y preparás el arma. Que empiece la pelea.', fight: {} } });
+      // v2.5: Huir (antes "Escabullirte"): cuanto más rápidos son, más difícil
+      const fastest = Math.max(...group.map((e) => e.speed || 10));
+      const fleeDc = 10 + (n - 1) * 2 + Math.max(0, Math.floor((fastest - 10) / 2));
+      options.push({ label: 'Huir', check: { stat: 'agilidad', dc: fleeDc },
+        ok: { text: 'Das media vuelta y te alejás antes de que te alcancen.', xp: 0.1 },
+        fail: { text: `${capFirst(nounOf(lead))} es más ${A.Narrator && A.Narrator.isFem && A.Narrator.isFem(lead.id) ? 'rápida' : 'rápido'}: te ${n > 1 ? 'alcanzan' : 'alcanza'} antes de que puedas escapar.`, fight: { ambush: true } } });
+      // v2.5: una opción más según quiénes son
+      const food = foodFor(group);
+      if (food) {
+        options.push({ label: `Tirarles ${food.name.toLowerCase()}`, needs: { item: food.id },
+          ok: { text: `Les tirás ${food.name.toLowerCase()} y, mientras se pelean por la comida, te alejás.`, consume: [[food.id, 1]], xp: 0.05 } });
+      } else if (canBribe(group)) {
+        const units = 4 * n;
+        const cost = Math.max(1, Math.round(coinUnit(tier) * units));
+        options.push({ label: n > 1 ? 'Pagarles para pasar' : 'Pagarle para pasar', needs: { coins: units },
+          ok: { text: n > 1 ? 'Les tirás unas monedas. Las cuentan, se ríen y te dejan pasar.' : 'Le tirás unas monedas. Las cuenta, se ríe y te deja pasar.', coins: -cost, coinsFlat: true } });
+      } else if (canScare(group)) {
+        options.push({ label: n > 1 ? 'Intimidarlos' : 'Intimidarlo', check: { stat: 'fuerza', dc: 12 + (n - 1) + (elite ? 2 : 0) },
+          ok: { text: n > 1 ? 'Les plantás cara con un grito y retroceden. Se van sin pelear.' : 'Le plantás cara con un grito y retrocede. Se va sin pelear.', xp: 0.15 },
+          fail: { text: n > 1 ? 'No se asustan. Al contrario: se envalentonan y atacan.' : 'No se asusta. Al contrario: se envalentona y ataca.', fight: { rally: true } } });
+      }
       // Domar: solo con una criatura sola y domable, si no tenés mascota
       const e = n === 1 ? A.Data.getById('enemies', group[0].id) : null;
       if (e && e.tameable && !p.pet && A.Tame && A.Tame.canTame) {
@@ -459,6 +574,10 @@
       if (!A.Currency.canPay(cost)) return `Necesitás ${A.Currency.formatPrice(cost)}`;
     }
     if (needs.food && (p.food || 0) < needs.food) return `Necesitás ${needs.food} de comida`;
+    if (needs.item && !(p.inventory || []).some((s) => s.itemId === needs.item && s.qty > 0)) {
+      const it = itemData(needs.item);
+      return `Necesitás ${it ? it.name.toLowerCase() : 'algo'}`;
+    }
     return null;
   }
 
@@ -487,7 +606,13 @@
     let fight = null;
     if (outcome.fight) {
       const enemies = (sc.enemies && sc.enemies.length) ? sc.enemies : A.Encounter.generate(region.id);
-      if (enemies && enemies.length) fight = { enemies, surprise: !!outcome.fight.surprise, ambush: !!outcome.fight.ambush };
+      if (enemies && enemies.length) {
+        fight = { enemies, surprise: !!outcome.fight.surprise, ambush: !!outcome.fight.ambush };
+        // v2.5: heridos por la sorpresa, lo que te hicieron antes de empezar, envalentonados
+        if (outcome.fight.wound) fight.wound = outcome.fight.wound;
+        if (outcome.fight.opening) fight.opening = outcome.fight.opening;
+        if (outcome.fight.rally) fight.rally = true;
+      }
     }
 
     sc.stage = 'result';
@@ -527,7 +652,18 @@
     A.State.closeModal();
     if (!res) return;
     if (res.fight) {
-      A.Combat.start({ enemies: res.fight.enemies, surprise: res.fight.surprise, ambush: res.fight.ambush, fromTravel: false });
+      const f = res.fight;
+      const opening = (f.opening || []).slice();
+      // v2.5: el ataque por sorpresa les saca un pedazo de vida antes de empezar
+      if (f.wound) {
+        for (const e of f.enemies) if (e.hp > 0) e.hp = Math.max(1, Math.round(e.hp - (e.maxHp || e.hp) * f.wound));
+        const femOne = f.enemies.length === 1 && A.Narrator && A.Narrator.isFem ? A.Narrator.isFem(f.enemies[0].id) : false;
+        opening.push({ type: 'note', say: f.enemies.length > 1 ? 'Tu ataque por sorpresa los dejó heridos: arrancan con menos vida.' : femOne ? 'Tu ataque por sorpresa la dejó herida: arranca con menos vida.' : 'Tu ataque por sorpresa lo dejó herido: arranca con menos vida.', tone: 'good' });
+      }
+      if (f.rally) {
+        for (const e of f.enemies) { e.effects = e.effects || []; e.effects.push({ type: 'rally', turns: 2, value: 1, source: 'explore' }); }
+      }
+      A.Combat.start({ enemies: f.enemies, surprise: f.surprise, ambush: f.ambush, opening, fromTravel: false });
     } else if (res.tame && sc.enemies && sc.enemies[0]) {
       A.State.openModal('tame', { enemyId: sc.enemies[0].id, fromTravel: false });
     }
@@ -693,6 +829,7 @@
   A.Explore = {
     STATS,
     statMod,
+    _creatureScene: creatureScene, // v2.5: para las pruebas
     dcFor,
     chanceOf,
     regionTier,
