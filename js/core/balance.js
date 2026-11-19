@@ -404,8 +404,43 @@
     dmg: 1.1,        // daño de cada criatura
     bossHp: 1.9,     // un jefe (o élite) solo: más vida...
     bossDmg: 1.35,   // ...y más daño
-    share: 0.6,      // parte de la experiencia, las monedas y el botín que se lleva cada uno
+    share: 0.42,     // parte de la experiencia, las monedas y el botín de la pelea que se lleva cada uno
+    // v3.2: la pelea se reparte más (antes 0.6 con dos): cada uno se lleva más o menos
+    // 3/4 de lo que ganaría peleando solo (las peleas en grupo son más cortas y seguras).
+    shares: { 3: 0.37, 4: 0.3 },
+    // v3.2: grupos de hasta 4. Cada héroe de más (después del segundo) suma esto
+    // (medido con el simulador: tres o cuatro pierden más o menos la vida que pierde uno solo)
+    perHero: { extra: 0.5, maxEnemies: 1, hp: 0.35, dmg: 0.15, bossHp: 0.8, bossDmg: 0.2 },
   };
+
+  /**
+   * v3.2: cómo se ponen las criaturas según cuántos héroes pelean juntos.
+   * Con 2 queda como antes (PARTY); el 3.º y el 4.º suman PARTY.perHero cada uno.
+   * share: la parte de lo que da la pelea para cada uno (PARTY.share / PARTY.shares).
+   *
+   * partyShare(n): lo que se encuentra (escenas, viaje) se reparte con un premio
+   * chico por ir en grupo (2: 60% cada uno · 3: 47% · 4: 40%).
+   */
+  function partyShare(n) {
+    const k = Math.max(0, Math.round(n || 1) - 1);
+    if (!k) return 1;
+    return Math.min(1, (1 + 0.2 * k) / (k + 1));
+  }
+  function partyScale(n) {
+    const heroes = Math.max(1, Math.min(4, Math.round(n || 1)));
+    if (heroes <= 1) return { extra: 0, maxEnemies: 99, hp: 1, dmg: 1, bossHp: 1, bossDmg: 1, share: 1 };
+    const more = heroes - 2;
+    const ph = PARTY.perHero || {};
+    return {
+      extra: PARTY.extra + (ph.extra || 0) * more,
+      maxEnemies: PARTY.maxEnemies + (ph.maxEnemies || 0) * more,
+      hp: PARTY.hp + (ph.hp || 0) * more,
+      dmg: PARTY.dmg + (ph.dmg || 0) * more,
+      bossHp: PARTY.bossHp + (ph.bossHp || 0) * more,
+      bossDmg: PARTY.bossDmg + (ph.bossDmg || 0) * more,
+      share: heroes === 2 ? PARTY.share : ((PARTY.shares || {})[heroes] || partyShare(heroes)),
+    };
+  }
 
   const ELITE = {
     chanceSolo: 0.05,  // si aparece sola
@@ -558,6 +593,8 @@
 
   A.Balance = {
     PARTY,
+    partyScale,
+    partyShare,
     MAX_LEVEL,
     CATEGORY,
     ELITE,

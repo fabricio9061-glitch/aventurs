@@ -1,10 +1,10 @@
 # Aventurs
 
-RPG narrativo en español latino, jugable en navegador. Se juega solo o de a dos (v3.0).
+RPG narrativo en español latino, jugable en navegador. Se juega solo o en grupo de hasta 4 (v3.2).
 
 **Stack:** HTML/CSS/JavaScript vanilla. Sin frameworks, sin bundlers, sin TypeScript.
 **Persistencia:** localStorage, una partida por cuenta (con export/import JSON desde el menú).
-**Jugar de a dos:** conexión directa entre navegadores con PeerJS (`js/vendor/peerjs.min.js`), sin servidor propio.
+**Jugar en grupo (hasta 4):** conexión directa entre navegadores con PeerJS (`js/vendor/peerjs.min.js`), sin servidor propio.
 **Hosting:** GitHub Pages.
 
 ## Estructura
@@ -102,10 +102,10 @@ node tools/equilibrio.js --comparar=antes.json  # muestra cuánto cambió cada n
   magia nacen con su propio hechizo
 - **31 regiones** (24 de combate y 7 pueblos) ordenadas por nivel (1 a 10)
 - **104 enemigos** (29 domables), cada uno con su zona propia: 4 a 7 criaturas por zona
-- **66 armas**, **44 armaduras**, **266 objetos** (22 accesorios, 44 pergaminos de combate,
-  19 pociones, 46 comidas), **5 mochilas**; todo con rareza (común a legendario)
-- **15 hechizos** (8 de nacimiento), **19 recetas**, **13 habitantes**
-- **22 misiones** (8 de la historia principal) y **43 escenas** para explorar
+- **67 armas**, **44 armaduras**, **277 objetos** (22 accesorios, 44 pergaminos de combate,
+  19 pociones, 53 comidas), **5 mochilas**; todo con rareza (común a legendario)
+- **17 hechizos** (10 de nacimiento), **20 recetas**, **13 habitantes**
+- **47 misiones** (18 de la historia principal) y **62 escenas** para explorar
 
 ## Reglas (v1.8.0)
 
@@ -239,6 +239,45 @@ Explorar siempre hace pasar algo (`js/systems/explore.js` + `js/data/seed-events
   se cuentan con ×N).
 - En el celular, una franja arriba con vida, maná, comida y dinero.
 - Sin emojis en el juego (desde la v2.2, tampoco en el editor).
+
+## Versión 3.2.0: grupos de hasta 4, lo que se gana se reparte y mascotas que ayudan
+
+### Grupos de hasta 4 (`js/net/party.js`, `js/views/party.js`)
+- Pueden jugar juntos hasta 4 (el anfitrión y 3 más) con el mismo código. Si el grupo está lleno, el quinto no entra y se le avisa.
+- En las escenas votan todos: si eligen lo mismo, lo hace el que tiene más chance; si no, gana lo más votado (lo hace el que tiene más chance de los que lo votaron) y si empatan, deciden los dados. Arriba de la escena se ve a quiénes se espera.
+- Las criaturas se ponen según cuántos son (`Balance.partyScale`): con 2 queda como antes; el 3.º y el 4.º suman más criaturas (hasta 7), más vida y algo más de daño. Medido con el simulador: tres o cuatro pierden más o menos la vida que pierde uno solo.
+- Con mucha gente en la pelea (10 o más entre héroes, mascotas y criaturas) las tarjetas se achican para que los botones sigan a la vista; los compañeros tienen el borde azul.
+- En el mapa aparecen todos los compañeros, uno al lado del otro si están en el mismo lugar.
+
+### Barra del costado en grupo (`js/views/shell.js`)
+- Tu vida, tu maná y tu comida van finitas arriba de todo, como la experiencia.
+- Cada compañero es una fila corta: su cara, su nivel, su mascota, la vida y el maná, y si anda con vos o por su cuenta. Tocándola se abre el grupo.
+
+### Lo que se gana se reparte, lo malo les toca a todos
+- **Peleas**: cada uno se lleva una parte de la experiencia, las monedas y el botín (2: 42% · 3: 37% · 4: 30%), más o menos 3/4 de lo que ganaría peleando solo (antes, de a dos, cada uno se llevaba casi lo mismo que solo).
+- **Escenas y viaje**: las monedas y la experiencia se reparten (2: 60% cada uno · 3: 47% · 4: 40%) y los objetos van de a uno, por turnos. Al terminar una escena se ve lo que le tocó a cada uno.
+- Lo malo (una trampa, un ladrón, una herida, perder comida) les toca a todos. En el camino, en grupo, nadie muere por una trampa: queda con 1 de vida.
+
+### Pasarse cosas (`A.Party.give`)
+- En el detalle de cualquier objeto de la mochila: **Dar a** (cuántos y a quién). Las monedas se pasan desde el panel del grupo.
+- Lo que no llega (mochila llena, el otro está en medio de algo o se cortó) vuelve a tu mochila. En plena pelea no se puede.
+
+### Mascotas
+- **Curar a tu mascota en la pelea**: las pociones (y los antídotos) y la Curación preguntan a quién: a vos, a tu mascota o, en grupo, a un compañero o su mascota. A la que está caída la levantan y vuelve a tener turno.
+- El **Aullido** de tu mascota anima a todo el grupo (+1 de precisión y daño), no solo a vos.
+- **Liberar** a tu mascota (botón en su ficha) para poder domar otra.
+
+### Tiendas y armas
+- La ventana del habitante (tienda, forja) ya no se corta: la cabecera y las pestañas quedan fijas y la lista se desplaza.
+- Más armas mágicas para empezar: el mercader del Pueblo Inicial vende bastón, varita y túnica de mago; los herreros de Piedrahonda y del puerto, la **Varita rúnica** (nueva, enana: 1d4 y +4 de maná). Las varitas pegan poco: lo que suman es maná.
+- Armas más distintas entre sí: la espada corta pega 1d6 con +1 de precisión (ya no es peor que la daga), el garrote pega 1d6, el hacha de mano hace sangrar, el martillo de guerra puede aturdir, la varita da +2 de maná, y la lanza, el arco corto, la espada larga, la alabarda y la espada rúnica tienen +1 de precisión.
+- La forja **funde el mineral de hierro** en hierro.
+
+### Combate
+- El daño se lee entero en las tarjetas angostas: los nombres de los números pasan a íconos y el número se achica antes de cortarse.
+
+### Partidas de antes
+- El maná que da el equipo puesto se vuelve a calcular (por la varita nueva).
 
 ## Versión 3.1.0: bestiario, voz del narrador, comida por raza y clases parejas
 

@@ -97,6 +97,57 @@
     return undefined;
   }
 
+  /**
+   * v3.2: a quién le podés dar una poción o una curación ahora: vos, tu mascota
+   * y, en grupo, cada compañero y su mascota (aunque estén caídos: así se levantan).
+   * on: 'self' | 'pet' | 'hero:<id>' | 'pet:<id>'. key: la tarjeta de la pantalla.
+   */
+  function allyTargets() {
+    const c = State().combat;
+    const p = State().player;
+    if (!p) return [];
+    const out = [{ on: 'self', kind: 'hero', ref: p, owner: p, key: 'player', name: p.name, self: true }];
+    if (p.pet) out.push({ on: 'pet', kind: 'pet', ref: p.pet, owner: p, key: 'pet', name: p.pet.name });
+    if (c && c.party) {
+      for (const h of heroesOf(c)) {
+        if (h === p) continue;
+        const hid = hidOf(h);
+        out.push({ on: `hero:${hid}`, kind: 'hero', ref: h, owner: h, key: `hero:${hid}`, name: h.name });
+        if (h.pet) out.push({ on: `pet:${hid}`, kind: 'pet', ref: h.pet, owner: h, key: `pet:${hid}`, name: h.pet.name, ownerName: h.name });
+      }
+    }
+    return out;
+  }
+  function allyTarget(on) {
+    const p = State().player;
+    let k = !on || on === 'player' ? 'self' : String(on);
+    if (p && k === `hero:${hidOf(p)}`) k = 'self';
+    if (p && k === `pet:${hidOf(p)}`) k = 'pet';
+    return allyTargets().find((t) => t.on === k) || null;
+  }
+  /** v3.2: sube la vida de un aliado (héroe o mascota). Devuelve { hp, revived }. */
+  function healAlly(t, n) {
+    const isPet = t.kind === 'pet';
+    const max = (isPet ? t.ref.maxHealth : t.ref.maxHp) || 1;
+    const cur = Math.max(0, isPet ? t.ref.health || 0 : t.ref.hp || 0);
+    const now = Math.min(max, cur + Math.max(0, n));
+    if (now === cur) return { hp: 0, revived: false };
+    if (isPet) t.ref.health = now;
+    else A.State.withHero(t.ref, () => A.State.setHp(now));
+    return { hp: now - cur, revived: cur <= 0 };
+  }
+  /** v3.2: una mascota que se levanta en plena pelea vuelve a tener turno (si arrancó caída, se suma al final). */
+  function petBackInFight(c, owner) {
+    if (!c || !owner || !owner.pet) return;
+    const hid = c.party ? hidOf(owner) : undefined;
+    const has = c.initiative.some((a) => a.kind === 'pet' && (!c.party || a.hid === hid));
+    if (!has) c.initiative.push({ kind: 'pet', id: c.party ? `pet:${hid}` : 'pet', hid, name: owner.pet.name, speed: owner.pet.speed || 10, tieRoll: 0 });
+  }
+  function joinY(list) {
+    if (list.length <= 1) return list.join('');
+    return `${list.slice(0, -1).join(', ')} y ${list[list.length - 1]}`;
+  }
+
   /** Lo llama A.State.withHero: guarda lo de un héroe y pone lo del otro. */
   function swapHero(from, to) {
     const c = State().combat;
@@ -135,7 +186,8 @@
    * más o menos la misma vida que uno solo.
    */
   function scaleForParty(instances, n) {
-    const cfg = B().PARTY || {};
+    // v3.2: según cuántos héroes son (2 a 4)
+    const cfg = B().partyScale ? B().partyScale(n) : (B().PARTY || {});
     if (n <= 1) return;
     const commons = instances.filter((e) => !e.elite && e.category !== 'boss' && !e.summoned);
     const max = cfg.maxEnemies || 5;
@@ -1148,13 +1200,24 @@
     }
   }
 
-  function playerSpell(spellId) {
+  function playerSpell(spellId, on) {
     const c = State().combat;
     if (!c || c.result || !isPlayerTurn(c)) return;
     const p = State().player;
     if (!p.hasMagic) return;
     const spell = A.Data.getById('spells', spellId);
     if (!spell || !(p.spells || []).includes(spellId)) return;
+    // v3.2: la curación se le puede tirar a tu mascota o a un compañero (y levanta al caído)
+    const ally = spell.heal ? allyTarget(on) : null;
+    if (spell.heal) {
+      if (!ally) return;
+      const isPet = ally.kind === 'pet';
+      const full = isPet ? ally.ref.health >= ally.ref.maxHealth : ally.ref.hp >= ally.ref.maxHp;
+      if (full) {
+        addLog(c, 'system', { text: ally.self ? 'Ya tenés la vida completa.' : `${ally.name} ya tiene la vida completa.`, fx: { kind: 'note' } });
+        return;
+      }
+    }
     if ((p.effects || []).some((e) => e.type === 'silence')) {
       addLog(c, 'system', { text: 'Estás silenciado: no podés lanzar hechizos.', fx: { kind: 'note' } });
       return;
@@ -1172,9 +1235,20 @@
       let heal = A.Utils.rollDice(spell.heal) + Math.floor(power / 2);
       const boost = A.Accessories ? A.Accessories.bonus(p, 'heal') : 0; // v2.4: Cruz sagrada
       if (boost > 0) heal = Math.round(heal * (1 + boost));
-      const before = p.hp;
-      A.State.healHp(heal);
-      addLog(c, 'player', { text: `Lanzaste ${spell.name} y recuperaste ${p.hp - before} de salud.`, fx: { kind: 'heal', actor: 'player', target: 'player', amount: p.hp - before, icon: '' } });
+      if (ally && !ally.self) {
+        const r = healAlly(ally, heal);
+        if (ally.kind === 'pet' && r.revived) petBackInFight(c, ally.owner);
+        const who = ally.ownerName ? `${ally.name} (de ${ally.ownerName})` : ally.name;
+        addLog(c, 'player', {
+          text: `Lanzaste ${spell.name} sobre ${who}: +${r.hp} de vida${r.revived ? ' (se levanta)' : ''}.`,
+          fx: { kind: 'heal', actor: 'player', target: ally.key, amount: r.hp },
+          say: { text: r.revived ? `Lanzás ${spell.name.toLowerCase()} sobre ${who} y se levanta con ${r.hp} de vida.` : `Lanzás ${spell.name.toLowerCase()} sobre ${who}: recupera ${r.hp} de vida.`, tone: 'good' },
+        });
+      } else {
+        const before = p.hp;
+        A.State.healHp(heal);
+        addLog(c, 'player', { text: `Lanzaste ${spell.name} y recuperaste ${p.hp - before} de salud.`, fx: { kind: 'heal', actor: 'player', target: 'player', amount: p.hp - before, icon: '' } });
+      }
     } else if (spell.damage) {
       const targets = spell.area ? aliveEnemies() : [getTarget()].filter(Boolean);
       for (const t of targets) {
@@ -1218,8 +1292,40 @@
     };
   }
 
-  /** Usa una poción, comida o pergamino (gasta el turno). Devuelve true si se usó. */
-  function playerUseItem(itemId) {
+  /**
+   * v3.2: una poción para tu mascota o para un compañero (gasta la poción y tu turno).
+   * Devuelve true si se usó.
+   */
+  function giveItem(c, item, t) {
+    const p = State().player;
+    if (!A.ItemFx.forOthers || !A.ItemFx.forOthers(item)) {
+      addLog(c, 'system', { text: `${item.name} no se le puede dar a otro.`, fx: { kind: 'note' } });
+      return false;
+    }
+    const r = A.ItemFx.restoreOther(p, t, item);
+    if (r.why) {
+      addLog(c, 'system', { text: r.why, fx: { kind: 'note' } });
+      State().persist();
+      return false;
+    }
+    A.State.removeItem(item.id, 1);
+    if (t.kind === 'pet' && r.revived) petBackInFight(c, t.owner);
+    const word = (x) => String((A.ItemFx.WORD || {})[x] || x).replace(/^(el|la|los|las) /, '');
+    const parts = [];
+    if (r.hp) parts.push(`+${r.hp} de vida`);
+    if (r.mana) parts.push(`+${r.mana} de maná`);
+    if (r.cleaned.length) parts.push(`sin ${joinY(r.cleaned.map(word))}`);
+    const who = t.ownerName ? `${t.name} (de ${t.ownerName})` : t.name;
+    addLog(c, 'player', {
+      text: `Le diste ${item.name} a ${who}: ${parts.join(', ')}.`,
+      fx: { kind: 'heal', actor: 'player', target: t.key, amount: r.hp, mana: r.mana },
+      say: { text: r.revived ? `Usás ${item.name.toLowerCase()} con ${who} y se levanta con ${r.hp} de vida.` : `Usás ${item.name.toLowerCase()} con ${who}: ${parts.join(', ')}.`, tone: 'good' },
+    });
+    return true;
+  }
+
+  /** Usa una poción, comida o pergamino (gasta el turno). Devuelve true si se usó. v3.2: on = a quién. */
+  function playerUseItem(itemId, on) {
     const c = State().combat;
     if (!c || c.result) return false;
     if (!isPlayerTurn(c)) {
@@ -1231,6 +1337,13 @@
     const p = State().player;
     if (!p.inventory.find((s) => s.itemId === itemId)) return false;
     if (!A.ItemFx) return false;
+    const ally = on && on !== 'self' && on !== 'player' ? allyTarget(on) : null;
+    if (on && on !== 'self' && on !== 'player' && !ally) return false;
+    if (ally && !ally.self) {
+      if (!giveItem(c, item, ally)) return false;
+      afterPlayerAction();
+      return true;
+    }
     const res = A.ItemFx.useInCombat(c, item, itemCtx(c));
     if (!res.ok) {
       if (res.why) addLog(c, 'system', { text: res.why, fx: { kind: 'note' } });
@@ -1408,7 +1521,7 @@
     const atk = ps.attack + (opts.atkMod || 0);
     const r = attackRoll(atk, es.defense);
     const hungry = (pet.food != null && pet.food <= 0);
-    const dodge = A.Skills ? A.Skills.dodgeHit(target, r) : null;
+    const dodge = A.Skills ? A.Skills.dodgeHit(target, r, pet) : null;
     if (dodge) { r.hit = false; r.crit = false; }
 
     if (!r.hit) {
@@ -1748,6 +1861,8 @@
     fxKey,
     // v3.0: alientos y temblores le llegan a todos los héroes del grupo
     forEachHero: (fn) => forEachHero(fn),
+    // v3.2: el aullido de tu mascota anima a todo el grupo
+    heroes: () => heroesOf(State().combat),
   };
 
   // ============================================================
@@ -1760,7 +1875,9 @@
     const acc = (k) => (A.Accessories ? A.Accessories.bonus(p, k) : 0);
     const EL = B().ELITE || { xp: 1, coin: 1, drop: 1 };
     // v3.0: en grupo cada uno se lleva una parte (las criaturas tenían más vida)
-    const share = c && c.party && (c.heroIds || []).length > 1 ? ((B().PARTY && B().PARTY.share) || 0.85) : 1;
+    // v3.2: la parte depende de cuántos son (2: 60% · 3: 47% · 4: 40%)
+    const nHeroes = c && c.party ? (c.heroIds || []).length : 1;
+    const share = nHeroes > 1 ? (B().partyScale ? B().partyScale(nHeroes).share : ((B().PARTY && B().PARTY.share) || 0.85)) : 1;
     // v2.5: la élite da más; lo invocado, la mitad de XP y nada de botín
     const xpMult = (e) => (e.elite ? EL.xp : 1) * (e.summoned ? 0.5 : 1);
     let totalXp = 0;
@@ -1988,6 +2105,7 @@
           if (entry.fx[k] === 'player') entry.fx[k] = `hero:${hid}`;
           else if (entry.fx[k] === 'pet') entry.fx[k] = `pet:${hid}`;
         }
+        if (Array.isArray(entry.fx.also)) entry.fx.also = entry.fx.also.map((k) => (k === 'player' ? `hero:${hid}` : k === 'pet' ? `pet:${hid}` : k));
       }
     }
     // v1.9.1: foto de la vida de todos después de esta acción. La vista la usa
@@ -2068,6 +2186,8 @@
     heroesOf,
     dropHero,
     isPlayerTurn,
+    // v3.2: pociones y curación para la mascota y los compañeros
+    allyTargets,
     _swapHero: swapHero,
   };
 })(window.Aventurs);

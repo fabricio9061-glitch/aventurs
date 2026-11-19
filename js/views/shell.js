@@ -42,7 +42,7 @@
           <div class="shell-brand">
             <span class="brand-icon">${A.UI ? A.UI.icon('swords', 26) : ''}</span>
             <span class="brand-name">Aventurs</span>
-            <span class="version-pill" title="Versión del juego">v3.1.0</span>
+            <span class="version-pill" title="Versión del juego">v3.2.0</span>
           </div>
           ${tabs.length > 1 ? `
             <nav class="shell-nav">
@@ -145,6 +145,16 @@
       </div>`;
   }
 
+  /** v3.2: en grupo, vida, maná y comida van finitas arriba de todo (como la experiencia). */
+  function thinBar(cls, iconName, label, cur, max, tag) {
+    return `
+          <div class="sb-vital ${cls}" title="${escH(label)} ${cur}/${max}">
+            <span class="sb-vital-ic">${ic(iconName, 12)}</span>
+            <span class="sb-vital-track"><span style="width:${pct(cur, max)}%"></span></span>
+            <span class="sb-vital-text num">${cur}<i>/${max}</i>${tag || ''}</span>
+          </div>`;
+  }
+
   function statChip(iconName, label, value, title, down) {
     return `<div class="sb-stat ${down ? 'is-down' : ''}" title="${escH(title || label)}">${ic(iconName, 18)}<span class="sb-stat-val num">${escH(value)}</span><span class="sb-stat-label">${escH(label)}</span></div>`;
   }
@@ -214,8 +224,15 @@
         ? `Cada golpe con arma que acierta te da ${onHit} de maná. Si no, pociones de maná o dormir.`
         : 'Tu maná no vuelve solo: pociones de maná o dormir.';
 
+    // v3.2: en grupo las barras propias van finitas en la cabecera y los compañeros, en filas
+    const compact = !!(A.Views.Party && A.Views.Party.hasMates && A.Views.Party.hasMates());
+    const hpLabel = 'Vida';
+    const manaLabel = `Maná. ${manaHint}`;
+    const foodLabel = `Comida${hunger ? ` (${hunger.label})` : ''}.${A.Survival && A.Survival.describeDiet ? ` ${A.Survival.describeDiet(p)}` : ''}`;
+    const hungryTag = hunger && ['hungry', 'weak', 'starving'].includes(hunger.id);
+
     sidebarEl.innerHTML = `
-      <div class="sb">
+      <div class="sb ${compact ? 'is-party' : ''}">
         <header class="sb-head sb-type-${type}">
           <div class="sb-portrait">${A.Sprites ? A.Sprites.heroFor(p, { size: 52 }) : ''}<span class="sb-level" title="Nivel ${p.level}">${p.level}</span></div>
           <div class="sb-id">
@@ -228,15 +245,22 @@
             <span class="sb-xp-track"><span style="width:${maxLevel ? 100 : pct(xpIn, xpSpan)}%"></span></span>
             <span class="sb-xp-text num">${maxLevel ? 'Nivel máximo' : `${xpIn} / ${xpSpan} XP`}</span>
           </div>
+          ${compact ? `
+          <div class="sb-vitals">
+            ${thinBar('is-hp', 'heart', hpLabel, p.hp, p.maxHp)}
+            ${p.hasMagic ? thinBar('is-mana', 'spell', manaLabel, p.mana, p.maxMana) : ''}
+            ${thinBar(`is-food ${hunger ? 'hunger-' + hunger.id : ''}`, 'food', foodLabel, p.food || 0, p.maxFood || 20, hungryTag ? `<em class="sb-vital-warn">${escH(hunger.label)}</em>` : '')}
+          </div>` : ''}
         </header>
 
         <div class="sb-body">
-          ${A.Views.Party ? A.Views.Party.allyCard() : ''}
+          ${A.Views.Party && A.Views.Party.sidebar ? A.Views.Party.sidebar() : (A.Views.Party ? A.Views.Party.allyCard() : '')}
+          ${compact ? '' : `
           <section class="sb-bars">
-            ${hudBar('is-hp', 'heart', 'Vida', p.hp, p.maxHp)}
-            ${p.hasMagic ? hudBar('is-mana', 'spell', `Maná. ${manaHint}`, p.mana, p.maxMana, regen.turn > 0 ? `<span class="sb-bar-tag" title="${escH(manaHint)}">+${regen.turn}</span>` : '') : ''}
-            ${hudBar(`is-food ${hunger ? 'hunger-' + hunger.id : ''}`, 'food', `Comida${hunger ? ` (${hunger.label})` : ''}.${A.Survival && A.Survival.describeDiet ? ` ${A.Survival.describeDiet(p)}` : ''}`, p.food || 0, p.maxFood || 20, hunger && ['hungry', 'weak', 'starving'].includes(hunger.id) ? `<span class="sb-bar-tag is-warn">${escH(hunger.label)}</span>` : '')}
-          </section>
+            ${hudBar('is-hp', 'heart', hpLabel, p.hp, p.maxHp)}
+            ${p.hasMagic ? hudBar('is-mana', 'spell', manaLabel, p.mana, p.maxMana, regen.turn > 0 ? `<span class="sb-bar-tag" title="${escH(manaHint)}">+${regen.turn}</span>` : '') : ''}
+            ${hudBar(`is-food ${hunger ? 'hunger-' + hunger.id : ''}`, 'food', foodLabel, p.food || 0, p.maxFood || 20, hungryTag ? `<span class="sb-bar-tag is-warn">${escH(hunger.label)}</span>` : '')}
+          </section>`}
 
           ${p.pet ? renderPetSidebar(p.pet) : ''}
 
@@ -295,6 +319,7 @@
           <div class="sb-pet-actions">
             <button class="sb-pet-btn" data-pet-action="heal" title="Curarla con una poción (también la despierta)">${ic('potion', 18)}</button>
             <button class="sb-pet-btn" data-pet-action="feed" title="Darle comida de su dieta" ${isKO ? 'disabled' : ''}>${ic('food', 18)}</button>
+            <button class="sb-pet-btn is-release" data-pet-action="release" title="Liberarla (para poder domar otra)">${ic('run', 18)}</button>
           </div>
         </div>
         <div class="sb-pet-bars">
@@ -559,6 +584,21 @@
     // v1.8.0: la lógica vive en A.Tame (curar despierta; alimentar usa su dieta)
     const p = A.State.player;
     if (!p || !p.pet || !A.Tame) return;
+    // v3.2: liberarla (con confirmación) para poder domar otra
+    if (action === 'release') {
+      if (A.State.combat || (A.Party && A.Party.guestOwned && A.Party.guestOwned())) {
+        A.State.addChronicle({ type: 'note', text: 'Ahora no: terminá lo que estás haciendo antes de liberar a tu mascota.' });
+        return;
+      }
+      const name = p.pet.name;
+      A.Views.Modals.confirm({
+        title: `Liberar a ${name}`,
+        body: `${name} vuelve a su tierra y no la vas a ver más. Después podés domar otra criatura. ¿Seguro?`,
+        danger: true,
+        onConfirm: () => { A.Tame.release(); A.Bus.emit('inventory:changed'); renderSidebar(); },
+      });
+      return;
+    }
     const res = action === 'heal' ? A.Tame.healWithPotion() : A.Tame.feed();
     if (res && !res.ok) A.State.addChronicle({ type: 'note', text: res.text });
     A.Bus.emit('inventory:changed');

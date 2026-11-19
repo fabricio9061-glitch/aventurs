@@ -1,9 +1,9 @@
 /* ============================================================
    Aventurs — Jugar en grupo (v3.0)
 
-   Dos jugadores, cada uno en su compu (o en dos ventanas):
-     - El ANFITRIÓN abre el grupo y le pasa el código al otro.
-     - El INVITADO se une con ese código y trae su personaje, su mochila
+   De 2 a 4 jugadores (v3.2), cada uno en su compu (o en varias ventanas):
+     - El ANFITRIÓN abre el grupo y les pasa el código a los demás.
+     - Cada INVITADO se une con ese código y trae su personaje, su mochila
        y su mascota (todo sigue guardado en SU compu).
 
    Juntos o separados:
@@ -30,8 +30,8 @@
 (function (A) {
   'use strict';
 
-  const VERSION = 3;        // si cambian los mensajes, sube y avisa "actualicen los dos"
-  const MAX_MEMBERS = 2;
+  const VERSION = 4;        // si cambian los mensajes, sube y avisa "actualicen los dos" (v3.2: 4)
+  const MAX_MEMBERS = 4;     // v3.2: hasta cuatro jugadores
   const SNAP_MS = 50;       // juntar cambios antes de mandar la foto
   const HERO_MS = 150;      // juntar cambios del invitado antes de mandarlos
   const STATUS_MS = 1200;   // estado mientras están separados
@@ -61,6 +61,7 @@
     adopting: false,
     serializing: false,
     retryTimer: null,
+    gifts: new Map(),       // v3.2: lo que diste y todavía no llegó (si no llega, vuelve)
   };
 
   const ORIG = {};
@@ -101,6 +102,19 @@
     if (isHost()) return guestHids()[0] || null;
     if (isGuest()) return P.hostHid;
     return null;
+  }
+  /** v3.2: ¿este compañero anda con vos ahora? (si sos invitado y te separaste, nadie) */
+  function withMe(m) {
+    if (!m) return false;
+    if (isHost()) return !!m.together;
+    if (!guestTogether()) return false;
+    return m.hid === P.hostHid || !!m.together;
+  }
+  /** v3.2: los compañeros (todos menos vos): el anfitrión primero, después en el orden en que entraron. */
+  function allyHids() {
+    if (!P.role) return [];
+    const ids = Object.keys(P.members).filter((h) => h !== P.localHid);
+    return ids.sort((a, b) => (a === P.hostHid ? -1 : b === P.hostHid ? 1 : 0));
   }
 
   /** Ficha corta de un héroe (para el panel y la barra lateral). */
@@ -224,6 +238,7 @@
         if (!hid || !msg.member) return;
         P.members[hid] = Object.assign({}, P.members[hid] || {}, msg.member, { hid, together: P.members[hid] ? P.members[hid].together : false });
         changed();
+        scheduleSnap(); // v3.2: los otros invitados también lo ven en el mapa
         return;
       }
       case 'together': return hostTogether(hid, msg, peerId);
@@ -240,6 +255,21 @@
         return;
       }
       case 'bye': if (hid) removeMember(hid, 'left'); return;
+      // v3.2: pasarse cosas (el anfitrión hace de cartero)
+      case 'gift': {
+        if (!hid || !msg.to) return;
+        const fwd = Object.assign({}, msg, { from: hid, fromName: (A.State.heroById(hid) || P.members[hid] || {}).name || 'Tu compañero' });
+        if (msg.to === P.localHid) { receiveGift(fwd); return; }
+        if (!P.peerOf[msg.to]) { A.Link.send({ t: 'giftres', id: msg.id, to: hid, ok: false, why: 'gone' }, peerId); return; }
+        A.Link.send(fwd, P.peerOf[msg.to]);
+        return;
+      }
+      case 'giftres': {
+        if (!msg.to) return;
+        if (msg.to === P.localHid) { onGiftRes(msg); return; }
+        if (P.peerOf[msg.to]) A.Link.send(msg, P.peerOf[msg.to]);
+        return;
+      }
       default:
     }
   }
@@ -260,7 +290,7 @@
     // Si la pelea o el viaje ya empezaron, que espere a que terminen
     if (hostBusy()) { A.Link.send({ t: 'busy', name: A.State.me().name }, peerId); return; }
     let hid = known || String(msg.hid || 'invitado');
-    if (!known) { while (P.members[hid]) hid = `${hid}#2`; }
+    if (!known) { const base = hid; let n = 2; while (P.members[hid]) hid = `${base}#${n++}`; }
     const hero = msg.hero;
     addToRegistry(hid, hero);
     P.peerOf[hid] = peerId;
@@ -275,6 +305,7 @@
     toast(`${hero.name} se unió a tu grupo.`, 'good');
     changed();
     sendSnap(hid);
+    scheduleSnap(); // v3.2: los que ya estaban también se enteran
   }
 
   function hostTogether(hid, msg, peerId) {
@@ -293,6 +324,7 @@
     }
     changed();
     sendSnap(hid);
+    scheduleSnap(); // v3.2: los demás también lo ven
   }
 
   function removeMember(hid, why) {
@@ -310,6 +342,7 @@
     toast(why === 'left' ? `${m.name} dejó el grupo.` : `Se cortó la conexión con ${m.name}.`, 'bad');
     if (peerId && why === 'left') setTimeout(() => A.Link.drop(peerId), 300);
     changed();
+    scheduleSnap(); // v3.2: los demás se enteran de que se fue
   }
 
   // ---------- Fotos del estado ----------
@@ -376,6 +409,14 @@
       snap.world = pickWorld(A.State.world);
       snap.traveling = A.State.traveling || null;
       snap.heroes = { [P.hostHid]: A.State.me() };
+      // v3.2: los otros compañeros que van juntos (para sus tarjetas y la barra del costado)
+      const c = A.State.combat;
+      const others = new Set(guestsTogether().concat(c && c.party ? (c.heroIds || []) : []));
+      for (const oh of others) {
+        if (oh === hid || oh === P.hostHid) continue;
+        const h = A.State.heroById(oh);
+        if (h) snap.heroes[oh] = h;
+      }
       const guest = A.State.heroById(hid);
       // el héroe del invitado va cuando lo maneja el anfitrión, cuando cambió acá o al devolvérselo
       if (guest && (busy || P.dirty[hid] || sent.owned)) {
@@ -399,8 +440,8 @@
   const RPC = {
     'Combat.playerAttack': (o) => { if (o && o.target) ORIG['Combat.setTarget'](o.target); return ORIG['Combat.playerAttack'](); },
     'Combat.playerPowerAttack': (o) => { if (o && o.target) ORIG['Combat.setTarget'](o.target); return ORIG['Combat.playerPowerAttack'](); },
-    'Combat.playerSpell': (o, spellId) => { if (o && o.target) ORIG['Combat.setTarget'](o.target); return ORIG['Combat.playerSpell'](spellId); },
-    'Combat.playerUseItem': (o, itemId) => { if (o && o.target) ORIG['Combat.setTarget'](o.target); return ORIG['Combat.playerUseItem'](itemId); },
+    'Combat.playerSpell': (o, spellId, on) => { if (o && o.target) ORIG['Combat.setTarget'](o.target); return ORIG['Combat.playerSpell'](spellId, on); },
+    'Combat.playerUseItem': (o, itemId, on) => { if (o && o.target) ORIG['Combat.setTarget'](o.target); return ORIG['Combat.playerUseItem'](itemId, on); },
     'Combat.playerTame': (o, instanceId) => ORIG['Combat.playerTame'](instanceId),
     'Combat.playerFlee': () => ORIG['Combat.playerFlee'](),
     'Combat.setTarget': (o, id) => ORIG['Combat.setTarget'](id),
@@ -529,8 +570,8 @@
         return;
       }
       case 'reject': {
-        const why = msg.why === 'full' ? 'El grupo ya está completo (son dos jugadores).'
-          : msg.why === 'version' ? 'Tu compañero tiene otra versión del juego. Actualicen los dos con Ctrl+F5.'
+        const why = msg.why === 'full' ? `El grupo ya está completo (son ${MAX_MEMBERS} jugadores como mucho).`
+          : msg.why === 'version' ? 'El que creó el grupo tiene otra versión del juego. Actualicen todos con Ctrl+F5.'
             : 'No te dejaron entrar.';
         P.error = why;
         leave(true);
@@ -540,6 +581,8 @@
         return;
       }
       case 'snap': return applySnap(msg);
+      case 'gift': return receiveGift(msg);
+      case 'giftres': return onGiftRes(msg);
       case 'rpcres': {
         const cb = P.pending.get(msg.id);
         if (cb) { P.pending.delete(msg.id); cb(msg); }
@@ -585,9 +628,24 @@
     }
     if (!A.State.party) setRegistry(P.localHid, A.State.me());
 
-    // El compañero (para su tarjeta)
-    const host = snap.heroes && snap.heroes[P.hostHid];
-    if (host) { host._hid = P.hostHid; A.State.party.heroes[P.hostHid] = host; if (!A.State.party.order.includes(P.hostHid)) A.State.party.order.unshift(P.hostHid); }
+    // Los compañeros (para sus tarjetas). v3.2: pueden ser hasta tres
+    const heroes = snap.heroes || {};
+    for (const hid of Object.keys(heroes)) {
+      if (hid === P.localHid) continue;
+      const h = heroes[hid];
+      h._hid = hid;
+      A.State.party.heroes[hid] = h;
+      if (!A.State.party.order.includes(hid)) {
+        if (hid === P.hostHid) A.State.party.order.unshift(hid); else A.State.party.order.push(hid);
+      }
+    }
+    // los que ya no van juntos se borran (salvo que sigan en la pelea, por sus tarjetas)
+    const fighting = snap.combat && Array.isArray(snap.combat.heroIds) ? snap.combat.heroIds : (A.State.combat && A.State.combat.party ? A.State.combat.heroIds || [] : []);
+    for (const hid of Object.keys(A.State.party.heroes)) {
+      if (hid === P.localHid || heroes[hid] || fighting.includes(hid)) continue;
+      delete A.State.party.heroes[hid];
+      A.State.party.order = A.State.party.order.filter((x) => x !== hid);
+    }
 
     const wasOwned = P.mirror.owned;
     P.mirror.owned = !!snap.owned;
@@ -771,11 +829,133 @@
   }
 
   // ============================================================
+  // v3.2: pasarse cosas entre jugadores
+  //   El que da la saca de su mochila y la manda (por el anfitrión).
+  //   El que recibe la guarda y avisa. Si no le entra, está ocupado o no
+  //   contesta, vuelve a la mochila del que la dio (nada se pierde).
+  // ============================================================
+
+  const GIFT_MS = 15000;
+
+  /** ¿Se puede dar algo ahora? { ok, why } */
+  function canGive() {
+    if (!P.role || P.status !== 'connected') return { ok: false, why: 'Para pasar cosas tienen que estar en un grupo.' };
+    if (A.State.combat && !A.State.combat.result) return { ok: false, why: 'En plena pelea no se pueden pasar cosas.' };
+    if (isHost() && hostBusy()) return { ok: false, why: 'Esperá a que termine el viaje o la escena.' };
+    if (isGuest() && (P.mirror.owned || (A.State.traveling && !A.State.traveling.completed))) return { ok: false, why: 'Esperá a que termine el viaje o la escena.' };
+    if (!allyHids().length) return { ok: false, why: 'No hay nadie más en el grupo.' };
+    return { ok: true };
+  }
+
+  function itemLabel(itemId, qty) {
+    const d = A.Inventory && A.Inventory.resolveData ? A.Inventory.resolveData(itemId) : A.Data.getById('items', itemId);
+    if (itemId === '$coins') return A.Currency.formatPrice(qty);
+    return `${d ? d.name : 'algo'}${qty > 1 ? ` ×${qty}` : ''}`;
+  }
+
+  /** Dar a un compañero. itemId '$coins' = monedas (qty en cobre). */
+  function give(toHid, itemId, qty) {
+    const can = canGive();
+    if (!can.ok) return can;
+    const m = P.members[toHid];
+    if (!m || toHid === P.localHid || (isHost() && !P.peerOf[toHid])) return { ok: false, why: 'Ese compañero ya no está en el grupo.' };
+    const me = A.State.me();
+    let n = Math.max(1, Math.floor(Number(qty) || 1));
+    if (itemId === '$coins') {
+      if (!A.Currency.canPay(n)) return { ok: false, why: 'No tenés tanto.' };
+      A.State.withHero(me, () => A.Currency.pay(n));
+    } else {
+      const d = A.Inventory && A.Inventory.resolveData ? A.Inventory.resolveData(itemId) : null;
+      const slot = (me.inventory || []).find((s) => s.itemId === itemId);
+      if (!d || !slot) return { ok: false, why: 'No lo tenés en la mochila.' };
+      if (d.subtype === 'coin') return { ok: false, why: 'Las monedas se pasan desde el panel del grupo.' };
+      n = Math.min(n, slot.qty);
+      A.State.withHero(me, () => A.State.removeItem(itemId, n));
+    }
+    const id = `g${Date.now().toString(36)}${(++P.rpcSeq).toString(36)}`;
+    const g = { to: toHid, name: m.name, itemId, qty: n };
+    g.timer = setTimeout(() => giftBack(id, 'timeout'), GIFT_MS);
+    P.gifts.set(id, g);
+    const msg = { t: 'gift', id, from: P.localHid, fromName: me.name, to: toHid, itemId, qty: n };
+    if (isHost()) A.Link.send(msg, P.peerOf[toHid]);
+    else A.Link.send(msg);
+    A.State.persist();
+    toast(`Le estás pasando ${itemLabel(itemId, n)} a ${m.name}…`);
+    return { ok: true, pending: true };
+  }
+
+  /** Llega algo de un compañero. */
+  function receiveGift(msg) {
+    const me = A.State.me();
+    let ok = false;
+    let why = '';
+    const coins = msg.itemId === '$coins';
+    const d = coins ? null : (A.Inventory && A.Inventory.resolveData ? A.Inventory.resolveData(msg.itemId) : null);
+    if (!me || (!coins && !d)) why = 'unknown';
+    else if (isGuest() && P.mirror.owned) why = 'busy';
+    else if (coins) { A.State.withHero(me, () => A.Currency.add(msg.qty)); ok = true; }
+    else {
+      const slot = (me.inventory || []).find((s) => s.itemId === msg.itemId);
+      const stack = d.stack || 1;
+      if (slot && stack > 1 && slot.qty + msg.qty > stack) why = 'full';
+      else ok = !!A.State.withHero(me, () => A.State.addItem(msg.itemId, msg.qty));
+      if (!ok && !why) why = 'full';
+    }
+    const from = msg.fromName || 'Tu compañero';
+    if (ok) {
+      const text = `${from} te dio ${itemLabel(msg.itemId, msg.qty)}.`;
+      A.State.withHero(me, () => A.State.addChronicle({ type: 'loot', text }));
+      toast(text, 'good', coins ? 'coins' : 'bag');
+      A.Bus.emit('inventory:changed');
+      A.State.persist();
+    }
+    const res = { t: 'giftres', id: msg.id, to: msg.from, ok, why };
+    if (isHost()) { if (P.peerOf[msg.from]) A.Link.send(res, P.peerOf[msg.from]); }
+    else A.Link.send(res);
+  }
+
+  /** La respuesta del que recibía. */
+  function onGiftRes(msg) {
+    const g = P.gifts.get(msg.id);
+    if (!g) return;
+    if (!msg.ok) { giftBack(msg.id, msg.why || 'fail'); return; }
+    clearTimeout(g.timer);
+    P.gifts.delete(msg.id);
+    const text = `Le diste ${itemLabel(g.itemId, g.qty)} a ${g.name}.`;
+    A.State.withHero(A.State.me(), () => A.State.addChronicle({ type: 'loot', text }));
+    toast(text, 'good', g.itemId === '$coins' ? 'coins' : 'bag');
+  }
+
+  /** No llegó: vuelve a tu mochila (aunque esté llena: no se pierde). */
+  function giftBack(id, why) {
+    const g = P.gifts.get(id);
+    if (!g) return;
+    clearTimeout(g.timer);
+    P.gifts.delete(id);
+    const me = A.State.me();
+    if (!me) return;
+    A.State.withHero(me, () => {
+      if (g.itemId === '$coins') { A.Currency.add(g.qty); return; }
+      if (!A.State.addItem(g.itemId, g.qty)) {
+        me.inventory.push({ itemId: g.itemId, qty: g.qty });
+        A.Bus.emit('inventory:changed');
+        A.State.persist();
+      }
+    });
+    const reason = why === 'full' ? `a ${g.name} no le entra en la mochila`
+      : why === 'busy' ? `${g.name} está en medio de algo`
+        : why === 'gone' ? `${g.name} ya no está en el grupo` : `no le llegó a ${g.name}`;
+    toast(`No se pudo: ${reason}. Te devolvimos ${itemLabel(g.itemId, g.qty)}.`, 'bad');
+  }
+
+  // ============================================================
   // Salir
   // ============================================================
 
   function leave(silent) {
     clearTimeout(P.retryTimer);
+    // v3.2: lo que estaba en camino vuelve
+    for (const id of [...P.gifts.keys()]) giftBack(id, 'gone');
     clearTimeout(snapTimer);
     snapTimer = null;
     const role = P.role;
@@ -986,6 +1166,13 @@
     allyHid,
     ally: () => { const h = allyHid(); return h ? P.members[h] || null : null; },
     allyHero: () => { const h = allyHid(); return h && A.State.party ? A.State.party.heroes[h] || null : null; },
+    // v3.2: grupos de hasta 4
+    MAX_MEMBERS,
+    allyHids,
+    allies: () => allyHids().map((h) => P.members[h]).filter(Boolean),
+    withMe,
+    canGive,
+    give,
     isActive,
     isHost,
     isGuest,

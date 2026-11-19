@@ -184,6 +184,8 @@
     if (view) {
       const crowded = unitCount(c) > 3 || crowdedFor === c.id;
       view.classList.toggle('is-crowded', crowded);
+      // v3.2: grupos de 3 o 4 (hasta 15 en la arena): tarjetas más bajas
+      view.classList.toggle('is-packed', unitCount(c) >= 10);
       if (!crowded && window.innerWidth >= 1200) {
         requestAnimationFrame(() => {
           const act = view.querySelector('.cb-actions');
@@ -326,7 +328,7 @@
     }
 
     return `
-      <div class="cb-arena ${c.ambush ? 'is-ambush' : ''} ${c.party ? 'is-party' : ''} units-${Math.min(units, 9)} enemies-${Math.min(n, 5)}" data-sec="arena">
+      <div class="cb-arena ${c.ambush ? 'is-ambush' : ''} ${c.party ? 'is-party' : ''} ${units >= 10 ? 'is-packed' : ''} units-${Math.min(units, 9)} enemies-${Math.min(n, 5)}" data-sec="arena">
         <div class="cb-side cb-allies">
           ${allies}
         </div>
@@ -361,10 +363,14 @@
   }
 
   /** state: true o 'down' (bajó por un estado) · 'up' (subió: envalentonado, en guardia...). */
+  // v3.2: en las tarjetas angostas (mucha gente en la pelea) el nombre del número se vuelve un dibujito,
+  // así el valor (el daño, sobre todo) entra entero
+  const STAT_ICON = { PREC: 'target', 'DAÑO': 'swords', ARM: 'shield', VEL: 'boot' };
   function stat(label, value, title, state) {
-    const long = String(value).length > 6 ? 'is-long' : '';
+    const long = String(value).length > 5 ? 'is-long' : '';
     const cls = state === 'up' ? 'is-up' : state ? 'is-down' : '';
-    return `<span class="cb-stat ${cls} ${long}" title="${esc(title)}"><i>${label}</i><b>${esc(value)}</b></span>`;
+    const ic = STAT_ICON[label] ? `<em class="cb-stat-ic" aria-hidden="true">${icon(STAT_ICON[label], 12, 'px-soft')}</em>` : '';
+    return `<span class="cb-stat ${cls} ${long}" title="${esc(title)}"><i>${label}</i>${ic}<b>${esc(value)}</b></span>`;
   }
 
   /** v2.5: los números reales de la criatura en esta pelea (estados y pasivas incluidos). */

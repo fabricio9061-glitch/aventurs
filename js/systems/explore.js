@@ -267,6 +267,64 @@
     return chips;
   }
 
+  /**
+   * v3.2: en grupo, lo bueno se reparte y lo malo les toca a todos.
+   *   - Monedas y experiencia: cada uno su parte (Balance.partyShare(n)).
+   *   - Objetos y hallazgos: uno por uno, por turnos (empieza uno al azar).
+   *   - Vida, maná y comida (para bien o para mal) y perder monedas: a cada uno.
+   *   - Lo que se gasta (la comida que se le tira a una bestia): el que eligió.
+   * Devuelve { chips (las del que eligió), group: [{ hid, name, chips }] }.
+   */
+  function applyGroupOutcome(out, ctx = {}) {
+    const heroes = groupHeroes();
+    const chooser = player();
+    if (heroes.length <= 1 || !out) return { chips: applyOutcome(out, ctx), group: null };
+    const n = heroes.length;
+    const tier = ctx.tier || 1;
+    const share = A.Balance && A.Balance.partyShare ? A.Balance.partyShare(n) : 1 / n;
+    const per = heroes.map(() => ({}));
+    const base = {};
+    for (const k of ['heal', 'healFlat', 'hurt', 'hurtFlat', 'mana', 'food']) if (out[k] != null) base[k] = out[k];
+    per.forEach((o) => Object.assign(o, base));
+    if (typeof out.coins === 'number' && out.coins > 0) {
+      const total = out.coinsFlat ? out.coins : Math.round(coinUnit(tier) * out.coins * (0.8 + Math.random() * 0.4));
+      const each = Math.max(1, Math.round(total * share));
+      per.forEach((o) => { o.coins = each; o.coinsFlat = true; });
+    } else if (typeof out.coins === 'number' && out.coins < 0) {
+      per.forEach((o) => { o.coins = out.coins; o.coinsFlat = out.coinsFlat; });
+    }
+    if (out.xp) {
+      const total = out.xpFlat ? out.xp : Math.max(1, Math.round(xpUnit(tier) * out.xp));
+      const each = Math.max(1, Math.round(total * share));
+      per.forEach((o) => { o.xp = each; o.xpFlat = true; });
+    }
+    let turn = rnd(n);
+    for (const it of out.items || []) {
+      const [id, min, max] = it;
+      const qty = (min || 0) + rnd(Math.max(0, (max || min || 1) - (min || 0)) + 1);
+      for (let q = 0; q < qty; q++) {
+        const o = per[turn % n];
+        turn += 1;
+        o.items = o.items || [];
+        const row = o.items.find((r) => r[0] === id);
+        if (row) { row[1] += 1; row[2] += 1; } else o.items.push([id, 1, 1]);
+      }
+    }
+    for (let i = 0; i < (out.loot || 0); i++) { const o = per[turn % n]; turn += 1; o.loot = (o.loot || 0) + 1; }
+    const ci = Math.max(0, heroes.indexOf(chooser));
+    if (out.consume) per[ci].consume = out.consume;
+    const group = heroes.map((h, i) => {
+      const chips = A.State.withHero(h, () => applyOutcome(per[i], ctx));
+      return { hid: A.State.hidOf(h), name: h.name, chips };
+    });
+    // el tiempo pasa una vez para todos
+    if (out.time && A.Time) {
+      A.Time.advance(out.time, 'event');
+      group[ci].chips.push({ kind: 'time', value: out.time });
+    }
+    return { chips: group[ci].chips, group };
+  }
+
   /** Texto corto de una ficha, para las crónicas. */
   function chipText(c) {
     const it = c.itemId ? itemData(c.itemId) : null;
@@ -644,6 +702,7 @@
     if (inGroup()) {
       scene.party = true;
       scene.by = A.State.hidOf(player()); // quién exploró
+      scene.voters = groupHeroes().map((h) => A.State.hidOf(h)); // v3.2: para mostrar a quién se espera
     }
     A.State.openModal('event', scene);
     A.State.persist();
@@ -681,6 +740,8 @@
   // ============================================================
   // v3.1: en grupo se vota. Si eligen lo mismo, lo hace el que tiene
   // más chance; si no, cada uno tira un D20 y gana el más alto.
+  // v3.2 (hasta 4): gana la opción con más votos (la hace el que tiene
+  // más chance de los que la votaron); si empatan, deciden los dados.
   // ============================================================
 
   function votersOf(sc) {
@@ -698,26 +759,34 @@
     if (!ids.length) return null;
     const picks = ids.map((h) => sc.votes[h]);
     const agreed = picks.every((i) => i === picks[0]);
+    // v3.2: cuántos votos tiene cada opción
+    const count = {};
+    for (const i of picks) count[i] = (count[i] || 0) + 1;
+    const top = Math.max(...Object.values(count));
+    const best = Object.keys(count).filter((k) => count[k] === top).map(Number);
+    const majority = !agreed && best.length === 1;
     let winner = ids[0];
     let rolls = null;
-    if (agreed) {
-      // lo hace el que tiene más chance de que salga bien
-      const opt = sc.options[picks[0]];
-      let best = -1;
-      for (const h of ids) {
+    let rollers = null;
+    if (best.length === 1) {
+      // lo hace el que tiene más chance de que salga bien (de los que la votaron)
+      const opt = sc.options[best[0]];
+      let bestCh = -1;
+      for (const h of ids.filter((x) => sc.votes[x] === best[0])) {
         const hero = A.State.heroById(h);
         const ch = opt && opt.check ? A.State.withHero(hero, () => chanceOf(opt.check, sc.tier, hero, sc.bonus || 0)) : 1;
-        if (ch > best + 1e-9) { best = ch; winner = h; }
+        if (ch > bestCh + 1e-9) { bestCh = ch; winner = h; }
       }
     } else {
-      // un dado cada uno; si empatan arriba, se vuelve a tirar
+      // empate: un dado cada uno de los que votaron las empatadas; si empatan arriba, se vuelve a tirar
+      rollers = ids.filter((h) => best.includes(sc.votes[h]));
       rolls = {};
       for (let t = 0; t < 6; t++) {
-        for (const h of ids) rolls[h] = 1 + rnd(20);
-        const top = Math.max(...ids.map((h) => rolls[h]));
-        if (ids.filter((h) => rolls[h] === top).length === 1) break;
+        for (const h of rollers) rolls[h] = 1 + rnd(20);
+        const hi = Math.max(...rollers.map((h) => rolls[h]));
+        if (rollers.filter((h) => rolls[h] === hi).length === 1) break;
       }
-      winner = ids.slice().sort((a, b) => (rolls[b] - rolls[a]) || (a === sc.by ? -1 : b === sc.by ? 1 : 0))[0];
+      winner = rollers.slice().sort((a, b) => (rolls[b] - rolls[a]) || (a === sc.by ? -1 : b === sc.by ? 1 : 0))[0];
     }
     const idx = sc.votes[winner];
     let res = null;
@@ -725,10 +794,11 @@
     if (sc.result) {
       sc.result.vote = {
         agreed,
+        majority,
         winner,
         winnerName: heroName(winner),
         votes: ids.map((h) => ({ hid: h, name: heroName(h), label: (sc.options[sc.votes[h]] || {}).label || '' })),
-        rolls: rolls ? ids.map((h) => ({ hid: h, name: heroName(h), d: rolls[h] })) : null,
+        rolls: rolls ? rollers.map((h) => ({ hid: h, name: heroName(h), d: rolls[h] })) : null,
       };
       A.State.openModal('event', sc);
     }
@@ -778,7 +848,9 @@
       for (const h of groupHeroes()) A.State.withHero(h, () => { const fresh = A.Bestiary ? A.Bestiary.study(sc.enemies) : []; if (h === p) studied = fresh; });
     }
 
-    const chips = applyOutcome(outcome, { tier: sc.tier, region });
+    // v3.2: en grupo lo bueno se reparte y lo malo les toca a todos
+    const applied = sc.party ? applyGroupOutcome(outcome, { tier: sc.tier, region }) : { chips: applyOutcome(outcome, { tier: sc.tier, region }), group: null };
+    const chips = applied.chips;
 
     // Pelea: los enemigos de la escena, o unos nuevos de la zona
     let fight = null;
@@ -807,6 +879,7 @@
       success: rollRes ? rollRes.success : true,
       text: outcome.text || '',
       chips,
+      group: applied.group, // v3.2: lo que le tocó a cada uno
       fight,
       tame: !!outcome.tame,
       // v3.1: observar sale bien: se vuelve a elegir (sin "observar" y con +2)
@@ -821,6 +894,13 @@
       type: fight ? 'combat' : (chips.some((c) => c.kind === 'coins' || c.kind === 'item') ? 'loot' : 'note'),
       text: `${sc.title}: ${opt.label.toLowerCase()}${rollLine}. ${outcome.text}${chipLine ? ` ${chipLine}.` : ''}`.trim(),
     });
+    // v3.2: a cada compañero, lo que le tocó a él
+    for (const g of applied.group || []) {
+      if (g.hid === A.State.hidOf(p) || !g.chips.length) continue;
+      const h = A.State.heroById(g.hid);
+      const line = g.chips.map(chipText).filter(Boolean).join(', ');
+      if (h && line) A.State.withHero(h, () => A.State.addChronicle({ type: g.chips.some((c) => c.kind === 'coins' || c.kind === 'item') ? 'loot' : 'note', text: `${sc.title} (eligió ${p.name}): ${line}.` }));
+    }
 
     if (sc.eventId) A.Bus.emit('explore:resolved', { eventId: sc.eventId, success: sc.result.success });
     A.Bus.emit('inventory:changed');

@@ -2,9 +2,9 @@
    Aventurs — Pantallas del grupo (v3.0)
 
    - Panel "Grupo" (A.ModalViews.party): crear un grupo y pasar el
-     código, unirse con un código, ver al compañero, separarse,
-     volver a juntarse y salir.
-   - Ficha chiquita del compañero en la barra lateral (allyCard).
+     código, unirse con un código, ver a los compañeros, separarse,
+     volver a juntarse y salir. v3.2: de 2 a 4 jugadores.
+   - En la barra lateral, una fila finita por compañero (sidebar).
    - Avisos cortos abajo de la pantalla (toast).
    ============================================================ */
 
@@ -80,7 +80,23 @@
           <div class="pt-member-where">${icon(m.together ? 'party' : 'map', 14)}<span>${esc(isMe && !A.Party.isHost() ? (m.together ? 'Juntos' : 'Por tu cuenta') : whereLine(m))}</span></div>
         </div>
         ${pet ? `<span class="pt-member-pet" title="${esc(pet.name)} (nivel ${pet.level || 1})">${A.Sprites ? A.Sprites.petHtml({ species: pet.species, name: pet.name }, { size: 40 }) : ''}<span class="pt-bar is-pet"><span style="width:${pct(pet.health, pet.maxHealth)}%"></span></span></span>` : ''}
+        ${isMe ? '' : giveCoinsHtml(m)}
       </div>`;
+  }
+
+  /** v3.2: pasarle monedas (las cosas se pasan desde cada objeto de la mochila). */
+  function giveCoinsHtml(m) {
+    if (!A.Party.canGive || !A.Party.give || A.Party.status !== 'connected') return '';
+    const can = A.Party.canGive();
+    if (!can.ok) return '';
+    const have = A.Currency ? A.Currency.toCopper() : 0;
+    if (have <= 0) return '';
+    return `
+        <div class="pt-give">
+          <input type="number" min="1" max="${have}" step="1" inputmode="numeric" placeholder="cobre" data-coins-for="${esc(m.hid)}" aria-label="Cuánto cobre le das a ${esc(m.name)}">
+          <button class="btn-ghost btn-sm" data-party-coins="${esc(m.hid)}">${icon('coins', 14)}<span>Darle monedas</span></button>
+          <span class="dim">Tenés ${esc(A.Currency.formatPrice(have))}. Las cosas se pasan desde la mochila.</span>
+        </div>`;
   }
 
   // ============================================================
@@ -90,9 +106,10 @@
   function howItWorks() {
     return `
       <ul class="pt-how">
-        <li>${icon('party', 18)}<span><b>Juntos</b>: viajan, exploran y pelean a la par. El que creó el grupo elige a dónde viajar; los dos pueden explorar y descansar, y en las peleas cada uno juega su turno con su mascota.</span></li>
-        <li>${icon('map', 18)}<span><b>Separados</b>: cada uno juega por su lado. Para volver a juntarse, "Ir con..." en este panel te lleva hasta donde está el otro.</span></li>
-        <li>${icon('bag', 18)}<span>Cada uno se queda con su personaje, su mochila y lo que gana. Todo se guarda en la compu de cada uno.</span></li>
+        <li>${icon('party', 18)}<span><b>Juntos</b> (de 2 a 4): viajan, exploran y pelean a la par. El que creó el grupo elige a dónde viajar; todos pueden explorar y descansar, y en las peleas cada uno juega su turno con su mascota.</span></li>
+        <li>${icon('map', 18)}<span><b>Separados</b>: cada uno juega por su lado. Para volver a juntarse, "Ir con..." en este panel te lleva hasta donde está el grupo.</span></li>
+        <li>${icon('coins', 18)}<span><b>Lo que ganan se reparte</b>: experiencia, monedas y hallazgos. Lo malo (una trampa, un ladrón) les toca a todos.</span></li>
+        <li>${icon('bag', 18)}<span>Cada uno se queda con su personaje y su mochila, y se pueden pasar cosas entre ustedes. Todo se guarda en la compu de cada uno.</span></li>
       </ul>`;
   }
 
@@ -144,7 +161,7 @@
           <span class="pt-code" data-party-codeval>${esc(A.Link.prettyCode(P.code))}</span>
           <button class="btn-ghost pt-copy" data-party="copy">${icon('copy', 16)}<span>Copiar</span></button>
         </div>
-        <p class="pt-lead">Pasale este código a tu compañero. Él abre el juego en su compu, toca <b>Grupo</b> y lo escribe en <b>Unirme a un grupo</b>.</p>
+        <p class="pt-lead">Pasale este código a tus compañeros (pueden ser hasta ${(P.MAX_MEMBERS || 4) - 1}). Cada uno abre el juego en su compu, toca <b>Grupo</b> y lo escribe en <b>Unirme a un grupo</b>.</p>
         <div class="pt-wait is-small"><span class="pt-spinner" aria-hidden="true"></span><p>Esperando que se una alguien…</p></div>
         <div class="pt-actions"><button class="btn-ghost is-danger" data-party="leave">${icon('logout', 18)}<span>Cerrar el grupo</span></button></div>`;
     } else {
@@ -152,10 +169,12 @@
       const me = P.localHid;
       const list = P.members();
       const ordered = list.filter((m) => m.hid === me).concat(list.filter((m) => m.hid !== me));
-      const ally = P.ally();
+      const allies = P.allies ? P.allies() : [P.ally()].filter(Boolean);
       const guest = role === 'guest';
-      const together = guest ? P.guestTogether() : !!(ally && ally.together);
+      const apart = allies.filter((m) => !m.together && m.hid !== P.hostHid);
+      const together = guest ? P.guestTogether() : allies.some((m) => m.together);
       const owned = P.guestOwned();
+      const room = (P.MAX_MEMBERS || 4) - list.length;
       const actions = [];
       if (guest && together) actions.push(`<button class="btn-ghost" data-party="separate" ${owned ? 'disabled title="Esperá a que termine la pelea, el viaje o la escena"' : ''}>${icon('map', 18)}<span>Separarme</span></button>`);
       if (guest && !together) actions.push(`<button class="btn-primary" data-party="regroup">${icon('party', 18)}<span>Ir con ${esc(P.hostName())}</span></button>`);
@@ -167,8 +186,10 @@
         </div>
         <div class="pt-members">${ordered.map((m) => memberCard(m, m.hid === me)).join('')}</div>
         <p class="pt-note">${guest
-          ? (together ? `Van juntos. ${esc(P.hostName())} elige a dónde viajar; los dos pueden explorar y descansar.` : `Estás por tu cuenta. Cuando quieras, "Ir con ${esc(P.hostName())}" te lleva hasta donde está.`)
-          : (ally && ally.together ? 'Van juntos. Vos elegís a dónde viajar; los dos pueden explorar y descansar.' : `${esc(ally ? ally.name : 'Tu compañero')} anda por su cuenta. Puede volver con vos cuando quiera.`)}</p>
+          ? (together ? `Van juntos. ${esc(P.hostName())} elige a dónde viajar; todos pueden explorar y descansar.` : `Estás por tu cuenta. Cuando quieras, "Ir con ${esc(P.hostName())}" te lleva hasta donde está.`)
+          : (!apart.length ? 'Van juntos. Vos elegís a dónde viajar; todos pueden explorar y descansar.'
+            : `${esc(apart.map((m) => m.name).join(', '))} ${apart.length > 1 ? 'andan' : 'anda'} por su cuenta. ${apart.length > 1 ? 'Pueden' : 'Puede'} volver con vos cuando quiera${apart.length > 1 ? 'n' : ''}.`)}</p>
+        ${!guest && room > 0 ? `<p class="pt-note is-room">${icon('key', 14)}<span>Pueden entrar ${room === 1 ? 'uno más' : `${room} más`} con el código <b>${esc(A.Link.prettyCode(P.code))}</b>.</span></p>` : ''}
         <div class="pt-actions">${actions.join('')}</div>`;
     }
 
@@ -226,6 +247,18 @@
     overlay.querySelectorAll('[data-party]').forEach((b) => {
       b.addEventListener('click', () => { if (!b.disabled) act(b.dataset.party, overlay); });
     });
+    // v3.2: darle monedas a un compañero
+    overlay.querySelectorAll('[data-party-coins]').forEach((b) => {
+      b.addEventListener('click', () => {
+        const hid = b.dataset.partyCoins;
+        const input = [...overlay.querySelectorAll('[data-coins-for]')].find((x) => x.dataset.coinsFor === hid);
+        const n = Math.floor(Number(input && input.value) || 0);
+        if (n <= 0) { toast('Escribí cuánto cobre le das.', 'bad'); return; }
+        const r = A.Party.give(hid, '$coins', n);
+        if (r && !r.ok && r.why) toast(r.why, 'bad');
+        else rerender();
+      });
+    });
     const input = overlay.querySelector('[data-party-code]');
     if (input) {
       input.addEventListener('input', () => {
@@ -242,7 +275,71 @@
   }
 
   // ============================================================
-  // Ficha del compañero en la barra lateral
+  // v3.2: compañeros en la barra lateral (una fila finita por cada uno)
+  // ============================================================
+
+  /** ¿Va con vos ahora? (si sos invitado y te separaste, nadie va con vos) */
+  function withMe(m) { return A.Party.withMe ? A.Party.withMe(m) : !!(m && m.together); }
+  /** Los datos al día: si su héroe está acá (van juntos), de ahí; si no, la ficha que mandó. */
+  function liveOf(m) {
+    const h = A.State.party && A.State.party.heroes ? A.State.party.heroes[m.hid] : null;
+    if (!h) return m;
+    return Object.assign({}, m, {
+      name: h.name, level: h.level, raceId: h.raceId,
+      hp: h.hp, maxHp: h.maxHp, mana: h.mana, maxMana: h.maxMana, hasMagic: !!h.hasMagic,
+      weapon: h.equipment ? h.equipment.weapon : m.weapon,
+      pet: h.pet ? { name: h.pet.name, species: h.pet.species, health: h.pet.health, maxHealth: h.pet.maxHealth, level: h.pet.level || 1 } : null,
+    });
+  }
+  function hasMates() {
+    return !!(A.Party && A.Party.role && A.Party.status === 'connected' && (A.Party.allies ? A.Party.allies().length : A.Party.ally()));
+  }
+  function mateRow(m0) {
+    const m = liveOf(m0);
+    const near = withMe(m0);
+    const down = (m.hp || 0) <= 0;
+    const pet = m.pet;
+    const petDown = pet && pet.health <= 0;
+    const where = near ? 'Con vos' : whereLine(m0);
+    return `
+      <button class="sb-mate ${near ? 'is-near' : 'is-apart'} ${down ? 'is-down' : ''}" data-action="party" title="${esc(`${m.name}, nivel ${m.level || 1}. Vida ${m.hp}/${m.maxHp}${m.hasMagic ? `, maná ${m.mana}/${m.maxMana}` : ''}${pet ? `. ${pet.name}: ${pet.health}/${pet.maxHealth}` : ''}. ${where}.`)}">
+        <span class="sb-mate-face">${heroSprite(m, 30)}<i class="sb-mate-lvl">${m.level || 1}</i></span>
+        <span class="sb-mate-main">
+          <span class="sb-mate-top">
+            <b class="sb-mate-name">${esc(m.name)}</b>
+            ${pet ? `<span class="sb-mate-pet ${petDown ? 'is-down' : ''}">${icon('paw', 11)}${esc(pet.name)}</span>` : ''}
+            <span class="sb-mate-where" title="${esc(where)}">${icon(near ? 'party' : 'map', 11)}</span>
+          </span>
+          <span class="sb-mate-bars">
+            <span class="sb-mate-bar is-hp"><span style="width:${pct(m.hp, m.maxHp)}%"></span></span>
+            ${m.hasMagic ? `<span class="sb-mate-bar is-mana"><span style="width:${pct(m.mana, m.maxMana)}%"></span></span>` : ''}
+          </span>
+        </span>
+        <span class="sb-mate-num num">${down ? 'Caído' : `${m.hp}/${m.maxHp}`}</span>
+      </button>`;
+  }
+  /** La sección del grupo arriba de todo en la barra lateral. */
+  function sidebar() {
+    if (!A.Party || !A.Party.role) return '';
+    const P = A.Party;
+    if (P.status === 'waiting' && P.isHost()) {
+      return `<button class="sb-party-wait" data-action="party">${icon('party', 20)}<span><b>Grupo abierto</b><small>Código ${esc(A.Link.prettyCode(P.code))}: pasáselo a tus compañeros</small></span></button>`;
+    }
+    const mates = P.allies ? P.allies() : [P.ally()].filter(Boolean);
+    if (!mates.length) {
+      if (['connecting', 'joining', 'busy', 'opening'].includes(P.status)) return `<button class="sb-party-wait" data-action="party"><span class="pt-spinner is-tiny"></span><span><b>Conectando…</b></span></button>`;
+      return '';
+    }
+    const total = mates.length + 1;
+    return `
+      <section class="sb-party">
+        <h3 class="sb-title"><span>Tu grupo</span><button class="sb-title-link" data-action="party" title="Ver el grupo">${icon('party', 12)}<span>${total} de ${P.MAX_MEMBERS || 4}</span></button></h3>
+        <div class="sb-mates">${mates.map(mateRow).join('')}</div>
+      </section>`;
+  }
+
+  // ============================================================
+  // Ficha del compañero en la barra lateral (v3.0, se deja por compatibilidad)
   // ============================================================
 
   function allyCard() {
@@ -282,7 +379,7 @@
   A.ModalViews.party = { render: () => render(), bind };
 
   A.Views = A.Views || {};
-  A.Views.Party = { toast, allyCard, headerButton, rerender };
+  A.Views.Party = { toast, allyCard, sidebar, hasMates, headerButton, rerender };
 
   if (A.Bus) {
     A.Bus.on('party:changed', rerender);

@@ -10,29 +10,29 @@
   'use strict';
 
   const WEAPONS = [
-    { id:'garrote', name:'Garrote', type:'weapon', icon:'🏏', damage:'1d4', value:10, rarity:'common', tier:1, weight:2, magic:false,
-      description:'Madera nudosa con manija. Lo más simple que se llama arma.' },
+    { id:'garrote', name:'Garrote', type:'weapon', icon:'🏏', damage:'1d6', value:10, rarity:'common', tier:1, weight:2, magic:false,
+      description:'Madera nudosa con manija. Lo más simple que se llama arma: barato, pesado y pega más que una daga.' },
 
     { id:'daga', name:'Daga', type:'weapon', icon:'🗡️', damage:'1d4', value:25, rarity:'common', tier:1, weight:1, statusEffect:{type:'bleed',chance:0.2,turns:3,value:1}, magic:false,
       description:'Hoja corta y ligera. Buena para empezar.' },
 
-    { id:'espada_corta', name:'Espada corta', type:'weapon', icon:'⚔️', damage:'1d4', value:25, rarity:'common', tier:1, weight:2, magic:false,
-      description:'Una hoja confiable. La elección clásica del aventurero novato.' },
+    { id:'espada_corta', name:'Espada corta', type:'weapon', icon:'⚔️', damage:'1d6', value:25, rarity:'common', tier:1, weight:2, precision:1, magic:false,
+      description:'Una hoja confiable y bien equilibrada: pega más que la daga y es más certera (+1 de precisión), pero pesa el doble.' },
 
     { id:'baston', name:'Bastón', type:'weapon', icon:'🪄', damage:'1d4', value:25, rarity:'common', tier:1, weight:1, magic:true,
       description:'Madera tallada con runas. Quien lo empuña siente el zumbido del maná.' },
 
-    { id:'hacha_de_mano', name:'Hacha de mano', type:'weapon', icon:'🪓', damage:'1d6', value:36, rarity:'common', tier:2, weight:2, magic:false,
-      description:'Pesada pero efectiva. Astilla escudos con un golpe firme.' },
+    { id:'hacha_de_mano', name:'Hacha de mano', type:'weapon', icon:'🪓', damage:'1d6+1', value:36, rarity:'common', tier:2, weight:2, statusEffect:{type:'bleed',chance:0.15,turns:3,value:1}, magic:false,
+      description:'Pesada pero efectiva. Astilla escudos con un golpe firme y deja heridas que sangran.' },
 
-    { id:'arco_corto', name:'Arco corto', type:'weapon', icon:'🏹', damage:'1d6', value:36, rarity:'common', tier:2, weight:2, magic:false,
-      description:'Ligero, certero, silencioso. La distancia es su mejor escudo.' },
+    { id:'arco_corto', name:'Arco corto', type:'weapon', icon:'🏹', damage:'1d6+1', value:36, rarity:'common', tier:2, weight:2, precision:1, magic:false,
+      description:'Ligero, certero, silencioso: +1 de precisión. La distancia es su mejor escudo.' },
 
-    { id:'varita', name:'Varita', type:'weapon', icon:'🪄', damage:'1d4', value:36, rarity:'common', tier:2, weight:0, magic:true,
-      description:'Madera tallada con runas. Canaliza maná pero pega flojo si te quedás sin.' },
+    { id:'varita', name:'Varita', type:'weapon', icon:'🪄', damage:'1d4', value:36, rarity:'common', tier:2, weight:0, magic:true, mana:2,
+      description:'Madera tallada con runas. Potencia tus hechizos y da +2 de maná máximo, pero pega flojo si te quedás sin.' },
 
-    { id:'lanza', name:'Lanza', type:'weapon', icon:'🔱', damage:'1d6+1', value:53, rarity:'common', tier:3, weight:3, magic:false,
-      description:'Asta larga con punta de hierro. Mantiene al enemigo a raya.' },
+    { id:'lanza', name:'Lanza', type:'weapon', icon:'🔱', damage:'1d6+1', value:53, rarity:'common', tier:3, weight:3, precision:1, magic:false,
+      description:'Asta larga con punta de hierro. Mantiene al enemigo a raya: +1 de precisión. Pega menos que la maza, pero erra menos.' },
 
     { id:'maza', name:'Maza', type:'weapon', icon:'🔨', damage:'1d8+1', value:68, rarity:'uncommon', tier:3, weight:3, magic:false,
       description:'Cabeza de hierro macizo. No corta, aplasta.' },
@@ -40,14 +40,14 @@
     { id:'daga_obsidiana', name:'Daga de obsidiana', type:'weapon', icon:'🗡️', damage:'1d6+1', value:68, rarity:'uncommon', tier:3, weight:1, statusEffect:{type:'bleed',chance:0.3,turns:3,value:1}, magic:false,
       description:'Filo de vidrio volcánico, más cortante que el acero pero frágil. Hace sangrar feo.' },
 
-    { id:'espada_larga', name:'Espada larga', type:'weapon', icon:'⚔️', damage:'2d4+1', value:99, rarity:'uncommon', tier:4, weight:3, magic:false,
-      description:'Más peso, más alcance, más daño. Para quien sabe blandir bien.' },
+    { id:'espada_larga', name:'Espada larga', type:'weapon', icon:'⚔️', damage:'2d4+1', value:99, rarity:'uncommon', tier:4, weight:3, precision:1, magic:false,
+      description:'Más peso, más alcance, más daño, y una hoja que va donde la mandás (+1 de precisión).' },
 
     { id:'cetro_arcano', name:'Cetro arcano', type:'weapon', icon:'🪄', damage:'1d8+1', value:99, rarity:'uncommon', tier:4, weight:1, magic:true,
       description:'Una piedra azul late en el extremo. Alimenta hechizos con cada golpe.' },
 
-    { id:'ballesta', name:'Ballesta', type:'weapon', icon:'🏹', damage:'2d4+1', value:99, rarity:'uncommon', tier:4, weight:4, magic:false,
-      description:'Arco mecánico que pega más fuerte que un arco común. Lenta de recargar.' },
+    { id:'ballesta', name:'Ballesta', type:'weapon', icon:'🏹', damage:'2d4+2', value:99, rarity:'uncommon', tier:4, weight:4, magic:false,
+      description:'Arco mecánico que pega más fuerte que un arco común. Pesada y lenta de recargar.' },
 
     { id:'lanza_hueso', name:'Lanza de hueso antiguo', type:'weapon', icon:'🔱', damage:'2d4+1', value:99, rarity:'uncommon', tier:4, weight:2, magic:false,
       description:'Asta tallada de un hueso que no se rompe. Liviana y temida.' },
@@ -58,8 +58,8 @@
     { id:'katana', name:'Katana', type:'weapon', icon:'⚔️', damage:'2d6', value:188, rarity:'rare', tier:5, weight:2, magic:false, statusEffect:{type:'bleed',chance:0.3,turns:3,value:2},
       description:'Hoja curva forjada en cien capas. Corta lo que mira, sangra lo que toca.' },
 
-    { id:'alabarda', name:'Alabarda', type:'weapon', icon:'🪓', damage:'2d8', value:188, rarity:'rare', tier:5, weight:5, slots:2, magic:false,
-      description:'Hacha y lanza juntas en un asta larga. Para mantener distancia y abrir cráneos.' },
+    { id:'alabarda', name:'Alabarda', type:'weapon', icon:'🪓', damage:'2d8', value:188, rarity:'rare', tier:5, weight:5, slots:2, precision:1, magic:false,
+      description:'Hacha y lanza juntas en un asta larga. Para mantener distancia (+1 de precisión) y abrir cráneos.' },
 
     { id:'baston_de_fuego', name:'Bastón de fuego', type:'weapon', icon:'🔥', damage:'2d4+1', value:188, rarity:'rare', tier:5, weight:2, magic:true, statusEffect:{type:'fire',chance:0.4,turns:4,value:2},
       description:'La punta arde sin consumirse. Cada golpe deja brasas en la herida.' },
@@ -76,14 +76,14 @@
     { id:'baston_arcano', name:'Bastón arcano', type:'weapon', icon:'🪄', damage:'2d6', value:272, rarity:'rare', tier:6, weight:2, statusEffect:{type:'fire',chance:0.2,turns:3,value:2}, magic:true,
       description:'Madera de fresno teñida en sangre de dragón. Dobla el poder de los hechizos.' },
 
-    { id:'martillo_de_guerra', name:'Martillo de guerra', type:'weapon', icon:'🔨', damage:'2d8+1', value:272, rarity:'rare', tier:6, weight:6, slots:2, magic:false,
-      description:'Cabeza de hierro forjada para romper armaduras. Lo que toca, abolla.' },
+    { id:'martillo_de_guerra', name:'Martillo de guerra', type:'weapon', icon:'🔨', damage:'2d8+1', value:272, rarity:'rare', tier:6, weight:6, slots:2, magic:false, statusEffect:{type:'shock',chance:0.2,turns:2,value:1},
+      description:'Cabeza de hierro forjada para romper armaduras. Lo que toca, abolla, y a veces lo deja aturdido.' },
 
     { id:'cetro_igneo', name:'Cetro ígneo', type:'weapon', icon:'📜', damage:'2d6', value:272, rarity:'rare', tier:6, weight:2, magic:true, statusEffect:{type:'fire',chance:0.35,turns:3,value:2},
       description:'Una gema ígnea engarzada en cuarzo. Quema al que toca su luz.' },
 
-    { id:'espada_runica', name:'Espada rúnica', type:'weapon', icon:'🗡️', tier:7, rarity:'rare', weight:3, magic:false, damage:'2d8+1', value:395,
-      description:'Runas de filo grabadas a fuego. Corta cotas como si fueran tela.' },
+    { id:'espada_runica', name:'Espada rúnica', type:'weapon', icon:'🗡️', tier:7, rarity:'rare', weight:3, magic:false, damage:'2d8+1', value:395, precision:1,
+      description:'Runas de filo grabadas a fuego: +1 de precisión. Corta cotas como si fueran tela.' },
 
     { id:'baston_runico', name:'Bastón rúnico', type:'weapon', icon:'🪄', tier:7, rarity:'rare', weight:2, magic:true, damage:'2d8', value:395,
       description:'Madera petrificada que guarda el eco de cada hechizo lanzado con ella.' },

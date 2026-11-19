@@ -23,16 +23,18 @@
   // ---------- Armas ----------
   // [id, nombre, nivel, rareza, daño, peso, extra, descripción]
   const W = [
-    ['hoz', 'Hoz', 1, 'common', '1d4', 1, { statusEffect: { type: 'bleed', chance: 0.15, turns: 3, value: 1 } }, 'Herramienta de cosecha con filo curvo. En la mano justa, abre heridas que sangran.'],
+    ['hoz', 'Hoz', 1, 'common', '1d4+1', 1, { statusEffect: { type: 'bleed', chance: 0.15, turns: 3, value: 1 } }, 'Herramienta de cosecha con filo curvo. Liviana como la daga y pega un poco más; a veces hace sangrar.'],
     ['latigo', 'Látigo', 2, 'common', '1d4+1', 1, { statusEffect: { type: 'bleed', chance: 0.25, turns: 3, value: 1 } }, 'Cuero trenzado que chasquea. No mata rápido, pero lastima.'],
     ['estoque', 'Estoque', 3, 'uncommon', '1d6+1', 1, { precision: 1, statusEffect: { type: 'bleed', chance: 0.2, turns: 3, value: 1 } }, 'Hoja fina y larga para estocadas certeras. +1 de precisión.'],
     ['cimitarra', 'Cimitarra', 3, 'uncommon', '1d8', 2, { statusEffect: { type: 'bleed', chance: 0.15, turns: 3, value: 1 } }, 'Curva como la luna del desierto. Corta al pasar.'],
     ['nunchaku', 'Nunchaku', 3, 'uncommon', '1d6+1', 1, { statusEffect: { type: 'shock', chance: 0.12, turns: 2, value: 1 } }, 'Dos palos y una cadena. Los golpes rápidos aturden.'],
-    ['alfanje', 'Alfanje', 4, 'uncommon', '2d4+1', 3, {}, 'Sable ancho y pesado de punta. Muerde hondo.'],
+    ['alfanje', 'Alfanje', 4, 'uncommon', '2d4+1', 3, { statusEffect: { type: 'bleed', chance: 0.2, turns: 3, value: 2 } }, 'Sable ancho y pesado de punta. Muerde hondo: las heridas sangran.'],
     ['lucero_del_alba', 'Lucero del alba', 4, 'uncommon', '2d4+1', 4, { statusEffect: { type: 'shock', chance: 0.15, turns: 2, value: 1 } }, 'Una bola con púas en la punta de un mango. Aturde al que la recibe.'],
     ['tomo_antiguo', 'Tomo antiguo', 4, 'uncommon', '1d6+1', 2, { magic: true, mana: 4 }, 'Páginas que murmuran solas. Potencia tus hechizos y da +4 de maná máximo.'],
+    // v3.2: un arma mágica de nivel 3 (entre la varita y el cetro), la hacen los enanos
+    ['varita_runica', 'Varita rúnica', 3, 'uncommon', '1d4', 1, { magic: true, mana: 4 }, 'Hierro enano con runas grabadas. Pega como una varita, pero potencia tus hechizos y da +4 de maná máximo.'],
     ['baston_natura', 'Bastón de la naturaleza', 4, 'uncommon', '1d6+1', 1, { magic: true, statusEffect: { type: 'poison', chance: 0.3, turns: 3, value: 1 } }, 'Rama viva que todavía brota. Su golpe envenena.'],
-    ['mangual', 'Mangual', 5, 'rare', '2d6+1', 4, {}, 'Bola de hierro con cadena. Pasa por encima de los escudos.'],
+    ['mangual', 'Mangual', 5, 'rare', '2d6+1', 4, { statusEffect: { type: 'shock', chance: 0.15, turns: 2, value: 1 } }, 'Bola de hierro con cadena. Pasa por encima de los escudos y a veces aturde.'],
     ['pica', 'Pica', 5, 'uncommon', '2d8', 6, {}, 'Lanza larguísima de infantería. Pega como un hacha, pero pesa una barbaridad.'],
     ['arco_largo', 'Arco largo', 5, 'uncommon', '1d10+1', 2, { precision: 1 }, 'Alto como un hombre. +1 de precisión.'],
     ['orbe', 'Orbe', 5, 'rare', '1d8+1', 1, { magic: true, mana: 4 }, 'Esfera de cristal que flota sobre la palma. Potencia tus hechizos y da +4 de maná máximo.'],
@@ -258,10 +260,11 @@
   // ---------- Dónde se venden ----------
   // Cada tienda suma lo que tiene sentido para su pueblo (y su nivel).
   const SHOPS = {
-    npc_mercader_pueblo: ['lata_aceite', 'botella_sangre', 'frasco_nectar', 'gel_algas', 'carbon_ardiente', 'manzana', 'zanahoria', 'huevos', 'cebolla', 'tomate', 'galletas', 'dulces', 'ropa_acolchada', 'hoz', 'acc_anillo_cobre', 'acc_colgante_hueso', 'perg_misil_arcano', 'perg_escudo'],
+    // v3.2: algo para cada clase desde el primer pueblo (los magos tienen su bastón, su varita y su túnica)
+    npc_mercader_pueblo: ['lata_aceite', 'botella_sangre', 'frasco_nectar', 'gel_algas', 'carbon_ardiente', 'manzana', 'zanahoria', 'huevos', 'cebolla', 'tomate', 'galletas', 'dulces', 'ropa_acolchada', 'hoz', 'garrote', 'baston', 'varita', 'tunica_mago', 'acc_anillo_cobre', 'acc_colgante_hueso', 'perg_misil_arcano', 'perg_escudo'],
     npc_tabernera_piedrahonda: ['papa_asada', 'champinones', 'sopa', 'cerveza', 'pastel_carne', 'choclo', 'arroz', 'tocino', 'ensalada'],
-    npc_herrero_piedrahonda: ['lata_aceite', 'carbon_ardiente', 'pieles', 'cuero_tachonado', 'cota_anillas', 'latigo', 'lucero_del_alba', 'alfanje'],
-    npc_herrero_puerto: ['lata_aceite', 'bateria_runica', 'carbon_ardiente', 'estoque', 'cimitarra', 'nunchaku', 'pica', 'arco_largo', 'armadura_escamas', 'media_placa', 'quitina', 'acc_botas_velocidad'],
+    npc_herrero_piedrahonda: ['lata_aceite', 'carbon_ardiente', 'pieles', 'cuero_tachonado', 'cota_anillas', 'latigo', 'lucero_del_alba', 'alfanje', 'varita_runica', 'tunica_mago'],
+    npc_herrero_puerto: ['lata_aceite', 'bateria_runica', 'carbon_ardiente', 'estoque', 'cimitarra', 'nunchaku', 'pica', 'arco_largo', 'varita_runica', 'armadura_escamas', 'media_placa', 'quitina', 'acc_botas_velocidad'],
     npc_capitana_puerto: ['gel_algas', 'uvas', 'frutillas', 'naranja', 'platano', 'sandia', 'vino', 'perg_estatica'],
     npc_sabio_torre: ['bateria_runica', 'tomo_antiguo', 'orbe', 'tunica_mago', 'vestiduras', 'perg_quemar', 'perg_veneno', 'perg_congelar', 'perg_maldicion', 'perg_prisa', 'perg_precision', 'perg_fuerza', 'pocion_mana_mayor', 'acc_gema_mana', 'acc_amuleto_sabiduria'],
     npc_druida_santuario: ['frasco_nectar', 'baston_natura', 'tunica_druida', 'corteza', 'perg_enredar', 'perg_purificar', 'perg_regenerar', 'pocion_regeneracion', 'miel', 'jalea_real', 'pan_elfico', 'acc_trebol'],

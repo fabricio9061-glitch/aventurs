@@ -65,19 +65,27 @@
     if (!list.length) return '';
     return `<span class="scene-votes">${list.map((hid) => `<span class="scene-vote ${hid === myHid() ? 'is-mine' : ''}">${U().icon('check', 12)}${U().esc(hid === myHid() ? 'Tu voto' : nameOfHid(hid))}</span>`).join('')}</span>`;
   }
+  function namesY(list) {
+    if (list.length <= 1) return list.join('');
+    return `${list.slice(0, -1).join(', ')} y ${list[list.length - 1]}`;
+  }
   function voteBar(sc) {
     if (!sc.party || sc.stage !== 'choose') return '';
     const mine = sc.votes && sc.votes[myHid()] != null;
     const others = Object.keys(sc.votes || {}).filter((h) => h !== myHid());
+    // v3.2: hasta 4: a quiénes se espera
+    const voters = Array.isArray(sc.voters) && sc.voters.length ? sc.voters : null;
+    const waiting = voters ? voters.filter((h) => h !== myHid() && !(sc.votes && sc.votes[h] != null)) : null;
     const ally = A.Party && A.Party.ally ? A.Party.ally() : null;
-    const allyName = ally ? ally.name : 'tu compañero';
-    let text = `Voten qué hacer. Si eligen lo mismo, lo hace el que tiene más chance; si no, decide un dado.`;
-    if (mine && !others.length) text = `Votaste. Esperando a ${allyName}… (podés cambiar tu voto)`;
-    else if (!mine && others.length) text = `${allyName} ya votó. Te toca elegir.`;
+    const allyName = waiting && waiting.length ? namesY(waiting.map(nameOfHid)) : ally ? ally.name : 'tu compañero';
+    const votedNames = namesY(others.map(nameOfHid));
+    let text = `Voten qué hacer. Si eligen lo mismo, lo hace el que tiene más chance; si no, gana lo más votado, y si empatan decide un dado.`;
+    if (mine && (waiting ? waiting.length : !others.length)) text = `Votaste. Esperando a ${allyName}… (podés cambiar tu voto)`;
+    else if (!mine && others.length) text = `${votedNames} ya ${others.length > 1 ? 'votaron' : 'votó'}. Te toca elegir.`;
     return `
       <div class="scene-party is-vote">
         ${U().icon('party', 16)}<span>${U().esc(text)}</span>
-        ${mine && !others.length ? `<button class="btn-mini scene-force is-hidden" data-scene-force title="Si tu compañero no está, se hace lo que votaste">Decidir sin esperar</button>` : ''}
+        ${mine && (waiting ? waiting.length : !others.length) ? `<button class="btn-mini scene-force is-hidden" data-scene-force title="Si alguien no está, se decide con los votos que hay">Decidir sin esperar</button>` : ''}
       </div>`;
   }
   function voteResultHtml(res) {
@@ -85,6 +93,10 @@
     if (!v) return '';
     if (v.agreed) {
       return `<div class="scene-vote-res">${U().icon('party', 16)}<span>Votaron lo mismo: lo hace ${U().esc(v.winner === myHid() ? 'vos' : v.winnerName)}, que tenía más chance.</span></div>`;
+    }
+    if (v.majority) {
+      const won = (v.votes || []).find((x) => x.hid === v.winner);
+      return `<div class="scene-vote-res">${U().icon('party', 16)}<span>Ganó lo más votado${won ? `: ${U().esc(won.label.toLowerCase())}` : ''}. Lo hace ${U().esc(v.winner === myHid() ? 'vos' : v.winnerName)}, que tenía más chance.</span></div>`;
     }
     const rolls = (v.rolls || []).map((r) => `${U().esc(r.hid === myHid() ? 'Vos' : r.name)} sacó <b>${r.d}</b>`).join(' · ');
     const choice = (v.votes || []).find((x) => x.hid === v.winner);
@@ -139,6 +151,17 @@
     `;
   }
 
+  /** v3.2: en grupo, lo que le tocó a cada uno (vos primero). */
+  function groupChipsHtml(group) {
+    const me = myHid();
+    const rows = (group || []).filter((g) => g.chips && g.chips.length).sort((a, b) => (a.hid === me ? -1 : b.hid === me ? 1 : 0));
+    if (!rows.length) return '';
+    return `
+        <div class="scene-group">
+          ${rows.map((g) => `<div class="scene-group-row ${g.hid === me ? 'is-me' : ''}"><span class="scene-group-who">${g.hid === me ? 'Vos' : U().esc(g.name)}</span>${U().chips(g.chips)}</div>`).join('')}
+        </div>`;
+  }
+
   function resultHtml(sc) {
     const res = sc.result;
     const other = chooserName(res);
@@ -154,8 +177,9 @@
         ${rollHtml(res)}
         ${text ? `<p class="scene-outcome">${U().esc(text)}</p>` : ''}
         ${res.studied && res.studied.length ? `<p class="scene-studied">${U().icon('skulls', 16)}<span>Al bestiario: ${U().esc(res.studied.join(', '))} (ya conocés sus habilidades y su botín).</span></p>` : ''}
+        ${res.group ? groupChipsHtml(res.group) : `
         ${res.chips && res.chips.length && other ? `<div class="scene-for">Para ${U().esc(other)}:</div>` : ''}
-        ${U().chips(res.chips)}
+        ${U().chips(res.chips)}`}
         <div class="scene-actions">
           <button class="btn-primary scene-next ${res.fight ? 'is-fight' : ''}" data-scene-next>${btn}</button>
         </div>

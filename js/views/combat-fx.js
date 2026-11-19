@@ -551,9 +551,12 @@
       }
       case 'buff': {
         // v2.4: mejoras, accesorios que actúan (doble golpe, contraataque, superviviente)
+        // v3.2: also = otras tarjetas que reciben la misma mejora (el aullido de la mascota en grupo)
         later(at - t, () => {
-          floatText(fx.target || me, fx.label || 'Mejora', 'is-status is-buff', -20, fx.icon || 'star');
-          playCardFx(fx.target || me, 'fx-heal', 500);
+          for (const k of [fx.target || me].concat(Array.isArray(fx.also) ? fx.also : [])) {
+            floatText(k, fx.label || 'Mejora', 'is-status is-buff', -20, fx.icon || 'star');
+            playCardFx(k, 'fx-heal', 500);
+          }
         });
         break;
       }

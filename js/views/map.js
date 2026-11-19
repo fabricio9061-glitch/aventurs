@@ -313,10 +313,16 @@
   // v3.1: el compañero en el mapa
   // ============================================================
 
-  /** Dónde está el compañero: { x, y, m } (en un camino si está viajando). */
-  function allySpot(pos) {
-    const m = A.Party && A.Party.isActive && A.Party.isActive() && A.Party.ally ? A.Party.ally() : null;
-    if (!m || !m.online) return null;
+  /** v3.2: los compañeros del grupo (hasta tres). */
+  function mates() {
+    if (!(A.Party && A.Party.isActive && A.Party.isActive())) return [];
+    const list = A.Party.allies ? A.Party.allies() : [A.Party.ally ? A.Party.ally() : null];
+    return list.filter((m) => m && m.online);
+  }
+
+  /** Dónde está un compañero: { x, y, m } (en un camino si está viajando). */
+  function allySpot(pos, m) {
+    if (!m) return null;
     const t = m.traveling;
     if (t && pos[t.fromId] && pos[t.toId]) {
       const k = Math.max(0, Math.min(1, (t.step || 0) / Math.max(1, t.total || 1)));
@@ -327,37 +333,41 @@
   }
 
   function allyMarker(pos) {
-    const spot = allySpot(pos);
-    if (!spot) return '';
-    const url = A.Sprites && A.Sprites.heroUrl ? A.Sprites.heroUrl(spot.m.raceId || 'humano') : '';
-    // al lado de la zona, del lado contrario a su nombre (no encima de tu marca); viajando, sobre el camino
-    const side = (!spot.moving && spot.m.regionId && pos[spot.m.regionId] && pos[spot.m.regionId].label) || 'r';
-    const off = ({ r: [-34, -8], l: [34, -8], t: [30, 20], b: [32, -18] })[side] || [32, -14];
-    const x = spot.moving ? spot.x : spot.x + off[0];
-    const y = spot.moving ? spot.y - 6 : spot.y + off[1];
-    return `
+    const seen = {};
+    return mates().map((m) => allySpot(pos, m)).filter(Boolean).map((spot) => {
+      const url = A.Sprites && A.Sprites.heroUrl ? A.Sprites.heroUrl(spot.m.raceId || 'humano') : '';
+      // al lado de la zona, del lado contrario a su nombre (no encima de tu marca); viajando, sobre el camino
+      const side = (!spot.moving && spot.m.regionId && pos[spot.m.regionId] && pos[spot.m.regionId].label) || 'r';
+      const off = ({ r: [-34, -8], l: [34, -8], t: [30, 20], b: [32, -18] })[side] || [32, -14];
+      // v3.2: si hay varios en el mismo lugar, uno al lado del otro
+      const key = spot.moving ? `${Math.round(spot.x)},${Math.round(spot.y)}` : spot.m.regionId;
+      const i = seen[key] = seen[key] == null ? 0 : seen[key] + 1;
+      const x = spot.moving ? spot.x + i * 18 : spot.x + off[0] + Math.sign(off[0] || 1) * i * 30;
+      const y = spot.moving ? spot.y - 6 - i * 4 : spot.y + off[1];
+      return `
       <g class="map-ally ${spot.moving ? 'is-moving' : ''}" transform="translate(${x.toFixed(1)} ${y.toFixed(1)})">
         <circle class="map-ally-ring" r="17"/>
         ${url ? `<image href="${url}" x="-14" y="-16" width="28" height="28"/>` : ''}
-        <text class="map-ally-name" y="31" text-anchor="middle">${U().esc(spot.m.name || 'Compañero')}</text>
+        <text class="map-ally-name" y="${31 + (i % 2) * 11}" text-anchor="middle">${U().esc(spot.m.name || 'Compañero')}</text>
       </g>`;
+    }).join('');
   }
 
-  /** Línea del compañero para la ficha de una zona. */
+  /** Líneas de los compañeros para la ficha de una zona. */
   function allyLine(id) {
-    const m = A.Party && A.Party.isActive && A.Party.isActive() && A.Party.ally ? A.Party.ally() : null;
-    if (!m || !m.online) return '';
-    const t = m.traveling;
-    let text = '';
-    if (t && (t.toId === id || t.fromId === id)) {
-      const to = A.Data.getById('regions', t.toId);
-      text = `${m.name} va de viaje hacia ${to ? to.name : 'otra zona'} (paso ${t.step || 0} de ${t.total || 1}).`;
-    } else if (!t && m.regionId === id) {
-      text = m.together ? `${m.name} está con vos.` : `${m.name} está acá.`;
-    }
-    if (!text) return '';
-    const url = A.Sprites && A.Sprites.heroHtml ? A.Sprites.heroHtml(m.raceId || 'humano', { size: 28 }) : '';
-    return `<p class="map3-ally">${url}<span>${U().esc(text)}</span></p>`;
+    return mates().map((m) => {
+      const t = m.traveling;
+      let text = '';
+      if (t && (t.toId === id || t.fromId === id)) {
+        const to = A.Data.getById('regions', t.toId);
+        text = `${m.name} va de viaje hacia ${to ? to.name : 'otra zona'} (paso ${t.step || 0} de ${t.total || 1}).`;
+      } else if (!t && m.regionId === id) {
+        text = (A.Party.withMe ? A.Party.withMe(m) : m.together) ? `${m.name} está con vos.` : `${m.name} está acá.`;
+      }
+      if (!text) return '';
+      const url = A.Sprites && A.Sprites.heroHtml ? A.Sprites.heroHtml(m.raceId || 'humano', { size: 28 }) : '';
+      return `<p class="map3-ally">${url}<span>${U().esc(text)}</span></p>`;
+    }).join('');
   }
 
   // ============================================================

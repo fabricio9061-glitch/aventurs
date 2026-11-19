@@ -11,6 +11,11 @@
   'use strict';
 
   const RECIPES = [
+    // v3.2: el mineral en bruto se funde en la forja
+    { id:'r_fundir_hierro', name:'Fundir mineral de hierro', ingredients:[{itemId:'mineral_hierro',qty:1}],
+      result:'mat_hierro', workshop:'forge', tier:1,
+      description:'Al fuego de la forja, la roca suelta el hierro: sale un lingote.' },
+
     { id:'r_daga', name:'Forjar daga', ingredients:[{itemId:'mat_hierro',qty:1},{itemId:'mat_madera',qty:1}],
       result:'daga', workshop:'forge', tier:1,
       description:'Hierro y madera dura. Cualquier herrero puede.' },

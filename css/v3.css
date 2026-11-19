@@ -707,3 +707,178 @@
 /* v3.1: blindaje del Robot en su tarjeta */
 .cb-badge.is-shield { display: inline-flex; align-items: center; gap: 2px; background: linear-gradient(180deg, #d8e4f0, #a8bcd0); color: #1f3550; border: 1px solid #6f8aa8; }
 .cb-badge.is-shield .px-icon, .cb-badge.is-shield .px-sprite { width: 12px; height: 12px; }
+
+/* ============================================================
+   19. v3.2: ventanas de tienda y forja sin cortes
+   La ventana es una columna con alto máximo: la cabecera, la frase y las
+   pestañas no se achican; lo que baja (la lista) es lo único que se desplaza.
+   ============================================================ */
+.modal.npc2 > .npc2-head,
+.modal.npc2 > .npc2-say,
+.modal.npc2 > .npc2-tabs,
+.modal.journal > .npc2-tabs { flex-shrink: 0; }
+.modal.npc2 > .npc2-body { flex: 1 1 auto; min-height: 0; }
+
+/* ============================================================
+   20. v3.2: el daño se lee entero en las tarjetas angostas
+   ============================================================ */
+.cb-unit { container-type: inline-size; container-name: cbunit; }
+.cb-stat-ic { display: none; align-items: center; flex: none; opacity: 0.75; }
+.cb-stat-ic .px-icon, .cb-stat-ic .px-sprite, .cb-stat-ic svg { width: 12px; height: 12px; }
+@container cbunit (max-width: 178px) {
+  .cb-stats { gap: 2px 8px; }
+  .cb-stat { justify-content: flex-start; gap: 4px; }
+  .cb-stat i { display: none; }
+  .cb-stat-ic { display: inline-flex; }
+  .cb-stat b { margin-left: auto; }
+}
+
+/* ============================================================
+   21. v3.2: a quién va la poción o la curación (vos, tu mascota, un compañero)
+   ============================================================ */
+.cb-pick { display: flex; flex-direction: column; gap: 10px; }
+.cb-pick-hint { margin: 0; font-size: 13px; }
+.cb-pick-list { display: flex; flex-direction: column; gap: 8px; }
+.cb-pick-row {
+  display: grid; grid-template-columns: minmax(0, 1fr) minmax(110px, 42%); align-items: center; gap: 4px 12px;
+  padding: 10px 12px; text-align: left; cursor: pointer;
+  background: var(--surface); border: var(--border-w, 1px) solid var(--border); border-radius: var(--r-md, 8px);
+  transition: border-color 120ms ease, transform 120ms ease;
+}
+.cb-pick-row:hover, .cb-pick-row:focus-visible { border-color: var(--gold); }
+.cb-pick-row:active { transform: translateY(1px); }
+.cb-pick-who { display: flex; flex-direction: column; min-width: 0; }
+.cb-pick-who b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cb-pick-who small { font-size: 11px; }
+.cb-pick-hp { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.cb-pick-bar { flex: 1; height: 8px; border-radius: 4px; background: rgba(0, 0, 0, 0.18); overflow: hidden; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.18); }
+.cb-pick-bar i { display: block; height: 100%; background: linear-gradient(180deg, #e0524a, #a92f2a); border-radius: 4px; }
+.cb-pick-num { font-variant-numeric: tabular-nums; font-size: 12px; font-weight: 700; min-width: 44px; text-align: right; }
+.cb-pick-st { grid-column: 1 / -1; font-size: 11px; color: #9a4a2a; }
+.cb-pick-row.is-low .cb-pick-num { color: #b2322b; }
+.cb-pick-row.is-down { border-style: dashed; }
+.cb-pick-row.is-down .cb-pick-num { color: #b2322b; }
+.cb-pick-back { align-self: flex-start; }
+
+/* ============================================================
+   22. v3.2: barra del costado en grupo
+   Tus barras van finitas en la cabecera (como la experiencia) y cada
+   compañero es una fila corta con su vida y su maná.
+   ============================================================ */
+.sb-vitals { grid-column: 1 / -1; display: flex; flex-direction: column; gap: 3px; margin-top: -1px; }
+.sb-vital { display: grid; grid-template-columns: 14px 1fr auto; align-items: center; gap: 7px; }
+.sb-vital-ic { display: flex; justify-content: center; }
+.sb-vital-ic .px-icon, .sb-vital-ic .px-sprite, .sb-vital-ic svg { width: 12px; height: 12px; }
+.sb-vital-track { height: 6px; border-radius: 3px; background: rgba(0, 0, 0, 0.45); overflow: hidden; border: 1px solid rgba(232, 196, 110, 0.3); }
+.sb-vital-track > span { display: block; height: 100%; border-radius: 2px; transition: width 300ms ease; }
+.sb-vital.is-hp .sb-vital-track > span { background: linear-gradient(90deg, #b8432a, #e0664a); }
+.sb-vital.is-mana .sb-vital-track > span { background: linear-gradient(90deg, #3a67a6, #6a9ae6); }
+.sb-vital.is-food .sb-vital-track > span { background: linear-gradient(90deg, #a8721a, #e0b04a); }
+.sb-vital.is-food.hunger-weak .sb-vital-track > span, .sb-vital.is-food.hunger-starving .sb-vital-track > span { background: linear-gradient(90deg, #7a2a1a, #b0503a); }
+.sb-vital-text { min-width: 58px; text-align: right; font-size: 11px; font-weight: 700; color: #f4e8cc; white-space: nowrap; }
+.sb-vital-text i { font-style: normal; font-weight: 500; color: #c8b07a; }
+.sb-vital-warn { margin-left: 5px; padding: 0 4px; border-radius: 4px; font-style: normal; font-size: 9.5px; font-weight: 800; background: #f7e0d6; color: #7a2a14; }
+
+.sb-party { display: flex; flex-direction: column; gap: 5px; }
+.sb-mates { display: flex; flex-direction: column; gap: 4px; }
+.sb-mate {
+  display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; align-items: center; gap: 8px;
+  width: 100%; padding: 4px 8px 4px 4px; margin: 0;
+  border-radius: 9px; text-align: left; cursor: pointer; font: inherit; color: var(--text);
+  background: linear-gradient(180deg, #eef2e2, #e2e8cf); border: 1px solid #9ab878;
+  transition: filter 120ms ease, box-shadow 120ms ease;
+}
+.sb-mate:hover { filter: brightness(1.03); box-shadow: var(--shadow-sm); }
+.sb-mate.is-apart { background: linear-gradient(180deg, #f3ead6, #e9dcbc); border-color: var(--border); }
+.sb-mate.is-down { border-style: dashed; }
+.sb-mate-face {
+  position: relative; width: 34px; height: 34px; display: flex; align-items: flex-end; justify-content: center;
+  border-radius: 8px; background: linear-gradient(180deg, #34281b, #1b140d); border: 1px solid #8a6f45; overflow: hidden;
+}
+.sb-mate-face .px-sprite, .sb-mate-face canvas, .sb-mate-face img, .sb-mate-face svg { max-width: 30px; max-height: 30px; }
+.sb-mate-lvl {
+  position: absolute; right: 1px; bottom: 1px; min-width: 14px; height: 14px; padding: 0 2px;
+  border-radius: 5px; background: #c9a24a; color: #2a1a06; font-style: normal; font-size: 10px; font-weight: 800; line-height: 14px; text-align: center;
+}
+.sb-mate-main { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.sb-mate-top { display: flex; align-items: center; gap: 6px; min-width: 0; line-height: 1.15; }
+.sb-mate-name { font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.sb-mate-pet { display: inline-flex; align-items: center; gap: 2px; flex: none; max-width: 45%; font-size: 10.5px; font-weight: 600; color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sb-mate-pet.is-down { color: #a8301e; text-decoration: line-through; }
+.sb-mate-pet .px-icon, .sb-mate-pet .px-sprite, .sb-mate-pet svg { width: 11px; height: 11px; flex: none; }
+.sb-mate-where { margin-left: auto; display: inline-flex; flex: none; opacity: 0.7; }
+.sb-mate-where .px-icon, .sb-mate-where .px-sprite, .sb-mate-where svg { width: 11px; height: 11px; }
+.sb-mate-bars { display: flex; flex-direction: column; gap: 2px; }
+.sb-mate-bar { position: relative; display: block; height: 5px; border-radius: 3px; background: rgba(80, 60, 30, 0.2); overflow: hidden; }
+.sb-mate-bar > span { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 3px; }
+.sb-mate-bar.is-hp > span { background: linear-gradient(90deg, #b8432a, #d8604a); }
+.sb-mate-bar.is-mana > span { background: linear-gradient(90deg, #3a67a6, #5a8ad0); }
+.sb-mate-num { font-size: 11px; font-weight: 700; color: #6b5434; min-width: 40px; text-align: right; }
+.sb-mate.is-down .sb-mate-num { color: #a8301e; }
+.sb-party-wait {
+  display: flex; align-items: center; gap: 9px; width: 100%; padding: 7px 10px; margin: 0;
+  border-radius: 10px; text-align: left; cursor: pointer; font: inherit; color: var(--text);
+  background: linear-gradient(180deg, #f6eccd, #ecdcab); border: 1px solid #c9a24a;
+}
+.sb-party-wait > span:last-child { display: flex; flex-direction: column; min-width: 0; }
+.sb-party-wait b { font-size: 13px; }
+.sb-party-wait small { font-size: 11px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pt-note.is-room { display: flex; align-items: center; gap: 6px; margin-top: 6px; }
+
+/* ============================================================
+   23. v3.2: en grupo, lo que le tocó a cada uno después de una escena
+   ============================================================ */
+.scene-group { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
+.scene-group-row { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; padding: 5px 8px; border-radius: 10px; background: rgba(255, 248, 228, 0.55); border: 1px solid rgba(140, 105, 50, 0.25); }
+.scene-group-row.is-me { background: rgba(232, 240, 214, 0.75); border-color: rgba(122, 160, 80, 0.45); }
+.scene-group-row .ui-chips { margin-top: 0; }
+.scene-group-who { min-width: 64px; font-size: 12.5px; font-weight: 700; color: var(--text-dim); }
+
+/* ============================================================
+   24. v3.2: arenas con mucha gente (grupos de 3 o 4: hasta 15 en la pelea)
+   Tarjetas más bajas para que los botones sigan a la vista, y en las
+   tarjetas angostas los números se achican antes de cortarse.
+   ============================================================ */
+.cb-arena.is-packed { --card-w: 122px; }
+@media (min-width: 761px) {
+  .cb-arena.is-packed { --vs-gap: 4px; padding-top: 10px; padding-bottom: 8px; }
+  .cb-arena.is-packed .cb-side { gap: 6px; }
+  .cb-arena.is-packed .cb-sprite { height: 84px; margin-bottom: -6px; }
+  .cb-arena.is-packed .cb-sprite > .px-sprite { --px-size: 78px !important; }
+  .cb-arena.is-packed .cb-sprite .cb-dc { transform: scale(0.8); transform-origin: top right; }
+  .cb-arena.is-packed .cb-vs { margin-bottom: 78px; }
+}
+.combat-view.cb.is-arena.is-packed > .cb-log { min-height: 0; }
+.cb-unit.is-player.is-ally .cb-plate { border-color: #4a7a9a; }
+@container cbunit (max-width: 150px) {
+  .cb-badge.is-ally { display: none; }
+  .cb-plate { padding-left: 7px; padding-right: 7px; }
+  .cb-stats { gap: 2px 6px; }
+  .cb-stat { gap: 3px; }
+  .cb-stat b { font-size: 11px; letter-spacing: -0.02em; }
+  .cb-stat.is-long b { font-size: 10px; letter-spacing: -0.03em; }
+  .cb-hp { gap: 4px; }
+  .cb-hp-num { min-width: 38px; font-size: 11px; }
+}
+@media (min-width: 761px) and (max-height: 740px) {
+  .cb-arena.is-packed .cb-sprite { height: 70px; }
+  .cb-arena.is-packed .cb-sprite > .px-sprite { --px-size: 64px !important; }
+  .cb-arena.is-packed .cb-vs { margin-bottom: 64px; }
+}
+
+/* ============================================================
+   25. v3.2: pasarle cosas a un compañero
+   ============================================================ */
+.item-give { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; margin-top: 12px; padding: 8px 10px; border-radius: 10px; background: rgba(110, 170, 210, 0.12); border: 1px solid rgba(80, 130, 170, 0.35); }
+.item-give-title { display: inline-flex; align-items: center; gap: 5px; font-size: 12.5px; font-weight: 700; color: #2a4a62; }
+.item-give-qty { display: inline-flex; align-items: center; gap: 5px; font-size: 12.5px; }
+.item-give-qty b { min-width: 18px; text-align: center; }
+.item-give-who { display: inline-flex; flex-wrap: wrap; gap: 6px; }
+.item-give-why { flex-basis: 100%; font-size: 12px; }
+.item-give.is-off .item-give-who { opacity: 0.6; }
+.pt-give { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+.pt-give input { width: 84px; padding: 4px 8px; border-radius: 8px; border: 1px solid var(--border); font: inherit; font-size: 13px; }
+.pt-give .dim { font-size: 12px; }
+.item-give-who button { padding: 3px 12px; border-radius: 999px; border: 1px solid rgba(80, 130, 170, 0.5); background: rgba(255, 252, 244, 0.85); color: #2a4a62; font-weight: 700; font-size: 13px; cursor: pointer; }
+.item-give-who button:hover:not(:disabled) { background: #fff; border-color: #2a4a62; }
+.item-give-who button:disabled { cursor: default; }

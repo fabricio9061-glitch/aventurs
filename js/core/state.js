@@ -226,6 +226,22 @@
         p.schemaVersion = 18;
         dirty = true;
       }
+      if ((p.schemaVersion || 0) < 19) {
+        // v3.2: armas nuevas (la varita da maná, la varita rúnica más): el maná del
+        // equipo puesto se vuelve a calcular con los números de ahora
+        if (A.Accessories && A.Accessories.applyGearMana && p.equipment) {
+          const manaBefore = p.maxMana || 0;
+          const eq = p.equipment;
+          const get = (tbl, id) => (id && A.Data.getById ? A.Data.getById(tbl, id) : null);
+          A.Accessories.applyGearMana(p, 'weapon', get('weapons', eq.weapon));
+          A.Accessories.applyGearMana(p, 'armor', get('armors', eq.armor));
+          A.Accessories.applyGearMana(p, 'accessory', get('items', eq.accessory));
+          const diff = (p.maxMana || 0) - manaBefore;
+          if (diff > 0) State.addChronicle({ type: 'note', text: `Ajuste de la versión 3.2: tu equipo ahora te da ${diff} de maná máximo más.` });
+        }
+        p.schemaVersion = 19;
+        dirty = true;
+      }
       if (dirty) {
         State.persist();
         console.log('[State] Save migrado a estructura v1.5.0');
@@ -387,7 +403,7 @@
         // v2.1: cada raza con magia nace con su propio hechizo
         spells: hasMagic ? [((A.Data.getById('races', raceId) || {}).startSpell) || 'chispa'] : [],
         travelSteps: 0,
-        schemaVersion: 18,
+        schemaVersion: 19,
       };
 
       State.world = {

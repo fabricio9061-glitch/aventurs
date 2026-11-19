@@ -475,15 +475,17 @@
    * Antes de recibir un golpe de arma que acierta: Escurridizo (el primero) o Etéreo (25%).
    * Devuelve { skill, say } si lo esquiva, o null.
    */
-  function dodgeHit(target, r) {
+  function dodgeHit(target, r, byPet) {
     if (!target || !r || !r.hit) return null;
     const n = noun(target);
+    // v3.2: si el golpe es de tu mascota, no es "tu golpe"
+    const blow = byPet ? `el golpe de ${noun(byPet)}` : 'tu golpe';
     if (has(target, 'escurridizo') && !target._slipped && !r.crit) {
       target._slipped = true;
-      return { skill: 'escurridizo', say: pick([`${cap(n)} se escurre en el último instante: el golpe no llega.`, `${cap(n)} se retuerce y tu golpe pasa de largo.`]) };
+      return { skill: 'escurridizo', say: pick([`${cap(n)} se escurre en el último instante: el golpe no llega.`, `${cap(n)} se retuerce y ${blow} pasa de largo.`]) };
     }
     if (has(target, 'etereo') && Math.random() < 0.25) {
-      return { skill: 'etereo', say: pick([`Tu golpe atraviesa a ${n} como si fuera humo.`, `El arma pasa a través de ${n} sin tocarlo.`]) };
+      return { skill: 'etereo', say: pick([`${cap(blow)} atraviesa a ${n} como si fuera humo.`, byPet ? `${cap(noun(byPet))} pasa a través de ${n} sin tocarlo.` : `El arma pasa a través de ${n} sin tocarlo.`]) };
     }
     return null;
   }
@@ -943,15 +945,24 @@
       k.log('pet', { text: `${pet.name} se pone en guardia.`, fx: { kind: 'status', target: 'pet', effect: 'guard' }, say: { text: `${cap(noun(pet))} se cubre y espera el próximo golpe.`, tone: 'good' } });
     },
     rally(sk, pet, t, k) {
+      // v3.2: en grupo anima a todos los héroes en pie (no solo a su dueño)
       const p = A.State.player;
-      p.effects = p.effects || [];
-      const old = p.effects.find((e) => e.type === 'buff' && e.source === `pet_${sk.id}`);
-      if (old) old.turns = Math.max(old.turns, sk.turns || 3);
-      else p.effects.push({ type: 'buff', source: `pet_${sk.id}`, name: sk.name, stat: 'damage', mods: { precision: 1, damage: 1 }, turns: sk.turns || 3, value: 1 });
+      const all = (k.heroes ? k.heroes() : [p]).filter((h) => h && h.hp > 0);
+      if (!all.includes(p)) all.unshift(p);
+      for (const h of all) {
+        h.effects = h.effects || [];
+        const old = h.effects.find((e) => e.type === 'buff' && e.source === `pet_${sk.id}`);
+        if (old) old.turns = Math.max(old.turns, sk.turns || 3);
+        else h.effects.push({ type: 'buff', source: `pet_${sk.id}`, name: sk.name, stat: 'damage', mods: { precision: 1, damage: 1 }, turns: sk.turns || 3, value: 1 });
+      }
+      const group = all.length > 1;
+      const also = group ? all.filter((h) => h !== p).map((h) => `hero:${A.State.hidOf(h)}`) : undefined;
       k.log('pet', {
-        text: `${sk.name} de ${pet.name}: +1 de precisión y daño.`,
-        fx: { kind: 'buff', target: 'player', label: sk.name, icon: 'arrow-up' },
-        say: { text: sk.id === 'aullido' ? `${cap(noun(pet))} aúlla a tu lado: pegás con más ganas.` : `${cap(noun(pet))} te da ánimo: pegás con más ganas.`, tone: 'good' },
+        text: `${sk.name} de ${pet.name}: +1 de precisión y daño${group ? ' para todo el grupo' : ''}.`,
+        fx: { kind: 'buff', target: 'player', also, label: sk.name, icon: 'arrow-up' },
+        say: group
+          ? { text: sk.id === 'aullido' ? `${cap(noun(pet))} aúlla y todo el grupo pega con más ganas.` : `${cap(noun(pet))} anima a todo el grupo: pegan con más ganas.`, tone: 'good' }
+          : { text: sk.id === 'aullido' ? `${cap(noun(pet))} aúlla a tu lado: pegás con más ganas.` : `${cap(noun(pet))} te da ánimo: pegás con más ganas.`, tone: 'good' },
       });
     },
   };

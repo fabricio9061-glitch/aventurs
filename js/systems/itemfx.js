@@ -290,6 +290,60 @@
     return [...new Set(before)];
   }
 
+  /**
+   * v3.2: ¿se le puede dar a otro en la pelea (tu mascota o un compañero)?
+   * Pociones que curan, devuelven maná o sacan estados. La comida y los pergaminos, no.
+   */
+  function forOthers(item) {
+    if (!item || item.subtype === 'scroll' || item.subtype === 'food' || item.subtype === 'accessory') return false;
+    const ef = item.effect || {};
+    return ['heal', 'mana', 'cure', 'cleanse', 'restore'].includes(ef.type) || !!item.healAmount || !!ef.heal || !!ef.manaRestore;
+  }
+
+  /**
+   * v3.2: una poción para otro. target: { kind: 'hero'|'pet', ref, name }.
+   * Cura (y levanta al que estaba caído), devuelve maná a un héroe con magia y saca estados.
+   * Devuelve { hp, mana, cleaned, revived, why }.
+   */
+  function restoreOther(giver, target, item) {
+    const ef = item.effect || {};
+    const t = target.ref;
+    const isPet = target.kind === 'pet';
+    const max = isPet ? (t.maxHealth || 1) : (t.maxHp || 1);
+    const cur = Math.max(0, isPet ? (t.health || 0) : (t.hp || 0));
+    let hp = 0;
+    if (ef.type === 'heal') hp += ef.pct ? Math.round(max * ef.pct) : A.Utils.rollDice(ef.amount);
+    if (ef.heal && ef.type !== 'heal') hp += A.Utils.rollDice(String(ef.heal));
+    if (item.healAmount) hp += item.healAmount;
+    if (ef.type === 'cleanse' && ef.pct) hp += Math.round(max * ef.pct);
+    if (hp > 0) hp = boosted(giver, hp);
+    if (ef.type === 'restore') hp = max;
+    const out = { hp: 0, mana: 0, cleaned: [], revived: false, why: '' };
+    // a un héroe se lo cura "en su piel" (así su barra y su pantalla se enteran)
+    const asHero = (fn) => (A.State.withHero ? A.State.withHero(t, fn) : fn());
+    if (hp > 0 && cur < max) {
+      const now = Math.min(max, cur + hp);
+      if (isPet) t.health = now; else asHero(() => A.State.setHp(now));
+      out.hp = now - cur;
+      out.revived = cur <= 0 && out.hp > 0;
+    }
+    if (!isPet && t.hasMagic) {
+      let mana = 0;
+      if (ef.type === 'mana') mana += A.Utils.rollDice(ef.amount);
+      if (ef.manaRestore) mana += A.Utils.rollDice(ef.manaRestore);
+      if (ef.type === 'restore') mana = t.maxMana || 0;
+      if (mana > 0 && (t.mana || 0) < (t.maxMana || 0)) {
+        const b = t.mana || 0;
+        asHero(() => A.State.setMana(Math.min(t.maxMana, b + mana)));
+        out.mana = t.mana - b;
+      }
+    }
+    if (ef.type === 'cure' && ef.status) out.cleaned = removeBad(t, [ef.status]);
+    if (ef.type === 'cleanse' || ef.type === 'restore') out.cleaned = removeBad(t, BAD);
+    if (!out.hp && !out.mana && !out.cleaned.length) out.why = `${target.name} no lo necesita ahora.`;
+    return out;
+  }
+
   /** Cura con el extra de los accesorios (Cruz sagrada). */
   function boosted(p, hp) {
     const extra = accBonus(p, 'heal');
@@ -676,6 +730,9 @@
     combatOnly,
     usableNow,
     restore,
+    forOthers,
+    restoreOther,
+    WORD,
     useOutside,
     useInCombat,
     guard,

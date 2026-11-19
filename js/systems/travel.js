@@ -494,7 +494,7 @@
    * v1.7.1: Resuelve un hallazgo específico del bioma.
    * Devuelve null si el bioma no tiene pool definido (cae a minor_loot regular).
    */
-  function resolveBiomeLoot(region) {
+  function resolveBiomeLoot(region, opts = {}) {
     const biome = region ? region.biome : 'plains';
     const pool = BIOME_LOOT_POOLS[biome];
     if (!pool || pool.length === 0) return null;
@@ -515,6 +515,18 @@
     // Calcular cantidad
     const [qMin, qMax] = entry.qty || [1, 1];
     const qty = qMin + Math.floor(Math.random() * (qMax - qMin + 1));
+
+    // v3.2: en grupo se reparte de a uno, por turnos (al explorar ya viene repartido: opts.solo)
+    if (!opts.solo && inGroup()) {
+      const got = giveItemsToGroup(entry.itemId, qty);
+      if (!got.length) return { kind: 'narrative', icon: '', text: `Vieron ${itemData.name.toLowerCase()} en el camino, pero no le entra a nadie en la mochila.`, biome };
+      const total = got.reduce((a, g) => a + g.qty, 0);
+      return {
+        kind: 'biome_loot', itemId: entry.itemId, itemName: itemData.name, icon: '', qty: total, biome,
+        split: got.map((g) => ({ hid: A.State.hidOf(g.hero), name: g.hero.name, qty: g.qty })),
+        text: `${entry.msg} (${itemData.name} ×${total}: ${got.map((g) => `${g.hero.name} ${g.qty}`).join(', ')})`,
+      };
+    }
 
     // Agregar al inventario
     const added = A.State.addItem(entry.itemId, qty);
@@ -544,6 +556,11 @@
     const tier = region && Array.isArray(region.tier) ? region.tier[0] : 1;
     const maxCoins = A.Balance ? Math.max(3, Math.round(A.Balance.Economy.coinBase(tier) * 2)) : 10;
     const amount = 1 + Math.floor(Math.random() * maxCoins);
+    // v3.2: en grupo, cada uno su parte
+    if (inGroup()) {
+      const each = giveCoinsToGroup(amount);
+      return { kind: 'minor_loot', amount: each, each: true, text: `Encontraron ${A.Currency.formatPrice(amount)} en el camino: ${A.Currency.formatPrice(each)} para cada uno.` };
+    }
     A.Currency.add(amount);
     return {
       kind: 'minor_loot',
@@ -770,8 +787,14 @@
 
   function executeRegionEvent(ev) {
     const type = ev.type;
+    const group = inGroup();
     if (type === 'treasure') {
       const amount = A.Utils.rollDice(ev.amount || '1d10');
+      // v3.2: en grupo, cada uno su parte
+      if (group) {
+        const each = giveCoinsToGroup(amount);
+        return { kind: 'minor_loot', amount: each, each: true, text: `Encontraron ${A.Currency.formatPrice(amount)} escondidos: ${A.Currency.formatPrice(each)} para cada uno.` };
+      }
       A.Currency.add(amount);
       return {
         kind: 'minor_loot',
@@ -784,17 +807,41 @@
                    A.Data.getById('weapons', ev.reward) ||
                    A.Data.getById('armors', ev.reward);
       if (!item) return null;
+      if (group) {
+        const got = giveItemsToGroup(ev.reward, 1);
+        if (got.length) return { kind: 'find', text: `Encontraron: ${item.name}. Se lo queda ${got[0].hero.name}.`, reward: ev.reward, to: A.State.hidOf(got[0].hero) };
+        return { kind: 'narrative', text: `Encontraron algo (${item.name}) pero no le entra a nadie en la mochila.` };
+      }
       const ok = A.State.addItem(ev.reward, 1);
       if (ok) return { kind: 'find', text: `Encontraste: ${item.name}.`, reward: ev.reward };
       return { kind: 'narrative', text: `Encontraste algo (${item.name}) pero no entró en la mochila.` };
     }
     if (type === 'damage') {
+      // v3.2: en grupo les toca a todos (y en el camino no se muere nadie del grupo)
+      if (group) {
+        const hits = travelers().map((h) => {
+          const roll = A.Utils.rollDice(ev.amount || '1d4');
+          const dmg = Math.max(0, Math.min(roll, (h.hp || 0) - 1));
+          if (dmg > 0) A.State.withHero(h, () => A.State.damagePlayer(dmg));
+          return { hero: h, dmg };
+        });
+        const flavor = ev.effect || 'Algo los lastimó';
+        return { kind: 'event_damage', text: `${flavor}. Les toca a todos: ${hits.map((x) => `${x.hero.name} -${x.dmg}`).join(', ')} de salud.`, dmg: Math.max(0, ...hits.map((x) => x.dmg)), group: true };
+      }
       const dmg = A.Utils.rollDice(ev.amount || '1d4');
       A.State.damagePlayer(dmg);
       const flavor = ev.effect || 'Algo te lastimó';
       return { kind: 'event_damage', text: `${flavor}. -${dmg} de salud.`, dmg };
     }
     if (type === 'heal') {
+      if (group) {
+        const got = travelers().map((h) => {
+          const before = h.hp;
+          A.State.withHero(h, () => A.State.healHp(A.Utils.rollDice(ev.amount || '1d6')));
+          return { hero: h, amount: h.hp - before };
+        });
+        return { kind: 'event_heal', text: `Algo los reconfortó: ${got.map((x) => `${x.hero.name} +${x.amount}`).join(', ')} de salud.`, amount: Math.max(0, ...got.map((x) => x.amount)), group: true };
+      }
       const amount = A.Utils.rollDice(ev.amount || '1d6');
       A.State.healHp(amount);
       return { kind: 'event_heal', text: `Algo te reconfortó. +${amount} de salud.`, amount };
@@ -806,6 +853,39 @@
 
   function clamp(n, min, max) { return Math.max(min, Math.min(max, n)); }
   function State() { return A.State; }
+
+  // ---------- v3.2: en grupo lo que se encuentra se reparte ----------
+
+  /** Los que viajan juntos (en solitario, vos). */
+  function travelers() {
+    const g = A.Party && A.Party.combatHeroes ? A.Party.combatHeroes() : null;
+    return g && g.length > 1 ? g : [State().player];
+  }
+  function inGroup() { return travelers().length > 1; }
+
+  /** Un hallazgo en grupo: de a uno, por turnos (si a uno no le entra, al siguiente). Devuelve [{ hero, qty }]. */
+  function giveItemsToGroup(itemId, qty) {
+    const list = travelers();
+    const got = list.map(() => 0);
+    let turn = Math.floor(Math.random() * list.length);
+    for (let q = 0; q < qty; q++) {
+      for (let tries = 0; tries < list.length; tries++) {
+        const i = (turn + tries) % list.length;
+        if (A.State.withHero(list[i], () => A.State.addItem(itemId, 1))) { got[i] += 1; break; }
+      }
+      turn += 1;
+    }
+    return list.map((hero, i) => ({ hero, qty: got[i] })).filter((x) => x.qty > 0);
+  }
+
+  /** Monedas en grupo: cada uno su parte (con el premio chico de ir en grupo). Devuelve lo de cada uno. */
+  function giveCoinsToGroup(total) {
+    const list = travelers();
+    const share = A.Balance && A.Balance.partyShare ? A.Balance.partyShare(list.length) : 1 / list.length;
+    const each = Math.max(1, Math.round(total * share));
+    for (const h of list) A.State.withHero(h, () => A.Currency.add(each));
+    return each;
+  }
 
   /**
    * Compatibilidad con código que llamaba a Travel.travel(targetId)
@@ -821,7 +901,7 @@
     canTravelToDetailed,
     evaluateRegionRequirements,
     // v1.7.1: helper público para explorar (genera biome_loot fuera del flow de travel)
-    resolveBiomeLootStandalone: resolveBiomeLoot,
+    resolveBiomeLootStandalone: (region) => resolveBiomeLoot(region, { solo: true }),
     neighbors,
     start,
     step,
@@ -830,5 +910,6 @@
     resolveEvent,
     calculateTravelSteps,
     travel, // legacy alias
+    _test: { executeRegionEvent, resolveLoot, resolveBiomeLoot }, // v3.2: para las pruebas
   };
 })(window.Aventurs);

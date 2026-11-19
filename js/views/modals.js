@@ -54,8 +54,8 @@
       case 'travel': html = renderTravelModal(); break;
       case 'combat-full-log': html = renderCombatFullLog(); break;
       case 'equipped-bag': html = renderEquippedBag(payload); break;
-      case 'combat-spell': html = renderCombatSpell(); break;
-      case 'combat-item': html = renderCombatItem(); break;
+      case 'combat-spell': html = payload.pick ? renderCombatTarget('spell', payload.pick) : renderCombatSpell(); break;
+      case 'combat-item': html = payload.pick ? renderCombatTarget('item', payload.pick) : renderCombatItem(); break;
       default: html = `<div class="modal"><div class="modal-body">Modal "${id}" desconocido.</div></div>`;
     }
 
@@ -506,6 +506,20 @@
     }
     if (!wornView) actions.push(`<button class="btn-danger" data-detail-action="drop">Tirar</button>`);
 
+    // v3.2: pasárselo a un compañero del grupo
+    let giveRow = '';
+    const mates = A.Party && A.Party.role && A.Party.status === 'connected' && A.Party.allies ? A.Party.allies() : [];
+    if (mates.length && !wornView && slot && data.subtype !== 'coin') {
+      const can = A.Party.canGive ? A.Party.canGive() : { ok: true };
+      giveRow = `
+        <div class="item-give ${can.ok ? '' : 'is-off'}">
+          <span class="item-give-title">${pxi('party', 14)}<span>Dar a</span></span>
+          ${qty > 1 ? `<span class="item-give-qty"><button type="button" class="btn-mini" data-give-step="-1" aria-label="Uno menos">−</button><b class="num" data-give-n>1</b><span class="dim">de ${qty}</span><button type="button" class="btn-mini" data-give-step="1" aria-label="Uno más">+</button></span>` : ''}
+          <span class="item-give-who">${mates.map((m) => `<button type="button" class="btn-ghost btn-sm" data-give-to="${esc(m.hid)}" ${can.ok ? '' : 'disabled'}>${esc(m.name)}</button>`).join('')}</span>
+          ${can.ok ? '' : `<span class="item-give-why dim">${esc(can.why)}</span>`}
+        </div>`;
+    }
+
     const body = `
       <div class="item-modal">
         <div class="item-modal-header">
@@ -523,6 +537,7 @@
         <div class="item-modal-actions">
           ${actions.join('')}
         </div>
+        ${giveRow}
       </div>
     `;
     return modalShell(data.name, body);
@@ -722,7 +737,7 @@
           <p class="muted small">Aparece al explorar o al viajar por la zona. A veces sale de élite (alfa, campeón o mayor): más fuerte y con mejor botín.</p>
           ${canTame && !tameBlocked ? `<p class="muted small">Se puede domar si es el último enemigo en pie y tenés la comida que le gusta${diet ? ` (come ${A.Utils.escapeHtml(diet.eats)})` : ''}.</p>` : ''}
           ${tameBlocked ? `<p class="muted small">No se puede domar: ${A.Utils.escapeHtml(A.Tame.reasonText(tameCheck.reason))}${tameCheck.requiredLevel ? ` (nivel ${tameCheck.requiredLevel})` : ''}.</p>` : ''}
-          ${canTame && havePet ? `<p class="muted small">Ya tenés una mascota: liberá a ${A.Utils.escapeHtml(A.State.player.pet.name)} antes de domar otra.</p>` : ''}
+          ${canTame && havePet ? `<p class="muted small">Ya tenés una mascota: para domar otra, primero liberá a ${A.Utils.escapeHtml(A.State.player.pet.name)} (botón "Liberar" en su ficha, en la barra del costado).</p>` : ''}
         </div>
       </div>
     `;
@@ -1163,12 +1178,13 @@
           ${spells.map((s) => {
             const cost = A.Passives ? A.Passives.spellCost(p, s) : s.manaCost;
             const can = p.mana >= cost;
+            const pick = needsAllyPick('spell', s);
             return `
               <button class="combat-spell-row ${can ? '' : 'is-disabled'}" data-cast-spell="${A.Utils.escapeHtml(s.id)}" ${can ? '' : 'disabled'}>
                 <span class="combat-spell-icon">${A.ItemSprites && A.ItemSprites.spellIcon ? A.ItemSprites.spellIcon(s, { size: 32 }) : ''}</span>
                 <span class="combat-spell-info">
                   <span class="combat-spell-name">${A.Utils.escapeHtml(s.name)}</span>
-                  <span class="combat-spell-meta dim">${s.damage ? `${s.damage} daño` : s.heal ? `${s.heal} cura` : ''} · Maná ${cost}${cost < s.manaCost ? ` <s>${s.manaCost}</s>` : ''}</span>
+                  <span class="combat-spell-meta dim">${s.damage ? `${s.damage} daño` : s.heal ? `${s.heal} cura` : ''} · Maná ${cost}${cost < s.manaCost ? ` <s>${s.manaCost}</s>` : ''}${pick ? ' · elegís a quién' : ''}</span>
                 </span>
               </button>
             `;
@@ -1200,12 +1216,13 @@
               const data = A.Data.getById('items', s.itemId);
               if (!data) return '';
               const what = A.ItemFx ? A.ItemFx.summary(data) : (data.description || '');
+              const pick = needsAllyPick('item', data);
               return `
                 <button class="combat-item-row rarity-${A.Utils.escapeHtml(data.rarity || 'common')}" data-use-item="${A.Utils.escapeHtml(s.itemId)}">
                   <span class="combat-item-icon">${A.ItemSprites ? A.ItemSprites.html(data, { size: 32 }) : ''}</span>
                   <span class="combat-item-info">
                     <span class="combat-item-name">${A.Utils.escapeHtml(data.name)} <span class="dim">×${s.qty}</span></span>
-                    <span class="combat-item-meta dim">${A.Utils.escapeHtml(what || data.description || '')}</span>
+                    <span class="combat-item-meta dim">${A.Utils.escapeHtml(what || data.description || '')}${pick ? ' · elegís a quién' : ''}</span>
                   </span>
                 </button>
               `;
@@ -1215,6 +1232,57 @@
       </div>
     `;
     return modalShell('Usar objeto', body);
+  }
+
+  // ---------- v3.2: a quién va la poción o la curación ----------
+
+  /** A quién se le puede dar (una poción que solo da maná, solo a los que usan magia). */
+  function pickTargets(kind, data) {
+    if (!data || !A.Combat.allyTargets) return [];
+    if (kind === 'spell') return data.heal ? A.Combat.allyTargets() : [];
+    if (!(A.ItemFx && A.ItemFx.forOthers && A.ItemFx.forOthers(data))) return [];
+    const ef = data.effect || {};
+    const manaOnly = (ef.type === 'mana' || ef.manaRestore) && ef.type !== 'restore' && !ef.heal && !data.healAmount && ef.type !== 'heal';
+    return A.Combat.allyTargets().filter((t) => !manaOnly || (t.kind === 'hero' && t.ref.hasMagic));
+  }
+  /** ¿Hay que elegir a quién? (pociones y Curación, si tenés mascota o compañeros) */
+  function needsAllyPick(kind, data) {
+    return pickTargets(kind, data).length > 1;
+  }
+
+  function renderCombatTarget(kind, id) {
+    const esc = A.Utils.escapeHtml;
+    const data = kind === 'spell' ? A.Data.getById('spells', id) : A.Data.getById('items', id);
+    if (!data) return modalShell('¿A quién?', '<p class="muted">Algo salió mal.</p>');
+    const bad = (A.ItemFx && A.ItemFx.BAD) || [];
+    const rows = pickTargets(kind, data).map((t) => {
+      const isPet = t.kind === 'pet';
+      const cur = Math.max(0, (isPet ? t.ref.health : t.ref.hp) || 0);
+      const max = (isPet ? t.ref.maxHealth : t.ref.maxHp) || 1;
+      const down = cur <= 0;
+      const pct = Math.max(0, Math.min(100, Math.round((cur / max) * 100)));
+      const sts = [...new Set((t.ref.effects || []).filter((e) => bad.includes(e.type)).map((e) => e.type))];
+      const stTxt = sts.map((x) => (A.Combat.effectLabel ? A.Combat.effectLabel(x) : x)).join(', ');
+      const who = t.self ? 'Vos' : t.name;
+      const sub = isPet ? (t.ownerName ? `Mascota de ${t.ownerName}` : 'Tu mascota') : (t.self ? t.ref.name : 'Compañero');
+      const mana = !isPet && t.ref.hasMagic && kind === 'item' ? ` · maná ${t.ref.mana || 0}/${t.ref.maxMana || 0}` : '';
+      return `
+        <button class="cb-pick-row ${down ? 'is-down' : ''} ${pct <= 35 && !down ? 'is-low' : ''}" data-ally-target="${esc(t.on)}">
+          <span class="cb-pick-who"><b>${esc(who)}</b><small class="dim">${esc(sub)}${esc(mana)}</small></span>
+          <span class="cb-pick-hp">
+            <span class="cb-pick-bar"><i style="width:${pct}%"></i></span>
+            <span class="cb-pick-num">${down ? 'Caído' : `${cur}/${max}`}</span>
+          </span>
+          ${sts.length ? `<span class="cb-pick-st">${esc(stTxt)}</span>` : ''}
+        </button>`;
+    }).join('');
+    const body = `
+      <div class="cb-pick">
+        <p class="cb-pick-hint dim">Tocá a quién se la das. Al que está caído lo levanta.</p>
+        <div class="cb-pick-list">${rows}</div>
+        <button class="btn btn-ghost btn-sm cb-pick-back" data-pick-back>Volver</button>
+      </div>`;
+    return modalShell(`${data.name}: ¿a quién?`, body);
   }
 
   function rarityLabel(r) {
@@ -1334,6 +1402,25 @@
     if (id === 'item-detail') {
       overlay.querySelectorAll('[data-detail-action]').forEach((b) => {
         b.addEventListener('click', () => onItemAction(b.dataset.detailAction, payload.itemId));
+      });
+      // v3.2: dar a un compañero (cuántos y a quién)
+      const nEl = overlay.querySelector('[data-give-n]');
+      const have = () => { const s = (A.State.player.inventory || []).find((x) => x.itemId === payload.itemId); return s ? s.qty : 0; };
+      overlay.querySelectorAll('[data-give-step]').forEach((b) => {
+        b.addEventListener('click', () => {
+          if (!nEl) return;
+          const n = Math.max(1, Math.min(have(), (Number(nEl.textContent) || 1) + Number(b.dataset.giveStep)));
+          nEl.textContent = String(n);
+        });
+      });
+      overlay.querySelectorAll('[data-give-to]').forEach((b) => {
+        b.addEventListener('click', () => {
+          if (b.disabled || !A.Party || !A.Party.give) return;
+          const n = nEl ? Number(nEl.textContent) || 1 : 1;
+          const r = A.Party.give(b.dataset.giveTo, payload.itemId, n);
+          if (r && r.ok) A.State.closeModal();
+          else if (r && r.why && A.Views.Party) A.Views.Party.toast(r.why, 'bad');
+        });
       });
     }
     if (id === 'equipped-bag') {
@@ -1469,6 +1556,8 @@
       overlay.querySelectorAll('[data-cast-spell]').forEach((b) => {
         if (b.disabled) return;
         b.addEventListener('click', () => {
+          // v3.2: Curación: primero a quién
+          if (needsAllyPick('spell', A.Data.getById('spells', b.dataset.castSpell))) { A.State.openModal('combat-spell', { pick: b.dataset.castSpell }); return; }
           A.State.closeModal();
           A.Combat.playerSpell(b.dataset.castSpell);
         });
@@ -1478,10 +1567,25 @@
     if (id === 'combat-item') {
       overlay.querySelectorAll('[data-use-item]').forEach((b) => {
         b.addEventListener('click', () => {
+          // v3.2: pociones: primero a quién (vos, tu mascota o un compañero)
+          if (needsAllyPick('item', A.Data.getById('items', b.dataset.useItem))) { A.State.openModal('combat-item', { pick: b.dataset.useItem }); return; }
           A.State.closeModal();
           A.Combat.playerUseItem(b.dataset.useItem);
         });
       });
+    }
+
+    if ((id === 'combat-item' || id === 'combat-spell') && payload.pick) {
+      overlay.querySelectorAll('[data-ally-target]').forEach((b) => {
+        b.addEventListener('click', () => {
+          const on = b.dataset.allyTarget;
+          A.State.closeModal();
+          if (id === 'combat-spell') A.Combat.playerSpell(payload.pick, on);
+          else A.Combat.playerUseItem(payload.pick, on);
+        });
+      });
+      const back = overlay.querySelector('[data-pick-back]');
+      if (back) back.addEventListener('click', () => A.State.openModal(id));
     }
   }
 
