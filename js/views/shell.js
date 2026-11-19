@@ -42,7 +42,7 @@
           <div class="shell-brand">
             <span class="brand-icon">${A.UI ? A.UI.icon('swords', 26) : ''}</span>
             <span class="brand-name">Aventurs</span>
-            <span class="version-pill" title="Versión del juego">v3.2.0</span>
+            <span class="version-pill" title="Versión del juego">v3.3.0</span>
           </div>
           ${tabs.length > 1 ? `
             <nav class="shell-nav">
@@ -219,7 +219,7 @@
     const regen = A.Balance && A.Balance.manaRegenOf ? A.Balance.manaRegenOf(p) : { turn: 0, win: 0 };
     const onHit = A.Balance && A.Balance.manaOnHit ? A.Balance.manaOnHit(p) : 0;
     const manaHint = !p.hasMagic ? '' : regen.turn > 0
-      ? `Recuperás ${regen.turn} de maná por turno y ${Math.round(regen.win * 100)}% al ganar una pelea.`
+      ? `Recuperás ${A.Balance.regenLabel(regen.turn)} de maná por turno${regen.turn % 1 ? ' (en promedio)' : ''} y ${Math.round(regen.win * 100)}% al ganar una pelea.`
       : onHit > 0
         ? `Cada golpe con arma que acierta te da ${onHit} de maná. Si no, pociones de maná o dormir.`
         : 'Tu maná no vuelve solo: pociones de maná o dormir.';
@@ -240,27 +240,25 @@
             <div class="sb-sub">${escH(race ? race.name : '')} · ${TYPE_NAME[type] || ''}</div>
             ${passiveLine(p)}
           </div>
-          ${p.hasMagic ? `<button class="sb-magic" data-action="open-magic" title="Tus hechizos">${ic('spell', 20)}</button>` : ''}
-          <div class="sb-xp" title="Experiencia: ${p.xp} de ${xpNext}">
-            <span class="sb-xp-track"><span style="width:${maxLevel ? 100 : pct(xpIn, xpSpan)}%"></span></span>
-            <span class="sb-xp-text num">${maxLevel ? 'Nivel máximo' : `${xpIn} / ${xpSpan} XP`}</span>
+          <div class="sb-head-btns">
+            ${p.hasMagic ? `<button class="sb-magic" data-action="open-magic" title="Tus hechizos">${ic('spell', 20)}</button>` : ''}
+            <button class="sb-xbtn" data-action="open-explore" title="Tus números al explorar (Fuerza, Agilidad, Ingenio...)">${ic('d20', 18)}</button>
           </div>
-          ${compact ? `
+          <!-- v3.3: solo o en grupo, las barras van finitas arriba y la experiencia, debajo de todas -->
           <div class="sb-vitals">
             ${thinBar('is-hp', 'heart', hpLabel, p.hp, p.maxHp)}
-            ${p.hasMagic ? thinBar('is-mana', 'spell', manaLabel, p.mana, p.maxMana) : ''}
+            ${p.hasMagic ? thinBar('is-mana', 'spell', manaLabel, p.mana, p.maxMana, regen.turn > 0 ? `<em class="sb-vital-regen" title="${escH(manaHint)}">+${A.Balance.regenLabel(regen.turn)}</em>` : '') : ''}
             ${thinBar(`is-food ${hunger ? 'hunger-' + hunger.id : ''}`, 'food', foodLabel, p.food || 0, p.maxFood || 20, hungryTag ? `<em class="sb-vital-warn">${escH(hunger.label)}</em>` : '')}
-          </div>` : ''}
+            <div class="sb-vital is-xp" title="Experiencia: ${p.xp} de ${xpNext}">
+              <span class="sb-vital-ic">${ic('xp', 12)}</span>
+              <span class="sb-vital-track"><span style="width:${maxLevel ? 100 : pct(xpIn, xpSpan)}%"></span></span>
+              <span class="sb-vital-text num">${maxLevel ? 'Nivel máximo' : `${xpIn}<i>/${xpSpan} XP</i>`}</span>
+            </div>
+          </div>
         </header>
 
         <div class="sb-body">
           ${A.Views.Party && A.Views.Party.sidebar ? A.Views.Party.sidebar() : (A.Views.Party ? A.Views.Party.allyCard() : '')}
-          ${compact ? '' : `
-          <section class="sb-bars">
-            ${hudBar('is-hp', 'heart', hpLabel, p.hp, p.maxHp)}
-            ${p.hasMagic ? hudBar('is-mana', 'spell', manaLabel, p.mana, p.maxMana, regen.turn > 0 ? `<span class="sb-bar-tag" title="${escH(manaHint)}">+${regen.turn}</span>` : '') : ''}
-            ${hudBar(`is-food ${hunger ? 'hunger-' + hunger.id : ''}`, 'food', foodLabel, p.food || 0, p.maxFood || 20, hungryTag ? `<span class="sb-bar-tag is-warn">${escH(hunger.label)}</span>` : '')}
-          </section>`}
 
           ${p.pet ? renderPetSidebar(p.pet) : ''}
 
@@ -275,7 +273,6 @@
               ${p.hasMagic && st ? statChip('arcane', 'Magia', `+${st.spellPower || 0}`, 'Magia: se suma al daño de tus hechizos') : ''}
             </div>
           </section>
-          ${exploreSheet(p)}
           ${classNote(p, weapon)}
 
           <section class="sb-sec">
@@ -508,7 +505,7 @@
     if (!A.Balance || !A.Balance.weaponFit) return '';
     const fit = A.Balance.weaponFit(p, weapon);
     if (!fit.note) return '';
-    const bad = fit.atk < 0;
+    const bad = fit.atk < 0 || fit.blocked;
     return `<div class="class-note ${bad ? 'is-bad' : 'is-good'}">${A.UI ? A.UI.icon(bad ? 'arrow-down' : 'arrow-up', 14) : ''}<span>${A.Utils.escapeHtml(fit.note)}</span></div>`;
   }
 
@@ -612,6 +609,7 @@
     else if (action === 'rules') A.State.openModal('rules');
     else if (action === 'menu') A.State.openModal('menu');
     else if (action === 'open-magic') A.State.openModal('magic');
+    else if (action === 'open-explore') A.State.openModal('explore-stats');
     else if (action === 'open-chronicles') A.State.openModal('journal', { tab: 'chronicles' });
     else if (action === 'journal') A.State.openModal('journal', { tab: 'quests' });
     else if (action === 'to-sidebar' && sidebarEl) sidebarEl.scrollIntoView({ behavior: 'smooth', block: 'start' });

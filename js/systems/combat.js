@@ -64,20 +64,29 @@
   // ============================================================
 
   /** Lo que es de cada héroe dentro de la pelea (se intercambia al cambiar de contexto). */
-  const HERO_FIELDS = ['passives', 'itemUsed', 'itemSurvivor', 'powerCd', 'targetInstanceId'];
+  // v3.3: cada uno tiene sus dos intentos de huir
+  // v3.3: también las esperas de los hechizos y los objetos usados en el turno
+  const HERO_FIELDS = ['passives', 'itemUsed', 'itemSurvivor', 'powerCd', 'targetInstanceId', 'fleeAttempts', 'spellCd', 'itemsTurn'];
+
+  // v3.3: en tu turno podés usar hasta 3 pociones, comidas o hierbas sin perderlo
+  const FREE_ITEMS = 3;
+  function freeItem(item) { return !!item && (item.subtype === 'potion' || item.subtype === 'food'); }
 
   function hidOf(h) { return A.State.hidOf(h); }
   function ctxHid() { return hidOf(State().player); }
 
-  /** Los héroes que siguen en la pelea (los que se desconectaron, no). */
+  /** v3.3: los que ya no están en la pelea: se desconectaron o huyeron. */
+  function outHids(c) { return (c.goneHids || []).concat(c.fledHids || []); }
+
+  /** Los héroes que siguen en la pelea (los que se desconectaron o huyeron, no). */
   function heroesOf(c) {
     if (!c || !c.party) return State().player ? [State().player] : [];
-    const gone = c.goneHids || [];
-    return (c.heroIds || []).filter((hid) => !gone.includes(hid)).map((hid) => A.State.heroById(hid)).filter(Boolean);
+    const out = outHids(c);
+    return (c.heroIds || []).filter((hid) => !out.includes(hid)).map((hid) => A.State.heroById(hid)).filter(Boolean);
   }
   function heroOfEntry(c, cur) {
     if (!c || !c.party) return State().player;
-    if ((c.goneHids || []).includes(cur.hid)) return null;
+    if (outHids(c).includes(cur.hid)) return null;
     return A.State.heroById(cur.hid);
   }
   /** A quién ataca una criatura: a uno de los héroes en pie (en solitario, a vos). */
@@ -168,7 +177,7 @@
   /** v3.0: un héroe se desconectó en plena pelea: deja de actuar y de recibir golpes. */
   function dropHero(hid) {
     const c = State().combat;
-    if (!c || !c.party || c.result || (c.goneHids || []).includes(hid)) return;
+    if (!c || !c.party || c.result || outHids(c).includes(hid)) return;
     const h = A.State.heroById(hid);
     c.goneHids = (c.goneHids || []).concat([hid]);
     const name = h ? h.name : 'Tu compañero';
@@ -189,6 +198,8 @@
     // v3.2: según cuántos héroes son (2 a 4)
     const cfg = B().partyScale ? B().partyScale(n) : (B().PARTY || {});
     if (n <= 1) return;
+    // v3.3: si ya vienen preparadas para el grupo (la escena las mostró antes), no se tocan
+    if (instances.some((e) => e._partyScaled)) return;
     const commons = instances.filter((e) => !e.elite && e.category !== 'boss' && !e.summoned);
     const max = cfg.maxEnemies || 5;
     if (commons.length && cfg.extra > 0) {
@@ -198,6 +209,7 @@
         const data = A.Data.getById('enemies', base.id);
         if (!data || !A.Encounter || !A.Encounter.spawnInstance) break;
         const inst = A.Encounter.spawnInstance(data);
+        inst._copy = true; // v3.3: las que se suman por ser más no dan premio extra
         // si el original ya venía herido (ataque por sorpresa), la copia también
         if (base.maxHp && base.hp < base.maxHp) inst.hp = Math.max(1, Math.round(inst.maxHp * (base.hp / base.maxHp)));
         if (Array.isArray(base.effects)) inst.effects = base.effects.map((ef) => ({ ...ef }));
@@ -216,6 +228,20 @@
       inst.hp = Math.max(1, Math.round(inst.maxHp * ratio));
       if (dmgMult !== 1) inst.dmgMult = (inst.dmgMult || 1) * dmgMult;
     }
+  }
+
+  /**
+   * v3.3: las criaturas de una pelea, ya preparadas para el grupo que va junto
+   * (las que se suman y con más vida). Las escenas lo usan para decir exactamente
+   * contra qué van a pelear; después Combat.start no las vuelve a tocar.
+   */
+  function prepareGroup(instances) {
+    const list = (instances || []).filter(Boolean);
+    for (const inst of list) normalizeInstance(inst);
+    const group = A.Party && A.Party.combatHeroes ? A.Party.combatHeroes() : null;
+    if (group && group.length > 1) scaleForParty(list, group.length);
+    assignLabels(list);
+    return list;
   }
 
   /**
@@ -294,6 +320,8 @@
       instances = A.Encounter.generate(opts.regionId);
     }
     if (!instances || instances.length === 0) return false;
+    // v3.3: con el héroe muerto (la pantalla de muerte está por salir) no hay más peleas
+    if (State().player && State().player.dead) return false;
 
     // Instancias viejas (partidas guardadas) pueden no tener attack/difficulty
     for (const inst of instances) normalizeInstance(inst);
@@ -357,6 +385,8 @@
       combat.party = true;
       combat.heroIds = heroes.map(hidOf);
       combat.heroCtx = {};
+      // v3.3: cuántas criaturas eran "de la pelea de uno" (las otras se sumaron por ser más)
+      combat.baseCount = Math.max(1, instances.filter((e) => !e._copy).length);
     }
 
     // v2.4: Amuleto de la iniciativa: actuás primero (menos si te emboscan)
@@ -826,6 +856,13 @@
     const c = State().combat;
     if (!c || c.result) return true;
     if (aliveEnemies().length === 0) { onVictory(); A.Bus.emit('combat:ended', { result: 'victory' }); return true; }
+    // v3.3: si ya no queda nadie (huyeron o se desconectaron), la pelea se termina sin más
+    if (c.party && !heroesOf(c).length) {
+      c.result = 'flee';
+      A.Bus.emit('combat:ended', { result: 'flee' });
+      State().persist();
+      return true;
+    }
     // v3.0: en grupo se pierde cuando caen todos
     if (heroesOf(c).every((h) => h.hp <= 0)) { onDefeat(); A.Bus.emit('combat:ended', { result: 'defeat' }); return true; }
     return false;
@@ -871,6 +908,14 @@
         if (cur.kind === 'player') {
           // v2.1.1: el golpe fuerte se recarga un turno por vez
           if (c.powerCd > 0) c.powerCd -= 1;
+          // v3.3: los hechizos con espera también, y los objetos del turno vuelven a cero
+          if (c.spellCd) {
+            for (const k of Object.keys(c.spellCd)) {
+              c.spellCd[k] -= 1;
+              if (c.spellCd[k] <= 0) delete c.spellCd[k];
+            }
+          }
+          c.itemsTurn = 0;
           playerTurnPassives(c, entity);
         } else {
           creatureTurnPassives(c, cur.kind, entity); // v2.5: Regeneración
@@ -905,8 +950,30 @@
       A.State.healHp(regen);
       if (p.hp > before) addLog(c, 'system', { text: `Regeneración: +${p.hp - before} de vida.`, fx: { kind: 'heal', actor: 'player', target: 'player', amount: p.hp - before }, say: { text: `Tus heridas se cierran solas: +${p.hp - before} de vida.`, tone: 'good' } });
     }
+    // v3.3: Sangre de lobo (licántropo): vida al empezar cada turno
+    const wolf = P() && P().wolfRegen ? P().wolfRegen(p) : 0;
+    if (wolf > 0) {
+      const before = p.hp;
+      A.State.healHp(wolf);
+      if (p.hp > before) {
+        addLog(c, 'system', {
+          text: `Sangre de lobo: +${p.hp - before} de vida.`,
+          fx: { kind: 'heal', actor: 'player', target: 'player', amount: p.hp - before, passive: 'sangre_lobo' },
+          passive: 'sangre_lobo',
+          say: { text: `Tu sangre de lobo hierve y te cierra las heridas: +${p.hp - before} de vida.`, tone: 'good' },
+        });
+      }
+    }
     // v2.1: los magos recuperan maná al empezar cada turno (cada raza, una cantidad distinta)
-    const mana = B().manaRegenOf ? B().manaRegenOf(p).turn : 0;
+    // v3.3: puede tener coma: 1,5 es 1 un turno y 2 el siguiente (lo que sobra se guarda)
+    const perTurn = B().manaRegenOf ? B().manaRegenOf(p).turn : 0;
+    let mana = Math.floor(perTurn + 1e-9);
+    if (perTurn - mana > 1e-9 && p.hasMagic && c.round > 1) {
+      const used = c.passives || (c.passives = {});
+      const k = `manaFrac:${c.party ? hidOf(p) : 'p'}`;
+      used[k] = (used[k] || 0) + (perTurn - mana);
+      if (used[k] >= 1 - 1e-9) { mana += 1; used[k] -= 1; }
+    }
     if (mana > 0 && p.hasMagic && p.mana < p.maxMana && c.round > 1) {
       const before = p.mana;
       A.State.setMana(Math.min(p.maxMana, p.mana + mana));
@@ -1096,6 +1163,9 @@
     }
     const dmgRoll = rollPlayerDamage(p);
     let rawDmg = dmgRoll.total;
+    // v3.3: Cazador de sombras (elfo oscuro): más daño a lo que ya tiene algo malo encima
+    const shadow = P() && P().shadowBonusVs ? P().shadowBonusVs(p, target) : 0;
+    rawDmg += shadow;
     if (pw) rawDmg *= pw.mult;
     if (charge) rawDmg = Math.round(rawDmg * P().chargeMult(!!pw)); // con Golpe fuerte, un poco menos
     if (r.crit) rawDmg = Math.round(rawDmg * (P() ? P().critMult(p) : 2));
@@ -1108,6 +1178,7 @@
     if (r.crit && P() && P().has(p, 'golpe_gigante')) passive = 'golpe_gigante';
     else if (r.crit && r.roll < 20 && P() && P().has(p, 'ojo_certero')) passive = 'ojo_certero';
     else if (charge) passive = 'embestida';
+    else if (shadow) passive = 'cazador_sombras';
     addLog(c, 'player', {
       passive,
       power: !!pw,
@@ -1152,6 +1223,12 @@
     if (target.hp > 0 && P() && Math.random() < P().burnChance(p)) {
       if (applyStatus(target, 'fire', { turns: 2, value: P().burnValue(p), source: 'sangre_dragon' })) {
         addLog(c, 'system', { text: `${target.displayName} se prende fuego.`, fx: { kind: 'status', target: fxKey(target), effect: 'fire', passive: 'sangre_dragon' } });
+      }
+    }
+    // v3.3: Cazador de sombras (elfo oscuro): a veces el golpe envenena (y después pega más fuerte)
+    if (target.hp > 0 && P() && P().shadowPoison && Math.random() < P().shadowPoison(p)) {
+      if (applyStatus(target, 'poison', { turns: 3, value: 1, source: 'cazador_sombras' })) {
+        addLog(c, 'system', { text: `El veneno de tu hoja entra en ${target.displayName}.`, fx: { kind: 'status', target: fxKey(target), effect: 'poison', passive: 'cazador_sombras' } });
       }
     }
     // v2.5: tocar a ciertas criaturas duele (Cuerpo de fuego, de hielo, Espinas)
@@ -1200,6 +1277,25 @@
     }
   }
 
+  /** v3.3: cuántos turnos te faltan para volver a usar un hechizo (0 = listo). */
+  function spellWait(c, spell) {
+    return c && c.spellCd && spell ? (c.spellCd[spell.id] || 0) : 0;
+  }
+  /** v3.3: para la pantalla: { wait, ready, hit (0..1 contra tu objetivo), sure } */
+  function spellInfo(spellId) {
+    const c = State().combat;
+    const spell = A.Data.getById('spells', spellId);
+    if (!spell) return null;
+    const wait = spellWait(c, spell);
+    let hit = 1;
+    if (spell.damage && !spell.sure) {
+      const t = getTarget();
+      const def = t ? enemyStats(t).defense : 10;
+      hit = B().hitChance(playerStats().attack + (B().SPELL_HIT || 2), def);
+    }
+    return { wait, ready: wait === 0, hit, sure: !!spell.sure || !spell.damage };
+  }
+
   function playerSpell(spellId, on) {
     const c = State().combat;
     if (!c || c.result || !isPlayerTurn(c)) return;
@@ -1207,8 +1303,9 @@
     if (!p.hasMagic) return;
     const spell = A.Data.getById('spells', spellId);
     if (!spell || !(p.spells || []).includes(spellId)) return;
-    // v3.2: la curación se le puede tirar a tu mascota o a un compañero (y levanta al caído)
-    const ally = spell.heal ? allyTarget(on) : null;
+    // v3.2: la curación se le puede tirar a tu mascota o a un compañero
+    // v3.3: Segundo aliento (selfOnly) solo te cura a vos
+    const ally = spell.heal ? allyTarget(spell.selfOnly ? 'self' : on) : null;
     if (spell.heal) {
       if (!ally) return;
       const isPet = ally.kind === 'pet';
@@ -1217,9 +1314,21 @@
         addLog(c, 'system', { text: ally.self ? 'Ya tenés la vida completa.' : `${ally.name} ya tiene la vida completa.`, fx: { kind: 'note' } });
         return;
       }
+      // v3.3: al caído ya no lo levanta la curación: hace falta una hierba de la vida
+      const down = isPet ? (ally.ref.health || 0) <= 0 : (ally.ref.hp || 0) <= 0;
+      if (down) {
+        addLog(c, 'system', { text: `${ally.name} está ${isPet ? 'inconsciente' : 'caído'}: para levantarlo hace falta una hierba de la vida.`, fx: { kind: 'note' } });
+        return;
+      }
     }
     if ((p.effects || []).some((e) => e.type === 'silence')) {
       addLog(c, 'system', { text: 'Estás silenciado: no podés lanzar hechizos.', fx: { kind: 'note' } });
+      return;
+    }
+    // v3.3: los hechizos con espera
+    const wait = spellWait(c, spell);
+    if (wait > 0) {
+      addLog(c, 'system', { text: `${spell.name} todavía no: ${wait === 1 ? 'listo en tu próximo turno' : `listo en ${wait} turnos`}.`, fx: { kind: 'note' } });
       return;
     }
     const cost = P() ? P().spellCost(p, spell) : spell.manaCost;
@@ -1228,6 +1337,7 @@
       return;
     }
     A.State.setMana(p.mana - cost);
+    if (spell.cooldown > 0) { if (!c.spellCd) c.spellCd = {}; c.spellCd[spell.id] = spell.cooldown; }
     const power = playerStats().spellPower + (spell.damage && P() ? P().spellBonus(p) : 0);
 
     if (spell.heal) {
@@ -1251,32 +1361,101 @@
       }
     } else if (spell.damage) {
       const targets = spell.area ? aliveEnemies() : [getTarget()].filter(Boolean);
-      for (const t of targets) {
-        const rawDmg = A.Utils.rollDice(spell.damage) + power;
+      // v3.3: los hechizos de daño tiran el dado como un arma (con +2): pueden fallar y,
+      // con 20, son críticos. Los de área tiran una vez: se compara con la defensa de cada una.
+      const bonus = playerStats().attack + (B().SPELL_HIT || 2);
+      const r = spell.sure ? null : attackRoll(bonus, 0, playerRollOpts(p));
+      if (r && r.lucky) addLog(c, 'system', { text: 'Suerte: sacaste un 1 y el dado se vuelve a tirar.', fx: { kind: 'passive', passive: 'suerte' } });
+      let landed = 0;
+      let drained = 0;
+      targets.forEach((t, i) => {
+        const def = enemyStats(t).defense;
+        const hit = !r || r.crit || (!r.fumble && r.total >= def);
+        const roll = r && i === 0 ? { roll: r.roll, bonus, total: r.total, vs: def, vsLabel: 'defensa' } : {};
+        const noun = A.Skills ? A.Skills.noun(t) : t.displayName;
+        if (!hit) {
+          addLog(c, 'player', {
+            text: r.fumble ? `${spell.name} se te escapa de las manos y no le da a nadie` : `${spell.name} no alcanza a ${t.displayName}`,
+            actor: p.name, target: t.displayName, actorIcon: '', spell: spell.name,
+            ...roll, result: r.fumble ? 'fumble' : 'evaded',
+            fx: { kind: 'spell', actor: 'player', target: fxKey(t), element: spellElement(spell), icon: '', miss: true, chain: i > 0 },
+            say: {
+              text: r.fumble ? `Se te traba la palabra: ${spell.name.toLowerCase()} se deshace en el aire.` : `Lanzás ${spell.name.toLowerCase()}, pero ${noun} se corre a tiempo.`,
+              tone: 'bad',
+            },
+          });
+          return;
+        }
+        landed += 1;
+        let rawDmg = A.Utils.rollDice(spell.damage) + power;
+        // v3.3: Cazador de sombras también con hechizos
+        const shadowS = P() && P().shadowBonusVs ? P().shadowBonusVs(p, t) : 0;
+        rawDmg += shadowS;
+        if (r && r.crit) rawDmg *= 2;
         const armor = Math.floor((t.armor || 0) / 2);
         const finalDmg = mitigate(rawDmg, armor);
         t.hp = Math.max(0, t.hp - finalDmg);
         addLog(c, 'player', {
-          text: `${spell.name} hiere a ${t.displayName}`,
+          text: r && r.crit ? `¡${spell.name} crítico a ${t.displayName}!` : `${spell.name} hiere a ${t.displayName}`,
           actor: p.name, target: t.displayName, actorIcon: '',
           rawDmg, targetArmor: armor, dmg: finalDmg, hpAfter: t.hp, hpMax: t.maxHp,
           damageDice: power ? `${spell.damage}+${power}` : spell.damage,
-          spell: spell.name, result: 'hit',
-          fx: { kind: 'spell', actor: 'player', target: fxKey(t), element: spellElement(spell), icon: '' },
+          spell: spell.name, ...roll, result: r && r.crit ? 'crit' : 'hit',
+          fx: { kind: 'spell', actor: 'player', target: fxKey(t), element: spellElement(spell), icon: '', crit: !!(r && r.crit), chain: i > 0 },
+          ...(shadowS ? { passive: 'cazador_sombras' } : {}),
+          ...(r && r.crit ? { say: { text: `¡${spell.name} le da de lleno a ${noun}: el doble de daño, ${finalDmg}!`, tone: 'crit' } } : {}),
         });
         if (t.hp > 0) maybeInflictStatusOnHit(spell, t, c);
+        if (t.hp > 0 && spell.stun) stunTarget(c, t, spell.stun, spell); // v3.3: Congelar, Trueno
+        else if (t.hp > 0 && spell.stunChance && Math.random() < spell.stunChance) stunTarget(c, t, 1, spell); // v3.3: Enredadera
+        drained += finalDmg;
         if (t.hp <= 0) enemyDown(c, t, 'spell');
+      });
+      const targetsHit = landed;
+      // v3.3: Drenar vida: la mitad del daño vuelve como vida
+      if (spell.drain && drained > 0 && p.hp < p.maxHp) {
+        const before = p.hp;
+        A.State.healHp(Math.max(1, Math.floor(drained / 2)));
+        if (p.hp > before) addLog(c, 'system', { text: `${spell.name}: +${p.hp - before} de vida.`, fx: { kind: 'heal', actor: 'player', target: 'player', amount: p.hp - before }, say: { text: `La vida que le sacás pasa a vos: recuperás ${p.hp - before}.`, tone: 'good' } });
       }
-      // v2.1: hechizos que además te curan (Luz sagrada)
-      if (spell.selfHeal && targets.length && p.hp < p.maxHp) {
+      // v2.1: hechizos que además te curan (Luz sagrada) — v3.3: si pegó
+      if (spell.selfHeal && targetsHit && p.hp < p.maxHp) {
         const before = p.hp;
         A.State.healHp((Number(spell.selfHeal) || 0) + Math.floor(power / 2));
         if (p.hp > before) addLog(c, 'system', { text: `${spell.name} te devuelve ${p.hp - before} de vida.`, fx: { kind: 'heal', actor: 'player', target: 'player', amount: p.hp - before } });
+      }
+    } else if (spell.effect && A.ItemFx) {
+      // v3.3: los hechizos de los pergaminos que no son de daño hacen lo mismo que el pergamino
+      const asItem = { id: spell.id, name: spell.name, subtype: 'spell', effect: { ...spell.effect, combat: true } };
+      const res = A.ItemFx.useInCombat(c, asItem, itemCtx(c));
+      if (!res.ok) {
+        // no se pudo (no había a quién apuntarle): no gasta maná ni espera
+        A.State.setMana(Math.min(p.maxMana, p.mana + cost));
+        if (c.spellCd) delete c.spellCd[spell.id];
+        if (res.why) addLog(c, 'system', { text: res.why, fx: { kind: 'note' } });
+        State().persist();
+        return;
       }
     } else {
       addLog(c, 'player', { text: `Lanzaste ${spell.name}.`, fx: { kind: 'cast', actor: 'player', icon: '' } });
     }
     afterPlayerAction();
+  }
+
+  /** v3.3: deja a una criatura sin turnos (a los jefes, como mucho uno). */
+  function stunTarget(c, t, turns, spell) {
+    if (!t || t.hp <= 0) return;
+    const n = t.category === 'boss' ? 1 : Math.max(1, turns || 1);
+    t.effects = t.effects || [];
+    const old = t.effects.find((e) => e.type === 'stun');
+    if (old) old.turns = Math.max(old.turns, n);
+    else t.effects.push({ type: 'stun', turns: n, value: 1, source: spell.id });
+    const noun = A.Skills ? A.Skills.noun(t) : t.displayName;
+    addLog(c, 'system', {
+      text: `${t.displayName} queda sin moverse (${n === 1 ? 'pierde su próximo turno' : `pierde ${n} turnos`}).`,
+      fx: { kind: 'status', target: fxKey(t), effect: 'stun' },
+      say: { text: `${noun.charAt(0).toUpperCase()}${noun.slice(1)} queda tieso: ${n === 1 ? 'pierde su próximo turno' : `pierde ${n} turnos`}.`, tone: 'good' },
+    });
   }
 
   /** v2.4: lo que necesita ItemFx para que un objeto actúe en la pelea. */
@@ -1310,6 +1489,15 @@
     }
     A.State.removeItem(item.id, 1);
     if (t.kind === 'pet' && r.revived) petBackInFight(c, t.owner);
+    // v3.3: el compañero que se levanta vuelve a tener turno (su lugar en la ronda sigue ahí)
+    if (r.revived && t.kind === 'hero') {
+      addLog(c, 'player', {
+        text: `Le diste ${item.name} a ${t.name}: se levanta con ${r.hp} de vida.`,
+        fx: { kind: 'heal', actor: 'player', target: t.key, amount: r.hp, revive: true },
+        say: { text: `Le ponés ${item.name.toLowerCase()} en la boca a ${t.name}: abre los ojos y se levanta con ${r.hp} de vida.`, tone: 'good' },
+      });
+      return true;
+    }
     const word = (x) => String((A.ItemFx.WORD || {})[x] || x).replace(/^(el|la|los|las) /, '');
     const parts = [];
     if (r.hp) parts.push(`+${r.hp} de vida`);
@@ -1339,8 +1527,16 @@
     if (!A.ItemFx) return false;
     const ally = on && on !== 'self' && on !== 'player' ? allyTarget(on) : null;
     if (on && on !== 'self' && on !== 'player' && !ally) return false;
+    // v3.3: pociones, comida y hierbas no gastan el turno (hasta 3 por turno)
+    const free = freeItem(item);
+    if (free && (c.itemsTurn || 0) >= FREE_ITEMS) {
+      addLog(c, 'system', { text: `Ya usaste ${FREE_ITEMS} objetos en este turno: ahora atacá, lanzá un hechizo o huí.`, fx: { kind: 'note' } });
+      State().persist();
+      return false;
+    }
     if (ally && !ally.self) {
       if (!giveItem(c, item, ally)) return false;
+      if (free) { keepTurnAfterItem(c); return true; }
       afterPlayerAction();
       return true;
     }
@@ -1351,15 +1547,22 @@
       return false;
     }
     A.State.removeItem(itemId, 1);
+    if (free && !res.escape) { keepTurnAfterItem(c); return true; }
     if (res.escape) {
+      // v3.3: en grupo te vas vos solo (los demás siguen); si eras el último en pie, se van todos
+      const alone = othersStanding(c, State().player).length > 0;
       addLog(c, 'system', {
-        text: `Rompiste ${item.name} y escapaste.`, result: 'hit',
+        text: alone ? `Rompiste ${item.name} y escapaste. Seguís por tu cuenta.` : `Rompiste ${item.name} y escapaste.`, result: 'hit',
         fx: { kind: 'flee', actor: 'player' },
-        say: { text: 'Rompés el pergamino: el aire se cierra a tu alrededor y aparecés lejos de la pelea.', tone: 'good' },
+        say: {
+          text: alone
+            ? 'Rompés el pergamino: el aire se cierra a tu alrededor y aparecés lejos. Tus compañeros siguen peleando sin vos.'
+            : 'Rompés el pergamino: el aire se cierra a tu alrededor y aparecés lejos de la pelea.',
+          tone: 'good',
+        },
       });
-      c.result = 'flee';
-      A.Bus.emit('combat:ended', { result: 'flee' });
-      State().persist();
+      if (alone) leaveFight(c, State().player);
+      else everyoneFlees(c);
       return true;
     }
     afterPlayerAction();
@@ -1386,6 +1589,54 @@
     });
     if (!result || result.itemConsumed) afterPlayerAction();
     return result;
+  }
+
+  // ============================================================
+  // v3.3: huir en grupo
+  //   El que huye se va solo, con su mascota: deja la pelea y sigue por su
+  //   cuenta (se separa del grupo). Los demás siguen peleando contra las
+  //   mismas criaturas. Si el que huye era el último en pie, huyen todos
+  //   y se llevan a los caídos.
+  // ============================================================
+
+  /** Los compañeros que siguen en pie (sin contarte). En solitario, ninguno. */
+  function othersStanding(c, p) {
+    return c && c.party ? heroesOf(c).filter((h) => h !== p && h.hp > 0) : [];
+  }
+
+  /** Te vas de la pelea vos solo: tu turno pasa y los demás siguen. */
+  function leaveFight(c, p) {
+    const hid = hidOf(p);
+    c.fledHids = (c.fledHids || []).concat([hid]);
+    p.effects = [];
+    if (p.pet) p.pet.effects = [];
+    A.Bus.emit('combat:hero-fled', { hid });
+    // el grupo se entera (el que huyó sigue por su cuenta; si era el anfitrión, al terminar)
+    if (A.Party && A.Party.heroFled) A.Party.heroFled(hid);
+    State().persist();
+    if (checkEnd()) return;
+    nextActor();
+  }
+
+  /** Huyen todos (el que huyó era el último en pie): los caídos se levantan con 1 de vida. */
+  function everyoneFlees(c) {
+    if (c.party) {
+      const carried = [];
+      for (const h of heroesOf(c)) {
+        if (h.hp > 0) continue;
+        A.State.withHero(h, () => { h.hp = 1; });
+        carried.push(h.name);
+      }
+      if (carried.length) {
+        addLog(c, 'system', {
+          text: `Te llevás a ${joinY(carried)} a la rastra (con 1 de vida).`, fx: { kind: 'note' },
+          say: { text: `Antes de irte, te cargás a ${joinY(carried)} y ${carried.length > 1 ? 'los' : 'lo'} sacás de ahí.`, tone: 'good' },
+        });
+      }
+    }
+    c.result = 'flee';
+    A.Bus.emit('combat:ended', { result: 'flee' });
+    State().persist();
   }
 
   /** v2.5: ¿podés intentar huir? { ok, why } (atrapado no se puede). */
@@ -1424,14 +1675,17 @@
     const fleeTotal = fleeRoll + fleeBonus;
 
     if (fleeTotal >= fleeDC) {
+      // v3.3: en grupo el que huye se va solo y los demás siguen peleando.
+      // Si era el último en pie, huyen todos (y se llevan a los caídos).
+      const alone = othersStanding(c, p).length > 0;
       addLog(c, 'system', {
-        text: `Lograste escapar (intento ${c.fleeAttempts}/2).`,
+        text: alone ? `Lograste escapar (intento ${c.fleeAttempts}/2). Seguís por tu cuenta.` : `Lograste escapar (intento ${c.fleeAttempts}/2).`,
         roll: fleeRoll, bonus: fleeBonus, total: fleeTotal, vs: fleeDC, vsLabel: 'DC huida', result: 'hit',
         fx: { kind: 'flee', actor: 'player' },
+        ...(alone ? { say: { text: 'Salís corriendo y los perdés de vista. Tus compañeros se quedan peleando sin vos.', tone: 'neutral' } } : {}),
       });
-      c.result = 'flee';
-      A.Bus.emit('combat:ended', { result: 'flee' });
-      State().persist();
+      if (alone) leaveFight(c, p);
+      else everyoneFlees(c);
       return;
     }
     const remaining = 2 - c.fleeAttempts;
@@ -1452,6 +1706,14 @@
       return;
     }
     afterPlayerAction();
+  }
+
+  /** v3.3: usaste una poción, comida o hierba: el turno sigue siendo tuyo. */
+  function keepTurnAfterItem(c) {
+    c.itemsTurn = (c.itemsTurn || 0) + 1;
+    State().persist();
+    if (checkEnd()) return;
+    A.Bus.emit('combat:turn', { actor: 'player', round: c.round, keep: true });
   }
 
   function afterPlayerAction() {
@@ -1672,6 +1934,18 @@
     addLog(c, 'enemy', hitEntry);
     announceGuard(c, guard);
     if (!targetPet) maybeAnnounceFury(c, p);
+    // v3.3: Corteza espinosa (dríade): el que te pega de cerca se clava tus espinas
+    const bark = !targetPet && !opts.ranged && P() && P().thornsOf ? P().thornsOf(p) : 0;
+    if (bark > 0 && enemy.hp > 0 && !c.result) {
+      enemy.hp = Math.max(0, enemy.hp - bark);
+      addLog(c, 'system', {
+        text: `Corteza espinosa: ${enemy.displayName} recibe ${bark} de daño.`,
+        passive: 'corteza_espinosa',
+        fx: { kind: 'tick', target: fxKey(enemy), amount: bark, effect: 'bleed', passive: 'corteza_espinosa' },
+        say: { text: `${capE} se clava tus espinas: ${bark} de daño.`, tone: 'good' },
+      });
+      if (enemy.hp <= 0) enemyDown(c, enemy, 'thorns');
+    }
     // v2.4: Anillo de espinas y Pergamino de espinas/reflejar: el que te pega se lastima
     if (!targetPet && finalDmg > 0 && enemy.hp > 0) {
       const frac = (A.Accessories ? A.Accessories.bonus(p, 'thorns') : 0) + (mods.reflect || 0);
@@ -1874,15 +2148,18 @@
     const p = A.State.player;
     const acc = (k) => (A.Accessories ? A.Accessories.bonus(p, k) : 0);
     const EL = B().ELITE || { xp: 1, coin: 1, drop: 1 };
-    // v3.0: en grupo cada uno se lleva una parte (las criaturas tenían más vida)
-    // v3.2: la parte depende de cuántos son (2: 60% · 3: 47% · 4: 40%)
-    const nHeroes = c && c.party ? (c.heroIds || []).length : 1;
-    const share = nHeroes > 1 ? (B().partyScale ? B().partyScale(nHeroes).share : ((B().PARTY && B().PARTY.share) || 0.85)) : 1;
+    // v3.3: en grupo cada uno gana lo mismo que si hubiera peleado solo: lo que dan las
+    // criaturas "de la pelea de uno" (las que se sumaron por ser más no dan premio extra).
+    // Antes se repartía (v3.2) y en grupos grandes se tardaba mucho en subir de nivel.
+    const share = 1;
+    const pool = c && c.party
+      ? defeated.slice().sort((a, b) => (a._copy ? 1 : 0) - (b._copy ? 1 : 0)).slice(0, c.baseCount || defeated.length)
+      : defeated;
     // v2.5: la élite da más; lo invocado, la mitad de XP y nada de botín
     const xpMult = (e) => (e.elite ? EL.xp : 1) * (e.summoned ? 0.5 : 1);
     let totalXp = 0;
     // v3.0: la experiencia depende también de la diferencia de nivel (ver Progression.levelGapMult)
-    for (const e of defeated) totalXp += Math.round(A.Progression.xpForEnemy(e) * xpMult(e) * (A.Progression.levelGapMult ? A.Progression.levelGapMult(p.level, e.tier) : 1));
+    for (const e of pool) totalXp += Math.round(A.Progression.xpForEnemy(e) * xpMult(e) * (A.Progression.levelGapMult ? A.Progression.levelGapMult(p.level, e.tier) : 1));
     totalXp = Math.round(totalXp * share);
     // v2.4: Amuleto de sabiduría
     if (acc('xp') > 0) totalXp = Math.round(totalXp * (1 + acc('xp')));
@@ -1921,7 +2198,7 @@
         addLog(c, 'loot', { text: `Recuperás lo que te robó ${inst.displayName}.`, fx: { kind: 'note' }, say: { text: `Recuperás lo que te robó ${A.Skills ? A.Skills.noun(inst) : inst.displayName}: ${A.Narrator ? A.Narrator.coinsInWords(inst.stolen) : inst.stolen}.`, tone: 'good' } });
         inst.stolen = 0;
       }
-      if (inst.summoned) continue; // lo invocado no deja monedas ni botín
+      if (inst.summoned || !pool.includes(inst)) continue; // lo invocado (y lo que se sumó por ser más) no deja monedas ni botín
       const eliteMult = inst.elite ? EL.coin : 1;
       const eliteDrop = (inst.elite ? EL.drop : 1) * share;
       // v2.0: cada enemigo suelta monedas SIEMPRE, según su peligro
@@ -2053,17 +2330,52 @@
     if (!c || c.result) return;
     c.result = 'defeat';
     addLog(c, 'system', { text: c.party ? 'Cayeron en combate.' : 'Caíste en combate.', fx: { kind: 'defeat' } });
-    // v3.0: en grupo despiertan todos en el pueblo
+    // v3.3: nadie te levantó: cada uno tira su dado de rescate. Si sale, alguien te
+    // encuentra y te lleva al pueblo; si no, tu aventura termina (A.Death).
+    const group = A.Narrator && A.Narrator.groupPhrase ? A.Narrator.groupPhrase(c.enemies).text : A.Encounter.describeGroup(c.enemies);
+    const regionId = A.State.world ? A.State.world.regionId : null;
+    c.rescue = {};
     for (const p of heroesOf(c)) {
       A.State.withHero(p, () => {
-        p.hp = 1;
-        p.mana = Math.floor(p.maxMana / 2);
         p.effects = [];
-        A.State.addChronicle({ type: 'combat', text: `Caíste contra ${A.Encounter.describeGroup(c.enemies)}. Despertás de vuelta en el pueblo.` });
+        if (p.pet) p.pet.effects = [];
+        const r = A.Death ? A.Death.rescueRoll(p, { regionId, petUp: !!(p.pet && p.pet.health > 0) }) : null;
+        if (!r) { // sin el módulo de la muerte: como antes
+          p.hp = 1;
+          p.mana = Math.floor(p.maxMana / 2);
+          A.State.addChronicle({ type: 'combat', text: `Caíste contra ${group}. Despertás de vuelta en el pueblo.` });
+          return;
+        }
+        r.name = p.name; // para contarlo en las otras compus
+        c.rescue[hidOf(p)] = r;
+        const dice = A.Death.rollText(r);
+        addLog(c, 'system', {
+          text: r.ok ? `Dado de rescate: ${dice}. ${r.by} te encontró y te llevó al pueblo.` : `Dado de rescate: ${dice}. Nadie te encontró a tiempo.`,
+          roll: r.roll, bonus: r.bonus, total: r.total, vs: r.dc, vsLabel: 'rescate', result: r.ok ? 'hit' : 'miss',
+          fx: { kind: 'save', actor: 'player', target: 'player', stat: 'ayuda', rescue: true },
+          say: {
+            text: r.ok
+              ? (r.crit ? `${r.by} te encuentra, te cura las heridas y te lleva al pueblo.` : `${r.by} te encuentra tirado y te lleva al pueblo.`)
+              : 'Nadie pasa por ahí. Tu aventura termina acá.',
+            tone: r.ok ? 'good' : 'bad',
+          },
+        });
+        if (r.ok) {
+          p.hp = r.crit ? Math.max(1, Math.round(p.maxHp / 2)) : 1;
+          p.mana = Math.floor(p.maxMana / 2);
+          A.State.addChronicle({ type: 'combat', text: `Caíste contra ${group}. ${r.by} te encontró y te llevó al pueblo (dado de rescate: ${dice}).` });
+        } else {
+          A.Death.killHero(p, 'combat', { text: `Caíste contra ${group} y nadie te encontró a tiempo (dado de rescate: ${dice}).`, regionId });
+        }
       });
     }
-    A.State.world.regionId = 'pueblo_inicial';
-    A.State.traveling = null;
+    // el que había huido antes (el anfitrión) no despierta en el pueblo: siguió su camino
+    const me = State().me ? State().me() : State().player;
+    const hostOut = c.party && (c.fledHids || []).includes(hidOf(me));
+    if (!hostOut) {
+      A.State.world.regionId = 'pueblo_inicial';
+      A.State.traveling = null;
+    }
     A.Bus.emit('combat:ended', { result: 'defeat' });
     State().persist();
   }
@@ -2188,6 +2500,14 @@
     isPlayerTurn,
     // v3.2: pociones y curación para la mascota y los compañeros
     allyTargets,
+    // v3.3: las criaturas preparadas para el grupo (para mostrarlas antes de pelear)
+    prepareGroup,
+    // v3.3
+    spellInfo,
+    FREE_ITEMS,
+    freeItem,
+    itemsLeft: () => { const c = State().combat; return Math.max(0, FREE_ITEMS - ((c && c.itemsTurn) || 0)); },
     _swapHero: swapHero,
+    _checkEnd: checkEnd, // para las pruebas
   };
 })(window.Aventurs);

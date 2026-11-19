@@ -38,6 +38,12 @@
   function priceOf(npc, id) { return A.NPC.getNpcSellPrice(npc, id) || 0; }
   function sellPrice(data) { return Math.max(1, Math.floor((data.value || 0) / 2)); }
 
+  /** v3.3: los talleres de un habitante (los herreros, si no dicen nada: forja y encantamiento). */
+  function workshopsOf(npc) {
+    if (Array.isArray(npc.crafts)) return npc.crafts;
+    return npc.role === 'blacksmith' ? ['forge', 'enchant'] : [];
+  }
+
   function tabsFor(npc) {
     const p = player();
     const tabs = [{ id: 'talk', label: 'Hablar', icon: 'talk' }];
@@ -46,7 +52,10 @@
       tabs.push({ id: 'sell', label: 'Vender', icon: 'coins' });
     }
     if ((npc.teaches || []).length && p && p.hasMagic) tabs.push({ id: 'learn', label: 'Aprender', icon: 'book' });
-    if (npc.role === 'blacksmith') tabs.push({ id: 'craft', label: 'Forjar', icon: 'anvil' });
+    // v3.3: cada uno con su taller (los herreros, forja y encantamiento; algunos, alquimia)
+    const ws = workshopsOf(npc);
+    if (ws.includes('forge') || ws.includes('enchant')) tabs.push({ id: 'craft', label: ws.includes('forge') ? 'Forjar' : 'Encantar', icon: ws.includes('forge') ? 'anvil' : 'arcane' });
+    if (ws.includes('alchemy')) tabs.push({ id: 'alchemy', label: 'Alquimia', icon: 'potion' });
     if (npc.services && npc.services.restCost != null) tabs.push({ id: 'inn', label: 'Posada', icon: 'tent' });
     return tabs;
   }
@@ -81,6 +90,8 @@
       const cur = curId ? A.Data.getById('weapons', curId) : null;
       const fitC = B.weaponFit(p, cand);
       const fitE = cur ? B.weaponFit(p, cur) : { atk: 0, dmg: 0 };
+      // v3.3: un mago no la puede usar (no es mágica)
+      if (fitC.blocked) return { verdict: 'blocked', lines: [], note: fitC.note, current: cur };
       const avgC = B.avgOf(cand.damage) + fitC.dmg;
       const avgE = cur ? B.avgOf(cur.damage) + fitE.dmg : 1;
       const spC = B.spellPowerOf ? B.spellPowerOf(p, cand) : 0;
@@ -137,6 +148,7 @@
     if (v === 'worse') return `<span class="cmp-badge is-worse" title="Peor que lo que tenés">${U().icon('arrow-down', 14)}<span class="cmp-label">Peor</span></span>`;
     if (v === 'same') return '<span class="cmp-badge is-same">Parecido</span>';
     if (v === 'equipped') return `<span class="cmp-badge is-eq" title="Lo tenés puesto">${U().icon('check', 12)}<span class="cmp-label">Puesto</span></span>`;
+    if (v === 'blocked') return `<span class="cmp-badge is-worse" title="Los magos solo pueden usar armas mágicas">${U().icon('lock', 12)}<span class="cmp-label">No para magos</span></span>`;
     return '';
   }
 
@@ -238,7 +250,7 @@
           if (proc) return `<ul class="effect-list shop-effects"><li>${U().icon(d.statusEffect.type, 14)}<span>${U().esc(proc)}.</span></li></ul>`;
           if (!lines.length) return '';
           const fight = A.ItemFx && A.ItemFx.combatOnly(d);
-          return `<ul class="effect-list shop-effects">${lines.map((l) => `<li>${U().icon(d.subtype === 'accessory' ? 'star' : fight ? 'swords' : 'heal', 14)}<span>${U().esc(l)}</span></li>`).join('')}${fight ? `<li class="dim">${U().icon('swords', 14)}<span>Se usa en combate (gasta tu turno).</span></li>` : ''}</ul>`;
+          return `<ul class="effect-list shop-effects">${lines.map((l) => `<li>${U().icon(d.subtype === 'accessory' ? 'star' : fight ? 'swords' : 'heal', 14)}<span>${U().esc(l)}</span></li>`).join('')}${fight ? `<li class="dim">${U().icon('swords', 14)}<span>Se usa en combate${d.subtype === 'scroll' ? ' (gasta tu turno)' : ''}.</span></li>` : ''}</ul>`;
         })()}
         ${cmp.note && !cmp.lines.length ? `<p class="shop-hint">${U().esc(cmp.note)}</p>` : ''}
         ${cmp.lines.length ? `
@@ -335,19 +347,22 @@
           const known = (p.spells || []).includes(s.id);
           const price = A.NPC.spellPrice(s.id);
           const canPay = A.Currency.canPay(price);
-          const mageOnly = !known && A.Spellbook && A.Spellbook.canLearn ? !!A.Spellbook.canLearn(p, s).mageOnly : false;
+          const why = !known && A.Spellbook && A.Spellbook.canLearn ? A.Spellbook.canLearn(p, s) : {};
+          const mageOnly = !!why.mageOnly;
+          const hybridOnly = !!why.hybridOnly; // v3.3: Segundo aliento
           const cost = A.Passives && A.Passives.spellCost ? A.Passives.spellCost(p, s) : s.manaCost;
-          const what = s.damage ? `${s.damage} de daño${s.area ? ' a todos' : ''}` : s.heal ? `cura ${s.heal}` : '';
+          const what = s.damage ? `${s.damage} de daño${s.area ? ' a todos' : ''}` : s.heal ? `cura ${s.heal}${s.selfOnly ? ' (solo a vos)' : ''}` : '';
           return `
             <div class="learn2-row ${known ? 'is-known' : ''}">
               <span class="learn2-icon">${A.ItemSprites ? A.ItemSprites.spellIcon(s, { size: 36 }) : ''}</span>
               <span class="learn2-info">
                 <span class="learn2-name">${U().esc(s.name)}</span>
-                <span class="learn2-meta">${U().esc(what)} · ${cost} de maná</span>
+                <span class="learn2-meta">${U().esc(what)} · ${cost} de maná${s.cooldown ? ` · cada ${s.cooldown} turnos` : ''}${s.damage ? (s.sure ? ' · no falla' : ' · puede fallar') : ''}</span>
                 <span class="learn2-desc">${U().esc(s.description || '')}</span>
               </span>
               ${known ? `<span class="cmp-badge is-eq">${U().icon('check', 12)}<span>Aprendido</span></span>` : mageOnly ? `
-                <span class="cmp-badge is-worse" title="Los híbridos no pueden aprender los grandes hechizos de área">${U().icon('lock', 12)}<span>Solo magos</span></span>` : `
+                <span class="cmp-badge is-worse" title="Solo los magos pueden aprenderlo (Curación y los grandes hechizos de área)">${U().icon('lock', 12)}<span>Solo magos</span></span>` : hybridOnly ? `
+                <span class="cmp-badge is-worse" title="Solo los híbridos pueden aprenderlo">${U().icon('lock', 12)}<span>Solo híbridos</span></span>` : `
                 <span class="learn2-buy">${U().price(price, 14)}<button class="btn-mini" data-learn="${U().esc(s.id)}" ${canPay ? '' : 'disabled'}>${canPay ? 'Aprender' : 'Sin dinero'}</button></span>`}
             </div>`;
         }).join('')}
@@ -355,12 +370,14 @@
     `;
   }
 
-  function renderCraft() {
+  function renderCraft(npc, only) {
+    // v3.3: en la pestaña de alquimia, solo pociones; en la de forja, lo demás que haga este habitante
+    const ws = workshopsOf(npc);
     const groups = [
-      ['forge', 'Forja', 'anvil'], ['alchemy', 'Alquimia', 'potion'], ['enchant', 'Encantamiento', 'arcane'],
-    ];
+      ['forge', 'Forja', 'anvil', 'Forjar'], ['alchemy', 'Alquimia', 'potion', 'Preparar'], ['enchant', 'Encantamiento', 'arcane', 'Encantar'],
+    ].filter(([w]) => ws.includes(w) && (only === 'alchemy' ? w === 'alchemy' : w !== 'alchemy'));
     const inv = player().inventory || [];
-    const html = groups.map(([w, label, ic]) => {
+    const html = groups.map(([w, label, ic, verb]) => {
       const recipes = A.Crafting.recipesForWorkshop(w);
       if (!recipes.length) return '';
       return `
@@ -383,12 +400,15 @@
                     }).join('')}
                   </span>
                 </span>
-                <button class="btn-mini" data-craft2="${U().esc(r.id)}" ${ok ? '' : 'disabled'}>Forjar</button>
+                <button class="btn-mini" data-craft2="${U().esc(r.id)}" data-craft-tab="${only === 'alchemy' ? 'alchemy' : 'craft'}" ${ok ? '' : 'disabled'}>${verb}</button>
               </div>`;
           }).join('')}
         </div>`;
     }).join('');
-    return `<div class="craft2">${html || '<p class="npc2-note">No hay recetas.</p>'}</div>`;
+    const lead = only === 'alchemy'
+      ? `<p class="npc2-note">${U().esc(npc.name.split(' ')[0])} te prepara pociones con lo que juntes al explorar y viajar (hierbas, flores, hongos).</p>`
+      : '';
+    return `<div class="craft2">${lead}${html || '<p class="npc2-note">No hay recetas.</p>'}</div>`;
   }
 
   function renderInn(npc) {
@@ -442,7 +462,8 @@
     else if (tab === 'buy') body = renderBuy(npc, payload);
     else if (tab === 'sell') body = renderSell(npc);
     else if (tab === 'learn') body = renderLearn(npc);
-    else if (tab === 'craft') body = renderCraft(npc);
+    else if (tab === 'craft') body = renderCraft(npc, 'craft');
+    else if (tab === 'alchemy') body = renderCraft(npc, 'alchemy');
     else if (tab === 'inn') body = renderInn(npc);
 
     const newsHtml = news.map((n) => {
@@ -512,7 +533,7 @@
     }));
     overlay.querySelectorAll('[data-craft2]').forEach((b) => b.addEventListener('click', () => {
       const r = A.Crafting.craft(b.dataset.craft2);
-      if (r.ok) { A.Bus.emit('inventory:changed'); reopen(cur, { tab: 'craft' }); }
+      if (r.ok) { A.Bus.emit('inventory:changed'); reopen(cur, { tab: b.dataset.craftTab || 'craft' }); }
     }));
     overlay.querySelectorAll('[data-inn]').forEach((b) => b.addEventListener('click', () => {
       if (b.dataset.inn === 'sleep') {

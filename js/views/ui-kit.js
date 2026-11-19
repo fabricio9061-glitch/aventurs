@@ -74,13 +74,14 @@
   }
 
   /** Línea de una tirada: [ícono] Fuerza +3 · [D20 12] · 60% */
-  function checkLine(check, tier, bonus) {
+  function checkLine(check, tier, bonus, over) {
     if (!check || !A.Explore) return '';
     const st = A.Explore.STATS[check.stat] || { label: check.stat, icon: 'd20' };
     // v3.1: las de carrera comparan con la criatura; observar antes suma
-    const mod = A.Explore.statMod(check.stat, undefined, check) + (bonus || 0);
+    // v3.3: over = { mod, pct } ya calculados (en grupo: el que tira y la ayuda)
+    const mod = over && over.mod != null ? over.mod : A.Explore.statMod(check.stat, undefined, check) + (bonus || 0);
     const dc = A.Explore.dcFor(check, tier);
-    const pct = Math.round(A.Explore.chanceOf(check, tier, undefined, bonus) * 100);
+    const pct = over && over.pct != null ? over.pct : Math.round(A.Explore.chanceOf(check, tier, undefined, bonus) * 100);
     const cls = pct >= 65 ? 'is-easy' : pct >= 40 ? 'is-mid' : 'is-hard';
     const dcB = A.ItemSprites && A.ItemSprites.dcBadge ? A.ItemSprites.dcBadge(dc, { size: 24, title: `Dificultad: el D20 más tu bonus tiene que llegar a ${dc}` }) : `DC ${dc}`;
     return `<span class="ui-check ${cls}" title="${esc(st.hint || '')}">${icon(st.icon, 16, 'px-soft')}<span>${esc(st.label)} ${mod >= 0 ? '+' : ''}${mod}</span>${dcB}<b>${pct}%</b></span>`;
@@ -91,5 +92,39 @@
     return icon(`biome-${b}`, size || 32) || icon('map', size || 32);
   }
 
-  A.UI = { esc, icon, itemData, itemSprite, price, chip, chips, portrait, questMark, checkLine, biomeIcon };
+  // ---------- v3.3: el parlante del narrador (en escenas, viajes y lugares) ----------
+  function voiceTitle(on) { return on ? 'Apagar la voz del narrador' : 'Que el narrador lea en voz alta'; }
+
+  /** El botón del parlante. Al tocarlo se prende o se apaga la voz (en todas las pantallas). */
+  function voiceToggle(size) {
+    if (!A.Voice || !A.Voice.supported()) return '';
+    const on = A.Voice.isOn();
+    return `<button type="button" class="voice-toggle ${on ? 'is-on' : ''}" data-voice-toggle title="${voiceTitle(on)}" aria-label="${voiceTitle(on)}" aria-pressed="${on ? 'true' : 'false'}">${icon(on ? 'voice' : 'mute', size || 20)}</button>`;
+  }
+
+  function refreshVoiceToggles() {
+    if (typeof document === 'undefined' || !A.Voice) return;
+    const on = A.Voice.isOn();
+    document.querySelectorAll('[data-voice-toggle]').forEach((b) => {
+      const size = Number(b.dataset.size) || 20;
+      b.classList.toggle('is-on', on);
+      b.title = voiceTitle(on);
+      b.setAttribute('aria-label', voiceTitle(on));
+      b.setAttribute('aria-pressed', on ? 'true' : 'false');
+      b.innerHTML = icon(on ? 'voice' : 'mute', size);
+    });
+  }
+
+  if (typeof document !== 'undefined' && document.addEventListener) {
+    document.addEventListener('click', (ev) => {
+      const b = ev.target && ev.target.closest ? ev.target.closest('[data-voice-toggle]') : null;
+      if (!b || !A.Voice) return;
+      ev.preventDefault();
+      ev.stopPropagation();
+      A.Voice.toggle();
+    }, true);
+  }
+  if (A.Bus) A.Bus.on('voice:changed', refreshVoiceToggles);
+
+  A.UI = { esc, icon, itemData, itemSprite, price, chip, chips, portrait, questMark, checkLine, biomeIcon, voiceToggle };
 })(window.Aventurs);

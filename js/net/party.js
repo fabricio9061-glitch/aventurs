@@ -30,7 +30,7 @@
 (function (A) {
   'use strict';
 
-  const VERSION = 4;        // si cambian los mensajes, sube y avisa "actualicen los dos" (v3.2: 4)
+  const VERSION = 5;        // si cambian los mensajes, sube y avisa "actualicen los dos" (v3.2: 4 · v3.3: 5)
   const MAX_MEMBERS = 4;     // v3.2: hasta cuatro jugadores
   const SNAP_MS = 50;       // juntar cambios antes de mandar la foto
   const HERO_MS = 150;      // juntar cambios del invitado antes de mandarlos
@@ -164,7 +164,7 @@
     const list = [me];
     for (const hid of guestsTogether()) {
       const h = A.State.heroById(hid);
-      if (h && h !== me) list.push(h);
+      if (h && h !== me && !h.dead) list.push(h); // v3.3: el que murió ya no va con el grupo
     }
     return list.length > 1 ? list : null;
   }
@@ -325,6 +325,114 @@
     changed();
     sendSnap(hid);
     scheduleSnap(); // v3.2: los demás también lo ven
+  }
+
+  // ============================================================
+  // v3.3: soltar a un compañero en medio de algo
+  //   - huyó de la pelea (los demás siguen peleando);
+  //   - la pelea terminó y el anfitrión había huido o cayó para siempre;
+  //   - murió para siempre (una trampa, el hambre, el dado de rescate).
+  //   Se le manda su héroe como quedó y dónde queda, y sigue por su cuenta.
+  //   keep: que la pantalla del final de la pelea le quede hasta que toque Continuar.
+  // ============================================================
+
+  function release(hid, opts) {
+    const m = P.members[hid];
+    if (!m || hid === P.hostHid || !m.together) return;
+    const o = opts || {};
+    const t = A.State.traveling;
+    const regionId = o.regionId || (t && !t.completed ? t.fromId : (A.State.world ? A.State.world.regionId : null));
+    // lo último que pasó (la tirada para huir, el resultado), antes de soltarlo
+    if (P.peerOf[hid]) sendSnap(hid);
+    m.together = false;
+    m.regionId = regionId;
+    P.dirty[hid] = false;
+    P.sent[hid] = {};
+    const hero = A.State.heroById(hid);
+    if (P.peerOf[hid]) A.Link.send({ t: 'release', hero: plain(hero), regionId, why: o.why || 'fled', keep: !!o.keep }, P.peerOf[hid]);
+    const name = (hero && hero.name) || m.name || 'Tu compañero';
+    if (o.why === 'fled') toast(`${name} huyó de la pelea y sigue por su cuenta.`);
+    else if (o.why === 'dead') toast(`${name} murió. Su aventura terminó.`, 'bad');
+    changed();
+    scheduleSnap();
+  }
+
+  /** (anfitrión) Combat: alguien huyó solo de la pelea del grupo. */
+  function heroFled(hid) {
+    if (!isHost() || !hid) return;
+    // el anfitrión sigue mirando la pelea en su compu; a los demás se los suelta al terminar
+    if (hid === P.hostHid) { changed(); return; }
+    // después de que termine la acción (así la foto lleva la tirada y el héroe al día)
+    setTimeout(() => release(hid, { why: 'fled', keep: true }), 0);
+  }
+
+  /** (anfitrión) Death: un compañero jugado en esta compu murió fuera de una pelea. */
+  function heroDied(hid) {
+    if (!isHost() || !hid || hid === P.hostHid) return;
+    setTimeout(() => release(hid, { why: 'dead' }), 0);
+  }
+
+  /** (anfitrión) Tu héroe murió fuera de una pelea: los compañeros siguen por su cuenta. */
+  function hostDied() {
+    if (!isHost()) return;
+    setTimeout(() => { for (const hid of guestsTogether()) release(hid, { why: 'host-dead' }); }, 0);
+  }
+
+  /** (anfitrión) Al terminar una pelea del grupo: a quién hay que soltar. */
+  function onCombatEnded() {
+    if (!isHost()) return;
+    const c = A.State.combat;
+    if (!c || !c.party || !c.result) return;
+    const me = A.State.me();
+    const fled = c.fledHids || [];
+    const hostOut = fled.includes(P.hostHid) || !!(me && me.dead);
+    for (const hid of c.heroIds || []) {
+      if (hid === P.hostHid || fled.includes(hid)) continue;
+      const h = A.State.heroById(hid);
+      const m = P.members[hid];
+      if (!h || !m || !m.together) continue;
+      if (h.dead) release(hid, { why: 'dead', keep: true, regionId: c.result === 'defeat' ? 'pueblo_inicial' : undefined });
+      else if (hostOut) release(hid, { why: me && me.dead ? 'host-dead' : 'host-fled', keep: true, regionId: c.result === 'defeat' ? 'pueblo_inicial' : undefined });
+    }
+  }
+
+  /** (invitado) El anfitrión te soltó: seguís por tu cuenta con tu héroe como quedó. */
+  function onRelease(msg) {
+    const c = msg.keep && A.State.combat && P.mirror.combatId ? A.State.combat : null;
+    P.together = false;
+    // si queda la pelea en pantalla (su resultado), no se redibuja todo: así se ve el dado
+    exitMirror({ keepCombat: !!c });
+    if (msg.hero) adoptHero(msg.hero);
+    const w = A.State.world;
+    if (msg.regionId && w && A.Data.getById('regions', msg.regionId)) {
+      const from = w.regionId;
+      w.regionId = msg.regionId;
+      if (!Array.isArray(w.visited)) w.visited = [];
+      if (!w.visited.includes(msg.regionId)) w.visited.push(msg.regionId);
+      if (from !== msg.regionId) A.Bus.emitView('region:changed', { fromId: from, toId: msg.regionId });
+    }
+    // la pantalla del final de la pelea queda hasta que toque Continuar
+    if (c) {
+      if (msg.why === 'fled') { c.result = c.result || 'flee'; c.fledAlone = true; }
+      if (msg.why === 'host-fled') c.hostFled = true;
+      A.State.combat = c;
+      A.Bus.emitView('combat:ended', { result: c.result });
+    }
+    const host = hostName();
+    if (msg.why === 'host-fled') {
+      A.State.addChronicle({ type: 'system', text: `${host} huyó de la pelea. Ahora seguís por tu cuenta.` });
+      toast(`${host} huyó de la pelea. Ahora seguís por tu cuenta.`);
+    } else if (msg.why === 'host-dead') {
+      A.State.addChronicle({ type: 'system', text: `${host} murió. Ahora seguís por tu cuenta.` });
+      toast(`${host} murió. Ahora seguís por tu cuenta.`, 'bad');
+    } else if (msg.why === 'fled') {
+      A.State.addChronicle({ type: 'system', text: `Huiste de la pelea del grupo. Seguís por tu cuenta (para volver, tocá "Ir con ${host}" en el grupo cuando terminen).` });
+    }
+    A.State.persist();
+    if (!c && A.Views && A.Views.Shell && A.Views.Shell.rerender) A.Views.Shell.rerender();
+    A.Bus.emitView('player:hp-changed', {});
+    changed();
+    if (A.Death) A.Death.check();
   }
 
   function removeMember(hid, why) {
@@ -581,6 +689,7 @@
         return;
       }
       case 'snap': return applySnap(msg);
+      case 'release': return onRelease(msg); // v3.3
       case 'gift': return receiveGift(msg);
       case 'giftres': return onGiftRes(msg);
       case 'rpcres': {
@@ -717,7 +826,7 @@
     else if (t) A.Bus.emitView('travel:step', {});
   }
 
-  const MIRROR_FIELDS_OPTIONAL = ['passives', 'itemUsed', 'itemSurvivor', 'powerCd', 'targetInstanceId', 'result', 'goneHids', 'fleeAttempts'];
+  const MIRROR_FIELDS_OPTIONAL = ['passives', 'itemUsed', 'itemSurvivor', 'powerCd', 'targetInstanceId', 'result', 'goneHids', 'fleeAttempts', 'fledHids', 'rescue'];
 
   function applyCombat(cs) {
     const cur = A.State.combat;
@@ -795,9 +904,13 @@
     if (n.modal) A.State.openModal(n.modal, n.payload || {});
   }
 
-  /** Sale del modo "espejo": lo compartido se borra y queda el héroe propio como estaba. */
-  function exitMirror() {
-    if (A.State.combat && P.mirror.combatId) A.State.combat = null;
+  /**
+   * Sale del modo "espejo": lo compartido se borra y queda el héroe propio como estaba.
+   * v3.3: opts.keepCombat deja la pelea en pantalla (su resultado) sin redibujar todo.
+   */
+  function exitMirror(opts) {
+    const keep = !!(opts && opts.keepCombat);
+    if (A.State.combat && P.mirror.combatId && !keep) A.State.combat = null;
     if (A.State.ui && A.State.ui.openModal === 'event' && P.mirror.sceneOpen) A.State.closeModal();
     if (A.State.traveling) {
       // si el anfitrión iba viajando, el invitado queda en el lugar de salida
@@ -809,7 +922,7 @@
       for (const hid of Object.keys(A.State.party.heroes)) if (hid !== P.localHid) delete A.State.party.heroes[hid];
     }
     A.State.persist();
-    if (A.Views && A.Views.Shell && A.Views.Shell.rerender) A.Views.Shell.rerender();
+    if (!keep && A.Views && A.Views.Shell && A.Views.Shell.rerender) A.Views.Shell.rerender();
   }
 
   // ---------- Juntos / separados ----------
@@ -1136,6 +1249,8 @@
     for (const ev of ['combat:started', 'combat:action', 'combat:turn', 'combat:ended', 'travel:started', 'travel:step', 'travel:completed', 'travel:cancelled', 'region:changed', 'time:phase-changed']) {
       A.Bus.on(ev, () => scheduleSnap(), SYS);
     }
+    // v3.3: al terminar la pelea, se suelta a los que tienen que seguir solos
+    A.Bus.on('combat:ended', onCombatEnded, SYS);
     A.Bus.on('modal:open', (e) => { if (e && e.id === 'event' && isHost()) P.sceneSeq += 1; scheduleSnap(); }, SYS);
     A.Bus.on('modal:close', () => scheduleSnap(), SYS);
     // Las misiones de "llegar a" también cuentan para el compañero que viaja con vos
@@ -1190,6 +1305,9 @@
     regroup,
     // motor
     combatHeroes,
+    heroFled,  // v3.3
+    heroDied,  // v3.3
+    hostDied,  // v3.3
     pushChronicle,
     notify,
     openRemoteModal,

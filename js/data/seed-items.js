@@ -42,6 +42,10 @@
     { id:'elixir_fuerza', rarity:'rare', name:'Elixir de fuerza', type:'item', subtype:'potion', icon:'🧪', value:50, weight:1,
       effect:{ type:'buff', stat:'damage', amount:2, duration:5 }, stack:99,
       description:'Sabe a hierro. Las manos tiemblan de poder durante un rato.' },
+    // v3.3: la única forma de levantar a un caído en plena pelea
+    { id:'hierba_vida', rarity:'rare', name:'Hierba de la vida', type:'item', subtype:'potion', icon:'', value:45, weight:0,
+      effect:{ type:'revive', pct:0.25 }, stack:20, tier:2,
+      description:'Una hoja dorada que late como un corazón. Puesta en la boca de un caído, lo vuelve a poner de pie.' },
 
     // === v1.7.2: Consumibles y amuletos crafteables con materiales de bioma ===
     { id:'te_de_hierbas', rarity:'uncommon', name:'Té de hierbas', type:'item', subtype:'potion', icon:'🍵', value:19, weight:0,

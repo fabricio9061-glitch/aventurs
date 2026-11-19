@@ -1,5 +1,5 @@
 /* ============================================================
-   Aventurs — Seed: Eventos de exploración (v2.0)
+   Aventurs — Seed: Eventos de exploración (v2.0, v3.3: escenas de grupo)
 
    Cada vez que explorás una zona de combate pasa ALGO: o aparece una
    criatura (y elegís cómo encararla) o te toca una de estas escenas.
@@ -7,6 +7,8 @@
    Modelo de escena:
      id, biomes: ['forest', ...] o ['any'], weight, icon (ícono pixel),
      time: 'night' | 'day' (opcional, v3.1: solo a esa hora),
+     party: true      v3.3: solo cuando van en grupo (los textos van en plural)
+     solo: true       v3.3: solo cuando vas solo
      title, text, options: [opción, opción, (opción)]
 
    Opción:
@@ -14,7 +16,10 @@
      check            { stat, dc } — se tira D20 + tu bonus contra dc.
                       stat: fuerza | agilidad | ingenio | punteria | suerte
                       La dificultad sube sola con el tier de la zona.
-     needs            { coins: m } o { food: n }: lo que cuesta elegirla
+                     v3.3, en grupo: best: true -> la tira el más hábil del grupo;
+                     together: true -> se ayudan: +1 por cada compañero.
+     needs            { coins: m }, { food: n } o { item: id }: lo que cuesta elegirla
+                     (en grupo lo paga el que eligió, y lo que compra es suyo)
      ok / fail        resultado si sale bien o mal (sin check: solo ok)
 
    Resultado:
@@ -22,7 +27,11 @@
      coins: m         monedas (m × lo que suelta un enemigo de la zona)
      items: [[id, min, max], ...]   objetos
      loot: n          n objetos del bioma (hierbas, minerales, etc.)
-     heal / hurt: f   vida (fracción de tu vida máxima; nunca te mata)
+     heal / hurt: f   vida (fracción de tu vida máxima). v3.3: hurt SÍ puede matar
+                      (con poca vida, la escena avisa antes de elegir). En grupo,
+                      lo malo le toca a uno al azar y a cada uno de los demás con
+                      la mitad de chance; lo bueno, a todos.
+     self: true       v3.3: en grupo, todo el resultado es del que eligió
      mana: f          maná (fracción)
      food: n          comida (+ o -)
      xp: m            experiencia (m × lo que da un enemigo de la zona)
@@ -1009,7 +1018,376 @@
     },
   ];
 
+
+  // ============================================================
+  // v3.3: más escenas
+  //   PARTY: solo cuando van en grupo (party: true). Los textos van en plural.
+  //     check.best      la tira el más hábil del grupo para esa tirada
+  //     check.together  se ayudan entre todos: +1 por cada compañero
+  //   NEW33: para todos (solos o en grupo)
+  // ============================================================
+  const LAND = ['forest', 'plains', 'cave', 'swamp', 'hills', 'coast', 'mountain', 'dream', 'desert', 'ruins',
+    'darkwood', 'crypt', 'meadow', 'bloodwood', 'graveyard', 'volcano', 'hell', 'lair'];
+  const OPEN = ['forest', 'plains', 'swamp', 'hills', 'coast', 'mountain', 'meadow', 'darkwood', 'desert', 'dream'];
+
+  const PARTY = [
+    {
+      id: 'g_carro_atascado', biomes: ['plains', 'forest', 'meadow', 'hills', 'swamp'], party: true, weight: 2, icon: 'bag',
+      title: 'Un carro en el barro',
+      text: 'Un comerciante tira de las riendas de su mula, pero el carro está hundido en el barro hasta los ejes. Los mira con cara de súplica.',
+      options: [
+        { label: 'Empujar entre todos', check: { stat: 'fuerza', dc: 14, together: true },
+          ok: { text: 'A la cuenta de tres empujan con todo y el carro sale con un ruido de ventosa. El comerciante les paga y les regala pan.', coins: 3, items: [['pan', 1, 2]], xp: 0.3 },
+          fail: { text: 'El carro se mueve un poco y vuelve a hundirse. Alguno resbala y termina de cara en el barro.', hurt: 0.08, time: 1 } },
+        { label: 'Que el más listo arme una palanca', check: { stat: 'ingenio', dc: 12, best: true },
+          ok: { text: 'Con un tronco y una piedra arman una palanca y la rueda sale sola. El comerciante no lo puede creer y les paga bien.', coins: 3, xp: 0.4 },
+          fail: { text: 'El tronco se parte al primer intento. Pierden un buen rato y el carro sigue ahí.', time: 2 } },
+        { label: 'Seguir de largo',
+          ok: { text: 'Le desean suerte y siguen. Detrás, el comerciante maldice a la mula.' } },
+      ],
+    },
+    {
+      id: 'g_cofre_hierro', biomes: LAND, party: true, weight: 2, icon: 'chest',
+      title: 'Un cofre de hierro',
+      text: 'Entre unas piedras hay un cofre de hierro con una cerradura enorme. Entre dos no lo pueden ni mover.',
+      options: [
+        { label: 'Levantarlo entre todos y romperlo', check: { stat: 'fuerza', dc: 15, together: true },
+          ok: { text: 'Lo levantan entre todos y lo dejan caer sobre una roca. La tapa salta y adentro hay monedas viejas.', coins: 4, loot: 1 },
+          fail: { text: 'El cofre se les resbala de las manos y cae sobre algún pie. La tapa ni se abolla.', hurt: 0.1 } },
+        { label: 'Que el más ágil fuerce la cerradura', check: { stat: 'agilidad', dc: 13, best: true },
+          ok: { text: 'Con dos alambres y mucha paciencia, la cerradura hace clic. Adentro hay monedas y algo envuelto en un trapo.', coins: 4, loot: 1, xp: 0.3 },
+          fail: { text: 'El alambre se rompe adentro de la cerradura. Ahora no se abre ni con la llave.', time: 1 } },
+        { label: 'Dejarlo',
+          ok: { text: 'Un cofre así de pesado no lo dejó nadie por casualidad. Prefieren no averiguar.' } },
+      ],
+    },
+    {
+      id: 'g_fogata', biomes: LAND, party: true, time: 'night', weight: 2, icon: 'campfire',
+      title: 'Una fogata entre todos',
+      text: 'Arman un fuego al reparo de unas piedras. La noche está fría y nadie tiene ganas de dormir todavía.',
+      options: [
+        { label: 'Contar historias', check: { stat: 'ingenio', dc: 12, together: true },
+          ok: { text: 'Cada uno cuenta lo que vio en el camino. Entre historia e historia aparecen trucos que les van a servir.', xp: 0.5, heal: 0.1 },
+          fail: { text: 'Alguien cuenta una historia de fantasmas demasiado buena. Nadie pega un ojo en toda la noche.', time: 1 } },
+        { label: 'Jugar a los dados', check: { stat: 'suerte', dc: 11 },
+          ok: { text: 'Los dados están de su lado: entre risas, les ganan unas monedas a unos viajeros que se acercaron al fuego.', coins: 2 },
+          fail: { text: 'Los viajeros que se acercaron al fuego juegan mejor de lo que parecía. Se van con unas monedas de ustedes.', coins: -1 } },
+        { label: 'Dormir por turnos',
+          ok: { text: 'Hacen guardia de a uno. Todos duermen un poco y amanecen con fuerzas.', heal: 0.25, mana: 0.25, time: 2 } },
+      ],
+    },
+    {
+      id: 'g_ruidos_noche', biomes: LAND, party: true, time: 'night', weight: 2, icon: 'eye',
+      title: 'Ruidos en la oscuridad',
+      text: 'Algo cruje entre los arbustos, cerca de donde acamparon. Puede ser el viento… o puede no serlo.',
+      options: [
+        { label: 'Que vigile el más atento', check: { stat: 'ingenio', dc: 12, best: true },
+          ok: { text: 'Pasa la noche con los ojos abiertos y espanta lo que rondaba tirándole piedras. Los demás duermen tranquilos.', heal: 0.3, mana: 0.3, time: 1 },
+          fail: { text: 'Se le cierran los ojos un segundo. Cuando los abre, ya los tienen rodeados.', fight: { ambush: true } } },
+        { label: 'Salir a buscarlo todos juntos', check: { stat: 'agilidad', dc: 13, together: true },
+          ok: { text: 'Se abren en abanico y lo encuentran antes de que los encuentre a ustedes.', fight: { surprise: true } },
+          fail: { text: 'Hacen tanto ruido que lo que estaba ahí los escucha venir.', fight: {} } },
+        { label: 'Hacerse los dormidos', check: { stat: 'suerte', dc: 12 },
+          ok: { text: 'Lo que fuera se aburre y se va. Al amanecer solo quedan huellas alrededor del fuego.', heal: 0.2 },
+          fail: { text: 'Lo que fuera no se va: se acerca. Y tiene hambre.', fight: { ambush: true } } },
+      ],
+    },
+    {
+      id: 'g_rio_cadena', biomes: ['forest', 'plains', 'swamp', 'meadow', 'hills', 'mountain', 'darkwood'], party: true, weight: 2, icon: 'boot',
+      title: 'Un río que no da pie',
+      text: 'El camino sigue del otro lado de un río crecido. El agua corre rápido y arrastra ramas.',
+      options: [
+        { label: 'Cruzar en cadena, de la mano', check: { stat: 'fuerza', dc: 13, together: true },
+          ok: { text: 'Se agarran fuerte y cruzan paso a paso. Del otro lado, entre risas nerviosas, se dan cuenta de que nadie soltó a nadie.', xp: 0.4 },
+          fail: { text: 'A mitad de camino la cadena se corta y el agua arrastra a alguno contra las piedras antes de que lo alcancen.', hurt: 0.15 } },
+        { label: 'Que el más observador busque un vado', check: { stat: 'ingenio', dc: 12, best: true },
+          ok: { text: 'Río abajo, el agua se abre sobre unas piedras planas. Cruzan sin mojarse más que las botas.', time: 1, xp: 0.3 },
+          fail: { text: 'El vado que parecía firme es puro barro. Cruzan igual, empapados y tarde.', time: 2, food: -1 } },
+        { label: 'Rodear hasta el puente',
+          ok: { text: 'El puente está lejos, pero está seco.', time: 3 } },
+      ],
+    },
+    {
+      id: 'g_puerta_palancas', biomes: ['ruins', 'crypt', 'cave', 'lair'], party: true, weight: 2, icon: 'lock',
+      title: 'Una puerta con cuatro palancas',
+      text: 'Una puerta de piedra cierra el paso. En la pared hay cuatro palancas, demasiado separadas para que una sola persona las mueva.',
+      options: [
+        { label: 'Bajarlas todas a la vez', check: { stat: 'agilidad', dc: 14, together: true },
+          ok: { text: 'A la cuenta de tres bajan las palancas juntas. La puerta se abre y adentro hay ofrendas de otra época.', coins: 4, loot: 1, xp: 0.3 },
+          fail: { text: 'Una palanca baja tarde. De las paredes salen dardos y alguno se lleva un pinchazo.', hurt: 0.12 } },
+        { label: 'Que el más sabio lea las runas', check: { stat: 'ingenio', dc: 14, best: true },
+          ok: { text: 'Las runas dicen el orden: arriba, abajo, abajo, arriba. La puerta se abre sin trampas.', coins: 4, loot: 1, xp: 0.5 },
+          fail: { text: 'Las runas están gastadas y no se entiende nada. Mejor no tocar.', time: 1 } },
+        { label: 'Dejar la puerta cerrada',
+          ok: { text: 'Algunas puertas se cierran por algo. Siguen de largo.' } },
+      ],
+    },
+    {
+      id: 'g_apuesta', biomes: ['plains', 'forest', 'hills', 'meadow', 'coast'], party: true, time: 'day', weight: 2, icon: 'target',
+      title: 'Una apuesta de puntería',
+      text: 'Unos cazadores practican tiro contra un tronco. Al verlos llegar, uno levanta una bolsa de monedas: "¿Quién de ustedes se anima?"',
+      options: [
+        { label: 'Que tire el mejor', check: { stat: 'punteria', dc: 13, best: true },
+          ok: { text: 'Un tiro al centro del tronco. Los cazadores aplauden de mala gana y pagan la apuesta.', coins: 3, xp: 0.2 },
+          fail: { text: 'El tiro se va alto y se pierde entre los árboles. Los cazadores cobran entre risas.', coins: -1 } },
+        { label: 'Tirar todos y sumar', check: { stat: 'punteria', dc: 14, together: true },
+          ok: { text: 'Ninguno da en el centro, pero entre todos llenan el tronco de agujeros. Gana el equipo.', coins: 2, xp: 0.3 },
+          fail: { text: 'Cada uno erra a su manera. Pagan la apuesta y se van con la cara colorada.', coins: -1 } },
+        { label: 'Mirar y seguir',
+          ok: { text: 'Miran un rato. Los cazadores son buenos: mejor no apostar contra ellos.', xp: 0.1 } },
+      ],
+    },
+    {
+      id: 'g_mapa_roto', biomes: OPEN, party: true, weight: 1, icon: 'map',
+      title: 'Un mapa en pedazos',
+      text: 'El viento trae un pedazo de pergamino con un dibujo. Hay más pedazos enganchados en las ramas y desparramados por todos lados.',
+      options: [
+        { label: 'Juntar los pedazos y armarlo entre todos', check: { stat: 'ingenio', dc: 13, together: true },
+          ok: { text: 'Cada uno trae un pedazo y el mapa aparece: marca un escondite a pocos pasos. Ahí hay una bolsa enterrada.', coins: 5, xp: 0.3, time: 1 },
+          fail: { text: 'Falta justo el pedazo del medio. Se quedan con la intriga y un mapa que no sirve.', time: 1 } },
+        { label: 'Que el más ágil trepe por el pedazo más alto', check: { stat: 'agilidad', dc: 12, best: true },
+          ok: { text: 'El pedazo de arriba es el que tiene la cruz. Con eso alcanza: encuentran el escondite.', coins: 4, xp: 0.2 },
+          fail: { text: 'La rama se quiebra y les cae encima a los que miraban desde abajo. El pedazo se vuela.', hurt: 0.1 } },
+      ],
+    },
+    {
+      id: 'g_tormenta', biomes: ['plains', 'hills', 'meadow', 'mountain', 'coast', 'desert', 'forest'], party: true, weight: 2, icon: 'storm',
+      title: 'Se viene la tormenta',
+      text: 'El cielo se pone negro en un rato. Los primeros rayos caen cerca y el viento levanta todo lo que no está atado.',
+      options: [
+        { label: 'Armar un refugio entre todos', check: { stat: 'fuerza', dc: 13, together: true },
+          ok: { text: 'Con las capas y unas ramas arman un techo. Afuera llueve a cántaros; adentro, alguno hasta se duerme.', heal: 0.15, time: 2 },
+          fail: { text: 'El viento se lleva el techo a medio armar. Terminan empapados y golpeados por las ramas.', hurt: 0.1, food: -1, time: 2 } },
+        { label: 'Que el más rápido busque una cueva', check: { stat: 'agilidad', dc: 12, best: true },
+          ok: { text: 'Vuelve corriendo: encontró una cueva seca a pocos minutos. Esperan ahí hasta que pasa.', time: 2, xp: 0.2 },
+          fail: { text: 'No encuentra nada y vuelve empapado. La tormenta los agarra a todos a la intemperie.', hurt: 0.08, time: 2 } },
+        { label: 'Seguir caminando', check: { stat: 'suerte', dc: 12 },
+          ok: { text: 'La tormenta pasa de costado. Apenas se mojan.', xp: 0.1 },
+          fail: { text: 'Un rayo cae tan cerca que los tira al suelo.', hurt: 0.15 } },
+      ],
+    },
+    {
+      id: 'g_bestia_trampa', biomes: ['forest', 'plains', 'hills', 'meadow', 'darkwood', 'mountain'], party: true, weight: 1, icon: 'paw',
+      title: 'Una bestia en una trampa',
+      text: 'Un animal enorme tiene la pata atrapada en una trampa de hierro. Gruñe y tira, pero no puede soltarse.',
+      options: [
+        { label: 'Abrir la trampa entre todos', check: { stat: 'fuerza', dc: 14, together: true },
+          ok: { text: 'Mientras unos la calman, otros abren los dientes de hierro. La bestia los mira, cojea un poco y se pierde en el monte.', xp: 0.6 },
+          fail: { text: 'La trampa se vuelve a cerrar y la bestia, asustada, lanza zarpazos a los que tiene cerca.', hurt: 0.15 } },
+        { label: 'Que el más hábil la calme', check: { stat: 'ingenio', dc: 13, best: true },
+          ok: { text: 'Le habla bajito y despacio hasta que la bestia se queda quieta. Abren la trampa sin un rasguño.', xp: 0.6 },
+          fail: { text: 'La bestia no se calma: se suelta de un tirón y los atropella al escapar.', hurt: 0.12 } },
+        { label: 'Dejarla',
+          ok: { text: 'No es su trampa ni su bestia. Siguen, con los gruñidos a la espalda.' } },
+      ],
+    },
+    {
+      id: 'g_derrumbe', biomes: ['cave', 'mountain', 'hills', 'ruins'], party: true, weight: 2, icon: 'hammer',
+      title: 'Un derrumbe',
+      text: 'Un montón de piedras tapa el paso. Arriba queda un hueco chico, justo para que pase una persona.',
+      options: [
+        { label: 'Mover las piedras entre todos', check: { stat: 'fuerza', dc: 14, together: true },
+          ok: { text: 'Piedra por piedra abren el paso. Del otro lado brilla una veta que el derrumbe dejó a la vista.', items: [['mat_hierro', 1, 1]], xp: 0.3, time: 1 },
+          fail: { text: 'Al sacar una piedra de abajo se vienen otras de arriba. Alguno no se corre a tiempo.', hurt: 0.12, time: 1 } },
+        { label: 'Que el más ágil pase por el hueco', check: { stat: 'agilidad', dc: 13, best: true },
+          ok: { text: 'Se escurre por el hueco y del otro lado encuentra lo que dejaron unos mineros. Les pasa todo por arriba.', loot: 1, coins: 2, xp: 0.3 },
+          fail: { text: 'Se queda trabado a mitad de camino y hay que sacarlo de los pies. Las piedras sueltas les caen encima.', hurt: 0.08, time: 1 } },
+        { label: 'Volver por otro lado',
+          ok: { text: 'Dan la vuelta larga. Llegan tarde, pero llegan.', time: 2 } },
+      ],
+    },
+    {
+      id: 'g_sombras', biomes: ['darkwood', 'graveyard', 'crypt', 'bloodwood', 'ruins'], party: true, time: 'night', weight: 2, icon: 'skull',
+      title: 'Las sombras se mueven',
+      text: 'Las sombras de los árboles se estiran hacia ustedes aunque no corre viento. Algo se arrastra entre ellas.',
+      options: [
+        { label: 'Hacer un círculo de antorchas', check: { stat: 'ingenio', dc: 13, together: true },
+          ok: { text: 'Espalda con espalda y fuego para afuera. Las sombras retroceden y al rato se quedan quietas.', xp: 0.5 },
+          fail: { text: 'Una antorcha se apaga y por ese hueco se mete lo que esperaba.', fight: { ambush: true } } },
+        { label: 'Que el más valiente vaya adelante', check: { stat: 'fuerza', dc: 12, best: true },
+          ok: { text: 'Va al frente con el arma en alto y lo que se arrastraba no se anima. Pasan sin que nadie los toque.', xp: 0.4 },
+          fail: { text: 'Lo que se arrastraba no le tiene miedo a nadie.', fight: {} } },
+        { label: 'Atacar primero', check: { stat: 'agilidad', dc: 12 },
+          ok: { text: 'Se tiran todos juntos contra la sombra más oscura. La agarran desprevenida.', fight: { surprise: true } },
+          fail: { text: 'La sombra se corre y aparece detrás de ustedes.', fight: { ambush: true } } },
+      ],
+    },
+  ];
+
+  const NEW33 = [
+    {
+      id: 'arbol_hueco', biomes: ['forest', 'darkwood', 'meadow', 'dream'], weight: 2, icon: 'herb',
+      title: 'Un árbol hueco',
+      text: 'Un roble viejo tiene un hueco a la altura del pecho. Adentro algo brilla.',
+      options: [
+        { label: 'Meter la mano', check: { stat: 'suerte', dc: 11 },
+          ok: { text: 'Sacás una bolsita de cuero con monedas. Alguien la escondió hace mucho.', coins: 3, loot: 1 },
+          fail: { text: 'Adentro hay un nido de avispas. Sacás la mano a tiempo, pero no entera.', hurt: 0.1 } },
+        { label: 'Pinchar con una rama primero', check: { stat: 'ingenio', dc: 12 },
+          ok: { text: 'Con la rama sacás la bolsita sin meter la mano. Las avispas del fondo ni se enteran.', coins: 3, xp: 0.2 },
+          fail: { text: 'La rama se engancha y la bolsita cae más al fondo del hueco.', time: 1 } },
+        { label: 'Seguir',
+          ok: { text: 'Un brillo en un árbol puede ser cualquier cosa. Seguís tu camino.' } },
+      ],
+    },
+    {
+      id: 'ermitano', biomes: ['mountain', 'forest', 'hills', 'swamp', 'darkwood'], weight: 1, icon: 'talk',
+      title: 'La choza del ermitaño',
+      text: 'Entre los árboles hay una choza torcida con humo en la chimenea. Un viejo de barba larga te mira desde la puerta.',
+      options: [
+        { label: 'Escuchar sus historias', check: { stat: 'ingenio', dc: 12 },
+          ok: { text: 'Habla horas de las criaturas de la zona. Entre tanta palabra, aprendés trucos que valen oro.', xp: 0.7, time: 1 },
+          fail: { text: 'Habla horas, pero de su gato. Se te hace tarde.', time: 2 } },
+        { label: 'Pedirle algo de comer',
+          ok: { text: 'Te sirve una sopa espesa y te llena la bolsa de raíces.', food: 2, heal: 0.15, time: 1 } },
+        { label: 'Saludar de lejos',
+          ok: { text: 'El viejo te devuelve el saludo y cierra la puerta.' } },
+      ],
+    },
+    {
+      id: 'pozo_deseos', biomes: LAND, weight: 1, icon: 'coin',
+      title: 'Un pozo de los deseos',
+      text: 'Un pozo de piedra cubierto de musgo. En el fondo, el agua brilla de monedas. Un cartel gastado dice: "Pedí con el corazón".',
+      options: [
+        { label: 'Tirar una moneda y pedir', needs: { coins: 1 }, check: { stat: 'suerte', dc: 12 },
+          ok: { text: 'La moneda cae sin ruido. Un calor suave te sube por el cuerpo: algo te escuchó.', coins: -1, heal: 0.3, mana: 0.3, xp: 0.3 },
+          fail: { text: 'La moneda rebota en el borde y se hunde. Nada. Por lo menos lo intentaste.', coins: -1 } },
+        { label: 'Pescar monedas del fondo', check: { stat: 'agilidad', dc: 13 },
+          ok: { text: 'Con una soga y un gancho sacás un puñado de monedas mohosas. Nadie te vio… ¿o sí?', coins: 3 },
+          fail: { text: 'Te asomás demasiado y caés al agua helada. Salís temblando y con las manos vacías.', hurt: 0.1, food: -1 } },
+        { label: 'Seguir',
+          ok: { text: 'Los deseos, mejor cumplirlos uno mismo.' } },
+      ],
+    },
+    {
+      id: 'perro_perdido', biomes: ['plains', 'forest', 'meadow', 'hills', 'coast'], weight: 2, icon: 'paw',
+      title: 'Un perro perdido',
+      text: 'Un perro flaco con collar de cuero te sigue a unos pasos. Cuando te das vuelta, se sienta y mueve la cola.',
+      options: [
+        { label: 'Seguir el rastro de dónde vino', check: { stat: 'ingenio', dc: 11 },
+          ok: { text: 'Siguiendo las huellas llegás a una granja. La dueña llora de alegría y te da de comer y unas monedas.', coins: 2, food: 2, xp: 0.3, time: 1 },
+          fail: { text: 'Las huellas se pierden en un arroyo. El perro se cansa de esperar y se va por su cuenta.', time: 1 } },
+        { label: 'Darle algo de comer', needs: { food: 1 },
+          ok: { text: 'Se lo come en un segundo. Después te lleva hasta un pozo donde había enterrado un hueso… y una bolsita.', food: -1, coins: 2, loot: 1 } },
+        { label: 'Espantarlo',
+          ok: { text: 'Le gritás "¡fuera!" y se va con la cola entre las patas. Te sentís un poco mal.' } },
+      ],
+    },
+    {
+      id: 'restos_aventurero', biomes: ['cave', 'crypt', 'ruins', 'mountain', 'desert', 'lair'], weight: 2, icon: 'skull',
+      title: 'Los restos de un aventurero',
+      text: 'Contra la pared hay un esqueleto con la armadura oxidada. Todavía abraza su mochila.',
+      options: [
+        { label: 'Revisar la mochila', check: { stat: 'suerte', dc: 11 },
+          ok: { text: 'Entre trapos podridos hay monedas, una poción sana y algo más envuelto en cuero.', coins: 3, items: [['pocion_curacion_menor', 1, 1]], loot: 1 },
+          fail: { text: 'De la mochila sale una araña del tamaño de una mano. Te pica antes de escaparse.', hurt: 0.12 } },
+        { label: 'Leer su diario', check: { stat: 'ingenio', dc: 12 },
+          ok: { text: 'Las últimas páginas cuentan qué lo mató. Ahora sabés qué evitar.', xp: 0.6 },
+          fail: { text: 'La tinta se borró con la humedad. Solo se lee un nombre.' } },
+        { label: 'Darle sepultura',
+          ok: { text: 'Lo cubrís con piedras y le dejás la espada encima. Te sentís en paz.', xp: 0.3, heal: 0.1, time: 1 } },
+      ],
+    },
+    {
+      id: 'bayas_silvestres', biomes: ['forest', 'meadow', 'plains', 'hills', 'dream'], weight: 2, icon: 'food',
+      title: 'Arbustos cargados de bayas',
+      text: 'Un claro lleno de arbustos con bayas rojas y moradas. Algunas parecen ricas; otras, sospechosas.',
+      options: [
+        { label: 'Probar las que parecen buenas', check: { stat: 'ingenio', dc: 11 },
+          ok: { text: 'Elegís bien: son dulces y llenan. Te guardás un montón para el camino.', food: 3 },
+          fail: { text: 'Una de las moradas te cae como una piedra. Pasás un rato feo.', hurt: 0.08, food: 1 } },
+        { label: 'Juntar solo las rojas',
+          ok: { text: 'Las rojas no fallan nunca. Juntás un puñado.', food: 2, time: 1 } },
+      ],
+    },
+    {
+      id: 'hierba_que_brilla', biomes: ['meadow', 'dream', 'forest'], weight: 1, icon: 'heal',
+      title: 'Una hierba que brilla',
+      text: 'Entre el pasto crece una hierba de hojas plateadas que brilla apenas. Dicen que puede levantar a un caído.',
+      options: [
+        { label: 'Arrancarla con raíz y todo', check: { stat: 'agilidad', dc: 13 },
+          ok: { text: 'Cavás despacio con los dedos y sale entera. La guardás envuelta en un trapo húmedo.', items: [['hierba_vida', 1, 1]], xp: 0.2 },
+          fail: { text: 'Se te rompe la raíz y la hierba se apaga en tus manos. Te queda una hierba común.', items: [['hierba_silvestre', 1, 1]] } },
+        { label: 'Buscar más alrededor', check: { stat: 'ingenio', dc: 12 },
+          ok: { text: 'Donde hay una, hay otras: encontrás varias plantas que sirven.', loot: 2 },
+          fail: { text: 'Mirás y mirás. Solo pasto.', time: 1 } },
+      ],
+    },
+    {
+      id: 'pozo_tapado', biomes: LAND, weight: 2, icon: 'trap',
+      title: 'Ramas que no encajan',
+      text: 'En medio del sendero hay un montón de ramas acomodadas demasiado prolijas. Debajo se adivina un hueco.',
+      options: [
+        { label: 'Bajar a ver qué hay', check: { stat: 'agilidad', dc: 12 },
+          ok: { text: 'Bajás con cuidado. En el fondo de la trampa hay cosas que se les cayeron a otros.', coins: 3, loot: 1 },
+          fail: { text: 'Las paredes de tierra ceden y caés de golpe sobre estacas viejas.', hurt: 0.2 } },
+        { label: 'Desarmar la trampa', check: { stat: 'ingenio', dc: 11 },
+          ok: { text: 'Tapás el pozo con piedras para que no caiga nadie más. Bien hecho.', xp: 0.4 },
+          fail: { text: 'Mientras la desarmás, la tierra se hunde bajo tus pies.', hurt: 0.12 } },
+        { label: 'Rodearla',
+          ok: { text: 'Das un rodeo grande. Mejor no tentar a la suerte.', time: 1 } },
+      ],
+    },
+    {
+      id: 'cazadores_de_paso', biomes: ['forest', 'plains', 'hills', 'darkwood', 'meadow'], weight: 2, icon: 'campfire',
+      title: 'Cazadores de paso',
+      text: 'Unos cazadores asan carne alrededor de un fuego. Te hacen un lugar sin preguntar de dónde venís.',
+      options: [
+        { label: 'Compartir el fuego',
+          ok: { text: 'Comés carne caliente y escuchás historias. Te vas con la panza llena.', food: 2, heal: 0.15, time: 1 } },
+        { label: 'Preguntar por la zona', check: { stat: 'ingenio', dc: 10 },
+          ok: { text: 'Te dibujan en el suelo dónde están las madrigueras y por dónde no ir.', xp: 0.4 },
+          fail: { text: 'Hablan tan rápido y tan cerrado que no entendés nada.' } },
+        { label: 'Comprarles carne seca', needs: { coins: 2 },
+          ok: { text: 'Te venden carne seca envuelta en hojas.', coins: -2, items: [['carne_seca', 2, 3]] } },
+      ],
+    },
+    {
+      id: 'mina_abandonada', biomes: ['mountain', 'hills', 'cave'], weight: 2, icon: 'hammer',
+      title: 'Una mina abandonada',
+      text: 'Una boca de mina tapada a medias con tablas podridas. Las vigas de adentro crujen con el viento.',
+      options: [
+        { label: 'Entrar a buscar mineral', check: { stat: 'ingenio', dc: 13 },
+          ok: { text: 'Siguiendo las vetas viejas encontrás pedazos de hierro que los mineros dejaron.', items: [['mat_hierro', 1, 2]], loot: 1 },
+          fail: { text: 'Una viga cede y te cae una lluvia de piedras encima.', hurt: 0.2 } },
+        { label: 'Picar en la entrada', check: { stat: 'fuerza', dc: 12 },
+          ok: { text: 'A golpes sacás un poco de mineral de la pared de la entrada.', items: [['mat_hierro', 1, 1]] },
+          fail: { text: 'La piedra es dura y te quedan las manos temblando.', hurt: 0.05, time: 1 } },
+        { label: 'Seguir',
+          ok: { text: 'Las minas viejas tienen fama de no devolver a nadie.' } },
+      ],
+    },
+    {
+      id: 'altar_manchado', biomes: ['hell', 'volcano', 'bloodwood', 'crypt', 'graveyard'], weight: 1, icon: 'skull',
+      title: 'Un altar manchado',
+      text: 'Sobre una piedra negra hay un cuenco con restos secos. Alrededor hay algo grabado: "Sangre por poder".',
+      options: [
+        { label: 'Ofrecer tu sangre',
+          ok: { text: 'Te cortás la palma y dejás caer unas gotas. El cuenco las bebe y algo se te enciende adentro.', hurt: 0.12, mana: 0.6, xp: 0.4, self: true } },
+        { label: 'Romper el altar', check: { stat: 'fuerza', dc: 13 },
+          ok: { text: 'El altar se parte en dos. Debajo había monedas ofrendadas hace siglos.', coins: 4, xp: 0.3 },
+          fail: { text: 'La piedra no se rompe y del cuenco sale un humo que quema la garganta.', hurt: 0.1 } },
+        { label: 'Alejarte',
+          ok: { text: 'Hay poderes que es mejor no deber.' } },
+      ],
+    },
+    {
+      id: 'brillo_en_el_agua', biomes: ['coast', 'swamp', 'forest', 'plains', 'meadow'], weight: 2, icon: 'coin',
+      title: 'Algo brilla en el agua',
+      text: 'En el fondo de un charco grande, entre el barro, brilla algo redondo y dorado.',
+      options: [
+        { label: 'Meterte a buscarlo', check: { stat: 'agilidad', dc: 11 },
+          ok: { text: 'Era una moneda de oro de verdad. Y al lado había otra.', coins: 4 },
+          fail: { text: 'El barro te chupa la bota y, cuando la sacás, algo te mordió el tobillo.', hurt: 0.1 } },
+        { label: 'Pescarlo con un palo', check: { stat: 'punteria', dc: 12 },
+          ok: { text: 'Con paciencia lo arrimás a la orilla. Es una moneda vieja, pero vale.', coins: 2, xp: 0.1 },
+          fail: { text: 'Lo empujás más al fondo. Adiós, moneda.' } },
+      ],
+    },
+  ];
+
   A.Seed = A.Seed || {};
-  A.Seed.events = EVENTS.concat(MORE.filter((m) => !EVENTS.some((e) => e.id === m.id)));
+  const ALL = EVENTS.concat(MORE.filter((m) => !EVENTS.some((e) => e.id === m.id)));
+  A.Seed.events = ALL.concat(NEW33, PARTY).filter((e, i, list) => list.findIndex((x) => x.id === e.id) === i);
   A.Seed.creaturePlaces = CREATURE_PLACES;
 })(window.Aventurs);

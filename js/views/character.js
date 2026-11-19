@@ -24,6 +24,8 @@
     gnomo: '#4a6ab0', alienigena: '#7a58b0', infernal: '#b8382a', angel: '#e0c060',
     // v3.0
     vampiro: '#9a2a3a', minotauro: '#8a5a2a', hada: '#c070c0',
+    // v3.3
+    licantropo: '#7a6a5a', elfo_oscuro: '#6a4a9a', driade: '#5a9a4a',
   };
 
   const GROUPS = [
@@ -38,12 +40,13 @@
   const TYPE_KIT = {
     get hybrid() {
       const t = T(); const on = t.hybridManaOnHit || 1; const every = t.hybridManaEvery || 0;
-      return `Usa cualquier arma sin problema. Cada golpe con arma que acierta le devuelve ${on} de maná${every > 0 ? ` (${on + 1} desde el nivel ${every + 1})` : ''}. Fuera de eso, el maná no le vuelve solo.`;
+      return `Usa cualquier arma sin problema. Cada golpe con arma que acierta le devuelve ${on} de maná${every > 0 ? ` (${on + 1} desde el nivel ${every + 1})` : ''}. Fuera de eso, el maná no le vuelve solo. Puede aprender Segundo aliento: se cura a sí mismo (a los demás los curan los magos).`;
     },
     get warrior() {
       return `Golpe fuerte: doble daño, una vez cada 5 turnos. Maestría: +1 de daño con cualquier arma (+2 desde el nivel 5) y +1 de precisión con armas pesadas. Gana ${(T().hpPerLevel || {}).warrior || 7} de vida por nivel, más que nadie.`;
     },
-    mage: 'Vive de la magia. Las armas pesadas le quitan 3 de precisión, y es el más frágil de todos.',
+    // v3.3: solo armas mágicas, y Curación es solo para ellos
+    mage: 'Vive de la magia y solo usa armas mágicas (varitas, bastones, cetros). Es el más frágil de todos, pero solo los magos aprenden Curación.',
   };
   /** El texto de la clase para esta raza (al mago se le suma lo que le cuesta Curación, con su descuento si tiene). */
   function kitText(type, race) {
@@ -52,7 +55,7 @@
     const cura = A.Data.getById('spells', 'curacion');
     if (!cura) return base;
     const cost = A.Passives && A.Passives.spellCost ? A.Passives.spellCost({ raceId: race.id, level: 1 }, cura) : cura.manaCost;
-    return `${base} Curación le cuesta ${cost} de maná.`;
+    return `${base} Curación le cuesta ${cost} de maná y se usa cada ${cura.cooldown || 1} turnos.`;
   }
 
   /** v2.1: el hechizo con el que nace la raza y cuánto maná recupera. */
@@ -74,7 +77,7 @@
           <span class="cc-passive-name">${esc(spell.name)}</span>
           <span class="cc-passive-text">${esc(what)}</span>
           ${race.combatType === 'hybrid' && !regen ? '' /* v3.1: lo cuenta el texto de la clase, abajo */ : `<span class="cc-passive-text cc-regen">${regen
-            ? `Recupera maná solo: +${regen.turn} por turno${T().mageRegenEvery > 0 ? ` (+1 más desde el nivel ${T().mageRegenEvery + 1})` : ''} y ${Math.round(regen.win * 100)}% al ganar.`
+            ? `Recupera maná solo: +${A.Balance.regenLabel(regen.turn)} por turno${regen.turn % 1 ? ' en promedio' : ''}${T().mageRegenEvery > 0 ? ` (+1 más desde el nivel ${T().mageRegenEvery + 1})` : ''} y ${Math.round(regen.win * 100)}% al ganar.`
             : 'No recupera maná solo: pociones o dormir.'}</span>`}
         </span>
       </div>`;
@@ -214,7 +217,10 @@
     const diet = A.Survival && A.Survival.dietOf ? A.Survival.dietOf(race.id) : null;
     const food = diet && diet.startText ? diet.startText : 'algo de comida';
     const eats = diet ? `<span class="cc-diet" title="${esc(A.Survival.describeDiet(race.id))}">Come: ${esc(diet.label.toLowerCase())}${diet.only ? ' (nada más)' : ''}.</span> ` : '';
-    return `${eats}Empieza con daga, túnica de cuero, dos pociones y ${esc(food)}.`;
+    // v3.3: cada raza con su arma; los magos, con varita
+    const w = A.Data.getById('weapons', race.startWeapon) || A.Data.getById('weapons', race.combatType === 'mage' ? 'varita' : 'daga');
+    const wName = w ? w.name.toLowerCase() : 'daga';
+    return `${eats}Empieza con ${esc(wName)}, túnica de cuero, dos pociones y ${esc(food)}.${race.combatType === 'mage' ? ' Los magos solo usan armas mágicas.' : ''}`;
   }
 
   /** v3.1: lo que suma al explorar un personaje nuevo de esta raza (Fuerza, Agilidad...). */
@@ -223,7 +229,7 @@
     const fake = {
       raceId: race.id, level: 1, hasMagic: magic, effects: [],
       stats: { speed: st.speed, precision: st.precision, armor: st.armor, damage: st.damage, dodge: st.dodge },
-      equipment: { weapon: 'daga', armor: 'tunica_cuero', accessory: null },
+      equipment: { weapon: race.startWeapon || 'daga', armor: 'tunica_cuero', accessory: null },
     };
     let list = [];
     try { list = A.Explore.sheet(fake, { noHunger: true }); } catch (e) { return ''; }

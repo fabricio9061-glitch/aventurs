@@ -189,7 +189,14 @@
     return Math.max(T.STEPS_MIN, Math.min(T.STEPS_MAX, steps));
   }
 
+  /** v3.3: el héroe de esta compu murió (la pantalla de muerte está por salir). */
+  function heroDead() {
+    const me = A.State.me ? A.State.me() : State().player;
+    return !!(me && me.dead);
+  }
+
   function start(targetId) {
+    if (heroDead()) return { ok: false, error: 'Tu aventura terminó.' };
     // v1.8.0: devolver el motivo real (nivel, items, ya viajando, sin camino)
     const check = canTravelToDetailed(targetId);
     if (!check.ok) {
@@ -228,6 +235,8 @@
   function step() {
     const t = State().traveling;
     if (!t || t.completed) return { ok: false, error: 'No hay viaje activo.' };
+    // v3.3: si moriste en el camino, el viaje no sigue
+    if (heroDead()) return { ok: false, error: 'Tu aventura terminó.' };
 
     t.currentStep += 1;
 
@@ -353,6 +362,7 @@
       { itemId: 'flor_silvestre',   weight: 40, qty: [1, 3], msg: 'Flores que crecen más altas que vos.' },
       { itemId: 'fragmento_hueso_antiguo', weight: 30, qty: [1, 1], msg: 'Un hueso gigante, del tamaño de un brazo.' },
       { itemId: 'espiga_dorada',    weight: 30, qty: [1, 4], msg: 'Espigas doradas que nadie cosechó.' },
+      { itemId: 'hierba_vida',      weight: 4,  qty: [1, 1], msg: 'Entre las flores altas, una hoja dorada que late: una hierba de la vida.' },
     ],
     darkwood: [
       { itemId: 'mat_hongo_rojo',   weight: 35, qty: [1, 2], msg: 'Hongos rojos al pie de un árbol muerto.' },
@@ -369,6 +379,7 @@
     grove: [
       { itemId: 'mat_hierba_curativa', weight: 50, qty: [1, 2], msg: 'Hierba curativa que los druidas dejan crecer.' },
       { itemId: 'flor_silvestre',      weight: 50, qty: [1, 2], msg: 'Flores alrededor de las piedras.' },
+      { itemId: 'hierba_vida',         weight: 8,  qty: [1, 1], msg: 'Entre las raíces del roble, una hoja dorada que late. ¡Una hierba de la vida!' },
     ],
     pirate: [
       { itemId: 'ron_anejo',        weight: 30, qty: [1, 1], msg: 'Una botella de ron olvidada en un barril.' },
@@ -389,6 +400,7 @@
       { itemId: 'hierba_silvestre', weight: 40, qty: [1, 3], msg: 'Recogiste hierbas silvestres del suelo.' },
       { itemId: 'baya_negra',       weight: 35, qty: [1, 4], msg: 'Encontraste un arbusto con bayas negras maduras.' },
       { itemId: 'pluma_extraña',    weight: 8,  qty: [1, 1], msg: 'Una pluma de colores raros tirada en el camino.' },
+      { itemId: 'hierba_vida',      weight: 3,  qty: [1, 1], msg: 'Una hoja dorada que late entre los helechos: una hierba de la vida.' },
       { itemId: 'mat_pluma',        weight: 17, qty: [1, 2], msg: 'Plumas comunes en el suelo.' },
     ],
     plains: [
@@ -520,11 +532,12 @@
     if (!opts.solo && inGroup()) {
       const got = giveItemsToGroup(entry.itemId, qty);
       if (!got.length) return { kind: 'narrative', icon: '', text: `Vieron ${itemData.name.toLowerCase()} en el camino, pero no le entra a nadie en la mochila.`, biome };
-      const total = got.reduce((a, g) => a + g.qty, 0);
+      // v3.3: cada uno encuentra lo suyo
+      const all = got.length === travelers().length;
       return {
-        kind: 'biome_loot', itemId: entry.itemId, itemName: itemData.name, icon: '', qty: total, biome,
+        kind: 'biome_loot', itemId: entry.itemId, itemName: itemData.name, icon: '', qty, biome,
         split: got.map((g) => ({ hid: A.State.hidOf(g.hero), name: g.hero.name, qty: g.qty })),
-        text: `${entry.msg} (${itemData.name} ×${total}: ${got.map((g) => `${g.hero.name} ${g.qty}`).join(', ')})`,
+        text: `${entry.msg} (${itemData.name} ×${qty} ${all ? 'para cada uno' : `para ${got.map((g) => g.hero.name).join(' y ')}`})`,
       };
     }
 
@@ -559,7 +572,7 @@
     // v3.2: en grupo, cada uno su parte
     if (inGroup()) {
       const each = giveCoinsToGroup(amount);
-      return { kind: 'minor_loot', amount: each, each: true, text: `Encontraron ${A.Currency.formatPrice(amount)} en el camino: ${A.Currency.formatPrice(each)} para cada uno.` };
+      return { kind: 'minor_loot', amount: each, each: true, text: `Cada uno encuentra ${A.Currency.formatPrice(each)} en el camino.` };
     }
     A.Currency.add(amount);
     return {
@@ -574,8 +587,10 @@
     const target = A.Data.getById('regions', t.toId);
     // v1.8.0: si el destino es seguro, la criatura sale de la región de origen
     const sourceId = target && target.type === 'combat' ? t.toId : t.fromId;
-    const group = A.Encounter.generate(sourceId);
+    let group = A.Encounter.generate(sourceId);
     if (!group || group.length === 0) return null;
+    // v3.3: en grupo ya vienen las que se suman por ser más: el cartel dice exactamente cuáles son
+    if (A.Combat && A.Combat.prepareGroup) group = A.Combat.prepareGroup(group);
 
     // El primer enemigo del grupo determina el ícono y nombre principales
     const main = group[0];
@@ -793,7 +808,7 @@
       // v3.2: en grupo, cada uno su parte
       if (group) {
         const each = giveCoinsToGroup(amount);
-        return { kind: 'minor_loot', amount: each, each: true, text: `Encontraron ${A.Currency.formatPrice(amount)} escondidos: ${A.Currency.formatPrice(each)} para cada uno.` };
+        return { kind: 'minor_loot', amount: each, each: true, text: `Cada uno encuentra ${A.Currency.formatPrice(each)} escondidos.` };
       }
       A.Currency.add(amount);
       return {
@@ -809,7 +824,7 @@
       if (!item) return null;
       if (group) {
         const got = giveItemsToGroup(ev.reward, 1);
-        if (got.length) return { kind: 'find', text: `Encontraron: ${item.name}. Se lo queda ${got[0].hero.name}.`, reward: ev.reward, to: A.State.hidOf(got[0].hero) };
+        if (got.length) return { kind: 'find', text: `Encontraron: ${item.name}, uno para ${got.length === travelers().length ? 'cada uno' : got.map((g) => g.hero.name).join(' y ')}.`, reward: ev.reward };
         return { kind: 'narrative', text: `Encontraron algo (${item.name}) pero no le entra a nadie en la mochila.` };
       }
       const ok = A.State.addItem(ev.reward, 1);
@@ -817,21 +832,33 @@
       return { kind: 'narrative', text: `Encontraste algo (${item.name}) pero no entró en la mochila.` };
     }
     if (type === 'damage') {
-      // v3.2: en grupo les toca a todos (y en el camino no se muere nadie del grupo)
+      // v3.3: las trampas del camino pueden matar (ver A.Death)
+      const hurt = (h, dmg, flavor) => {
+        const hit = () => A.State.withHero(h, () => A.State.damagePlayer(dmg));
+        if (A.Death) A.Death.during('trap', { text: `${flavor}. No volviste a levantarte.` }, hit); else hit();
+      };
       if (group) {
-        const hits = travelers().map((h) => {
-          const roll = A.Utils.rollDice(ev.amount || '1d4');
-          const dmg = Math.max(0, Math.min(roll, (h.hp || 0) - 1));
-          if (dmg > 0) A.State.withHero(h, () => A.State.damagePlayer(dmg));
-          return { hero: h, dmg };
-        });
+        // v3.3: no a todos: a algunos al azar
         const flavor = ev.effect || 'Algo los lastimó';
-        return { kind: 'event_damage', text: `${flavor}. Les toca a todos: ${hits.map((x) => `${x.hero.name} -${x.dmg}`).join(', ')} de salud.`, dmg: Math.max(0, ...hits.map((x) => x.dmg)), group: true };
+        const hits = unluckyTravelers().map((h) => {
+          const dmg = Math.max(0, Math.min(A.Utils.rollDice(ev.amount || '1d4'), h.hp || 0));
+          if (dmg > 0) hurt(h, dmg, ev.effect || 'Algo te lastimó');
+          return { hero: h, dmg, dead: !!h.dead };
+        });
+        const dead = hits.filter((x) => x.dead).map((x) => x.hero.name);
+        return {
+          kind: 'event_damage',
+          text: `${flavor}. ${hits.length > 1 ? 'Les toca a' : 'Le toca a'} ${hits.map((x) => `${x.hero.name} (-${x.dmg})`).join(', ')}.${dead.length ? ` ${dead.length > 1 ? `${dead.slice(0, -1).join(', ')} y ${dead[dead.length - 1]}` : dead[0]} no se ${dead.length > 1 ? 'levantan' : 'levanta'} más.` : ''}`,
+          dmg: Math.max(0, ...hits.map((x) => x.dmg)),
+          group: true,
+        };
       }
-      const dmg = A.Utils.rollDice(ev.amount || '1d4');
-      A.State.damagePlayer(dmg);
+      const p = State().player;
+      const dmg = Math.max(0, Math.min(A.Utils.rollDice(ev.amount || '1d4'), p.hp || 0));
       const flavor = ev.effect || 'Algo te lastimó';
-      return { kind: 'event_damage', text: `${flavor}. -${dmg} de salud.`, dmg };
+      if (dmg > 0) hurt(p, dmg, flavor);
+      const low = p.hp > 0 && p.hp <= Math.max(3, Math.round(p.maxHp * 0.3)) ? ' Te queda poca vida: otra trampa te puede matar. Descansá o tomá una poción.' : '';
+      return { kind: 'event_damage', text: `${flavor}. -${dmg} de salud.${p.hp <= 0 ? ' No volviste a levantarte.' : low}`, dmg };
     }
     if (type === 'heal') {
       if (group) {
@@ -863,28 +890,25 @@
   }
   function inGroup() { return travelers().length > 1; }
 
-  /** Un hallazgo en grupo: de a uno, por turnos (si a uno no le entra, al siguiente). Devuelve [{ hero, qty }]. */
+  /** v3.3: un hallazgo en grupo: cada uno encuentra lo suyo (al que no le entra, se queda sin). Devuelve [{ hero, qty }]. */
   function giveItemsToGroup(itemId, qty) {
-    const list = travelers();
-    const got = list.map(() => 0);
-    let turn = Math.floor(Math.random() * list.length);
-    for (let q = 0; q < qty; q++) {
-      for (let tries = 0; tries < list.length; tries++) {
-        const i = (turn + tries) % list.length;
-        if (A.State.withHero(list[i], () => A.State.addItem(itemId, 1))) { got[i] += 1; break; }
-      }
-      turn += 1;
+    const out = [];
+    for (const h of travelers()) {
+      if (A.State.withHero(h, () => A.State.addItem(itemId, qty))) out.push({ hero: h, qty });
     }
-    return list.map((hero, i) => ({ hero, qty: got[i] })).filter((x) => x.qty > 0);
+    return out;
   }
 
-  /** Monedas en grupo: cada uno su parte (con el premio chico de ir en grupo). Devuelve lo de cada uno. */
+  /** v3.3: monedas en grupo: cada uno se lleva lo mismo que si viajara solo. */
   function giveCoinsToGroup(total) {
-    const list = travelers();
-    const share = A.Balance && A.Balance.partyShare ? A.Balance.partyShare(list.length) : 1 / list.length;
-    const each = Math.max(1, Math.round(total * share));
-    for (const h of list) A.State.withHero(h, () => A.Currency.add(each));
-    return each;
+    for (const h of travelers()) A.State.withHero(h, () => A.Currency.add(total));
+    return total;
+  }
+
+  /** v3.3: lo malo del camino le toca a uno al azar seguro y a cada uno de los demás con la mitad de chance. */
+  function unluckyTravelers() {
+    if (A.Explore && A.Explore.unlucky) return A.Explore.unlucky(travelers());
+    return travelers();
   }
 
   /**

@@ -9,7 +9,7 @@
    la suerte.
 
    Uso (desde la carpeta del proyecto):
-     node tools/equilibrio.js                        -> las 15 razas (tarda unos minutos)
+     node tools/equilibrio.js                        -> las 18 razas (tarda unos minutos)
      node tools/equilibrio.js --rapido               -> la cuarta parte de las rachas
      node tools/equilibrio.js --razas=robot,enano    -> solo esas razas
      node tools/equilibrio.js --guardar=antes.json   -> guarda los resultados en un archivo
@@ -138,7 +138,7 @@ function promedios(filas) {
 
 /**
  * Revisa las metas. Devuelve una lista de { ok, texto }.
- * Las metas de clase (distancias y "abajo de su clase") solo valen con las 15 razas:
+ * Las metas de clase (distancias y "abajo de su clase") solo valen con todas las razas:
  * con menos, el promedio no representa a la clase. Para eso, `deClase: false`.
  */
 function revisar(filas, { deClase = true } = {}) {
@@ -228,7 +228,7 @@ function principal() {
   console.log('');
   const todas = !razas;
   for (const r of revisar(filas, { deClase: todas })) console.log(`${r.ok ? '  ok   ' : '  FALLA'} ${r.texto}`);
-  if (!todas) console.log('  (las metas de cada clase se revisan solo con las 15 razas: sin --razas)');
+  if (!todas) console.log('  (las metas de cada clase se revisan solo con todas las razas: sin --razas)');
   if (escala < 1) console.log(`  (con menos rachas el azar pesa más: cada número puede moverse unos ${escala <= 0.25 ? 4 : 3} puntos)`);
   console.log(`\nTardó ${Math.round((Date.now() - t0) / 1000)} segundos.`);
 

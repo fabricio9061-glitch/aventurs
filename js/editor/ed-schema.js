@@ -50,6 +50,7 @@
       heal: 'Cura vida', mana: 'Da maná', food: 'Quita el hambre', cure: 'Cura un estado', cleanse: 'Limpia todo lo malo', restore: 'Vida y maná al máximo',
       buff: 'Mejora por unos turnos', damage: 'Daño a enemigos', stun: 'Deja sin turno', curse: 'Maldice (baja precisión y defensa)',
       survivor: 'Salva de la muerte una vez', escape: 'Escapar de una pelea',
+      revive: 'Levanta a un caído (en la pelea)',
     },
     BUFF: {
       damage: 'Daño', precision: 'Precisión', armor: 'Armadura', defense: 'Defensa (esquivar)', speed: 'Velocidad', regen: 'Vida por turno',
@@ -117,7 +118,7 @@
     F.num('xp', 'Experiencia', { step: 0.5, min: 0, max: 20, help: '1 = lo que da una pelea de la zona.' }),
     F.num('loot', 'Botín de la zona', { min: 0, max: 5, help: 'Cuántas cosas del botín del bioma te llevás.' }),
     F.pct('heal', 'Cura', { help: '% de tu vida máxima.' }),
-    F.pct('hurt', 'Te lastima', { help: '% de tu vida máxima. Nunca te mata.' }),
+    F.pct('hurt', 'Te lastima', { help: '% de tu vida máxima. Si te deja en 0, morís (v3.3).' }),
     F.pct('mana', 'Maná', { help: '% de tu maná máximo.' }),
     F.num('food', 'Comida', { min: -10, max: 20, help: 'Positivo llena, negativo da hambre.' }),
     F.num('time', 'Pasa el tiempo', { min: 0, max: 3, help: 'Momentos del día que pasan.' }),
@@ -233,6 +234,10 @@
           F.num('weight', 'Qué tan seguido', { min: 1, max: 5, help: '1 = rara, 5 = muy común.' }),
           F.chips('biomes', 'Dónde pasa', () => [{ value: 'any', label: 'Cualquier lugar' }, ...biomeOpts()], { exclusive: ['any'], help: 'En qué paisajes puede aparecer al explorar.' }),
           F.refs('regions', 'Solo en estos lugares', 'regions', { filter: (r) => r.type === 'combat', add: 'Elegir lugares', help: 'Opcional. Si elegís lugares, la escena sale solo ahí (y no por paisaje).' }),
+          F.sel('time', 'Cuándo sale', [{ value: '', label: 'Siempre' }, { value: 'day', label: 'Solo de día' }, { value: 'night', label: 'Solo de noche' }]),
+          // v3.3: escenas para grupos o para cuando vas solo
+          F.tog('party', 'Solo en grupo', { on: 'Sí: los textos van en plural', off: 'No', help: 'Las de grupo pueden pedir que tire el más hábil o que se ayuden entre todos.' }),
+          F.tog('solo', 'Solo cuando vas solo', { on: 'Sí', off: 'No', when: (d) => !d.party }),
           F.area('text', 'Lo que pasa', { rows: 4, placeholder: 'Ej: Entre los arbustos hay un cofre cubierto de musgo.' }),
         ] },
         { title: 'Opciones', help: 'Lo que puede elegir el jugador (de 1 a 4).', fields: [
@@ -241,6 +246,8 @@
             F.present('check', 'Tirada', () => ({ stat: 'fuerza', dc: 12 }), { on: 'Tira el dado', off: 'Sale bien siempre' }),
             F.sel('check.stat', 'Habilidad', () => Object.keys(A.Explore.STATS).map((k) => ({ value: k, label: A.Explore.STATS[k].label })), { when: (d, o) => o && o.check }),
             F.num('check.dc', 'Dificultad', { min: 4, max: 22, when: (d, o) => o && o.check, help: (d, v) => Ed.panels.dcHelp(v) }),
+            F.tog('check.best', 'En grupo, la tira el más hábil', { when: (d, o) => o && o.check && d.party }),
+            F.tog('check.together', 'En grupo, se ayudan (+1 por compañero)', { when: (d, o) => o && o.check && d.party }),
             F.num('needs.food', 'Pide comida', { min: 0, max: 10 }),
             F.num('needs.coins', 'Pide monedas', { min: 0, max: 10, step: 0.5, help: '1 = un puñado según la zona.' }),
             F.group('ok', 'Si sale bien', outcomeFields, { wide: true }),
@@ -252,8 +259,11 @@
       normalize: (d) => {
         if (!Array.isArray(d.biomes) || !d.biomes.length) d.biomes = ['any'];
         if (Array.isArray(d.regions) && !d.regions.length) delete d.regions;
+        for (const k of ['time', 'party', 'solo']) if (!d[k]) delete d[k];
+        if (d.party) delete d.solo;
         for (const o of d.options || []) {
           if (!o.check) delete o.fail;
+          if (o.check) { if (!o.check.best || !d.party) delete o.check.best; if (!o.check.together || !d.party) delete o.check.together; }
           if (o.needs) { for (const k of Object.keys(o.needs)) if (!o.needs[k]) delete o.needs[k]; if (!Object.keys(o.needs).length) delete o.needs; }
           for (const r of [o.ok, o.fail]) {
             if (!r) continue;
@@ -494,6 +504,7 @@
           F.sel('effect.type', 'Qué hace', opts(L.EFFECT), { when: (d) => !!d.effect }),
           F.dice('effect.amount', 'Cuánto', { when: (d) => d.effect && (['mana', 'food', 'buff', 'curse'].includes(d.effect.type) || (d.effect.type === 'heal' && !d.effect.pct)) }),
           F.pct('effect.pct', 'O una parte de la vida', { when: (d) => d.effect && ['heal', 'cleanse'].includes(d.effect.type), help: 'Si lo llenás, cura ese % de la vida máxima en vez de los dados.' }),
+          F.pct('effect.pct', 'Con cuánta vida se levanta', { when: (d) => d.effect && d.effect.type === 'revive', help: 'Parte de la vida máxima del caído (v3.3: hierba de la vida).' }),
           F.tog('effect.pet', 'También a la mascota', { on: 'Sí, y la despierta', off: 'Solo a vos', when: (d) => d.effect && d.effect.type === 'heal' }),
           F.sel('effect.status', 'Qué cura', opts(L.STATUS), { when: (d) => d.effect && d.effect.type === 'cure' }),
           F.sel('effect.stat', 'Qué mejora', opts(L.BUFF), { when: (d) => d.effect && d.effect.type === 'buff' }),
@@ -664,17 +675,21 @@
           F.num('manaCost', 'Maná que cuesta', { min: 0, max: 40 }),
           F.ref('racial', 'De nacimiento de', 'races', { none: 'Nadie (se aprende)', help: 'Si es de una raza, no se vende ni se enseña.' }),
           F.tog('mageOnly', 'Solo para magos', { on: 'Sí, los híbridos no lo pueden aprender', off: 'No, también los híbridos', when: (d) => !d.racial }),
+          F.tog('hybridOnly', 'Solo para híbridos', { on: 'Sí, los magos no lo pueden aprender', off: 'No', when: (d) => !d.racial && !d.mageOnly }),
+          F.num('cooldown', 'Espera entre usos', { min: 0, max: 9, help: 'Turnos que hay que esperar para volver a usarlo (0 = sin espera).' }),
           F.area('description', 'Descripción', { rows: 2 }),
         ] },
         { title: 'Efecto', fields: [
-          F.dice('damage', 'Daño', { help: 'Los hechizos no fallan. Se suma tu magia.' }),
+          F.dice('damage', 'Daño', { help: 'Tira el dado como un arma (+2): puede fallar y con 20 es crítico. Se suma tu magia.' }),
+          F.tog('sure', 'Nunca falla', { on: 'Sí, siempre pega (no tira el dado)', off: 'No, tira el dado', when: (d) => !!d.damage }),
           F.dice('heal', 'Curación', { help: 'Se suma la mitad de tu magia.' }),
+          F.tog('selfOnly', 'Cura solo a quien lo lanza', { on: 'Sí, no se le puede tirar a otro', off: 'No, también a compañeros y mascotas', when: (d) => !!d.heal }),
           F.tog('area', 'Le pega a todos', { on: 'Sí, a todos los enemigos', off: 'No, a uno' }),
           F.num('selfHeal', 'Además te cura', { min: 0, max: 20 }),
           ...statusFields('statusEffect'),
         ] },
       ],
-      normalize: (d) => { if (!d.racial) delete d.racial; if (!d.selfHeal) delete d.selfHeal; if (!d.mageOnly) delete d.mageOnly; },
+      normalize: (d) => { for (const k of ['racial', 'selfHeal', 'mageOnly', 'hybridOnly', 'cooldown', 'sure', 'selfOnly']) if (!d[k]) delete d[k]; if (d.mageOnly) delete d.hybridOnly; },
     },
   ];
 

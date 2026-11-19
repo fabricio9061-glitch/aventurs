@@ -32,13 +32,34 @@
       result:'cuero_reforzado', workshop:'forge', tier:2,
       description:'Placas de cuero con remaches de hierro. Más resistencia.' },
 
-    { id:'r_pocion_curacion_menor', name:'Preparar poción de curación menor', ingredients:[{itemId:'mat_piel_lobo',qty:1},{itemId:'mat_madera',qty:1}],
+    // === v3.3: alquimia (la preparan Maela, Velrith, Sylveth y Orsolya) ===
+    { id:'r_pocion_curacion_menor', name:'Preparar poción de curación menor', ingredients:[{itemId:'hierba_silvestre',qty:2},{itemId:'flor_silvestre',qty:1}],
       result:'pocion_curacion_menor', workshop:'alchemy', tier:1,
-      description:'Hierbas y grasa de lobo, hervidas con paciencia.' },
+      description:'Hierbas del camino y una flor, hervidas con paciencia.' },
 
-    { id:'r_antidoto', name:'Preparar antídoto', ingredients:[{itemId:'mat_veneno',qty:1},{itemId:'mat_madera',qty:1}],
+    { id:'r_pocion_curacion', name:'Preparar poción de curación', ingredients:[{itemId:'mat_hierba_curativa',qty:2},{itemId:'hierba_silvestre',qty:1}],
+      result:'pocion_curacion', workshop:'alchemy', tier:2,
+      description:'La hierba curativa de los druidas hace el trabajo fuerte.' },
+
+    { id:'r_pocion_curacion_mayor', name:'Preparar poción de curación mayor', ingredients:[{itemId:'mat_hierba_curativa',qty:3},{itemId:'rosa_carmesi',qty:1}],
+      result:'pocion_curacion_mayor', workshop:'alchemy', tier:5,
+      description:'La rosa carmesí la vuelve espesa y roja oscura.' },
+
+    { id:'r_pocion_mana_menor', name:'Preparar poción de maná menor', ingredients:[{itemId:'flor_silvestre',qty:2},{itemId:'hongo_luminoso',qty:1}],
+      result:'pocion_mana_menor', workshop:'alchemy', tier:1,
+      description:'El hongo que brilla en las cuevas tiñe el agua de azul.' },
+
+    { id:'r_pocion_mana', name:'Preparar poción de maná', ingredients:[{itemId:'cristal_mana',qty:1},{itemId:'flor_silvestre',qty:2}],
+      result:'pocion_mana', workshop:'alchemy', tier:3,
+      description:'Un cristal de maná molido, disuelto en flores.' },
+
+    { id:'r_hierba_vida', name:'Preparar hierba de la vida', ingredients:[{itemId:'hierba_silvestre',qty:4},{itemId:'flor_silvestre',qty:3}],
+      result:'hierba_vida', workshop:'alchemy', tier:2,
+      description:'Muchas hierbas para una sola hoja dorada. Levanta a un caído en plena pelea.' },
+
+    { id:'r_antidoto', name:'Preparar antídoto', ingredients:[{itemId:'hierba_silvestre',qty:2},{itemId:'hongo_pantanoso',qty:1}],
       result:'antidoto', workshop:'alchemy', tier:2,
-      description:'Veneno destilado contra veneno. Paradoja útil.' },
+      description:'El hongo del pantano corta el veneno. Amargo, pero sirve.' },
 
     { id:'r_espada_larga', name:'Forjar espada larga', ingredients:[{itemId:'mat_hierro',qty:4},{itemId:'mat_madera',qty:1},{itemId:'mat_cuero',qty:1}],
       result:'espada_larga', workshop:'forge', tier:4,

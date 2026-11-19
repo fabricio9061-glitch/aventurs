@@ -78,7 +78,7 @@ function setLevel(G, p, level) {
     // (los hechizos de raza son solo de su raza)
     // v2.5: respetando quién puede aprender cada uno (los grandes de área, solo magos)
     for (const s of A.Data.spells) {
-      if ((s.tier || 1) > level || s.racial || p.spells.includes(s.id)) continue;
+      if ((s.tier || 1) > level || s.racial || s.fromScroll || p.spells.includes(s.id)) continue; // v3.3: los de pergamino se compran
       if (A.Spellbook && A.Spellbook.canLearn && !A.Spellbook.canLearn(p, s).ok) continue;
       p.spells.push(s.id);
     }
@@ -100,7 +100,8 @@ function gearForLevel(G, p) {
     if (type === 'hybrid' && w.magic) s += 0.5;
     return s;
   };
-  const weapons = A.Data.weapons.filter((w) => ok(w) && (p.hasMagic ? true : !w.magic));
+  // v3.3: los magos solo usan armas mágicas; las armas de raza no se compran
+  const weapons = A.Data.weapons.filter((w) => ok(w) && !w.starter && (p.hasMagic ? true : !w.magic) && (type !== 'mage' || w.magic));
   weapons.sort((a, b) => score(b) - score(a));
   const armors = A.Data.armors.filter(ok).sort((a, b) => (b.tier - a.tier) || (b.defense - a.defense));
   if (lvl > 1) {
@@ -162,14 +163,17 @@ function playerAI(G) {
       const it = A.Data.getById('items', s.itemId);
       return it && it.subtype === 'potion' && it.effect && it.effect.type === 'heal';
     });
-    if (pot) { A.Combat.playerUseItem(pot.itemId); return; }
+    // v3.3: las pociones no gastan el turno (hasta 3): si se pudo, después sigue jugando
+    if (pot && A.Combat.playerUseItem(pot.itemId)) return;
   }
   // Curación propia si queda poca vida (v3.1: o si dos golpes fuertes te tumban,
   // como haría alguien con poca vida: antes se curaba tarde y caía con maná de sobra)
   const maxHit = alive.reduce((m, e) => Math.max(m, A.Utils.diceRange ? A.Utils.diceRange(String(e.damage || '1d4')).max : 6), 0);
   const danger = p.hp <= maxHit * 2 && p.hp < p.maxHp * 0.7;
+  // v3.3: los hechizos con espera no siempre están listos
+  const ready = (s) => !A.Combat.spellInfo || A.Combat.spellInfo(s.id).ready;
   if (p.hasMagic && (p.hp < p.maxHp * 0.45 || danger)) {
-    const heal = A.Combat.availableSpells().find((s) => s.heal && p.mana >= cost(s));
+    const heal = A.Combat.availableSpells().find((s) => s.heal && p.mana >= cost(s) && ready(s));
     if (heal) { A.Combat.playerSpell(heal.id); return; }
   }
   // Apuntar al enemigo con menos vida
@@ -192,11 +196,13 @@ function playerAI(G) {
     const healSpell = A.Combat.availableSpells().find((s) => s.heal);
     const reserve = healSpell ? cost(healSpell) : 0;
     for (const s of A.Combat.availableSpells()) {
-      if (!s.damage || p.mana < cost(s)) continue;
+      if (!s.damage || p.mana < cost(s) || !ready(s)) continue;
       const each = Math.max(1, avg(s.damage) + power - Math.floor(arm / 2));
       const finishes = weakest && each >= weakest.hp && alive.length === 1;
       if (p.mana - cost(s) < reserve && !finishes && !(s.area && alive.length > 1)) continue;
-      const ev = each * (s.area ? alive.length : 1);
+      // v3.3: los hechizos de daño pueden fallar (y con 20 hacen el doble)
+      const sHit = s.sure ? 1 : (A.Combat.spellInfo ? A.Combat.spellInfo(s.id).hit : 1);
+      const ev = each * (s.area ? alive.length : 1) * (s.sure ? 1 : sHit + 0.05);
       if (!best || ev > best.ev) best = { s, ev };
     }
   }

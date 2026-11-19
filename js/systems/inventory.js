@@ -42,7 +42,18 @@
    * Equipa un item del inventario.
    * Si ya hay algo equipado en ese slot, lo devuelve al inventario.
    */
+  /** v3.3: por qué no lo podés equipar ('' si podés). */
+  let lastError = '';
+  function cantEquipWhy(itemId) {
+    const p = A.State.player;
+    if (!p) return '';
+    if (classifyItem(itemId) !== 'weapon' || !A.Balance || !A.Balance.canWield) return '';
+    const r = A.Balance.canWield(p, resolveData(itemId));
+    return r.ok ? '' : r.why;
+  }
+
   function equip(itemId) {
+    lastError = '';
     const p = A.State.player;
     if (!p) return false;
 
@@ -52,6 +63,12 @@
     // Verificar que está en el inventario
     const slot = p.inventory.find((s) => s.itemId === itemId);
     if (!slot) return false;
+    // v3.3: los magos solo usan armas mágicas
+    const why = cantEquipWhy(itemId);
+    if (why) {
+      lastError = why;
+      return false;
+    }
 
     const slotName = kind;
     if (!p.equipment) p.equipment = { weapon: null, armor: null, accessory: null };
@@ -111,7 +128,22 @@
     if (!p.inventory.find((s) => s.itemId === itemId)) return false;
 
     // Pergamino que enseña hechizo
-    if (item.subtype === 'scroll_spell') {
+    if (item.subtype === 'scroll_spell') return learn(itemId);
+
+    // Bolsa: la equipa y consume el item
+    return useRest(p, item, itemId);
+  }
+
+  /**
+   * v3.3: aprender el hechizo de un pergamino (los de hechizo y muchos de combate).
+   * El pergamino se gasta. Devuelve true si lo aprendió.
+   */
+  function learn(itemId) {
+    const p = A.State.player;
+    if (!p) return false;
+    const item = A.Data.getById('items', itemId);
+    if (!item || !p.inventory.find((s) => s.itemId === itemId)) return false;
+    {
       const spellId = item.teachesSpell;
       if (!spellId) return false;
       if (!p.hasMagic) {
@@ -147,7 +179,9 @@
       A.State.persist();
       return true;
     }
+  }
 
+  function useRest(p, item, itemId) {
     // Bolsa: la equipa y consume el item
     if (item.subtype === 'bag') {
       const newBagId = item.equipsBag;
@@ -231,6 +265,9 @@
   A.Inventory = {
     classifyItem,
     resolveData,
+    cantEquipWhy, // v3.3
+    lastError: () => lastError,
+    learn,        // v3.3
     equip,
     unequip,
     use,

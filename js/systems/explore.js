@@ -134,6 +134,40 @@
     return Math.max(1, Math.min(19, 21 - need)) / 20;
   }
 
+  /** v3.3: en grupo, quién tira y cuánto suma la ayuda.
+   *  check.best: la tira el más hábil del grupo · check.together: +1 por cada compañero. */
+  function partyRoll(check, sc, p) {
+    p = p || player();
+    const out = { roller: p, extra: (sc && sc.bonus) || 0, best: false, help: 0 };
+    if (!check || !sc || !sc.party) return out;
+    const hs = groupHeroes();
+    if (hs.length < 2) return out;
+    if (check.best) {
+      const score = (h) => statMod(check.stat, h, check);
+      out.roller = hs.slice().sort((a, b) => (score(b) - score(a)) || (a === p ? -1 : b === p ? 1 : 0))[0];
+      out.best = true;
+    }
+    if (check.together) { out.help = hs.length - 1; out.extra += out.help; }
+    return out;
+  }
+
+  /** v3.3: lo que ven todos en las opciones de grupo (quién tira, la ayuda y la chance):
+   *  lo calcula el anfitrión y viaja con la escena. */
+  function tagPartyOptions(sc) {
+    if (!sc || !sc.party) return;
+    for (const o of sc.options || []) {
+      if (!o.check || !(o.check.best || o.check.together)) { delete o.party; continue; }
+      const pr = partyRoll(o.check, sc);
+      o.party = {
+        hid: pr.best ? A.State.hidOf(pr.roller) : null,
+        name: pr.best ? pr.roller.name : null,
+        help: pr.help,
+        mod: statMod(o.check.stat, pr.roller, o.check) + pr.extra,
+        pct: Math.round(chanceOf(o.check, sc.tier, pr.roller, pr.extra) * 100),
+      };
+    }
+  }
+
   function roll(check, tier, p, bonus) {
     const dc = dcFor(check, tier);
     const mod = statMod(check.stat, p, check) + (bonus || 0);
@@ -240,8 +274,14 @@
     }
     if (out.hurt) {
       const amount = out.hurtFlat ? out.hurt : Math.max(1, Math.round(p.maxHp * out.hurt));
-      const real = Math.min(amount, Math.max(0, p.hp - 1)); // nunca te mata
-      if (real > 0) { A.State.setHp(p.hp - real); chips.push({ kind: 'hurt', value: real }); }
+      // v3.3: las trampas y los golpes de las escenas sí pueden matar (antes te dejaban con 1)
+      const real = Math.min(amount, Math.max(0, p.hp));
+      if (real > 0) {
+        const hit = () => A.State.setHp(p.hp - real);
+        const text = ctx.title ? `En «${ctx.title}» te quedaste sin fuerzas y no volviste a levantarte.` : '';
+        if (A.Death) A.Death.during('trap', { text }, hit); else hit();
+        chips.push({ kind: 'hurt', value: real });
+      }
     }
     if (out.mana && p.hasMagic) {
       const before = p.mana;
@@ -268,49 +308,41 @@
   }
 
   /**
-   * v3.2: en grupo, lo bueno se reparte y lo malo les toca a todos.
-   *   - Monedas y experiencia: cada uno su parte (Balance.partyShare(n)).
-   *   - Objetos y hallazgos: uno por uno, por turnos (empieza uno al azar).
-   *   - Vida, maná y comida (para bien o para mal) y perder monedas: a cada uno.
+   * v3.3: en grupo cada uno gana lo suyo y lo malo le toca a algunos.
+   *   - Monedas, experiencia, objetos y hallazgos: cada uno se lleva lo mismo
+   *     que si estuviera solo (antes se repartía y en grupos grandes no se avanzaba).
+   *   - Lo malo (herida, perder monedas o comida): a uno al azar seguro, y a cada
+   *     uno de los demás con la mitad de chance (A.Explore.unlucky).
+   *   - Lo bueno que no se lleva (curarse, maná, comer): a todos.
    *   - Lo que se gasta (la comida que se le tira a una bestia): el que eligió.
+   *   - Lo que se paga (needs: monedas o comida): el que eligió, y lo que compró es suyo.
+   *   - out.self: todo es del que eligió (un sacrificio, un trato personal).
    * Devuelve { chips (las del que eligió), group: [{ hid, name, chips }] }.
    */
   function applyGroupOutcome(out, ctx = {}) {
     const heroes = groupHeroes();
     const chooser = player();
     if (heroes.length <= 1 || !out) return { chips: applyOutcome(out, ctx), group: null };
-    const n = heroes.length;
+    if (out.self) {
+      const chips = applyOutcome(out, ctx);
+      return { chips, group: [{ hid: A.State.hidOf(chooser), name: chooser.name, chips }] };
+    }
     const tier = ctx.tier || 1;
-    const share = A.Balance && A.Balance.partyShare ? A.Balance.partyShare(n) : 1 / n;
+    const paid = ctx.paid || {};
     const per = heroes.map(() => ({}));
-    const base = {};
-    for (const k of ['heal', 'healFlat', 'hurt', 'hurtFlat', 'mana', 'food']) if (out[k] != null) base[k] = out[k];
-    per.forEach((o) => Object.assign(o, base));
-    if (typeof out.coins === 'number' && out.coins > 0) {
-      const total = out.coinsFlat ? out.coins : Math.round(coinUnit(tier) * out.coins * (0.8 + Math.random() * 0.4));
-      const each = Math.max(1, Math.round(total * share));
-      per.forEach((o) => { o.coins = each; o.coinsFlat = true; });
-    } else if (typeof out.coins === 'number' && out.coins < 0) {
-      per.forEach((o) => { o.coins = out.coins; o.coinsFlat = out.coinsFlat; });
-    }
-    if (out.xp) {
-      const total = out.xpFlat ? out.xp : Math.max(1, Math.round(xpUnit(tier) * out.xp));
-      const each = Math.max(1, Math.round(total * share));
-      per.forEach((o) => { o.xp = each; o.xpFlat = true; });
-    }
-    let turn = rnd(n);
-    for (const it of out.items || []) {
-      const [id, min, max] = it;
-      const qty = (min || 0) + rnd(Math.max(0, (max || min || 1) - (min || 0)) + 1);
-      for (let q = 0; q < qty; q++) {
-        const o = per[turn % n];
-        turn += 1;
-        o.items = o.items || [];
-        const row = o.items.find((r) => r[0] === id);
-        if (row) { row[1] += 1; row[2] += 1; } else o.items.push([id, 1, 1]);
-      }
-    }
-    for (let i = 0; i < (out.loot || 0); i++) { const o = per[turn % n]; turn += 1; o.loot = (o.loot || 0) + 1; }
+    const bad = new Set(unlucky(heroes));
+    per.forEach((o, i) => {
+      const h = heroes[i];
+      const me = h === chooser;
+      for (const k of ['heal', 'healFlat', 'mana']) if (out[k] != null) o[k] = out[k];
+      if (out.food != null && (out.food > 0 ? !paid.food || me : (paid.food ? me : bad.has(h)))) o.food = out.food;
+      if (out.hurt != null && bad.has(h)) { o.hurt = out.hurt; o.hurtFlat = out.hurtFlat; }
+      if (typeof out.coins === 'number' && (out.coins > 0 ? !paid.coins || me : (paid.coins ? me : bad.has(h)))) { o.coins = out.coins; o.coinsFlat = out.coinsFlat; }
+      if (out.xp) { o.xp = out.xp; o.xpFlat = out.xpFlat; }
+      if (out.items && (!(paid.coins || paid.food) || me)) o.items = out.items.map((it) => it.slice());
+      if (out.loot) o.loot = out.loot;
+    });
+    void tier;
     const ci = Math.max(0, heroes.indexOf(chooser));
     if (out.consume) per[ci].consume = out.consume;
     const group = heroes.map((h, i) => {
@@ -323,6 +355,17 @@
       group[ci].chips.push({ kind: 'time', value: out.time });
     }
     return { chips: group[ci].chips, group };
+  }
+
+  /**
+   * v3.3: a quiénes les toca lo malo en grupo: uno al azar seguro y cada uno de los
+   * demás con la mitad de chance. Así no siempre le toca a todos ni siempre al mismo.
+   */
+  function unlucky(heroes) {
+    const list = (heroes || []).slice();
+    if (list.length <= 1) return list;
+    const first = list.splice(rnd(list.length), 1)[0];
+    return [first].concat(list.filter(() => Math.random() < 0.5));
   }
 
   /** Texto corto de una ficha, para las crónicas. */
@@ -367,10 +410,13 @@
     // v2.2: una escena puede ser de zonas puntuales (regions) además de biomas
     // v3.1: algunas escenas son solo de noche o solo de día
     const night = A.Time && A.Time.isNight ? A.Time.isNight() : false;
+    // v3.3: algunas escenas son solo para grupos (party: true) y otras solo para cuando vas solo (solo: true)
+    const group = inGroup();
     const fits = all.filter((e) => (Array.isArray(e.regions) && e.regions.length
       ? e.regions.includes(region.id)
       : (e.biomes || ['any']).some((b) => b === 'any' || b === region.biome))
-      && (!e.time || e.time === 'any' || (e.time === 'night') === night));
+      && (!e.time || e.time === 'any' || (e.time === 'night') === night)
+      && (!e.party || group) && (!e.solo || !group));
     const fresh = fits.filter((e) => !recent.has(e.id));
     return fresh.length ? fresh : fits;
   }
@@ -601,6 +647,11 @@
   }
 
   /** Escena de un evento del bioma. */
+  /** v3.3: ¿alguna opción de la escena termina en pelea? */
+  function sceneCanFight(sc) {
+    return (sc.options || []).some((o) => ['ok', 'fail'].some((k) => o[k] && o[k].fight));
+  }
+
   function eventScene(region, ev) {
     return {
       kind: 'event',
@@ -612,6 +663,7 @@
       text: ev.text,
       options: JSON.parse(JSON.stringify(ev.options || [])),
       stage: 'choose',
+      plural: !!ev.party, // v3.3: las escenas de grupo ya están contadas en plural
     };
   }
 
@@ -661,12 +713,19 @@
     const pool = eventsFor(region);
     if (hasEnemies && (Math.random() < 0.45 || !pool.length)) {
       const group = A.Encounter.generate(region.id);
-      if (group && group.length) return creatureScene(region, group);
+      // v3.3: en grupo, la escena ya cuenta las que se suman por ser más (y dice cuántas son)
+      if (group && group.length) return creatureScene(region, A.Combat && A.Combat.prepareGroup ? A.Combat.prepareGroup(group) : group);
     }
     if (pool.length) {
       const ev = weightedPick(pool);
       remember(ev.id);
-      return eventScene(region, ev);
+      const sc = eventScene(region, ev);
+      // v3.3: en grupo, si la escena puede terminar en pelea, se sabe de antemano contra qué
+      if (inGroup() && hasEnemies && sceneCanFight(sc)) {
+        const foes = A.Encounter.generate(region.id);
+        if (foes && foes.length) sc.foes = A.Combat && A.Combat.prepareGroup ? A.Combat.prepareGroup(foes) : foes;
+      }
+      return sc;
     }
     return null;
   }
@@ -683,6 +742,7 @@
   /** Explorar la zona actual: siempre abre una escena. */
   function explore() {
     if (!canExplore()) return { ok: false };
+    if (player() && player().dead) return { ok: false }; // v3.3: tu aventura terminó
     const region = regionNow();
     clearRestLock();
     if (A.Time) A.Time.advance(1, 'explore');
@@ -703,6 +763,7 @@
       scene.party = true;
       scene.by = A.State.hidOf(player()); // quién exploró
       scene.voters = groupHeroes().map((h) => A.State.hidOf(h)); // v3.2: para mostrar a quién se espera
+      tagPartyOptions(scene);
     }
     A.State.openModal('event', scene);
     A.State.persist();
@@ -836,10 +897,19 @@
     let rollRes = null;
     let outcome = opt.ok;
     if (opt.check) {
-      rollRes = roll(opt.check, sc.tier, p, sc.bonus || 0);
+      // v3.3: en grupo, algunas tiradas las hace el más hábil (best) o se ayudan entre todos (together: +1 por compañero)
+      const pr = partyRoll(opt.check, sc, p);
+      rollRes = pr.roller === p ? roll(opt.check, sc.tier, p, pr.extra) : A.State.withHero(pr.roller, () => roll(opt.check, sc.tier, pr.roller, pr.extra));
+      if (pr.best) { rollRes.by = pr.roller.name; rollRes.byHid = A.State.hidOf(pr.roller); }
+      if (pr.help) rollRes.help = pr.help;
       outcome = rollRes.success ? opt.ok : (opt.fail || { text: 'No sale como esperabas.' });
     }
     outcome = outcome || { text: '' };
+    // v3.3: lo que cuesta una opción se paga justo lo que decía el botón (antes variaba un poco)
+    const needs = opt.needs || {};
+    if (needs.coins && typeof outcome.coins === 'number' && outcome.coins < 0 && !outcome.coinsFlat) {
+      outcome = { ...outcome, coins: -Math.max(1, Math.round(coinUnit(sc.tier) * needs.coins)), coinsFlat: true };
+    }
     // v2.1: salir bien de una tirada también enseña algo (un poco de experiencia)
     if (rollRes && rollRes.success && !outcome.fight && !outcome.study) outcome = { ...outcome, xp: (outcome.xp || 0) + 0.3 };
     // v3.1: observar: al bestiario de los que están ahí, y se vuelve a elegir con +2
@@ -849,13 +919,15 @@
     }
 
     // v3.2: en grupo lo bueno se reparte y lo malo les toca a todos
-    const applied = sc.party ? applyGroupOutcome(outcome, { tier: sc.tier, region }) : { chips: applyOutcome(outcome, { tier: sc.tier, region }), group: null };
+    // v3.3: lo que pide la opción (monedas o comida) lo pone el que eligió
+    const paid = { coins: !!needs.coins, food: !!needs.food };
+    const applied = sc.party ? applyGroupOutcome(outcome, { tier: sc.tier, region, title: sc.title, paid }) : { chips: applyOutcome(outcome, { tier: sc.tier, region, title: sc.title }), group: null };
     const chips = applied.chips;
 
     // Pelea: los enemigos de la escena, o unos nuevos de la zona
     let fight = null;
     if (outcome.fight) {
-      const enemies = (sc.enemies && sc.enemies.length) ? sc.enemies : A.Encounter.generate(region.id);
+      const enemies = (sc.enemies && sc.enemies.length) ? sc.enemies : (sc.foes && sc.foes.length ? sc.foes : A.Encounter.generate(region.id));
       if (enemies && enemies.length) {
         fight = { enemies, surprise: !!outcome.fight.surprise, ambush: !!outcome.fight.ambush };
         // v2.5: heridos por la sorpresa, lo que te hicieron antes de empezar, envalentonados
@@ -884,6 +956,7 @@
       tame: !!outcome.tame,
       // v3.1: observar sale bien: se vuelve a elegir (sin "observar" y con +2)
       again: !!(outcome.study && !fight),
+      plural: !!sc.plural, // v3.3: texto en plural: no se pasa a tercera persona
       studied: studied.map((id) => { const d = A.Data.getById('enemies', id); return d ? d.name : id; }),
     };
 
@@ -922,6 +995,7 @@
       sc.options = sc.options.filter((o) => !o.observe);
       sc.bonus = (sc.bonus || 0) + 2;
       sc.text = `${sc.text.replace(/\s*Ya sabés por dónde ir\.$/, '')} Ya sabés por dónde ir.`;
+      tagPartyOptions(sc);
       A.State.openModal('event', sc);
       return;
     }
@@ -1104,8 +1178,9 @@
       eat();
       A.Time.passTo('morning');
       w.restLock = true;
-      const group = A.Encounter.generate(region.id, { at: 'night' }); // las de la noche (ya pasó a la mañana)
+      let group = A.Encounter.generate(region.id, { at: 'night' }); // las de la noche (ya pasó a la mañana)
       if (group && group.length) {
+        if (A.Combat && A.Combat.prepareGroup) group = A.Combat.prepareGroup(group); // v3.3: en grupo, todas las que vienen
         const nightScene = creatureScene(region, group, { night: true });
         noteSeen(nightScene);
         if (inGroup()) { nightScene.party = true; nightScene.by = A.State.hidOf(player()); }
@@ -1160,5 +1235,7 @@
     restLocked,
     REST,
     creatureScene,
+    unlucky, // v3.3: a quiénes les toca lo malo en grupo
+    partyRoll, // v3.3: quién tira en grupo (best / together)
   };
 })(window.Aventurs);

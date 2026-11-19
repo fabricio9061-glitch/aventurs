@@ -7,6 +7,8 @@
      sells [item ids opcional, mercaderes], teaches [spell ids opcional, sages],
      prices {itemId: customPrice} opcional override de precios,
      services {restCost, healCost} opcional para tabernero/curandero.
+     crafts ['forge'|'alchemy'|'enchant'] opcional (v3.3): qué taller tiene.
+       Los herreros, si no dicen nada, tienen forja y encantamiento.
 
    Roles: merchant | shopkeeper | vendor | blacksmith | innkeeper |
           tavernkeeper | healer | priest | sage | wizard | mage | quest | guard
@@ -44,8 +46,10 @@
         'Diez de cobre por una noche. Sin preguntas.',
         'Hay algo en el bosque, dicen. Mejor no salir de noche.',
       ],
-      sells:[],
+      sells:['hierba_vida'],
       services:{ restCost:10 },
+      // v3.3: con lo que juntes, te prepara pociones
+      crafts:['alchemy'],
     },
     {
       id:'npc_herrero_puerto',
@@ -75,8 +79,10 @@
         'La magia no perdona la pereza. Tampoco yo.',
       ],
       sells:['pocion_curacion', 'pocion_mana', 'pergamino_escape', 'baston', 'varita', 'cetro_arcano', 'tabardo_arcano', 'mat_gema_arcana', 'item_bag_arcane'],
-      teaches:['chispa', 'llama', 'rayo_helado', 'curacion', 'bola_de_fuego'],
+      teaches:['chispa', 'llama', 'rayo_helado', 'curacion', 'segundo_aliento', 'bola_de_fuego'],
       services:{},
+      // v3.3: encantamientos (bastones, amuletos, talismanes) y también pociones
+      crafts:['enchant', 'alchemy'],
     },
     // ---------- v2.0: dan misiones ----------
     {
@@ -115,9 +121,9 @@
     {"id": "npc_tabernera_piedrahonda", "name": "Brenna", "role": "tavernkeeper", "roleName": "Tabernera de El Martillo y la Gema", "region": "aldea_piedrahonda", "icon": "", "sprite": "", "look": "dwarf_woman", "dialog": ["¡Bienvenido a El Martillo y la Gema! El estofado está caliente.", "Los mineros ya no bajan. Dicen que algo come la piedra allá abajo.", "Una cama, un plato y nadie que te moleste. Eso vendo."], "sells": ["pan", "queso", "carne_seca", "te_de_hierbas"], "services": {"restCost": 8}},
     {"id": "npc_tabernero_calavera", "name": "Tuerto Salvo", "role": "tavernkeeper", "roleName": "Tabernero pirata", "region": "puerto_calavera", "icon": "", "sprite": "", "look": "pirate", "dialog": ["Acá no se pregunta nombre ni pasado. Se paga por adelantado.", "Perdí el ojo por un doblón. Valió la pena.", "Si ves velas negras en el horizonte, corré."], "sells": ["ron_anejo", "pescado_fresco", "carne_seca"], "services": {"restCost": 15}},
     {"id": "npc_contrabandista_calavera", "name": "Mara la contrabandista", "role": "merchant", "roleName": "Contrabandista", "region": "puerto_calavera", "icon": "", "sprite": "", "look": "pirate_woman", "dialog": ["Lo que buscás lo tengo. Lo que no buscás, también.", "No preguntes de dónde salió. Preguntá cuánto cuesta.", "El ron se vende solo. La discreción, más cara."], "sells": ["sable_pirata", "ron_anejo", "pocion_curacion", "antidoto", "cuerda", "linterna", "ballesta", "item_bag_large"], "services": {}},
-    {"id": "npc_druida_santuario", "name": "Sylveth la druida", "role": "sage", "roleName": "Druida", "region": "santuario_roble", "icon": "", "sprite": "", "look": "druid", "dialog": ["El bosque sueña. Y últimamente tiene pesadillas.", "Caminá despacio. Acá todo escucha.", "Las hadas no son malas. Solo aburridas."], "sells": ["pocion_curacion", "pocion_mana", "te_de_hierbas", "mat_hierba_curativa", "baston", "varita"], "teaches": ["curacion", "rayo_helado", "llama"], "services": {}},
+    {"id": "npc_druida_santuario", "name": "Sylveth la druida", "role": "sage", "roleName": "Druida", "region": "santuario_roble", "icon": "", "sprite": "", "look": "druid", "dialog": ["El bosque sueña. Y últimamente tiene pesadillas.", "Caminá despacio. Acá todo escucha.", "Las hadas no son malas. Solo aburridas."], "sells": ["hierba_vida", "pocion_curacion", "pocion_mana", "te_de_hierbas", "mat_hierba_curativa", "baston", "varita"], "teaches": ["curacion", "segundo_aliento", "rayo_helado", "llama"], "services": {}, "crafts": ["alchemy"]},
     {"id": "npc_condesa_velmora", "name": "Condesa Ilyana", "role": "noble", "roleName": "Noble de Velmora", "region": "velmora", "icon": "", "sprite": "", "look": "noble", "dialog": ["Un mortal en Velmora. Qué... refrescante.", "Nosotros no cazamos. Ya no. Los salvajes del jardín, en cambio...", "La noche es larga. Tenemos tiempo para negocios."], "sells": [], "services": {}},
-    {"id": "npc_boticaria_velmora", "name": "Orsolya la boticaria", "role": "merchant", "roleName": "Boticaria", "region": "velmora", "icon": "", "sprite": "", "look": "noble_apothecary", "dialog": ["¿Sangre, hierbas o venenos? Todo en frascos elegantes.", "La flor carmesí solo crece entre tumbas. Por eso es tan cara.", "No temas. Acá los clientes vuelven siempre."], "sells": ["vial_sangre", "pocion_curacion", "pocion_mana", "antidoto", "elixir_fuerza", "katana", "espada_runica"], "services": {"restCost": 40}},
+    {"id": "npc_boticaria_velmora", "name": "Orsolya la boticaria", "role": "merchant", "roleName": "Boticaria", "region": "velmora", "icon": "", "sprite": "", "look": "noble_apothecary", "dialog": ["¿Sangre, hierbas o venenos? Todo en frascos elegantes.", "La flor carmesí solo crece entre tumbas. Por eso es tan cara.", "No temas. Acá los clientes vuelven siempre."], "sells": ["hierba_vida", "vial_sangre", "pocion_curacion", "pocion_mana", "antidoto", "elixir_fuerza", "katana", "espada_runica"], "services": {"restCost": 40}, "crafts": ["alchemy"]},
   ];
 
   A.Seed = A.Seed || {};

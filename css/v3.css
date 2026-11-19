@@ -882,3 +882,128 @@
 .item-give-who button { padding: 3px 12px; border-radius: 999px; border: 1px solid rgba(80, 130, 170, 0.5); background: rgba(255, 252, 244, 0.85); color: #2a4a62; font-weight: 700; font-size: 13px; cursor: pointer; }
 .item-give-who button:hover:not(:disabled) { background: #fff; border-color: #2a4a62; }
 .item-give-who button:disabled { cursor: default; }
+
+/* ============================================================
+   26. v3.3: botones de la cabecera (hechizos y números al explorar)
+   y sus ventanas
+   ============================================================ */
+.sb-head-btns { align-self: start; display: flex; flex-direction: row; align-items: center; gap: 6px; }
+.sb-xbtn {
+  width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; cursor: pointer;
+  border-radius: 50%; background: radial-gradient(circle at 40% 35%, #7a5a2a, #3a2812);
+  border: 2px solid #d8b46a; box-shadow: 0 0 8px rgba(232, 180, 90, 0.35); transition: transform 120ms ease;
+}
+.sb-xbtn:hover { transform: scale(1.08); }
+.sb-magic { cursor: pointer; }
+
+.book { display: flex; flex-direction: column; gap: 12px; }
+.book-mana { display: flex; flex-direction: column; gap: 2px; padding: 8px 12px; border-radius: 10px; background: rgba(90, 74, 154, 0.1); border: 1px solid rgba(90, 74, 154, 0.3); }
+.book-mana-num { display: inline-flex; align-items: center; gap: 6px; font-weight: 800; color: #3a2e78; }
+.book-mana-hint { font-size: 12.5px; }
+.book-list { display: flex; flex-direction: column; gap: 8px; }
+.book-row { display: grid; grid-template-columns: 42px minmax(0, 1fr); gap: 10px; align-items: start; padding: 10px 12px; border-radius: 10px; background: var(--surface); border: 1px solid var(--border); }
+.book-row.is-low { opacity: 0.75; }
+.book-ic { display: flex; justify-content: center; padding-top: 2px; }
+.book-main { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.book-top { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.book-top b { font-size: 15px; }
+.book-what { font-size: 13px; font-weight: 700; color: #7a3a1a; white-space: nowrap; }
+.book-tags { display: flex; flex-wrap: wrap; gap: 4px; }
+.book-tag { display: inline-flex; align-items: center; gap: 3px; padding: 1px 7px; border-radius: 999px; font-size: 11px; font-weight: 700; background: rgba(140, 105, 50, 0.12); color: var(--text-dim); }
+.book-tag.is-mana { background: rgba(90, 74, 154, 0.14); color: #3a2e78; }
+.book-tag.is-cd { background: rgba(170, 110, 40, 0.15); color: #7a4a10; }
+.book-tag.is-sure { background: rgba(70, 140, 80, 0.16); color: #2a5a30; }
+.book-tag.is-race { background: rgba(200, 160, 60, 0.2); color: #6a4a08; }
+.book-tag .px-icon, .book-tag .px-sprite, .book-tag svg { width: 12px; height: 12px; }
+.book-desc { margin: 0; font-size: 13px; }
+.book-fx { margin: 0; font-size: 12px; color: #7a3a1a; }
+.book-more { margin: 0; font-size: 12.5px; }
+
+.xs { display: flex; flex-direction: column; gap: 12px; }
+.xs-lead { margin: 0; font-size: 13.5px; }
+.xs-list { display: flex; flex-direction: column; gap: 6px; }
+.xs-row { display: grid; grid-template-columns: 30px minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 10px; background: var(--surface); border: 1px solid var(--border); }
+.xs-row.is-down .xs-val { color: #a8301e; }
+.xs-ic { display: flex; justify-content: center; }
+.xs-main { display: flex; flex-direction: column; min-width: 0; }
+.xs-main small { font-size: 12px; }
+.xs-val { font-size: 18px; font-weight: 800; min-width: 36px; text-align: right; }
+.xs-note { margin: 0; font-size: 12.5px; }
+
+/* ============================================================
+   27. v3.3: en grupo, la escena dice contra qué van a pelear
+   ============================================================ */
+.scene-foes-note { margin: 6px 0 0; font-size: 12.5px; font-weight: 600; color: #7a3a1a; }
+.scene-foes.is-maybe { opacity: 0.85; }
+.scene-foes.is-many { gap: 6px; }
+.scene-foes.is-many .scene-foe-name { font-size: 10.5px; }
+
+/* ============================================================
+   28. v3.3: huir en grupo, el dado de rescate y la muerte
+   ============================================================ */
+.cb-dead-tag.is-left { background: rgba(60, 60, 70, 0.85); border-color: #9a9aae; color: #ececf4; }
+.cb-actions.is-fled .cb-turn-line { display: flex; align-items: center; justify-content: center; gap: 8px; font-weight: 700; }
+
+.cb-rescue {
+  display: flex; align-items: center; gap: 14px; text-align: left;
+  margin: 4px auto 10px; padding: 10px 14px; max-width: 460px;
+  border-radius: 12px; border: 1px solid;
+}
+.cb-rescue.is-ok { background: #e6f2d2; border-color: #9cbb68; }
+.cb-rescue.is-fail { background: #f6dfd4; border-color: #cf8f78; }
+.cb-rescue-die { position: relative; display: inline-flex; flex: none; width: 48px; height: 48px; animation: die-spin 520ms cubic-bezier(.2, .9, .3, 1); }
+.cb-rescue-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.cb-rescue-math { font-size: 13px; color: #3a2a12; }
+.cb-rescue-verdict { font-family: var(--font-display); font-size: 18px; font-weight: 700; }
+.cb-rescue.is-ok .cb-rescue-verdict { color: #2f6a14; }
+.cb-rescue.is-fail .cb-rescue-verdict { color: #a42a14; }
+.cb-rescue-others { list-style: none; margin: -4px auto 10px; padding: 0; max-width: 460px; display: flex; flex-direction: column; gap: 3px; font-size: 13px; text-align: left; }
+.cb-rescue-others li.is-fail b { color: #a42a14; }
+.cb-result.is-dead .cb-result-title { color: #a42a14; }
+
+.death-narrative .death-name { margin-top: 10px; font-style: normal; font-size: 14px; color: #d8b89a; }
+
+.scene-warn {
+  display: flex; align-items: center; gap: 8px;
+  margin: 8px 0 0; padding: 7px 12px; border-radius: 10px;
+  background: #f6dfd4; border: 1px solid #cf8f78; color: #7a2410;
+  font-size: 13px; font-weight: 600;
+}
+
+/* ============================================================
+   29. v3.3: el parlante del narrador en escenas, viajes y lugares
+   ============================================================ */
+.voice-toggle {
+  display: inline-grid; place-items: center; flex: none;
+  width: 34px; height: 34px; border-radius: 50%; cursor: pointer; padding: 0;
+  border: 1px solid rgba(232, 196, 110, 0.6); background: rgba(31, 23, 15, 0.75);
+  transition: transform 120ms ease, border-color 120ms ease;
+}
+.voice-toggle:hover { transform: scale(1.06); border-color: #f2cf73; }
+.voice-toggle.is-on { box-shadow: 0 0 10px rgba(242, 207, 115, 0.45); border-color: #f2cf73; }
+.scene-voice { position: absolute; top: 10px; right: 10px; z-index: 2; }
+.region2-voice { position: absolute; top: 12px; right: 12px; z-index: 2; }
+.travel-progress-v2 { align-items: center; gap: 10px; }
+.travel-progress-v2 .voice-toggle { width: 30px; height: 30px; background: rgba(31, 23, 15, 0.12); border-color: rgba(140, 105, 50, 0.45); }
+
+/* ============================================================
+   30. v3.3: a quién: los que no pueden recibirla quedan apagados
+   ============================================================ */
+.cb-pick-row.is-off { opacity: 0.5; cursor: not-allowed; }
+.cb-pick-row.is-off:hover { border-color: var(--border); }
+
+/* ============================================================
+   31. v3.3: la barra del costado, también en solitario, con las barras
+   finitas arriba y la experiencia debajo de todas
+   ============================================================ */
+.sb-head .sb-vitals { gap: 4px; margin-top: 1px; }
+.sb-vital.is-xp { margin-top: 3px; padding-top: 5px; border-top: 1px solid rgba(232, 196, 110, 0.18); }
+.sb-vital.is-xp .sb-vital-track { height: 5px; }
+.sb-vital.is-xp .sb-vital-track > span { background: linear-gradient(90deg, #c9a24a, #f2d27a); }
+.sb-vital.is-xp .sb-vital-text { color: #e8d49a; font-weight: 600; }
+.sb-vital-regen { margin-left: 5px; padding: 0 4px; border-radius: 4px; font-style: normal; font-size: 9.5px; font-weight: 800; background: rgba(106, 154, 230, 0.25); color: #cfe0ff; }
+
+/* ============================================================
+   32. v3.3: escenas de grupo: quién tira (el más hábil) y la ayuda
+   ============================================================ */
+.ui-check.is-party { color: #3d4a7a; background: rgba(230, 236, 255, 0.75); border-color: #a9b6e0; padding-left: 6px; }

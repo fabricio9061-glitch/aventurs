@@ -10,6 +10,36 @@
   'use strict';
 
   const WEAPONS = [
+    // ---------- v3.3: las armas con las que nace cada raza ----------
+    // Todas valen lo mismo que la vieja daga del principio (1d4, livianas): cambian
+    // la forma y un detalle (sangran o son más certeras). Los magos nacen con Varita.
+    { id:'espada_recluta', name:'Espada de recluta', type:'weapon', icon:'', damage:'1d4', value:20, rarity:'common', tier:1, weight:1, magic:false, starter:'humano', statusEffect:{type:'bleed',chance:0.2,turns:3,value:1},
+      description:'La espada que reparten en el cuartel del pueblo. Corta poco, pero corta. Arma de los humanos.' },
+    { id:'arco_rama', name:'Arco de rama', type:'weapon', icon:'', damage:'1d4', value:20, rarity:'common', tier:1, weight:1, precision:1, magic:false, starter:'elfo',
+      description:'Una rama de fresno curvada a mano: liviano y certero (+1 de precisión). Arma de los elfos.' },
+    { id:'cuchillo_caza', name:'Cuchillo de caza', type:'weapon', icon:'', damage:'1d4', value:20, rarity:'common', tier:1, weight:1, magic:false, starter:'mediano', statusEffect:{type:'bleed',chance:0.2,turns:3,value:1},
+      description:'Sirve para pelar papas y para pelear, en ese orden. Arma de los medianos.' },
+    { id:'hacha_escamas', name:'Hacha de escamas', type:'weapon', icon:'', damage:'1d4', value:20, rarity:'common', tier:1, weight:1, magic:false, starter:'draconido', statusEffect:{type:'bleed',chance:0.2,turns:3,value:1},
+      description:'Una hojita de escamas viejas atada a un mango. Arma de los dracónidos.' },
+    { id:'punal_sangre', name:'Puñal de sangre', type:'weapon', icon:'', damage:'1d4', value:20, rarity:'common', tier:1, weight:1, magic:false, starter:'vampiro', statusEffect:{type:'bleed',chance:0.2,turns:3,value:1},
+      description:'Hoja fina con un canal para que corra la sangre. Arma de los vampiros.' },
+    { id:'martillo_minero', name:'Martillo de minero', type:'weapon', icon:'', damage:'1d4', value:20, rarity:'common', tier:1, weight:1, precision:1, magic:false, starter:'enano',
+      description:'El de picar piedra en las minas: firme y certero (+1 de precisión). Arma de los enanos.' },
+    { id:'garrote_hueso', name:'Garrote de hueso', type:'weapon', icon:'', damage:'1d4', value:20, rarity:'common', tier:1, weight:1, magic:false, starter:'orco', statusEffect:{type:'bleed',chance:0.2,turns:3,value:1},
+      description:'Un fémur grande con astillas. Feo y efectivo. Arma de los orcos.' },
+    { id:'maza_engranajes', name:'Maza de engranajes', type:'weapon', icon:'', damage:'1d4', value:20, rarity:'common', tier:1, weight:1, precision:1, magic:false, starter:'robot',
+      description:'Un engranaje en la punta de una barra: calculada para no fallar (+1 de precisión). Arma de los robots.' },
+    { id:'porra_piedra', name:'Porra de piedra', type:'weapon', icon:'', damage:'1d4', value:20, rarity:'common', tier:1, weight:1, precision:1, magic:false, starter:'goliat',
+      description:'Una piedra de río con forma de puño. En la mano de un goliat, es certera (+1 de precisión). Arma de los goliats.' },
+    { id:'colmillo_lobo', name:'Colmillo de lobo', type:'weapon', icon:'', damage:'1d4', value:20, rarity:'common', tier:1, weight:1, magic:false, starter:'licantropo', statusEffect:{type:'bleed',chance:0.2,turns:3,value:1},
+      description:'Un colmillo enorme con un mango de cuero. Arma de los licántropos.' },
+    { id:'punal_obsidiana', name:'Puñal de obsidiana', type:'weapon', icon:'', damage:'1d4', value:20, rarity:'common', tier:1, weight:1, magic:false, starter:'elfo_oscuro', statusEffect:{type:'poison',chance:0.2,turns:3,value:1},
+      description:'Vidrio negro de las cuevas, afilado como una navaja y untado en veneno. Arma de los elfos oscuros.' },
+    { id:'vara_sauce', name:'Vara de sauce', type:'weapon', icon:'', damage:'1d4', value:36, rarity:'common', tier:1, weight:0, magic:true, mana:2, starter:'driade',
+      description:'Una rama viva que todavía echa hojas: potencia tus hechizos y da maná (+2). Arma mágica de las dríades.' },
+    { id:'hacha_cuerno', name:'Hacha de cuerno', type:'weapon', icon:'', damage:'1d4', value:20, rarity:'common', tier:1, weight:1, magic:false, starter:'minotauro', statusEffect:{type:'bleed',chance:0.2,turns:3,value:1},
+      description:'Un cuerno viejo afilado y montado en un palo. Arma de los minotauros.' },
+
     { id:'garrote', name:'Garrote', type:'weapon', icon:'🏏', damage:'1d6', value:10, rarity:'common', tier:1, weight:2, magic:false,
       description:'Madera nudosa con manija. Lo más simple que se llama arma: barato, pesado y pega más que una daga.' },
 

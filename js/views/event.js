@@ -20,11 +20,20 @@
   }
 
   function enemiesRow(sc) {
-    if (!sc.enemies || !sc.enemies.length) return '';
-    const shown = sc.enemies.slice(0, 4);
-    const size = shown.length === 1 ? 72 : shown.length === 2 ? 60 : 48;
+    // v3.3: en grupo, una escena que puede terminar en pelea ya sabe contra qué (sc.foes)
+    const sure = sc.enemies && sc.enemies.length;
+    const list = sure ? sc.enemies : (sc.foes && sc.foes.length && sc.stage !== 'result' ? sc.foes : null);
+    if (!list) return '';
+    const max = sc.party ? 7 : 4;
+    const shown = list.slice(0, max);
+    const size = shown.length === 1 ? 72 : shown.length === 2 ? 60 : shown.length <= 4 ? 48 : 40;
+    const words = A.Encounter && A.Encounter.describeGroup ? A.Encounter.describeGroup(list) : '';
+    const note = !sure
+      ? `<p class="scene-foes-note">Si terminan peleando, es contra ${U().esc(words)}.</p>`
+      : sc.party ? `<p class="scene-foes-note">En total ${list.length === 1 ? 'es' : 'son'} ${U().esc(words)}: ya están contadas las que se suman por ir en grupo.</p>` : '';
     return `
-      <div class="scene-foes">
+      ${note}
+      <div class="scene-foes ${sure ? '' : 'is-maybe'} ${shown.length > 4 ? 'is-many' : ''}">
         ${shown.map((e) => {
           const data = A.Data.getById('enemies', e.id) || e;
           const dc = e.difficulty != null ? e.difficulty : (data.difficulty != null ? data.difficulty : 10);
@@ -39,7 +48,7 @@
               ${A.ItemSprites ? A.ItemSprites.dcBadge(dc, { size: 24, cls: 'scene-foe-dc' }) : ''}
             </div>`;
         }).join('')}
-        ${sc.enemies.length > 4 ? `<div class="scene-foe is-more">+${sc.enemies.length - 4}</div>` : ''}
+        ${list.length > max ? `<div class="scene-foe is-more">+${list.length - max}</div>` : ''}
       </div>
     `;
   }
@@ -107,6 +116,14 @@
       </div>`;
   }
 
+  /** v3.3: en grupo, quién tira esta (el más hábil) o cuánto suma ayudarse. */
+  function partyTag(pt) {
+    const bits = [];
+    if (pt.hid) bits.push(pt.hid === myHid() ? 'La tirás vos, el más hábil' : `La tira ${pt.name}, el más hábil`);
+    if (pt.help) bits.push(`Entre todos: +${pt.help}`);
+    return bits.length ? `<span class="ui-check is-party">${U().icon('party', 14)}<span>${U().esc(bits.join(' · '))}</span></span>` : '';
+  }
+
   function optionsHtml(sc) {
     // v2.5: con muchas opciones van en dos columnas (entra todo sin bajar)
     const many = sc.options.length > 3;
@@ -124,7 +141,8 @@
               <span class="scene-opt-label">${U().esc(o.label)}${sc.party ? voteTags(sc, i) : ''}</span>
               ${o.hint ? `<span class="scene-opt-hint">${U().esc(o.hint)}</span>` : ''}
               <span class="scene-opt-meta">
-                ${o.check ? U().checkLine(o.check, sc.tier, sc.bonus || 0) : ''}
+                ${o.check ? U().checkLine(o.check, sc.tier, sc.bonus || 0, sc.party ? o.party : null) : ''}
+                ${sc.party && o.party ? partyTag(o.party) : ''}
                 ${cost}
                 ${!o.check && !cost ? `<span class="ui-check is-safe">${U().icon('check', 14)}<span>Sin tirada</span></span>` : ''}
                 ${blocked ? `<span class="scene-opt-why">${U().esc(blocked)}</span>` : ''}
@@ -139,13 +157,21 @@
     const r = res.roll;
     if (!r) return '';
     const st = A.Explore.STATS[res.check.stat] || { label: 'Tirada' };
-    const other = chooserName(res);
+    // v3.3: en grupo, a veces tira el más hábil (r.byHid) y a veces se ayudan entre todos (r.help)
+    const other = r.byHid ? (r.byHid === myHid() ? null : r.by) : chooserName(res);
+    const who = r.byHid ? (other ? `Lo intenta ${other}, el más hábil · ` : 'Lo intentás vos, el más hábil · ') : other ? `${other} · ` : '';
+    // la ayuda ya está sumada en r.mod: se muestra aparte (dado + bonus + ayuda)
+    const base = r.help ? r.mod - r.help : r.mod;
+    const sum = `${base > 0 ? ` + ${base}` : base < 0 ? ` - ${-base}` : ''}${r.help ? ` + ${r.help} de ayuda` : ''}`;
+    const verdict = r.d === 20 ? '¡Veinte natural!' : r.d === 1 ? 'Uno natural...'
+      : r.success ? (r.help ? '¡Lo lograron entre todos!' : other ? '¡Lo logró!' : '¡Lo lograste!')
+        : (r.help ? 'Ni entre todos alcanzó.' : 'No alcanzó.');
     return `
       <div class="scene-roll ${r.success ? 'is-ok' : 'is-fail'}">
         <span class="scene-die">${A.ItemSprites ? A.ItemSprites.dcBadge(r.d, { size: 56, title: 'Lo que salió en el dado' }) : r.d}</span>
         <span class="scene-roll-text">
-          <span class="scene-roll-math">${other ? `${U().esc(other)} · ` : ''}${U().esc(st.label)}: ${r.d}${r.mod ? ` + ${r.mod}` : ''} = <b>${r.total}</b> contra ${r.dc}${r.lucky ? (other ? ' (suerte: volvió a tirar el 1)' : ' (suerte: volviste a tirar el 1)') : ''}</span>
-          <span class="scene-roll-verdict">${r.d === 20 ? '¡Veinte natural!' : r.d === 1 ? 'Uno natural...' : r.success ? (other ? '¡Lo logró!' : '¡Lo lograste!') : 'No alcanzó.'}</span>
+          <span class="scene-roll-math">${U().esc(who)}${U().esc(st.label)}: ${r.d}${U().esc(sum)} = <b>${r.total}</b> contra ${r.dc}${r.lucky ? (other ? ' (suerte: volvió a tirar el 1)' : ' (suerte: volviste a tirar el 1)') : ''}</span>
+          <span class="scene-roll-verdict">${verdict}</span>
         </span>
       </div>
     `;
@@ -169,7 +195,8 @@
       ? `${U().icon('swords', 22)}<span>${res.fight.surprise ? '¡Atacar primero!' : res.fight.ambush ? (sc.party ? '¡A defenderse!' : '¡Defenderte!') : '¡A pelear!'}</span>`
       : res.tame ? `${U().icon('paw', 22)}<span>${other ? 'Seguir' : 'Acercarte'}</span>`
         : res.again ? `${U().icon('eye', 22)}<span>Decidir qué hacer (+2)</span>` : `<span>Seguir</span>`;
-    const text = other && A.Persp ? A.Persp.third(res.text, other) : res.text;
+    // v3.3: las escenas de grupo ya vienen en plural: no se pasan a tercera persona
+    const text = other && A.Persp && !res.plural ? A.Persp.third(res.text, other) : res.text;
     return `
       <div class="scene-result ${res.success ? 'is-ok' : 'is-fail'}">
         ${voteResultHtml(res)}
@@ -187,6 +214,13 @@
     `;
   }
 
+  /** v3.3: con poca vida, un golpe de la escena te puede matar: se avisa antes de elegir. */
+  function lowHpHtml() {
+    const p = A.State.player;
+    if (!p || !(p.maxHp > 0) || p.hp > Math.max(3, Math.round(p.maxHp * 0.3))) return '';
+    return `<div class="scene-warn">${U().icon('skull', 16)}<span>Te queda poca vida (${p.hp}): si algo sale mal, podés morir.</span></div>`;
+  }
+
   function render(sc) {
     if (!sc || !sc.options) return '<div class="modal"><div class="modal-body">Nada por acá.</div></div>';
     const region = A.Data.getById('regions', sc.regionId);
@@ -196,13 +230,14 @@
         <div class="scene-art">
           <span class="scene-art-icon">${U().icon(sc.icon || 'scroll', 64)}</span>
           <span class="scene-art-place">${U().biomeIcon(region, 18)}<span>${U().esc(region ? region.name : '')}</span></span>
+          ${U().voiceToggle ? `<span class="scene-voice">${U().voiceToggle(20)}</span>` : ''}
         </div>
         <div class="scene-body">
           <h2 class="scene-title">${U().esc(sc.title)}</h2>
           ${voteBar(sc)}
           <p class="scene-text">${U().esc(sc.text)}</p>
           ${enemiesRow(sc)}
-          ${sc.stage === 'result' && sc.result ? resultHtml(sc) : optionsHtml(sc)}
+          ${sc.stage === 'result' && sc.result ? resultHtml(sc) : `${lowHpHtml()}${optionsHtml(sc)}`}
         </div>
       </div>
     `;
@@ -217,11 +252,20 @@
     spokenKey = key;
     if (sc.stage === 'result' && sc.result) {
       const other = chooserName(sc.result);
-      const text = other && A.Persp ? A.Persp.third(sc.result.text, other) : sc.result.text;
+      const text = other && A.Persp && !sc.result.plural ? A.Persp.third(sc.result.text, other) : sc.result.text;
       A.Voice.say(text, { now: true });
     } else {
       A.Voice.say(`${sc.title}. ${sc.text}`, { now: true });
     }
+  }
+
+  // v3.3: al prender la voz con el parlante de la escena, lee la escena enseguida
+  if (A.Bus) {
+    A.Bus.on('voice:changed', (e) => {
+      if (!e || !e.on || !A.State.ui || A.State.ui.openModal !== 'event') return;
+      spokenKey = null;
+      speak(A.State.ui.modalPayload);
+    });
   }
 
   let forceTimer = null;

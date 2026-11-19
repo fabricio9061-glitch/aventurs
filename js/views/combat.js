@@ -49,8 +49,10 @@
     if (!c || !c.party) return [];
     const mine = localHid();
     const ids = (c.heroIds || []).slice().sort((a, b) => (a === mine ? -1 : b === mine ? 1 : 0));
-    return ids.map((hid) => ({ hid, hero: heroOf(hid), gone: (c.goneHids || []).includes(hid) })).filter((x) => x.hero);
+    return ids.map((hid) => ({ hid, hero: heroOf(hid), gone: (c.goneHids || []).includes(hid), fled: (c.fledHids || []).includes(hid) })).filter((x) => x.hero);
   }
+  /** v3.3: ¿tu héroe huyó de esta pelea del grupo? (el anfitrión se queda mirando) */
+  function iFled(c) { return !!(c && c.party && (c.fledHids || []).includes(localHid())); }
   /** La frase de una acción, contada para esta compu (la del compañero, en tercera persona). */
   function sayFor(e) {
     if (!e || !e.say || !e.say.text) return null;
@@ -286,7 +288,7 @@
     }
     if (c.party && (actor.kind === 'player' || actor.kind === 'pet')) {
       const h = heroOf(actor.hid);
-      if (!h || (c.goneHids || []).includes(actor.hid)) return true;
+      if (!h || (c.goneHids || []).includes(actor.hid) || (c.fledHids || []).includes(actor.hid)) return true;
       if (actor.kind === 'player') return hpOf(`hero:${actor.hid}`, h.hp) <= 0;
       return !h.pet || hpOf(`pet:${actor.hid}`, h.pet.health) <= 0;
     }
@@ -311,14 +313,15 @@
     if (c.party) {
       // v3.0: los dos héroes (el tuyo primero) con sus mascotas
       let i = 0;
-      for (const { hid, hero, gone } of partyHeroes(c)) {
+      for (const { hid, hero, gone, fled } of partyHeroes(c)) {
         const hk = `hero:${hid}`;
         const pk = `pet:${hid}`;
         const ally = hid !== localHid();
-        allies += playerCard(hero, cur && cur.kind === 'player' && cur.hid === hid, c, shown, { key: hk, i: i++, ally, gone });
+        allies += playerCard(hero, cur && cur.kind === 'player' && cur.hid === hid, c, shown, { key: hk, i: i++, ally, gone, fled });
         units += 1;
         const pet = hero.pet;
-        const showPet = pet && (pet.health > 0 || (Fx() && Fx().isDying(pk)) || (snap && snap[pk] > 0));
+        // v3.3: la mascota del que huyó se fue con él
+        const showPet = pet && !fled && (pet.health > 0 || (Fx() && Fx().isDying(pk)) || (snap && snap[pk] > 0));
         if (showPet) { allies += petCard(pet, cur && cur.kind === 'pet' && cur.hid === hid, shown, { key: pk, i: i++, owner: ally ? hero.name : null }); units += 1; }
       }
     } else {
@@ -430,7 +433,7 @@
           ${sub}
           <div class="cb-stats">${u.stats.join('')}</div>
         </div>
-        ${u.dead ? '<div class="cb-dead-tag">Caído</div>' : ''}
+        ${u.dead ? `<div class="cb-dead-tag ${u.deadTag ? 'is-left' : ''}">${esc(u.deadTag || 'Caído')}</div>` : ''}
       </${tag}>`;
   }
 
@@ -448,7 +451,10 @@
     const shield = c && !c.result && A.Passives && A.Passives.shieldLeft ? A.Passives.shieldLeft(c, p) : 0;
     const shieldBadge = shield > 0 ? `<span class="cb-badge is-shield" title="Blindaje: frena ${shield} de daño antes de que te toque la vida">${icon('shield', 12)}${shield}</span>` : '';
     return unitCard({
-      kind: o.ally ? 'player is-ally' : 'player', key, i: o.i || 0, isActive, dead: !!o.gone, ko: !o.gone && hp <= 0 && !!c.party,
+      kind: o.ally ? 'player is-ally' : 'player', key, i: o.i || 0, isActive,
+      // v3.3: el que huyó (o se desconectó) ya no está en la pelea
+      dead: !!(o.gone || o.fled), deadTag: o.fled ? 'Huyó' : o.gone ? 'Se fue' : '',
+      ko: !o.gone && !o.fled && hp <= 0 && !!c.party,
       name: p.name, title: `${p.name} · ${race ? race.name : ''} de nivel ${p.level}${o.ally ? ' (tu compañero)' : ''}`,
       badges: `${o.ally ? '<span class="cb-badge is-ally" title="Tu compañero">Aliado</span>' : ''}${shieldBadge}<span class="cb-badge is-gold">Nv ${p.level}</span>`,
       sprite: A.Sprites ? A.Sprites.heroFor(p, { size: 128 }) : '',
@@ -589,7 +595,8 @@
     let txt = 'Nueva ronda…';
     const allyTurn = c && c.party && cur && cur.kind !== 'enemy' && cur.hid !== localHid();
     const owner = allyTurn ? heroOf(cur.hid) : null;
-    if (c && c.party && me() && me().hp <= 0) txt = 'Caíste: tu compañero sigue peleando. Si ganan, te levantás.';
+    if (iFled(c)) txt = 'Huiste de la pelea: tus compañeros siguen sin vos. Cuando terminen, cada uno sigue por su cuenta.';
+    else if (c && c.party && me() && me().hp <= 0) txt = 'Caíste: tus compañeros siguen peleando. Si ganan, te levantan (y con una hierba de la vida, ya mismo). Si pierden todos, se tira el dado de rescate.';
     else if (allyTurn && cur.kind === 'player') txt = `Turno de ${esc(cur.name)}: le toca elegir qué hacer…`;
     else if (allyTurn && cur.kind === 'pet') txt = `Turno de ${esc(cur.name)}, la mascota de ${esc(owner ? owner.name : 'tu compañero')}…`;
     else if (cur && cur.kind === 'player') txt = busy ? 'Ya casi es tu turno…' : 'Tu turno.';
@@ -646,6 +653,10 @@
     if (frozen) {
       return `<section class="cb-actions is-waiting" data-sec="actions"><div class="cb-turn-line">&nbsp;</div><div class="cb-action-row is-empty"></div></section>`;
     }
+    // v3.3: si huiste (y sos el que lleva el grupo), mirás cómo termina
+    if (iFled(c)) {
+      return `<section class="cb-actions is-waiting is-fled" data-sec="actions"><div class="cb-turn-line">${icon('boot', 18)} ${waitingText(c, busy)}</div><div class="cb-action-row is-empty"></div></section>`;
+    }
     const p = A.State.player;
     const spells = A.Combat.availableSpells();
     const items = A.Combat.availableItems();
@@ -654,6 +665,8 @@
     const hit = target && A.Combat.hitChanceVs ? A.Combat.hitChanceVs(target) : null;
     const need = target ? neededRoll(enemyNow(target).defense) : null;
     const flee = A.Combat.canFlee ? A.Combat.canFlee() : { ok: true };
+    // v3.3: ¿queda alguien más en pie? (entonces huís vos solo)
+    const alone = !!(c.party && partyHeroes(c).some((x) => !x.gone && !x.fled && x.hid !== localHid() && x.hero.hp > 0));
     const dmgRange = target ? damageRangeVs(p, target) : null;
     const power = A.Combat.powerInfo ? A.Combat.powerInfo() : null;
     const attackIcon = p.equipment && p.equipment.weapon && A.ItemSprites
@@ -699,8 +712,10 @@
           }) : ''}
           ${btn('item', icon('potion', 32), 'Objeto', {
             disabled: off || items.length === 0,
-            title: items.length === 0 ? 'No tenés pociones ni comida' : 'Usar una poción o comida',
+            // v3.3: pociones, comida y hierbas no gastan el turno (hasta 3)
+            title: items.length === 0 ? 'No tenés pociones ni comida' : 'Pociones, comida y hierbas no gastan tu turno (hasta 3). Los pergaminos sí.',
             hint: items.length ? `${items.length} a mano` : 'nada a mano',
+            hint2: items.length && A.Combat.itemsLeft ? (A.Combat.itemsLeft() < 3 ? `Quedan ${A.Combat.itemsLeft()} este turno` : 'No gasta el turno') : '',
           })}
           ${tame ? btn('tame', icon('paw', 32), 'Domar', {
             cls: 'combat-action-tame',
@@ -711,8 +726,10 @@
           }) : ''}
           ${btn('flee', icon(flee.ok ? 'boot' : 'lock', 32), 'Huir', {
             disabled: off || !flee.ok,
-            title: flee.ok ? 'Intentar escapar (hasta 2 intentos)' : flee.why,
+            // v3.3: en grupo te vas vos solo (el resto sigue peleando)
+            title: flee.ok ? (alone ? 'Intentar escapar vos solo (hasta 2 intentos): tus compañeros siguen peleando y vos seguís por tu cuenta' : 'Intentar escapar (hasta 2 intentos)') : flee.why,
             hint: flee.ok ? `${Math.max(0, 2 - (c.fleeAttempts || 0))} intentos` : ((A.State.player.effects || []).some((e) => e.type === 'grab') ? 'Atrapado' : 'Sin intentos'),
+            hint2: flee.ok && alone ? 'Te vas vos solo' : '',
           })}
         </div>
       </section>`;
@@ -852,6 +869,26 @@
     return chips;
   }
 
+  /** v3.3: el dado de rescate de tu héroe (y cómo les fue a los demás del grupo). */
+  function rescueBlock(c, r) {
+    const why = (r.why || []).length ? ` (${r.why.join(', ')})` : '';
+    const verdict = r.ok ? (r.crit ? '¡Veinte natural!' : '¡Te encontraron!') : (r.roll === 1 ? 'Uno natural…' : 'No alcanzó.');
+    const others = c.party ? Object.keys(c.rescue || {}).filter((hid) => hid !== localHid()).map((hid) => {
+      const h = heroOf(hid);
+      const o = c.rescue[hid];
+      return `<li class="${o.ok ? 'is-ok' : 'is-fail'}"><b>${esc(o.name || (h ? h.name : 'Tu compañero'))}</b>: ${o.ok ? 'a salvo en el pueblo' : 'nadie llegó a tiempo'} <span class="dim">(${esc(A.Death ? A.Death.rollText(o) : '')})</span></li>`;
+    }) : [];
+    return `
+      <div class="cb-rescue ${r.ok ? 'is-ok' : 'is-fail'}">
+        <span class="cb-rescue-die">${A.ItemSprites && A.ItemSprites.dcBadge ? A.ItemSprites.dcBadge(r.roll, { size: 48, title: 'Lo que salió en el dado' }) : r.roll}</span>
+        <span class="cb-rescue-text">
+          <span class="cb-rescue-math">Dado de rescate: ${r.roll}${r.bonus ? ` + ${r.bonus} = <b>${r.total}</b>` : ''} contra ${r.dc}${esc(why)}</span>
+          <span class="cb-rescue-verdict">${verdict}</span>
+        </span>
+      </div>
+      ${others.length ? `<ul class="cb-rescue-others">${others.join('')}</ul>` : ''}`;
+  }
+
   function renderResult(c) {
     if (layout === 'result' && resultFor === c && mainEl.querySelector('.cb-result')) return;
     layout = 'result';
@@ -869,17 +906,50 @@
       if (r === 'defeat') { meta.title = 'Cayeron…'; meta.sub = 'Despiertan en el pueblo, magullados. Van a necesitar curarse.'; }
       if (r === 'flee') { meta.title = 'Escaparon'; meta.sub = 'Corrieron hasta perderlos de vista.'; }
     }
+    // v3.3: el dado de rescate (al perder)
+    const mine = c.rescue ? c.rescue[localHid()] : null;
+    const meHero = me();
+    let rescueHtml = '';
+    if (r === 'defeat' && mine) {
+      if (!mine.ok || (meHero && meHero.dead)) {
+        meta.title = 'Tu aventura terminó';
+        meta.sub = 'Nadie te encontró a tiempo.';
+      } else {
+        meta.sub = mine.crit
+          ? `${mine.by} te encontró y te curó las heridas: despertás en el pueblo con la mitad de la vida.`
+          : `${mine.by} te encontró y te llevó al pueblo. Despertás con 1 de vida: vas a necesitar curarte.`;
+      }
+      rescueHtml = rescueBlock(c, mine);
+    }
+    // v3.3: huir en grupo (te fuiste vos solo)
+    const host = A.Party && A.Party.hostName ? A.Party.hostName() : 'Tu compañero';
+    if (c.fledAlone) {
+      meta.title = 'Escapaste'; meta.icon = 'boot';
+      meta.sub = 'Saliste corriendo y los perdiste de vista. Tus compañeros siguen peleando y vos seguís por tu cuenta.';
+    } else if (iFled(c)) {
+      meta.title = 'Escapaste'; meta.icon = 'boot';
+      meta.sub = {
+        victory: 'Tus compañeros ganaron la pelea sin vos.',
+        defeat: 'Tus compañeros cayeron. Despiertan en el pueblo… si alguien los encuentra.',
+        flee: 'Tus compañeros también escaparon.',
+        tamed: 'Tus compañeros terminaron la pelea.',
+      }[r] || 'La pelea terminó.';
+      meta.sub += ' Ahora cada uno sigue por su cuenta.';
+    } else if (c.hostFled) {
+      meta.sub += ` ${host} había huido: ahora seguís por tu cuenta.`;
+    }
     const chips = rewardChips(c);
     const foes = c.enemies.map((e) => `<span class="cb-result-foe ${e.hp <= 0 ? 'is-fallen' : ''}" title="${esc(e.displayName)}">${A.Sprites ? A.Sprites.html(e, { size: 64 }) : ''}</span>`).join('');
     // v3.1: el narrador cierra la pelea
     if (A.Voice && A.Voice.isOn()) A.Voice.say(`${meta.title.replace(/…$/, '.')} ${meta.sub}`);
 
     mainEl.innerHTML = `
-      <section class="combat-result cb-result is-${r}">
+      <section class="combat-result cb-result is-${r} ${meHero && meHero.dead ? 'is-dead' : ''}">
         <div class="cb-result-card">
           <div class="cb-result-icon">${icon(meta.icon, 64)}</div>
           <h2 class="cb-result-title">${meta.title}</h2>
           <p class="cb-result-sub">${esc(meta.sub)}</p>
+          ${rescueHtml}
           <div class="cb-result-foes">${foes}</div>
           ${chips.length ? `<div class="cb-rewards">${chips.join('')}</div>` : ''}
           <button type="button" class="btn-primary cb-continue" data-combat-action="finish">Continuar</button>
@@ -941,13 +1011,16 @@
       if (instanceId && A.Combat.playerTame) { A.Combat.playerTame(instanceId); render(); }
     } else if (action === 'finish') {
       const res = c && c.result;
-      const wasVictory = res === 'victory' || res === 'tamed';
+      // v3.3: si huiste antes (y te quedaste mirando), el viaje no sigue solo
+      const wasVictory = (res === 'victory' || res === 'tamed') && !iFled(c);
       const fromTravel = c && c.fromTravel;
       A.Combat.finish();
       // v3.0: en grupo, el viaje lo sigue el anfitrión
       const guest = A.Party && A.Party.guestTogether && A.Party.guestTogether();
       if (wasVictory && fromTravel && A.State.traveling && !guest) A.Travel.step();
       if (A.Views.Shell && A.Views.Shell.rerender) A.Views.Shell.rerender();
+      // v3.3: si nadie te encontró, sale la pantalla de muerte
+      if (A.Death) A.Death.check();
     }
   }
 

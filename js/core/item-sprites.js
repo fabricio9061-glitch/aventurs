@@ -1106,6 +1106,8 @@
       const seal = /escape/.test(t) ? '#3a9a3a' : (el ? el.e : '#a02a2a');
       return { shape: 'scroll', p: { b: '#efe0b8', c: '#f8eed4', wd: '#8a5a30', e: seal, g: '#ffffff' } };
     }
+    // v3.3: la hierba de la vida (dorada)
+    if (/hierba de la vida/.test(t)) return { shape: 'plant', p: { b: '#e8c040', a: '#4a9a3a', wd: '#c88a3a', g: '#fff4a0' } };
     // v3.1: la comida de las razas que no comen como las demás
     if (/lata de aceite/.test(t)) return { shape: 'jar', p: { b: '#3a2a10', c: '#d8a030', gl: '#8a929c', wd: '#4a4a52', hl: '#e8eef4' } };
     if (/bater[ií]a/.test(t)) return { shape: 'core', p: { b: '#4a5a6a', c: '#8aa0b4', g: '#5ad0ff' }, o: { gear: true } };
@@ -1836,6 +1838,8 @@
   function spellIcon(spell, opts = {}) {
     const t = `${(spell && spell.id) || ''} ${(spell && spell.name) || ''}`.toLowerCase();
     let name = 'arcane';
+    // v3.3: los hechizos nuevos dicen su ícono
+    if (spell && spell.iconName && ICONS[spell.iconName]) return icon(spell.iconName, opts);
     if (spell && spell.heal) name = 'heal';
     else if (/bola de fuego|bola_fuego/.test(t)) name = 'fireball';
     else if (/aliento/.test(t)) name = 'breath';

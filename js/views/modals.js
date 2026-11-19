@@ -50,6 +50,7 @@
       case 'all-creatures': html = renderAllCreatures(payload); break;
       case 'tame': html = renderTame(payload); break;
       case 'magic': html = renderMagic(); break;
+      case 'explore-stats': html = renderExploreStats(); break;
       case 'chronicles-full': html = renderChroniclesFull(); break;
       case 'travel': html = renderTravelModal(); break;
       case 'combat-full-log': html = renderCombatFullLog(); break;
@@ -444,7 +445,8 @@
         ${(() => {
           // v2.0: cómo le queda a tu clase (maestría del guerrero, penalidad del mago)
           const fit = p && A.Balance && A.Balance.weaponFit ? A.Balance.weaponFit(p, data) : null;
-          return fit && fit.note ? `<div class="class-note ${fit.atk < 0 ? 'is-bad' : 'is-good'}">${pxi(fit.atk < 0 ? 'arrow-down' : 'arrow-up', 14)}<span>${esc(fit.note)}</span></div>` : '';
+          const bad = fit && (fit.atk < 0 || fit.blocked);
+          return fit && fit.note ? `<div class="class-note ${bad ? 'is-bad' : 'is-good'}">${pxi(fit.blocked ? 'lock' : bad ? 'arrow-down' : 'arrow-up', 14)}<span>${esc(fit.note)}</span></div>` : '';
         })()}
       `;
     } else if (kind === 'armor') {
@@ -477,22 +479,33 @@
         ${rarityRow}
         ${sellRow}
         ${lines.length ? `<ul class="effect-list">${lines.map((l) => `<li>${pxi(onlyCombat ? 'swords' : 'heal', 14)}<span>${esc(l)}</span></li>`).join('')}</ul>` : ''}
-        ${onlyCombat ? `<div class="class-note is-good">${pxi('swords', 14)}<span>Se usa en combate, con el botón Objeto (gasta tu turno).</span></div>` : ''}
+        ${onlyCombat ? `<div class="class-note is-good">${pxi('swords', 14)}<span>Se usa en combate, con el botón Objeto${data.subtype === 'scroll' ? ' (gasta tu turno)' : ''}.</span></div>` : ''}
       `;
     } else {
       stats = `${rarityRow}${sellRow}`;
     }
 
+    // v3.3: el pergamino que enseña un hechizo lo dice
+    if (data.teachesSpell && data.subtype !== 'scroll_spell') {
+      const sp = A.Data.getById('spells', data.teachesSpell);
+      if (sp) stats += `<div class="class-note is-good">${pxi('book', 14)}<span>Se puede aprender: <b>${esc(sp.name)}</b> (hechizo de nivel ${sp.tier || 1}${sp.mageOnly ? ', solo magos' : ''}${sp.cooldown ? `, cada ${sp.cooldown} turnos` : ''}). Al aprenderlo, el pergamino se gasta.</span></div>`;
+    }
+
     const actions = [];
     let hint = '';
     if (kind === 'weapon' || kind === 'armor' || kind === 'accessory') {
+      // v3.3: los magos solo usan armas mágicas
+      const cant = !wornView && A.Inventory.cantEquipWhy ? A.Inventory.cantEquipWhy(itemId) : '';
       if (wornView) actions.push(`<button class="btn-primary" data-detail-action="unequip">Quitar</button>`);
-      else actions.push(`<button class="btn-primary" data-detail-action="equip">Equipar</button>`);
+      else actions.push(`<button class="btn-primary" data-detail-action="equip" ${cant ? `disabled title="${esc(cant)}"` : ''}>Equipar</button>`);
+      if (cant) hint = `<div class="item-modal-hint dim">${esc(cant)}</div>`;
     }
     if (kind === 'consumable' || (kind === 'scroll' && data.subtype !== 'scroll_spell')) {
       // v2.4: no dejes gastar algo que no hace nada ahora
       const can = inCombat ? { ok: true } : (A.ItemFx ? A.ItemFx.usableNow(data) : { ok: true });
-      actions.push(`<button class="btn-primary" data-detail-action="use" ${can.ok ? '' : 'disabled'}>${inCombat ? 'Usar (gasta tu turno)' : 'Usar'}</button>`);
+      // v3.3: pociones, comida y hierbas no gastan el turno (hasta 3 por turno)
+      const freeUse = inCombat && A.Combat.freeItem && A.Combat.freeItem(data);
+      actions.push(`<button class="btn-primary" data-detail-action="use" ${can.ok ? '' : 'disabled'}>${inCombat ? (freeUse ? 'Usar (no gasta el turno)' : 'Usar (gasta tu turno)') : 'Usar'}</button>`);
       if (!can.ok && can.why && !(A.ItemFx && A.ItemFx.combatOnly(data))) hint = `<div class="item-modal-hint dim">${esc(can.why)}</div>`;
     }
     if (data.subtype === 'scroll_spell') {
@@ -500,6 +513,14 @@
       const can = A.Spellbook && A.Spellbook.canLearn && p ? A.Spellbook.canLearn(p, data.teachesSpell) : { ok: true };
       actions.push(`<button class="btn-primary" data-detail-action="use" ${can.ok ? '' : 'disabled'}>Aprender hechizo</button>`);
       if (!can.ok && can.why) hint = `<div class="item-modal-hint dim">${esc(can.why)}</div>`;
+    } else if (data.teachesSpell && p && p.hasMagic && !inCombat) {
+      // v3.3: muchos pergaminos de combate también se pueden aprender (el pergamino se gasta)
+      const sp = A.Data.getById('spells', data.teachesSpell);
+      const can = A.Spellbook && A.Spellbook.canLearn ? A.Spellbook.canLearn(p, data.teachesSpell) : { ok: true };
+      if (sp) {
+        actions.push(`<button class="btn-primary" data-detail-action="learn" ${can.ok ? '' : 'disabled'} title="Se gasta el pergamino y aprendés ${esc(sp.name)}">${can.known ? `Ya sabés ${esc(sp.name)}` : `Aprender ${esc(sp.name)}`}</button>`);
+        if (!can.ok && can.why && !can.known) hint = `<div class="item-modal-hint dim">${esc(can.why)}</div>`;
+      }
     }
     if (kind === 'bag') {
       actions.push(`<button class="btn-primary" data-detail-action="use">Equipar mochila</button>`);
@@ -561,22 +582,29 @@
           <li><b>Defensa</b>: lo mismo, pero al revés. Es lo que el enemigo tiene que alcanzar con su dado para pegarte. Sube con la esquiva.</li>
           <li><b>Armadura</b>: se resta de cada golpe que recibís.</li>
           <li><b>Velocidad</b>: el más rápido pega primero, y te ayuda a huir. El arma y la armadura pesan: lo que pasen de 4 entre las dos te lo restan de velocidad.</li>
-          <li><b>Magia</b>: lo que suman tus hechizos al daño (o a la curación). Los hechizos no fallan, pero gastan maná.</li>
+          <li><b>Magia</b>: lo que suman tus hechizos al daño (o a la curación). Los hechizos de daño tiran el dado como un arma, con +2 a tu precisión: pueden fallar y, con 20, hacen el doble. Algunos no fallan nunca, y los más fuertes tienen espera (se usan cada tantos turnos).</li>
         </ul>
         <p>Si en el dado sale un 20 es golpe crítico: acierta siempre y hace el doble de daño. Con un 1 falla siempre.</p>
 
         <h3>Equipo y objetos</h3>
         <p>Llevás un arma, una armadura, un <b>accesorio</b> (anillos, amuletos, botas, capas: cada uno con un efecto propio) y una mochila. Todo tiene <b>rareza</b>: común, poco común, raro, épico y legendario; mientras más rara, más cuesta y menos se encuentra. Lo que vendés te lo pagan a la mitad de su precio.</p>
-        <p>Las pociones curan o te dan una mejora por unos turnos. Los <b>pergaminos</b> los puede usar cualquiera, una sola vez y en combate: dañan, paralizan, maldicen o te protegen, y no fallan. Usar algo en combate gasta tu turno. Si una misión te pide algo que sueltan las criaturas, mientras te falte lo vas a encontrar más seguido.</p>
+        <p>Las pociones curan o te dan una mejora por unos turnos. Los <b>pergaminos</b> los puede usar cualquiera, una sola vez y en combate: dañan, paralizan, maldicen o te protegen, y no fallan; muchos se pueden aprender como hechizo. En tu turno podés usar <b>hasta 3 pociones, comidas o hierbas sin perderlo</b>; un pergamino, en cambio, gasta el turno. Si una misión te pide algo que sueltan las criaturas, mientras te falte lo vas a encontrar más seguido.</p>
 
         <h3>Explorar</h3>
         <p>Cada vez que explorás pasa algo: aparece una criatura (y elegís cómo encararla) o te toca una escena con dos o tres caminos. Explorar hace pasar el tiempo y da hambre.</p>
 
         <h3>Clases</h3>
-        <p><b>Guerreros</b>: sin magia, pero pegan más fuerte con cualquier arma y tienen el <b>Golpe fuerte</b>: un ataque con el doble de daño que se puede usar una vez cada 5 turnos. <b>Magos</b>: viven de la magia; el maná les vuelve solo, un poco en cada turno (más desde el nivel 5) y otro poco al ganar, pero son frágiles y las armas pesadas les quitan precisión. <b>Híbridos</b>: usan cualquier arma y algo de magia; cada golpe con arma que aciertan les devuelve maná (más desde el nivel 9). Cada raza con magia nace con su propio hechizo.</p>
+        <p><b>Guerreros</b>: sin magia, pero pegan más fuerte con cualquier arma y tienen el <b>Golpe fuerte</b>: un ataque con el doble de daño que se puede usar una vez cada 5 turnos. <b>Magos</b>: viven de la magia; el maná les vuelve solo, un poco en cada turno (más desde el nivel 5) y otro poco al ganar, pero son frágiles y <b>solo usan armas mágicas</b> (varitas, bastones, cetros, orbes, tomos). Solo ellos aprenden <b>Curación</b> y los grandes hechizos de área. <b>Híbridos</b>: usan cualquier arma y algo de magia; cada golpe con arma que aciertan les devuelve maná (más desde el nivel 9). Cada raza nace con su propia arma, y cada raza con magia, con su propio hechizo.</p>
 
         <h3>Descansar</h3>
         <p>De día, una siesta te cura un poco (hasta la mitad de tu vida) y pasa la tarde. De noche dormís hasta la mañana y te curás más (hasta tres cuartos); al raso, algo puede acercarse. Descansar da hambre, y después de descansar tenés que moverte (explorar, pelear o viajar) antes de volver a descansar. Para recuperarte del todo: la posada del pueblo o una poción.</p>
+
+        <h3>Huir</h3>
+        <p>Tenés dos intentos por pelea. En grupo, <b>el que huye se va solo</b>: deja la pelea con su mascota y sigue por su cuenta; los demás siguen peleando. Si el que huye era el último en pie, se van todos y se llevan a los caídos.</p>
+
+        <h3>Caer y morir</h3>
+        <p>Si en una pelea te quedás sin vida, <b>caés</b>, pero no morís enseguida. En grupo, si tus compañeros ganan te levantan (y con una <b>hierba de la vida</b> te pueden levantar en plena pelea). Si perdés solo, o caen todos, se tira el <b>dado de rescate</b>: si sale, alguien te encuentra y te lleva al pueblo con 1 de vida; si no, tu aventura termina. Cerca del pueblo es fácil que te encuentren (6 o más); en las zonas más peligrosas, muy difícil (hasta 14). Si tu mascota sigue en pie, corre a buscar ayuda (+3), y la Suerte del mediano suma +2.</p>
+        <p>Fuera de las peleas no hay rescate: si una <b>trampa</b> o un golpe te deja en 0, o te morís de <b>hambre</b>, tu aventura termina. Con poca vida, descansá o tomá una poción antes de seguir.</p>
 
         <h3>Misiones</h3>
         <p>Los habitantes con un signo de exclamación dorado tienen algo para vos. Con un signo de pregunta, te esperan para cobrar. Todo queda anotado en el Diario.</p>
@@ -603,6 +631,32 @@
         ${on ? `<button class="menu-voice-speed" data-menu-action="voice-speed" title="Velocidad de la voz">${fast ? 'Rápida' : 'Normal'}</button>` : ''}
       </div>
       ${on && !A.Voice.hasSpanish() ? '<p class="muted small">No encontramos una voz en español en este navegador: va a leer con la que tenga.</p>' : ''}`;
+  }
+
+  // ---------- v3.3: tus hechizos (estaba roto: faltaba esta función) ----------
+  function renderMagic() {
+    return modalShell('Tus hechizos', A.Views.Magic ? A.Views.Magic.renderHtml() : '');
+  }
+
+  // ---------- v3.3: tus números al explorar (salieron de la barra del costado) ----------
+  function renderExploreStats() {
+    const p = A.State.player;
+    const list = A.Explore && A.Explore.sheet ? A.Explore.sheet(p) : [];
+    const esc = A.Utils.escapeHtml;
+    const sign = (v) => (v > 0 ? `+${v}` : `${v}`);
+    const rows = list.map((x) => `
+        <div class="xs-row ${x.down ? 'is-down' : ''}">
+          <span class="xs-ic">${pxi(x.icon, 22)}</span>
+          <span class="xs-main"><b>${esc(x.label)}</b><small class="dim">${esc(x.hint || '')}${x.down ? ' Con hambre fuerte, baja.' : ''}</small></span>
+          <span class="xs-val num">${sign(x.value)}</span>
+        </div>`).join('');
+    const body = `
+      <div class="xs">
+        <p class="xs-lead">Cuando una escena te pide una tirada, se tira un dado de 20 y se le suma el número de lo que pide. Si llegás a lo que hace falta, sale bien.</p>
+        <div class="xs-list">${rows}</div>
+        <p class="xs-note dim">Sacar 20 siempre sale bien y sacar 1 siempre sale mal. Observar antes de decidir suma a la próxima tirada.</p>
+      </div>`;
+    return modalShell('Tus números al explorar', body);
   }
 
   function renderMenu() {
@@ -1177,14 +1231,18 @@
         <div class="combat-spell-list">
           ${spells.map((s) => {
             const cost = A.Passives ? A.Passives.spellCost(p, s) : s.manaCost;
-            const can = p.mana >= cost;
+            // v3.3: con espera, y la chance de acertar (los de daño pueden fallar)
+            const info = A.Combat.spellInfo ? A.Combat.spellInfo(s.id) : { wait: 0, ready: true, hit: 1, sure: true };
+            const can = p.mana >= cost && info.ready;
             const pick = needsAllyPick('spell', s);
+            const hitTxt = s.damage ? (info.sure ? 'no falla' : `acierta ${Math.round(info.hit * 100)}%`) : '';
+            const waitTxt = !info.ready ? `<b class="combat-spell-wait">Listo en ${info.wait} ${info.wait === 1 ? 'turno' : 'turnos'}</b> · ` : '';
             return `
               <button class="combat-spell-row ${can ? '' : 'is-disabled'}" data-cast-spell="${A.Utils.escapeHtml(s.id)}" ${can ? '' : 'disabled'}>
                 <span class="combat-spell-icon">${A.ItemSprites && A.ItemSprites.spellIcon ? A.ItemSprites.spellIcon(s, { size: 32 }) : ''}</span>
                 <span class="combat-spell-info">
                   <span class="combat-spell-name">${A.Utils.escapeHtml(s.name)}</span>
-                  <span class="combat-spell-meta dim">${s.damage ? `${s.damage} daño` : s.heal ? `${s.heal} cura` : ''} · Maná ${cost}${cost < s.manaCost ? ` <s>${s.manaCost}</s>` : ''}${pick ? ' · elegís a quién' : ''}</span>
+                  <span class="combat-spell-meta dim">${waitTxt}${s.damage ? `${s.damage} daño${s.area ? ' a todos' : ''}${s.stun ? ', sin turno' : ''}` : s.heal ? `${s.heal} cura${s.selfOnly ? ' (a vos)' : ''}` : (s.effect && A.ItemFx ? A.Utils.escapeHtml(A.ItemFx.summary({ effect: s.effect, subtype: 'scroll' })) : '')}${hitTxt ? ` · ${hitTxt}` : ''} · Maná ${cost}${cost < s.manaCost ? ` <s>${s.manaCost}</s>` : ''}${s.cooldown ? ` · cada ${s.cooldown} turnos` : ''}${pick ? ' · elegís a quién' : ''}</span>
                 </span>
               </button>
             `;
@@ -1207,8 +1265,14 @@
       { title: 'Pociones y comida', list: items.filter((s) => { const d = A.Data.getById('items', s.itemId); return d && d.subtype !== 'scroll'; }) },
       { title: 'Pergaminos', list: items.filter((s) => { const d = A.Data.getById('items', s.itemId); return d && d.subtype === 'scroll'; }) },
     ].filter((g) => g.list.length);
+    // v3.3: pociones, comida y hierbas no gastan el turno (hasta 3); los pergaminos, sí
+    const left = A.Combat.itemsLeft ? A.Combat.itemsLeft() : 3;
+    const free = (d) => (A.Combat.freeItem ? A.Combat.freeItem(d) : false);
     const body = `
       <div class="combat-item-modal">
+        <p class="combat-item-rule ${left ? '' : 'is-out'}">${left
+          ? `Pociones, comida y hierbas no gastan tu turno: podés usar ${left === 3 ? 'hasta 3' : `${left} más`} en este turno. Los pergaminos sí lo gastan.`
+          : 'Ya usaste 3 objetos en este turno: ahora atacá, lanzá un hechizo o huí. Los pergaminos todavía se pueden usar (gastan el turno).'}</p>
         ${groups.map((g) => `
           ${groups.length > 1 ? `<div class="combat-item-group dim">${g.title}</div>` : ''}
           <div class="combat-item-list">
@@ -1217,8 +1281,9 @@
               if (!data) return '';
               const what = A.ItemFx ? A.ItemFx.summary(data) : (data.description || '');
               const pick = needsAllyPick('item', data);
+              const off = free(data) && !left;
               return `
-                <button class="combat-item-row rarity-${A.Utils.escapeHtml(data.rarity || 'common')}" data-use-item="${A.Utils.escapeHtml(s.itemId)}">
+                <button class="combat-item-row rarity-${A.Utils.escapeHtml(data.rarity || 'common')} ${off ? 'is-disabled' : ''}" data-use-item="${A.Utils.escapeHtml(s.itemId)}" ${off ? 'disabled' : ''}>
                   <span class="combat-item-icon">${A.ItemSprites ? A.ItemSprites.html(data, { size: 32 }) : ''}</span>
                   <span class="combat-item-info">
                     <span class="combat-item-name">${A.Utils.escapeHtml(data.name)} <span class="dim">×${s.qty}</span></span>
@@ -1239,14 +1304,17 @@
   /** A quién se le puede dar (una poción que solo da maná, solo a los que usan magia). */
   function pickTargets(kind, data) {
     if (!data || !A.Combat.allyTargets) return [];
-    if (kind === 'spell') return data.heal ? A.Combat.allyTargets() : [];
+    if (kind === 'spell') return data.heal && !data.selfOnly ? A.Combat.allyTargets() : [];
     if (!(A.ItemFx && A.ItemFx.forOthers && A.ItemFx.forOthers(data))) return [];
+    // v3.3: la hierba de la vida es para otro (un compañero o una mascota caídos)
+    if (A.ItemFx.isRevive && A.ItemFx.isRevive(data)) return A.Combat.allyTargets().filter((t) => !t.self);
     const ef = data.effect || {};
     const manaOnly = (ef.type === 'mana' || ef.manaRestore) && ef.type !== 'restore' && !ef.heal && !data.healAmount && ef.type !== 'heal';
     return A.Combat.allyTargets().filter((t) => !manaOnly || (t.kind === 'hero' && t.ref.hasMagic));
   }
   /** ¿Hay que elegir a quién? (pociones y Curación, si tenés mascota o compañeros) */
   function needsAllyPick(kind, data) {
+    if (kind === 'item' && A.ItemFx && A.ItemFx.isRevive && A.ItemFx.isRevive(data)) return pickTargets(kind, data).length > 0;
     return pickTargets(kind, data).length > 1;
   }
 
@@ -1255,6 +1323,8 @@
     const data = kind === 'spell' ? A.Data.getById('spells', id) : A.Data.getById('items', id);
     if (!data) return modalShell('¿A quién?', '<p class="muted">Algo salió mal.</p>');
     const bad = (A.ItemFx && A.ItemFx.BAD) || [];
+    // v3.3: a los caídos solo los levanta la hierba de la vida (y la hierba solo sirve para ellos)
+    const revive = kind === 'item' && A.ItemFx && A.ItemFx.isRevive && A.ItemFx.isRevive(data);
     const rows = pickTargets(kind, data).map((t) => {
       const isPet = t.kind === 'pet';
       const cur = Math.max(0, (isPet ? t.ref.health : t.ref.hp) || 0);
@@ -1266,19 +1336,24 @@
       const who = t.self ? 'Vos' : t.name;
       const sub = isPet ? (t.ownerName ? `Mascota de ${t.ownerName}` : 'Tu mascota') : (t.self ? t.ref.name : 'Compañero');
       const mana = !isPet && t.ref.hasMagic && kind === 'item' ? ` · maná ${t.ref.mana || 0}/${t.ref.maxMana || 0}` : '';
+      const off = revive ? !down : down;
+      const why = revive && !down ? 'Está en pie' : !revive && down ? 'Caído: hace falta una hierba de la vida' : '';
       return `
-        <button class="cb-pick-row ${down ? 'is-down' : ''} ${pct <= 35 && !down ? 'is-low' : ''}" data-ally-target="${esc(t.on)}">
+        <button class="cb-pick-row ${down ? 'is-down' : ''} ${pct <= 35 && !down ? 'is-low' : ''} ${off ? 'is-off' : ''}" data-ally-target="${esc(t.on)}" ${off ? 'disabled' : ''} ${why ? `title="${esc(why)}"` : ''}>
           <span class="cb-pick-who"><b>${esc(who)}</b><small class="dim">${esc(sub)}${esc(mana)}</small></span>
           <span class="cb-pick-hp">
             <span class="cb-pick-bar"><i style="width:${pct}%"></i></span>
-            <span class="cb-pick-num">${down ? 'Caído' : `${cur}/${max}`}</span>
+            <span class="cb-pick-num">${down ? (isPet ? 'Inconsciente' : 'Caído') : `${cur}/${max}`}</span>
           </span>
-          ${sts.length ? `<span class="cb-pick-st">${esc(stTxt)}</span>` : ''}
+          ${why ? `<span class="cb-pick-st">${esc(why)}</span>` : sts.length ? `<span class="cb-pick-st">${esc(stTxt)}</span>` : ''}
         </button>`;
     }).join('');
+    const hint = revive
+      ? `Tocá a quién levantás: se pone de pie con el ${Math.round(((data.effect && data.effect.pct) || 0.25) * 100)}% de su vida y vuelve a pelear.`
+      : 'Tocá a quién se la das. A los caídos solo los levanta una hierba de la vida.';
     const body = `
       <div class="cb-pick">
-        <p class="cb-pick-hint dim">Tocá a quién se la das. Al que está caído lo levanta.</p>
+        <p class="cb-pick-hint dim">${hint}</p>
         <div class="cb-pick-list">${rows}</div>
         <button class="btn btn-ghost btn-sm cb-pick-back" data-pick-back>Volver</button>
       </div>`;
@@ -1591,7 +1666,10 @@
 
   function onItemAction(action, itemId) {
     if (action === 'equip') {
-      A.Inventory.equip(itemId);
+      const okEq = A.Inventory.equip(itemId);
+      // v3.3: si no se pudo (un mago con un arma que no es mágica), se dice por qué
+      const why = !okEq && A.Inventory.lastError ? A.Inventory.lastError() : '';
+      if (why && A.Views.Party && A.Views.Party.toast) A.Views.Party.toast(why, 'bad', 'lock');
       A.State.closeModal();
     } else if (action === 'unequip') {
       // v2.1.1: quitarse el arma o la armadura (vuelve a la mochila)
@@ -1602,6 +1680,11 @@
         A.State.addChronicle({ type: 'item', text: `Te sacaste ${d ? d.name.toLowerCase() : 'el equipo'} y lo guardaste en la mochila.` });
       }
       A.State.closeModal();
+    } else if (action === 'learn') {
+      // v3.3: aprender el hechizo del pergamino
+      A.Inventory.learn(itemId);
+      A.State.closeModal();
+      if (A.Views && A.Views.Shell && A.Views.Shell.rerender) A.Views.Shell.rerender();
     } else if (action === 'use') {
       A.Inventory.use(itemId);
       A.State.closeModal();

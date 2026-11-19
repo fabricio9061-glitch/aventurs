@@ -18,7 +18,9 @@
   const TUNE = {
     gigante: { critMin: 18, mult: 2, prec: 1, precLevel: 5 }, // Golpe de gigante: crítico desde 18, doble daño; v3.1: +1 de precisión desde el nivel 5
     certero: { critMin: 19, prec: 2 },     // Ojo certero: críticos con 19-20 y precisión extra
-    suerte: { dodge: 0.1 },                // Suerte: parte de los golpes que te iban a pegar, fallan
+    suerte: { dodge: 0.15 },               // Suerte: parte de los golpes que te iban a pegar, fallan · v3.3: 15% (era 10%)
+    roca: { hits: 2 },                     // Piel de roca (enano): cuántos golpes por pelea te hacen la mitad · v3.3: 2 (era 1)
+    furia: { at: 0.75 },                   // Furia (orco): se enciende con esta parte de la vida o menos · v3.3: 3/4 (era la mitad)
     metal: { armor: 0, shield: [1, 2], shieldLevel: 6 }, // Cuerpo de metal: blindaje por pelea (1; 2 desde el nivel 6). v3.1
     determinacion: { keep: 0.15 },         // Determinación: con cuánta vida quedás (parte de la máxima; 0 = con 1)
     sangre: { chance: 0.33 },              // Sangre de dragón: chance de prender fuego al pegar
@@ -29,9 +31,17 @@
     // v3.1
     bendicion: { pct: 0.1, min: 3 },       // Bendición (ángel): cuánto cura (parte de la vida máxima)
     ingenio: { pct: 0.2, min: 1 },         // Ingenio (gnomo): hechizos más baratos (parte del costo, con un mínimo) · v3.1: 20% (era 25%: el mago más fuerte)
+    // v3.3: razas nuevas
+    lobo: { regen: [1, 1, 2], every: 4, below: 0.5 }, // Sangre de lobo (licántropo): con la mitad de la vida o menos, vida al empezar cada turno de pelea (1 · 2 desde nv 9) · medido: con 1/2/3 siempre ganaba 15 puntos más que los otros guerreros
+    sombras: { bonus: 3, every: 4, poison: 0.4 }, // Cazador de sombras (elfo oscuro): daño extra a lo que ya tiene un estado malo, y sus golpes a veces envenenan · medido: sin el veneno quedaba 20 puntos abajo
+    espinas: { dmg: 1, every: 4 },         // Corteza espinosa (dríade): el que te pega de cerca se lastima
   };
+  // v3.3: los estados malos que cuenta el Cazador de sombras
+  const BAD_FX = ['poison', 'fire', 'bleed', 'blind', 'cold', 'curse', 'stun', 'shock', 'sleep'];
   const pctTxt = (x) => `${Math.round(x * 100)}%`;
   const oneIn = (x) => (x > 0 ? `uno de cada ${Math.round(1 / x)}` : 'ninguno');
+  /** v3.3: "una de cada 4 veces" si es exacto; si no, "el 40% de las veces". */
+  const freqTxt = (x) => (x > 0 && Math.abs(1 / x - Math.round(1 / x)) < 0.01 ? `una de cada ${Math.round(1 / x)} veces` : `el ${pctTxt(x)} de las veces`);
 
   const lvl = (p) => Math.max(1, (p && p.level) || 1);
   const step = (p, every) => Math.floor((lvl(p) - 1) / every);
@@ -58,11 +68,13 @@
     },
     piel_roca: {
       name: 'Piel de roca', icon: 'shield',
-      text: () => 'El primer golpe que recibís en cada combate te hace la mitad de daño.',
+      text: () => (TUNE.roca.hits > 1
+        ? `Los ${({ 2: 'dos', 3: 'tres', 4: 'cuatro' })[TUNE.roca.hits] || TUNE.roca.hits} primeros golpes que recibís en cada combate te hacen la mitad de daño.`
+        : 'El primer golpe que recibís en cada combate te hace la mitad de daño.'),
     },
     furia: {
       name: 'Furia', icon: 'fist',
-      text: (p) => `Con la mitad de la vida o menos, tus golpes hacen +${furyAmount(p)} de daño.`,
+      text: (p) => `Con ${furyWhen()} de la vida o menos, tus golpes hacen +${furyAmount(p)} de daño.`,
     },
     cuerpo_metal: {
       name: 'Cuerpo de metal', icon: 'gear',
@@ -84,7 +96,16 @@
     },
     mente_expansiva: {
       name: 'Mente expansiva', icon: 'arcane',
-      text: () => 'Recuperás más maná que cualquier otro mago: 1 más en cada turno, y más al ganar.',
+      // v3.3: con los números de verdad (1,5 por turno al empezar; crece más rápido que el de los otros magos)
+      text: (p) => {
+        const B = A.Balance;
+        if (!B || !B.manaRegenOf) return 'Recuperás más maná que cualquier otro mago, en cada turno y al ganar.';
+        const lv = lvl(p);
+        const me = B.manaRegenOf({ hasMagic: true, raceId: 'alienigena', level: lv }).turn;
+        const every = (B.TUNE && B.TUNE.mageRegenEvery) || 0;
+        const other = 1 + (every > 0 ? Math.floor((lv - 1) / every) : 0);
+        return `Recuperás más maná que cualquier otro mago: ${B.regenLabel(me)} por turno${me % 1 ? ' en promedio' : ''} (los demás, ${other}), y más al ganar una pelea.`;
+      },
     },
     llama_interior: {
       name: 'Llama interior', icon: 'fireball',
@@ -107,13 +128,35 @@
       name: 'Polvo de hada', icon: 'stars',
       text: () => 'Al empezar cada pelea, una de las criaturas (nunca un jefe) se queda dormida y pierde su primer turno.',
     },
+    // v3.3: razas nuevas
+    sangre_lobo: {
+      name: 'Sangre de lobo', icon: 'heart',
+      text: (p) => {
+        const when = TUNE.lobo.below >= 1 ? 'Al empezar cada uno de tus turnos en una pelea' : `Con ${TUNE.lobo.below === 0.5 ? 'la mitad' : TUNE.lobo.below === 0.75 ? 'tres cuartos' : pctTxt(TUNE.lobo.below)} de la vida o menos, al empezar cada uno de tus turnos`;
+        const grows = TUNE.lobo.regen.slice(1).map((n, i) => (n !== TUNE.lobo.regen[i] && lvl(p) < 1 + TUNE.lobo.every * (i + 1) ? `${n} desde el nivel ${1 + TUNE.lobo.every * (i + 1)}` : '')).filter(Boolean);
+        return `${when}, recuperás ${wolfAmount(p)} de vida${grows.length ? ` (sube con el nivel: ${grows.join(', ')})` : ''}.`;
+      },
+    },
+    cazador_sombras: {
+      name: 'Cazador de sombras', icon: 'eye',
+      text: (p) => `${TUNE.sombras.poison > 0 ? `Tus golpes con arma envenenan ${freqTxt(TUNE.sombras.poison)}. ` : ''}Tus golpes y hechizos hacen +${shadowAmount(p)} de daño a las criaturas que ya tienen algo malo encima: veneno, fuego, sangrado, ceguera, frío, maldición, o que están aturdidas o dormidas.`,
+    },
+    corteza_espinosa: {
+      name: 'Corteza espinosa', icon: 'shield',
+      text: (p) => `Cada criatura que te pega de cerca se clava tus espinas y recibe ${thornsAmount(p)} de daño (sube con el nivel).`,
+    },
   };
 
   // ---------- Números que crecen con el nivel ----------
   function furyAmount(p) { return 2 + step(p, 4); }      // 2 · 3 (nv 5) · 4 (nv 9)
+  function furyWhen() { const a = TUNE.furia.at; return a === 0.75 ? 'tres cuartos' : a === 0.5 ? 'la mitad' : pctTxt(a); }
   function spellAmount(p) { return 1 + Math.floor(lvl(p) / 2); } // 1 · 2 (nv 2) · 3 (nv 4) · 4 (nv 6) · 5 (nv 8) · 6 (nv 10)
   function manaAmount() { return 1; }                    // fijo: con más nivel ya sobra maná
   function blessAmount(p) { return Math.max(TUNE.bendicion.min, Math.round(((p && p.maxHp) || 24) * TUNE.bendicion.pct)); } // parte de la vida máxima (con un mínimo)
+  // v3.3
+  function wolfAmount(p) { const r = TUNE.lobo.regen; return r[Math.min(r.length - 1, step(p, TUNE.lobo.every))]; }
+  function shadowAmount(p) { return TUNE.sombras.bonus + step(p, TUNE.sombras.every); }
+  function thornsAmount(p) { return TUNE.espinas.dmg + step(p, TUNE.espinas.every); }
 
   // ---------- Consultas ----------
   function raceOf(p) {
@@ -172,7 +215,7 @@
   /** Daño extra de la Furia (solo con la mitad de la vida o menos). */
   function damageBonus(p) {
     if (!has(p, 'furia') || !p || p.hp <= 0) return 0;
-    return p.hp <= p.maxHp / 2 ? furyAmount(p) : 0;
+    return p.hp <= p.maxHp * TUNE.furia.at ? furyAmount(p) : 0;
   }
 
   // ---------- Magia ----------
@@ -226,8 +269,9 @@
       const take = Math.min(used[k], out);
       if (take > 0) { used[k] -= take; out -= take; absorbed = take; tag = 'cuerpo_metal'; }
     }
-    if (!opts.tick && has(p, 'piel_roca') && !used[heroKey(p, 'roca')] && out > 1) {
-      used[heroKey(p, 'roca')] = true;
+    // v3.3: los primeros golpes (TUNE.roca.hits) de cada pelea
+    if (!opts.tick && has(p, 'piel_roca') && (Number(used[heroKey(p, 'roca')]) || 0) < TUNE.roca.hits && out > 1) {
+      used[heroKey(p, 'roca')] = (Number(used[heroKey(p, 'roca')]) || 0) + 1;
       out = Math.max(1, Math.ceil(out / 2));
       tag = 'piel_roca';
     }
@@ -265,6 +309,19 @@
   function chargeMult(power) { return power ? TUNE.embestida.powerMult : TUNE.embestida.mult; }
   /** Polvo de hada: ¿duerme a alguien al empezar? */
   function fairyDust(p) { return has(p, 'polvo_hada') ? TUNE.hada.turns : 0; }
+
+  // ---------- v3.3 ----------
+  /** Sangre de lobo: vida al empezar tu turno (0 si no es tu raza). */
+  function wolfRegen(p) { return has(p, 'sangre_lobo') && p && p.hp > 0 && p.hp < p.maxHp && p.hp <= p.maxHp * TUNE.lobo.below ? wolfAmount(p) : 0; }
+  /** Cazador de sombras: daño extra contra una criatura con un estado malo. */
+  function shadowBonusVs(p, target) {
+    if (!has(p, 'cazador_sombras') || !target) return 0;
+    return (target.effects || []).some((e) => BAD_FX.includes(e.type) && (e.turns == null || e.turns > 0)) ? shadowAmount(p) : 0;
+  }
+  /** v3.3: Cazador de sombras: chance de envenenar con un golpe de arma. */
+  function shadowPoison(p) { return has(p, 'cazador_sombras') ? TUNE.sombras.poison || 0 : 0; }
+  /** Corteza espinosa: daño que se lleva el que te pega de cerca. */
+  function thornsOf(p) { return has(p, 'corteza_espinosa') ? thornsAmount(p) : 0; }
 
   /** ¿Se acaba de activar la Furia? (se avisa una sola vez por combate) */
   function furyJustStarted(c, p) {
@@ -304,5 +361,11 @@
     chargeReady,
     chargeMult,
     fairyDust,
+    // v3.3
+    wolfRegen,
+    shadowPoison,
+    shadowBonusVs,
+    thornsOf,
+    BAD_FX,
   };
 })(window.Aventurs);

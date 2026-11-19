@@ -89,7 +89,7 @@ Pruebas de equilibrio (v3.1): seis pruebas por raza (1 contra 1, rachas en los n
 peleas contra parejas), con semillas fijas para comparar antes y después de un cambio:
 
 ```powershell
-node tools/equilibrio.js                        # las 15 razas (unos minutos)
+node tools/equilibrio.js                        # las 18 razas (unos minutos)
 node tools/equilibrio.js --rapido               # la cuarta parte de las rachas
 node tools/equilibrio.js --razas=robot,enano    # solo esas razas
 node tools/equilibrio.js --guardar=antes.json   # guarda los resultados
@@ -98,20 +98,21 @@ node tools/equilibrio.js --comparar=antes.json  # muestra cuánto cambió cada n
 
 ## Contenido del juego (seed)
 
-- **15 razas** parejas, cada una con su pasiva (ver *Razas y pasivas*); las 10 que usan
+- **18 razas** parejas, cada una con su pasiva y su arma (ver *Razas y pasivas*); las 12 que usan
   magia nacen con su propio hechizo
 - **31 regiones** (24 de combate y 7 pueblos) ordenadas por nivel (1 a 10)
 - **104 enemigos** (29 domables), cada uno con su zona propia: 4 a 7 criaturas por zona
-- **67 armas**, **44 armaduras**, **277 objetos** (22 accesorios, 44 pergaminos de combate,
-  19 pociones, 53 comidas), **5 mochilas**; todo con rareza (común a legendario)
-- **17 hechizos** (10 de nacimiento), **20 recetas**, **13 habitantes**
-- **47 misiones** (18 de la historia principal) y **62 escenas** para explorar
+- **80 armas**, **44 armaduras**, **278 objetos** (22 accesorios, 51 pergaminos,
+  20 pociones, 53 comidas), **5 mochilas**; todo con rareza (común a legendario)
+- **44 hechizos** (12 de nacimiento, 24 que se aprenden de pergaminos), **25 recetas**, **13 habitantes**
+- **47 misiones** (18 de la historia principal) y **86 escenas** para explorar (12 solo para grupos)
 
 ## Reglas (v1.8.0)
 
 **Combate** (igual para jugador, mascota y enemigos): D20 + ataque contra la defensa
 del objetivo. 1 natural falla, 20 natural es crítico (daño x2). Daño = dados − armadura,
-mínimo 1 si pega. Los hechizos no se esquivan y la armadura cuenta la mitad.
+mínimo 1 si pega. Contra los hechizos la armadura cuenta la mitad (v3.3: los de daño tiran
+el dado con +2 y pueden fallar; los fuertes tienen espera).
 Efectos: sangrado, veneno y fuego dañan al empezar el turno; el frío baja defensa
 y ataque; el choque puede hacer perder el turno.
 
@@ -239,6 +240,63 @@ Explorar siempre hace pasar algo (`js/systems/explore.js` + `js/data/seed-events
   se cuentan con ×N).
 - En el celular, una franja arriba con vida, maná, comida y dinero.
 - Sin emojis en el juego (desde la v2.2, tampoco en el editor).
+
+## Versión 3.3.0: magia con dado y espera, la muerte en serio, 3 razas nuevas y escenas de grupo
+
+### Magia (`js/systems/combat.js`, `js/data/seed-spells.js`)
+- Los hechizos de daño **tiran el dado** como un arma, con +2 (`Balance.SPELL_HIT`): pueden fallar y, con 20, son críticos. Los de área tiran una vez y se compara con la defensa de cada criatura. Algunos no fallan nunca (Dardo arcano). El menú dice la chance de acertar.
+- **Esperas** (`cooldown`), solo en los hechizos fuertes: Curación se usa un turno sí y otro no; Bola de fuego (3), Tormenta arcana (4), Aliento de dragón (5) y otros esperan de 2 a 6 turnos. Los básicos no esperan.
+- **Curación es solo para magos.** Los híbridos tienen **Segundo aliento** (nuevo): se curan solo a sí mismos. A los demás los curan los magos. Partidas de antes: el híbrido que sabía Curación la cambia por Segundo aliento.
+- Los **magos solo usan armas mágicas** (varitas, bastones, cetros, orbes, tomos). Partidas de antes: el mago con un arma común se pone una mágica y la otra va a la mochila.
+- **24 pergaminos se aprenden** como hechizos (botón *Aprender* en el detalle del pergamino; piden su nivel).
+- **Hasta 3 pociones o comidas por turno** sin perder el turno. Los pergaminos sí gastan el turno.
+
+### La muerte (`js/systems/death.js`)
+- Las trampas, los golpes de las escenas y el hambre **matan**. Con poca vida, las escenas avisan antes de elegir.
+- Si caés en una pelea, se tira un **dado de rescate**: si sale bien, alguien te encuentra y te lleva al pueblo; si sale mal, tu aventura termina, a menos que un compañero te levante con una **Hierba de la vida**.
+- La pantalla de muerte cuenta qué pasó, dónde y en qué día.
+
+### Grupo
+- Cada uno se lleva **lo suyo completo** (experiencia, monedas y botín), como si estuviera solo.
+- Lo malo de una escena le toca a **uno al azar**, y a cada uno de los demás con la mitad de chance.
+- Las escenas que pueden terminar en pelea muestran **contra qué criaturas** sería.
+- **El que huye se va solo**: se separa del grupo y los demás siguen peleando.
+- **12 escenas solo para grupos** (`party: true`, en plural): en algunas tira **el más hábil** del grupo (`check.best`) y en otras se **ayudan entre todos** (`check.together`: +1 por compañero). Lo que se paga lo paga el que eligió, y lo que compra es suyo.
+
+### Escenas nuevas (`js/data/seed-events.js`)
+- 24 escenas nuevas: 12 para todos (un árbol hueco, el ermitaño, un pozo de los deseos, un perro perdido, una mina abandonada, una hierba que brilla...) y 12 solo para grupos (un carro en el barro, un río que no da pie, una puerta con cuatro palancas, ruidos en la oscuridad...).
+- En el Editor: *Solo en grupo*, *Solo cuando vas solo*, *Cuándo sale*, y en las tiradas de grupo *la tira el más hábil* y *se ayudan*.
+
+### Razas (`js/data/seed-races.js`, `js/systems/passives.js`)
+- Cada raza **empieza con su arma** (1d4); los magos, con una varita (la dríade, con su vara de sauce).
+- **Tres razas nuevas**: **Licántropo** (guerrero: con la mitad de la vida o menos se cura un poco cada turno), **Elfo oscuro** (híbrido: sus golpes envenenan y pega más fuerte a lo que ya tiene algo malo encima) y **Dríade** (maga: el que le pega de cerca se clava sus espinas).
+- **Mediano**: la Suerte esquiva el 15% de los golpes (antes 10%). **Enano**: Piel de roca frena los dos primeros golpes de cada pelea (antes uno). **Orco**: la Furia se enciende con tres cuartos de la vida (antes, con la mitad).
+- **Alienígena y Robot**: más parejos con los de su clase (ver la tabla).
+
+### Equilibrio (medido con `node tools/equilibrio.js`, las 18 razas)
+Porcentaje de rachas que gana cada clase, v3.1 → v3.3 (promedio de la clase):
+
+| Prueba | Híbridos | Guerreros | Magos |
+|---|---|---|---|
+| Nivel 3 (5 peleas seguidas) | 39 → 39 | 35 → 36 | 49 → 40 |
+| Nivel 6 | 86 → 85 | 81 → 83 | 88 → 87 |
+| Contra parejas | 23 → 24 | 24 → 26 | 36 → 33 |
+| Nivel 10 | 82 → 79 | 83 → 85 | 89 → 78 |
+
+Las clases quedan a 4-9 puntos entre sí (la meta es 10 en los niveles 6 y 10, 15 en los otros) y ninguna raza queda más de 8 puntos abajo de su clase. Lo que se ajustó para llegar:
+- Sin Curación, los híbridos bajaban de 86 a 35 en el nivel 6: por eso Segundo aliento (2d6+2, cada 2 turnos, solo a vos).
+- Con espera y fallando, los magos bajaban a 65 en el nivel 10: Curación se usa un turno sí y otro no (con espera de 3 quedaban 20 puntos abajo).
+- **Alienígena**: 1,5 de maná por turno (antes 2) y crece de a 1,5; vida −7. Al nivel 3 pasó de 72 a 51 (los otros magos, 31 a 48).
+- **Robot**: vida +1 (antes +2): era el guerrero más fuerte al nivel 1.
+- **Licántropo**: se cura solo con la mitad de la vida o menos (antes, siempre ganaba 15 puntos más que los otros guerreros). **Elfo oscuro**: sus golpes envenenan el 40% de las veces, +3 de daño a lo que tiene algo malo encima y vida +4 (sin eso quedaba 20 puntos abajo). **Ángel**: vida −5 (antes −6).
+
+### Alquimia y hierbas
+- Algunos habitantes preparan pociones (pestaña *Alquimia*): Maela, la druida, la boticaria y el sabio de la torre.
+- **Hierba de la vida**: levanta a un compañero o a una mascota caídos en plena pelea. Se compra, se prepara o se encuentra.
+
+### Narrador y pantalla
+- La voz del narrador lee las escenas, el viaje y los lugares; cada pantalla tiene su parlante.
+- Barra del costado: también en solitario, vida, maná y comida van finitas arriba y la experiencia debajo de todas. *Al explorar* es un botón al lado del de los hechizos (que ya funciona).
 
 ## Versión 3.2.0: grupos de hasta 4, lo que se gana se reparte y mascotas que ayudan
 

@@ -246,6 +246,15 @@
     id, name, type: 'item', subtype: 'scroll', icon: '', value: Math.round(price(tier, rarity) * 0.35), rarity, tier, weight: 0, stack: 10, effect: { ...effect, combat: true }, description,
   }));
   for (const it of scrolls) if (E() && E().scrollPrice) it.value = E().scrollPrice(it);
+  // v3.3: muchos pergaminos se pueden aprender como hechizo (ver js/data/seed-spells.js, fromScroll)
+  const TEACHES = {
+    perg_misil_arcano: 'misil_arcano', perg_escudo: 'escudo_arcano', perg_quemar: 'quemar', perg_estatica: 'estatica', perg_veneno: 'nube_venenosa',
+    perg_purificar: 'purificar', perg_prisa: 'prisa', perg_congelar: 'congelar', perg_maldicion: 'maldicion', perg_enredar: 'enredar', perg_espinas: 'espinas',
+    perg_fuerza: 'fuerza_arcana', perg_precision: 'ojo_de_halcon', perg_relampago: 'relampago', perg_drenar: 'drenar_vida', perg_terror: 'terror',
+    perg_armadura: 'piel_de_piedra', perg_ola_fuego: 'ola_de_fuego', perg_ventisca: 'ventisca', perg_curacion_mayor: 'curacion_mayor', perg_regenerar: 'regenerar',
+    perg_furia: 'furia_salvaje', perg_trueno: 'trueno', perg_invisibilidad: 'invisibilidad',
+  };
+  for (const it of scrolls) if (TEACHES[it.id]) it.teachesSpell = TEACHES[it.id];
   const potions = P.map(([id, name, tier, rarity, effect, description]) => ({
     id, name, type: 'item', subtype: 'potion', icon: '', value: 0, rarity, tier, weight: 1, stack: 99, effect, description,
   }));

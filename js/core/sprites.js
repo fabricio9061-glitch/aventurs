@@ -1372,6 +1372,10 @@
     vampiro: { p: { sk: '#ece4ee', h: '#1c1418', cl: '#6a0e1e', cl2: '#1e1016', a: '#d4af37', m: '#c8d0da', wd: '#3a2a2a', e: '#e02030', g: '#ff3040' }, o: { size: 'medium', hair: 'short', cloak: true, mouth: 'fangs', outfit: 'suit', eyes: 'glow', defaultWeapon: 'sword' } },
     minotauro: { p: { sk: '#9a6a42', c: '#c8a070', cl: '#4a5a2a', cl2: '#3a2a1a', a: '#e8dcc0', m: '#b0b0b8', wd: '#5a3a1a', e: '#2a1a10' }, o: { size: 'large', head: 'bull', outfit: 'loincloth', ring: true, defaultWeapon: 'greataxe' } },
     hada: { p: { sk: '#f6e0f2', h: '#ff9ad8', cl: '#9ae6d4', cl2: '#6cc4b0', a: '#fff0a0', wg: '#e0f6ff', g: '#b0f8e0', e: '#6a3ac8', m: '#d0d8e0', wd: '#8a6a3a' }, o: { size: 'tiny', hair: 'long', outfit: 'leaves', wings: 'feather', defaultWeapon: 'wand' } },
+    // v3.3: tres razas nuevas
+    licantropo: { p: { sk: '#6a5a4a', c: '#a8988a', h: '#3a2a1a', cl: '#5a4632', cl2: '#3a2a1a', a: '#e8e0d0', m: '#b0b0b8', wd: '#5a3a1a', e: '#ffcc33' }, o: { size: 'large', head: 'wolf', outfit: 'fur', claws: true, furry: true, defaultWeapon: 'dagger' } },
+    elfo_oscuro: { p: { sk: '#6a5a8a', h: '#ececf4', cl: '#2a2238', cl2: '#1a1424', a: '#a080d0', m: '#c8d0da', wd: '#3a2a3a', e: '#e060e0', g: '#c080ff' }, o: { size: 'medium', hair: 'long', ears: 'elf', outfit: 'suit', cloak: true, eyes: 'glow', defaultWeapon: 'dagger' } },
+    driade: { p: { sk: '#8aa060', h: '#4a8a3a', cl: '#6a4a2a', cl2: '#4a3a1a', a: '#e0b0d0', m: '#d0d8e0', wd: '#7a5a3a', e: '#3a6a2a', g: '#b0f070' }, o: { size: 'medium', hair: 'leaves', outfit: 'leaves', defaultWeapon: 'staff' } },
   };
 
   // ============================================================

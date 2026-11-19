@@ -94,6 +94,9 @@
     'deja', 'dejan', 'salva', 'protege', 'cura', 'despierta', 'derriba', 'voltea', 'empuja', 'levanta', 'persigue', 'espera',
     'esperan', 'asusta', 'aturde', 'paraliza', 'encanta', 'hechiza', 'maldice', 'envenena', 'marea', 'confunde', 'detecta',
     'descubre', 'llama', 'llaman', 'saluda', 'busca', 'buscan', 'arrastran', 'sujeta', 'agarran', 'hunde',
+    // v3.3: el dado de rescate y la hierba de la vida ("te encontró", "te levanta")
+    'encontró', 'encontraron', 'llevó', 'llevaron', 'cargó', 'cargaron', 'levantó', 'levantaron', 'curó', 'curaron',
+    'levantan', 'cargan', 'revive', 'reviven', 'revivió',
   ]);
 
   // -te pegado al verbo

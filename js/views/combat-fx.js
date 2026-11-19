@@ -256,6 +256,8 @@
   function verdictOf(entry) {
     const isFlee = entry.fx && entry.fx.kind === 'flee';
     if (isFlee) return entry.result === 'hit' ? { cls: 'hit', text: '¡Escapás!' } : { cls: 'miss', text: 'No lográs huir' };
+    // v3.3: el dado de rescate (al perder una pelea)
+    if (entry.fx && entry.fx.kind === 'save' && entry.fx.rescue) return entry.result === 'hit' ? { cls: 'hit', text: mine(entry) ? '¡Te encuentran!' : '¡Lo encuentran!' } : { cls: 'miss', text: 'Nadie viene…' };
     // v2.5: tirada para resistir una habilidad
     if (entry.fx && entry.fx.kind === 'save') return entry.result === 'hit' ? { cls: 'hit', text: '¡Resistís!' } : { cls: 'miss', text: 'No resistís' };
     if (entry.result === 'crit') return { cls: 'crit', text: '¡Crítico!' };
@@ -349,7 +351,7 @@
         void el.offsetWidth; // vuelve a saltar
         el.classList.add('is-landed', `is-${v.cls}`);
         const bonus = entry.bonus ? ` ${entry.bonus > 0 ? '+' : '−'} ${Math.abs(entry.bonus)} = <b>${entry.total}</b>` : '';
-        const vs = entry.vs != null ? ` <span class="fx-dice-vs">vs ${entry.vsLabel === 'DC huida' ? 'huida' : 'dificultad'} ${entry.vs}</span>` : '';
+        const vs = entry.vs != null ? ` <span class="fx-dice-vs">vs ${entry.vsLabel === 'DC huida' ? 'huida' : entry.vsLabel === 'rescate' ? 'rescate' : 'dificultad'} ${entry.vs}</span>` : '';
         capEl.innerHTML = `<div class="fx-dice-verdict">${v.text}</div><div class="fx-dice-math"><b>${entry.roll}</b>${bonus}${vs}</div>`;
       };
       later(DICE_ROLL_MS, () => {
@@ -392,7 +394,8 @@
       return;
     }
     const fx = entry.fx;
-    if (entry.roll != null && (fx.kind === 'attack' || fx.kind === 'flee' || fx.kind === 'save')) {
+    // v3.3: los hechizos de daño también tiran el dado
+    if (entry.roll != null && (fx.kind === 'attack' || fx.kind === 'flee' || fx.kind === 'save' || fx.kind === 'spell')) {
       const addMs = addMsFor(entry);
       const startAt = Math.max(t, diceFreeAt, minAt - DICE_ROLL_MS - addMs);
       entry._diceAt = startAt;
@@ -400,7 +403,8 @@
       entry._at = startAt + DICE_ROLL_MS + addMs;
       diceFreeAt = entry._at + DICE_GAP_MS;
     } else if (fx.kind === 'spell') {
-      entry._at = Math.max(t + CAST_MS, impactAt.get(fx.target) || 0);
+      // v3.3: en los de área, las demás criaturas reciben el golpe después del dado
+      entry._at = Math.max(t + CAST_MS, impactAt.get(fx.target) || 0, fx.chain ? lastAt + 140 : 0);
     } else if (fx.kind === 'passive' || (fx.kind === 'heal' && fx.passive)) {
       // las pasivas se ven después de lo que las provocó
       entry._at = Math.max(t + 120, lastAt + 220);
@@ -420,7 +424,8 @@
       dyingUntil.set(fx.target, entry._at + DEATH_MS);
     }
     lastAt = Math.max(lastAt, entry._at);
-    holdUntil = Math.max(holdUntil, entry._at + (fx.kind === 'death' ? DEATH_MS + 350 : 850));
+    // v3.3: el dado de rescate se ve entero (y se va) antes de que salga el resultado
+    holdUntil = Math.max(holdUntil, entry._at + (fx.kind === 'death' ? DEATH_MS + 350 : fx.rescue ? DICE_HOLD_MS + 450 : 850));
   }
 
   /** v3.0: la tarjeta del héroe de esta frase (en grupo, "hero:<id>"; solo, "player"). */
@@ -449,6 +454,8 @@
     if (fx.kind === 'passive' && fx.passive) return { id: fx.passive, on: selfKey(entry), hero: true };
     if (fx.passive && (fx.kind === 'heal' || fx.kind === 'status')) return { id: fx.passive, on: selfKey(entry), hero: true };
     if (entry.passive && fx.target && isHeroKey(fx.target)) return { id: entry.passive, on: fx.target, hero: true };
+    // v3.3: Cazador de sombras y Corteza espinosa se anuncian sobre el héroe
+    if (entry.passive === 'cazador_sombras' || entry.passive === 'corteza_espinosa') return { id: entry.passive, on: selfKey(entry), hero: true };
     return null;
   }
 
@@ -505,7 +512,9 @@
         // v2.5: el dado para resistir una habilidad de la criatura
         if (entry._diceAt != null) showDice(entry, entry._diceAt);
         later(at - t, () => {
-          if (entry.result === 'hit') floatText(me, mine(entry) ? '¡Resistís!' : '¡Resiste!', 'is-status is-buff', -20, 'shield');
+          // v3.3: el dado de rescate
+          if (fx.rescue) floatText(me, entry.result === 'hit' ? '¡Rescate!' : 'Nadie viene…', entry.result === 'hit' ? 'is-status is-buff' : 'is-miss', -20, entry.result === 'hit' ? 'heart' : 'skull');
+          else if (entry.result === 'hit') floatText(me, mine(entry) ? '¡Resistís!' : '¡Resiste!', 'is-status is-buff', -20, 'shield');
         });
         break;
       }
@@ -526,11 +535,16 @@
         break;
       }
       case 'spell': {
-        playCardFx(fx.actor || me, 'fx-cast', CAST_MS + 120);
-        castGlow(fx.actor || me, fx.element);
+        if (entry._diceAt != null) showDice(entry, entry._diceAt);
+        if (!fx.chain) {
+          playCardFx(fx.actor || me, 'fx-cast', CAST_MS + 120);
+          castGlow(fx.actor || me, fx.element);
+        }
         later(at - t, () => {
+          // v3.3: el hechizo puede fallar
+          if (fx.miss) { floatText(fx.target, entry.result === 'fumble' ? '¡Pifia!' : 'Esquiva', 'is-miss'); return; }
           burst(fx.target, fx.element || 'arcane');
-          if (entry.dmg != null) floatNumber(fx.target, `-${entry.dmg}`, `is-dmg is-spell-${fx.element || 'arcane'}`);
+          if (entry.dmg != null) floatNumber(fx.target, `-${entry.dmg}`, `is-dmg is-spell-${fx.element || 'arcane'}${fx.crit ? ' is-crit' : ''}`);
           playCardFx(fx.target, 'fx-hit', 420);
         });
         break;

@@ -79,12 +79,16 @@
     const status = getStatus();
     if (status.penalties.hpDrain && p.food === 0) {
       const hpLost = 1;
-      // v3.0: al compañero (jugado en esta compu) el hambre no lo mata: eso se cuenta en la suya
-      p.hp = Math.max(A.State.isForeign && A.State.isForeign() ? 1 : 0, p.hp - hpLost);
+      // v3.3: el hambre mata a cualquiera (al compañero jugado en esta compu, el grupo
+      // le avisa en la suya: ver A.Death)
+      p.hp = Math.max(0, p.hp - hpLost);
       A.Bus.emit('player:hp-changed', { current: p.hp });
+      // v3.3: el aviso dice claro que esto sí mata (es lo único que termina la partida)
       A.State.addChronicle({
         type: 'note',
-        text: `Estás muriéndote de hambre. Perdiste ${hpLost} de salud.`,
+        text: p.hp <= 3
+          ? `Te estás muriendo de hambre: perdiste ${hpLost} de vida y te quedan ${p.hp}. Si llegás a 0, la partida termina. Comé algo ya.`
+          : `Estás muriéndote de hambre. Perdiste ${hpLost} de salud. El hambre es lo único que te puede matar para siempre: comé algo.`,
       });
       // Si llegó a 0, muerte por inanición
       if (p.hp <= 0) {
@@ -126,20 +130,15 @@
     const region = w && w.regionId ? A.Data.getById('regions', w.regionId) : null;
     const day = (w && w.day) || 1;
 
+    // v3.3: la pantalla y el aviso al grupo los maneja A.Death
+    if (A.Death) {
+      A.Death.kill('starvation', { regionId: w ? w.regionId : null, text: `El hambre te consumió en ${region ? region.name : 'el camino'}. No volviste a levantarte.`, lastReason });
+      return;
+    }
     A.State.addChronicle({
       type: 'system',
       text: `${p.name} cayó por inanición en ${region ? region.name : 'el camino'}. Sobreviviste ${day} día${day > 1 ? 's' : ''}.`,
     });
-
-    A.Bus.emit('player:died-starvation', {
-      cause: 'starvation',
-      regionId: w ? w.regionId : null,
-      regionName: region ? region.name : 'el camino',
-      day: day,
-      level: p.level,
-      lastReason,
-    });
-    // Disparar también el genérico player:died para handlers existentes
     A.Bus.emit('player:died', { cause: 'starvation' });
   }
 
@@ -195,6 +194,10 @@
     infernal: { label: 'Brasas y carne', fav: ['brasa', 'carne'], half: ['fruta', 'verdura'], start: [['carbon_ardiente', 2], ['pan', 1]], startText: 'carbón ardiente y pan' },
     angel: { label: 'Pan, miel y fruta', fav: ['pan', 'dulce', 'fruta', 'nectar'], half: ['carne'] },
     hada: { label: 'Néctar, miel y fruta', only: ['nectar', 'dulce', 'fruta'], fav: ['nectar'], half: [], start: [['frasco_nectar', 3]], startText: '3 frascos de néctar' },
+    // v3.3
+    licantropo: { label: 'Carne, cuanto más cruda mejor', fav: ['carne'], half: ['fruta', 'verdura', 'dulce', 'pan'], start: [['carne_seca', 3]], startText: '3 tiras de carne seca' },
+    elfo_oscuro: { label: 'Hongos, carne y pan', fav: ['hongo', 'carne'], half: ['fruta', 'dulce'] },
+    driade: { label: 'Fruta, verdura y néctar', fav: ['fruta', 'verdura', 'nectar'], half: ['carne', 'pescado'] },
   };
   const DEFAULT_DIET = DIETS.humano;
   const FAV_MULT = 1.5;

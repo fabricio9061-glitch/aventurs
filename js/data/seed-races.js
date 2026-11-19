@@ -4,18 +4,20 @@
    pasiva) es el mismo, repartido distinto. Se mide con:
      node tools/simulador.js razas
 
-   Tipos (5 de cada uno; v3.0 suma Vampiro, Minotauro y Hada):
-     hybrid  (Humano, Elfo, Mediano, Dracónido, Vampiro) -> magia + arma
-     warrior (Enano, Orco, Robot, Goliat, Minotauro)     -> sin magia, más vida y daño
-     mage    (Gnomo, Alienígena, Infernal, Ángel, Hada)  -> más maná, menos vida
+   Tipos (6 de cada uno; v3.0 suma Vampiro, Minotauro y Hada; v3.3, Elfo
+   oscuro, Licántropo y Dríade):
+     hybrid  (Humano, Elfo, Mediano, Dracónido, Vampiro, Elfo oscuro) -> magia + arma
+     warrior (Enano, Orco, Robot, Goliat, Minotauro, Licántropo)       -> sin magia, más vida y daño
+     mage    (Gnomo, Alienígena, Infernal, Ángel, Hada, Dríade)        -> más maná, menos vida
 
    passive: id de la pasiva (textos y reglas en js/systems/passives.js).
 
    Al subir de nivel: vida +6 (warrior y hybrid), +5 (mage); maná +5 (mage)
    o +3 (hybrid). v2.0: los guerreros tienen maestría con armas y los magos
    más poder mágico (ver weaponFit y spellPowerOf en js/core/balance.js).
-   Todos arrancan con Daga + Túnica de cuero; los que usan magia,
-   además saben Chispa.
+   v3.3: cada raza arranca con su arma (startWeapon) y Túnica de cuero;
+   los magos, con Varita. Las armas de raza valen lo mismo que la vieja
+   daga (1d4): cambia la forma, no la fuerza.
 
    v2.1:
      startSpell  hechizo con el que nace la raza (js/data/seed-spells.js)
@@ -35,6 +37,7 @@
     // ---------- Híbridos: arma y magia ----------
     {
       id: 'humano',
+      startWeapon: 'espada_recluta', // v3.3: el arma con la que nace
       name: 'Humano',
       icon: '🧑',
       sprite: '',
@@ -47,6 +50,7 @@
     },
     {
       id: 'elfo',
+      startWeapon: 'arco_rama', // v3.3: el arma con la que nace
       name: 'Elfo',
       icon: '🧝',
       sprite: '',
@@ -59,6 +63,7 @@
     },
     {
       id: 'mediano',
+      startWeapon: 'cuchillo_caza', // v3.3: el arma con la que nace
       name: 'Mediano',
       icon: '🧚',
       sprite: '',
@@ -71,6 +76,7 @@
     },
     {
       id: 'draconido',
+      startWeapon: 'hacha_escamas', // v3.3: el arma con la que nace
       name: 'Dracónido',
       icon: '🐉',
       sprite: '',
@@ -85,6 +91,7 @@
     // v3.0: el quinto híbrido
     {
       id: 'vampiro',
+      startWeapon: 'punal_sangre', // v3.3: el arma con la que nace
       name: 'Vampiro',
       icon: '',
       sprite: '',
@@ -99,6 +106,7 @@
     // ---------- Guerreros: sin magia ----------
     {
       id: 'enano',
+      startWeapon: 'martillo_minero', // v3.3: el arma con la que nace
       name: 'Enano',
       icon: '🧔',
       sprite: '',
@@ -110,6 +118,7 @@
     },
     {
       id: 'orco',
+      startWeapon: 'garrote_hueso', // v3.3: el arma con la que nace
       name: 'Orco',
       icon: '👹',
       sprite: '',
@@ -121,17 +130,19 @@
     },
     {
       id: 'robot',
+      startWeapon: 'maza_engranajes', // v3.3: el arma con la que nace
       name: 'Robot',
       icon: '🤖',
       sprite: '',
       combatType: 'warrior',
       magic: false,
       passive: 'cuerpo_metal',
-      bonuses: { hp: 2, mana: 0, speed: -1, precision: 1, armor: 1, damage: 0, dodge: -1 }, // v3.1: vida 3 -> 2 (ahora tiene blindaje)
+      bonuses: { hp: 1, mana: 0, speed: -1, precision: 1, armor: 1, damage: 0, dodge: -1 }, // v3.1: vida 3 -> 2 (ahora tiene blindaje) · v3.3: 1 (era el guerrero más fuerte al nivel 1)
       description: 'Construidos, no nacidos. Inmunes al cansancio, al veneno y a la duda, pero ajenos por completo a la magia.',
     },
     {
       id: 'goliat',
+      startWeapon: 'porra_piedra', // v3.3: el arma con la que nace
       name: 'Goliat',
       icon: '🗿',
       sprite: '',
@@ -145,6 +156,7 @@
     // v3.0: el quinto guerrero
     {
       id: 'minotauro',
+      startWeapon: 'hacha_cuerno', // v3.3: el arma con la que nace
       name: 'Minotauro',
       icon: '',
       sprite: '',
@@ -158,6 +170,7 @@
     // ---------- Magos: mucha magia, menos vida ----------
     {
       id: 'gnomo',
+      startWeapon: 'varita', // v3.3: el arma con la que nace
       name: 'Gnomo',
       icon: '🧙',
       sprite: '',
@@ -170,18 +183,21 @@
     },
     {
       id: 'alienigena',
+      startWeapon: 'varita', // v3.3: el arma con la que nace
       name: 'Alienígena',
       icon: '👽',
       sprite: '',
       combatType: 'mage',
       magic: true,
       passive: 'mente_expansiva',
-      startSpell: 'rayo_de_plasma', manaRegen: { turn: 2, win: 0.3 },
-      bonuses: { hp: -8, mana: 1, speed: 2, precision: 1, armor: 0, damage: 0, dodge: 2 },
+      // v3.3: 1,5 de maná por turno (antes 2: en el nivel 3 le sacaba 20 puntos a los otros magos); crece de a 1,5
+      startSpell: 'rayo_de_plasma', manaRegen: { turn: 1.5, win: 0.3, step: 1.5 },
+      bonuses: { hp: -7, mana: 1, speed: 2, precision: 1, armor: 0, damage: 0, dodge: 2 }, // v3.3: -7 (con menos maná por turno, al nivel 1 quedaba abajo)
       description: 'Visitantes de mundos lejanos. Sus mentes beben de corrientes de energía que los nativos apenas perciben.',
     },
     {
       id: 'infernal',
+      startWeapon: 'varita', // v3.3: el arma con la que nace
       name: 'Infernal',
       icon: '😈',
       sprite: '',
@@ -194,6 +210,7 @@
     },
     {
       id: 'angel',
+      startWeapon: 'varita', // v3.3: el arma con la que nace
       name: 'Ángel',
       icon: '👼',
       sprite: '',
@@ -201,12 +218,13 @@
       magic: true,
       passive: 'bendicion',
       startSpell: 'luz_sagrada', manaRegen: { turn: 1, win: 0.25 },
-      bonuses: { hp: -6, mana: 1, speed: 1, precision: 1, armor: 0, damage: 0, dodge: 2 },
+      bonuses: { hp: -5, mana: 1, speed: 1, precision: 1, armor: 0, damage: 0, dodge: 2 }, // v3.3: -5 (era -6: en el nivel 3 quedaba 9 puntos abajo de los magos)
       description: 'Guardianes bajados del cielo. Una luz suave los acompaña y les cierra las heridas en plena batalla.',
     },
     // v3.0: la quinta maga
     {
       id: 'hada',
+      startWeapon: 'varita', // v3.3: el arma con la que nace
       name: 'Hada',
       icon: '',
       sprite: '',
@@ -216,6 +234,45 @@
       startSpell: 'chispas_de_hada', manaRegen: { turn: 1, win: 0.2 },
       bonuses: { hp: -9, mana: 2, speed: 3, precision: 1, armor: 0, damage: 0, dodge: 3 },
       description: 'Chiquitas, rapidísimas y traviesas. A su paso dejan un polvo brillante que adormece a cualquiera.',
+    },
+    // ---------- v3.3: tres razas nuevas (una de cada tipo) ----------
+    {
+      id: 'licantropo',
+      startWeapon: 'colmillo_lobo', // v3.3: el arma con la que nace
+      name: 'Licántropo',
+      icon: '',
+      sprite: '',
+      combatType: 'warrior',
+      magic: false,
+      passive: 'sangre_lobo',
+      bonuses: { hp: 0, mana: 0, speed: 1, precision: 1, armor: 0, damage: 0, dodge: 0 }, // v3.3: medido con el simulador
+      description: 'Mitad persona, mitad lobo. Mientras pelea, las heridas se le cierran solas.',
+    },
+    {
+      id: 'elfo_oscuro',
+      startWeapon: 'punal_obsidiana', // v3.3: el arma con la que nace
+      name: 'Elfo oscuro',
+      icon: '',
+      sprite: '',
+      combatType: 'hybrid',
+      magic: true,
+      passive: 'cazador_sombras',
+      startSpell: 'manto_oscuridad',
+      bonuses: { hp: 4, mana: 1, speed: 2, precision: 1, armor: 0, damage: 0, dodge: 1 }, // v3.3: medido con el simulador
+      description: 'Los elfos que se fueron a vivir bajo tierra. Sus hojas envenenan, y pegan más fuerte a lo que ya está envenenado, ciego o herido.',
+    },
+    {
+      id: 'driade',
+      startWeapon: 'vara_sauce', // v3.3: el arma con la que nace
+      name: 'Dríade',
+      icon: '',
+      sprite: '',
+      combatType: 'mage',
+      magic: true,
+      passive: 'corteza_espinosa',
+      startSpell: 'enredadera', manaRegen: { turn: 1, win: 0.2 },
+      bonuses: { hp: -6, mana: 2, speed: 1, precision: 1, armor: 0, damage: 0, dodge: 2 },
+      description: 'Espíritus de los árboles con forma de persona. Su corteza tiene espinas: el que le pega de cerca, se lastima.',
     },
   ];
 

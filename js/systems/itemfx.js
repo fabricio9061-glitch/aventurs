@@ -45,7 +45,9 @@
   // "la poción de curación", "el pan", "los huevos" (para el narrador)
   const ART = { 'poción': 'la', 'jalea': 'la', 'sopa': 'la', 'botella': 'la', 'jarra': 'la', 'manzana': 'la', 'papa': 'la', 'zanahoria': 'la', 'carne': 'la', 'pulpa': 'la', 'ambrosía': 'la', 'frutillas': 'las', 'huevos': 'los', 'champiñones': 'los' };
   const theName = (item) => { const n = String((item && item.name) || '').toLowerCase(); return `${ART[n.split(' ')[0]] || 'el'} ${n}`; };
-  const verbFor = (item) => (item.subtype === 'scroll' ? 'Rompés' : item.subtype === 'food' ? 'Comés' : 'Tomás');
+  // v3.3: los hechizos que salieron de pergaminos usan las mismas reglas: se "lanzan"
+  const verbFor = (item) => (item.subtype === 'spell' ? 'Lanzás' : item.subtype === 'scroll' ? 'Rompés' : item.subtype === 'food' ? 'Comés' : 'Tomás');
+  const usedWord = (item) => (item.subtype === 'spell' ? 'Lanzaste' : 'Usaste');
   const accBonus = (p, k) => (A.Accessories ? A.Accessories.bonus(p, k) : 0);
   const noun = (inst) => (A.Narrator && A.Narrator.enemyNoun ? A.Narrator.enemyNoun(inst) : (inst && (inst.displayName || inst.name)) || 'el enemigo');
 
@@ -254,6 +256,11 @@
       case 'escape':
         out.push('Te saca de la pelea al instante, sin tirar el dado');
         break;
+      // v3.3: la hierba de la vida
+      case 'revive':
+        out.push(`Levanta a un compañero o a una mascota caídos en plena pelea, con el ${pctTxt(ef.pct || 0.25)} de su vida`);
+        out.push('Fuera de la pelea, despierta a tu mascota');
+        break;
       default: break;
     }
     if (ef.heal && ef.type !== 'food' && ef.type !== 'heal') out.push(`+${ef.heal} de vida`);
@@ -297,12 +304,16 @@
   function forOthers(item) {
     if (!item || item.subtype === 'scroll' || item.subtype === 'food' || item.subtype === 'accessory') return false;
     const ef = item.effect || {};
-    return ['heal', 'mana', 'cure', 'cleanse', 'restore'].includes(ef.type) || !!item.healAmount || !!ef.heal || !!ef.manaRestore;
+    return ['heal', 'mana', 'cure', 'cleanse', 'restore', 'revive'].includes(ef.type) || !!item.healAmount || !!ef.heal || !!ef.manaRestore;
   }
+
+  /** v3.3: ¿es para levantar a un caído? (la hierba de la vida) */
+  function isRevive(item) { return !!(item && item.effect && item.effect.type === 'revive'); }
 
   /**
    * v3.2: una poción para otro. target: { kind: 'hero'|'pet', ref, name }.
-   * Cura (y levanta al que estaba caído), devuelve maná a un héroe con magia y saca estados.
+   * Cura, devuelve maná a un héroe con magia y saca estados.
+   * v3.3: al que está caído solo lo levanta la hierba de la vida (las pociones ya no).
    * Devuelve { hp, mana, cleaned, revived, why }.
    */
   function restoreOther(giver, target, item) {
@@ -311,6 +322,20 @@
     const isPet = target.kind === 'pet';
     const max = isPet ? (t.maxHealth || 1) : (t.maxHp || 1);
     const cur = Math.max(0, isPet ? (t.health || 0) : (t.hp || 0));
+    // v3.3: la hierba de la vida: solo para los caídos
+    if (ef.type === 'revive') {
+      const out0 = { hp: 0, mana: 0, cleaned: [], revived: false, why: '' };
+      if (cur > 0) { out0.why = `${target.name} está en pie: la hierba de la vida es para levantar a un caído.`; return out0; }
+      const now = Math.max(1, Math.round(max * (ef.pct || 0.25)));
+      if (isPet) t.health = now; else (A.State.withHero ? A.State.withHero(t, () => A.State.setHp(now)) : (t.hp = now));
+      if (!isPet) t.effects = [];
+      out0.hp = now;
+      out0.revived = true;
+      return out0;
+    }
+    if (cur <= 0) {
+      return { hp: 0, mana: 0, cleaned: [], revived: false, why: `${target.name} está ${isPet ? 'inconsciente' : 'caído'}: para levantarlo en plena pelea hace falta una hierba de la vida.` };
+    }
     let hp = 0;
     if (ef.type === 'heal') hp += ef.pct ? Math.round(max * ef.pct) : A.Utils.rollDice(ef.amount);
     if (ef.heal && ef.type !== 'heal') hp += A.Utils.rollDice(String(ef.heal));
@@ -473,6 +498,13 @@
     const p = player();
     if (!p || !item) return { ok: false, text: '' };
     if (combatOnly(item)) return { ok: false, text: `${item.name}: se usa en combate.` };
+    // v3.3: la hierba de la vida, fuera de la pelea, despierta a tu mascota
+    if (isRevive(item)) {
+      const pet = p.pet;
+      if (!pet || (pet.health || 0) > 0) return { ok: false, text: `${item.name} sirve para levantar a un caído en plena pelea${pet ? ` (o despertar a ${pet.name} si queda inconsciente)` : ''}.` };
+      pet.health = Math.max(1, Math.round((pet.maxHealth || 1) * ((item.effect && item.effect.pct) || 0.25)));
+      return { ok: true, text: `Usaste ${item.name}: ${pet.name} se despierta con ${pet.health} de vida.` };
+    }
     const r = restore(p, item);
     if (!r.parts.length) return { ok: false, text: r.why };
     return { ok: true, text: `Usaste ${item.name}: ${r.parts.join(', ')}.` };
@@ -560,7 +592,7 @@
     const targets = ef.all ? ctx.alive() : [ctx.target()].filter(Boolean);
     if (!targets.length) return { ok: false, why: 'No hay a quién apuntarle.' };
     ctx.log('player', {
-      text: `Usaste ${item.name}.`,
+      text: `${usedWord(item)} ${item.name}.`,
       fx: { kind: 'cast', actor: 'player' },
       say: { text: `${verbFor(item)} ${theName(item)}.`, tone: 'neutral' },
     });
@@ -597,7 +629,7 @@
     const ch = chip(b);
     const what = buffLine(ef).replace(/^Te limpia de todo mal, y /, '');
     ctx.log('player', {
-      text: `Usaste ${item.name}: ${what}.`,
+      text: `${usedWord(item)} ${item.name}: ${what}.`,
       fx: { kind: 'buff', actor: 'player', target: 'player', label: ch.label, icon: ch.icon },
       say: { text: `${verbFor(item)} ${theName(item)}: ${what.charAt(0).toLowerCase()}${what.slice(1)}.`, tone: 'good' },
     });
@@ -615,6 +647,8 @@
     const ef = item.effect || {};
     switch (ef.type) {
       case 'escape': return { ok: true, escape: true };
+      // v3.3: la hierba de la vida no es para vos (si estás caído, no es tu turno): se le da a otro
+      case 'revive': return { ok: false, why: `${item.name} sirve para levantar a un compañero o a tu mascota caídos. Ahora no hay nadie caído.` };
       case 'buff': return useBuff(c, p, item, ctx);
       case 'damage': return scrollDamage(c, p, item, ctx);
       case 'stun': return scrollStun(c, p, item, ctx);
@@ -632,7 +666,7 @@
       default: {
         const r = restore(p, item);
         if (!r.parts.length) return { ok: false, why: r.why };
-        let text = `Usaste ${item.name}.`;
+        let text = `${usedWord(item)} ${item.name}.`;
         if (r.hp > 0) text += ` (+${r.hp} salud)`;
         if (r.mana > 0) text += ` (+${r.mana} maná)`;
         const got = [];
@@ -732,6 +766,7 @@
     restore,
     forOthers,
     restoreOther,
+    isRevive, // v3.3
     WORD,
     useOutside,
     useInCombat,

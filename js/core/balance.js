@@ -9,7 +9,7 @@
               D20 natural 1  -> falla siempre
               D20 natural 20 -> crítico (daño x2), pega siempre
      Daño:    dados - armadura del objetivo (si pega, mínimo 1)
-     Hechizo: no se esquiva, la armadura cuenta la mitad
+     Hechizo: v3.3: tira el dado con +2 (SPELL_HIT) y puede fallar; la armadura cuenta la mitad
 
    Escala: un personaje de nivel N está pensado para pelear contra
    enemigos de tier N. Contra un enemigo "normal" de su tier gana casi
@@ -295,12 +295,23 @@
       if (heavy) out.atk = 1;
       out.note = `Maestría con armas: +${out.dmg} de daño${out.atk ? ' y +1 de precisión' : ''}.`;
     } else if (type === 'mage') {
-      if (heavy) { out.atk = -3; out.note = 'Muy pesada para un mago: -3 de precisión.'; }
-      else if (medium && !magicW) { out.atk = -1; out.note = 'Incómoda para un mago: -1 de precisión.'; }
-      else if (magicW) out.note = 'Arma mágica: potencia tus hechizos.';
+      // v3.3: los magos solo usan armas mágicas
+      if (!magicW) { out.blocked = true; out.note = 'Los magos solo pueden usar armas mágicas (varitas, bastones, cetros, orbes, tomos).'; }
+      else if (heavy) { out.atk = -3; out.note = 'Muy pesada para un mago: -3 de precisión.'; }
+      else out.note = 'Arma mágica: potencia tus hechizos.';
     }
     return out;
   }
+
+  /** v3.3: ¿puede usar esta arma? (los magos, solo las mágicas) { ok, why } */
+  function canWield(p, weapon) {
+    if (!weapon) return { ok: true, why: '' };
+    if (classOf(p) === 'mage' && !weapon.magic) return { ok: false, why: 'Los magos solo pueden usar armas mágicas (varitas, bastones, cetros, orbes, tomos).' };
+    return { ok: true, why: '' };
+  }
+
+  // v3.3: los hechizos de daño tiran el dado como un arma, con esta ayuda
+  const SPELL_HIT = 2;
 
   /** Poder mágico: los magos lo tienen más alto y crece más rápido. */
   function spellPowerOf(p, weapon) {
@@ -316,6 +327,7 @@
    * v2.1: recuperación de maná. Solo los magos recuperan solos:
    *   turn - maná al empezar cada turno tuyo en combate
    *   win  - parte del maná máximo que vuelve al ganar la pelea
+   *   step - (v3.3, opcional) cuánto suma cada escalón de nivel (si no, 1)
    * Los híbridos devuelven 0 y 0: pociones o dormir.
    */
   function manaRegenOf(p) {
@@ -325,9 +337,12 @@
     const base = (race && race.manaRegen) || (type === 'mage' ? { turn: 1, win: 0.2 } : { turn: 0, win: 0 });
     // v2.2.1: con más nivel vuelve más maná por turno (+1 desde nivel 5, +2 desde nivel 9)
     const every = Balance_TUNE.mageRegenEvery;
-    const extra = every > 0 && (base.turn || 0) > 0 ? Math.floor((Math.max(1, p.level || 1) - 1) / every) : 0;
+    const extra = every > 0 && (base.turn || 0) > 0 ? Math.floor((Math.max(1, p.level || 1) - 1) / every) * (base.step || 1) : 0;
     return { turn: (base.turn || 0) + extra, win: base.win || 0 };
   }
+
+  /** v3.3: el maná por turno puede tener coma (1,5 = 1 un turno y 2 el siguiente): así se escribe. */
+  function regenLabel(n) { return String(Math.round((Number(n) || 0) * 10) / 10).replace('.', ','); }
 
   // ---------- Stats de combate del jugador (incluye equipo, accesorio, mejoras y hambre) ----------
   /** v2.4: el peso de arma y armadura frena: cada punto por encima de 4 es -1 de velocidad. */
@@ -357,7 +372,7 @@
       defense: 8 + (p.stats.dodge || 0) + (armor && armor.dodge ? armor.dodge : 0) + acc('defense') + bm.defense - pen('dodge') - fx.defensePenalty,
       // v2.5: el ácido de las criaturas te baja la armadura
       armor: Math.max(0, (p.stats.armor || 0) + (armor ? armor.defense || 0 : 0) + acc('armor') + bm.armor + (A.Passives && A.Passives.armorBonus ? A.Passives.armorBonus(p) : 0) - (fx.armorPenalty || 0)),
-      // v1.9.2: + Furia del orco (solo con la mitad de la vida o menos) · v2.0: + maestría del guerrero · v2.5: - miedo
+      // v1.9.2: + Furia del orco (v3.3: con tres cuartos de la vida o menos) · v2.0: + maestría del guerrero · v2.5: - miedo
       damageBonus: (p.stats.damage || 0) - pen('damage') + fit.dmg + acc('damage') + bm.damage + (A.Passives ? A.Passives.damageBonus(p) : 0) - (fx.damagePenalty || 0),
       // El peso solo frena si pasa de 4 (una daga y ropa no pesan nada)
       speed: Math.max(1, (p.stats.speed || 10) - w.penalty + acc('speed') + bm.speed - pen('speed')),
@@ -610,7 +625,10 @@
     weightOf,
     FREE_WEIGHT,
     weaponFit,
+    canWield,  // v3.3
+    SPELL_HIT, // v3.3
     manaRegenOf,
+    regenLabel, // v3.3: "1,5"
     hpRegenOf,
     warriorPower,
     manaOnHit,

@@ -73,6 +73,28 @@
 
   // ---------- v2.0: el resultado de la última acción (descansar) ----------
   let lastNote = null;
+  let spokenRegion = null; // v3.3: el último lugar que contó el narrador
+
+  /** v3.3: el narrador lee los avisos (lo que pasó al descansar, por ejemplo). */
+  function sayNote(note) {
+    if (note && note.text && A.Voice && A.Voice.isOn()) A.Voice.say(note.text);
+  }
+
+  // v3.3: al prender la voz, lee lo que está en pantalla (el lugar o el camino)
+  if (A.Bus) {
+    A.Bus.on('voice:changed', (e) => {
+      if (!e || !e.on || !mainEl || !document.body.contains(mainEl) || A.State.combat) return;
+      if (A.State.ui && A.State.ui.openModal) return; // la escena se lee sola
+      const t = A.State.traveling;
+      if (t && !t.completed) {
+        spokenEv = null;
+        render();
+        return;
+      }
+      spokenRegion = null;
+      render();
+    });
+  }
 
   function icon(name, size, cls) { return A.UI ? A.UI.icon(name, size, cls) : ''; }
   function esc(s) { return A.Utils.escapeHtml(String(s == null ? '' : s)); }
@@ -110,9 +132,16 @@
     const restDesc = restI ? restI.desc : (night ? 'Hasta mañana.' : 'Un rato a la sombra. Pasa la tarde.');
     const restLocked = !!(restI && restI.locked);
 
+    // v3.3: al llegar a un lugar, el narrador lo cuenta (una vez por lugar)
+    if (spokenRegion !== region.id && A.Voice && A.Voice.isOn()) {
+      spokenRegion = region.id;
+      A.Voice.say(`${region.name}. ${region.description || ''}`);
+    }
+
     mainEl.innerHTML = `
       <section class="world2">
         <header class="region2 ${isSafeRegion ? 'is-safe' : 'is-danger'} biome-${esc(region.biome)}">
+          ${A.UI && A.UI.voiceToggle ? `<span class="region2-voice">${A.UI.voiceToggle(20)}</span>` : ''}
           <div class="region2-art">${A.UI ? A.UI.biomeIcon(region, 72) : ''}</div>
           <div class="region2-info">
             <div class="region2-kicker">
@@ -288,6 +317,7 @@
             <span class="travel-progress-step">Paso ${t.currentStep} de ${t.totalSteps}</span>
             ${guestFollows() ? `<span class="travel-follow-tag">${icon('party', 16)}<span>Viajan juntos</span></span>` : renderTravelModeSelector()}
             <span class="travel-progress-pct num">${pctNum}%</span>
+            ${A.UI && A.UI.voiceToggle ? A.UI.voiceToggle(18) : ''}
           </div>
         </header>
 
@@ -469,6 +499,14 @@
     const enemy = A.Data.getById('enemies', ev.enemyId);
     const isGroup = (ev.enemies || []).length > 1;
     const groupSize = (ev.enemies || []).length;
+    // v3.3: el narrador también cuenta las criaturas del camino
+    const evKey = `creature|${ev.enemyName || ''}|${(A.State.traveling && A.State.traveling.currentStep) || 0}`;
+    if (evKey !== spokenEv && A.Voice && A.Voice.isOn()) {
+      spokenEv = evKey;
+      const list = (ev.enemies && ev.enemies.length) ? ev.enemies : (enemy ? [enemy] : []);
+      const who = list.length && A.Narrator && A.Narrator.groupPhrase ? A.Narrator.groupPhrase(list).text : 'una criatura';
+      A.Voice.say(`En el camino ${list.length > 1 ? 'aparecen' : 'aparece'} ${who}.`);
+    }
     return `
       <div class="travel-encounter travel-encounter-v2">
         <div class="encounter-header">
@@ -585,7 +623,11 @@
     const marker = A.Quests ? A.Quests.markerFor(n.id) : null;
     const offers = [];
     if ((n.sells || []).length) offers.push('Comercia');
-    if (n.role === 'blacksmith') offers.push('Forja');
+    // v3.3: los talleres de cada uno (forja, encantamiento, alquimia)
+    const ws = Array.isArray(n.crafts) ? n.crafts : (n.role === 'blacksmith' ? ['forge', 'enchant'] : []);
+    if (ws.includes('forge')) offers.push('Forja');
+    else if (ws.includes('enchant')) offers.push('Encantamientos');
+    if (ws.includes('alchemy')) offers.push('Alquimia');
     if ((n.teaches || []).length) offers.push('Enseña magia');
     if (n.services && n.services.restCost != null) offers.push('Posada');
     if (A.Quests && A.Quests.list().some((q) => q.giver === n.id)) offers.push('Encargos');
@@ -795,6 +837,7 @@
       const res = A.Explore ? A.Explore.rest() : null;
       if (res && res.kind !== 'night-event') {
         lastNote = { icon: res.kind === 'sleep' ? 'moon' : 'tent', text: res.text, chips: res.chips };
+        sayNote(lastNote);
       } else {
         lastNote = null;
       }
@@ -821,10 +864,14 @@
         A.State.addChronicle({ type: 'loot', text: `Encontraste: ${item.name}.` });
       }
     } else if (ev.type === 'damage') {
-      const dmg = A.Utils.rollDice(ev.amount || '1d4');
-      A.State.damagePlayer(dmg);
+      // v3.3: las trampas pueden matar (ver A.Death)
+      const p = A.State.player;
+      const dmg = Math.max(0, Math.min(A.Utils.rollDice(ev.amount || '1d4'), p.hp || 0));
       const flavor = ev.effect || 'Algo te lastimó';
-      A.State.addChronicle({ type: 'note', text: `${flavor}. -${dmg} de salud.` });
+      const hit = () => A.State.damagePlayer(dmg);
+      if (dmg > 0) { if (A.Death) A.Death.during('trap', { text: `${flavor}. No volviste a levantarte.` }, hit); else hit(); }
+      const low = p.hp > 0 && p.hp <= Math.max(3, Math.round(p.maxHp * 0.3)) ? ' Te queda poca vida: otra trampa te puede matar.' : '';
+      A.State.addChronicle({ type: 'note', text: `${flavor}. -${dmg} de salud.${p.hp <= 0 ? ' No volviste a levantarte.' : low}` });
     } else if (ev.type === 'heal') {
       const amount = A.Utils.rollDice(ev.amount || '1d6');
       A.State.healHp(amount);
@@ -841,6 +888,7 @@
     showNote(note) {
       if (!note || !note.text) return;
       lastNote = { icon: note.icon || 'tent', text: note.text, chips: note.chips || [] };
+      sayNote(lastNote);
       if (mainEl && !A.State.traveling && !A.State.combat) render();
     },
     unmount() {

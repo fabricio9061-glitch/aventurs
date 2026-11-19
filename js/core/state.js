@@ -242,6 +242,42 @@
         p.schemaVersion = 19;
         dirty = true;
       }
+      if ((p.schemaVersion || 0) < 20) {
+        // v3.3: los magos solo usan armas mágicas, y Curación es solo para magos
+        const race20 = A.Data && A.Data.getById ? A.Data.getById('races', p.raceId) : null;
+        const notes20 = [];
+        const eq20 = p.equipment || (p.equipment = { weapon: null, armor: null, accessory: null });
+        if (race20 && race20.combatType === 'mage') {
+          const w = eq20.weapon ? A.Data.getById('weapons', eq20.weapon) : null;
+          if (!w || !w.magic) {
+            // el arma de antes vuelve a la mochila; si no entra, se queda igual en la mochila (sin tope)
+            if (eq20.weapon) {
+              const slot = (p.inventory || []).find((x) => x.itemId === eq20.weapon);
+              if (slot) slot.qty += 1; else (p.inventory = p.inventory || []).push({ itemId: eq20.weapon, qty: 1 });
+            }
+            // ¿tiene alguna mágica en la mochila? La mejor; si no, una varita nueva
+            const magicOwned = (p.inventory || []).map((x) => A.Data.getById('weapons', x.itemId)).filter((x) => x && x.magic)
+              .sort((a, b) => (b.tier || 1) - (a.tier || 1))[0];
+            const pickId = magicOwned ? magicOwned.id : 'varita';
+            if (magicOwned) {
+              const slot = p.inventory.find((x) => x.itemId === pickId);
+              if (slot) { slot.qty -= 1; if (slot.qty <= 0) p.inventory = p.inventory.filter((x) => x !== slot); }
+            }
+            eq20.weapon = pickId;
+            if (A.Accessories && A.Accessories.applyGearMana) A.Accessories.applyGearMana(p, 'weapon', A.Data.getById('weapons', pickId));
+            const name = (A.Data.getById('weapons', pickId) || {}).name || 'una varita';
+            notes20.push(`ahora los magos solo usan armas mágicas: te pusiste ${magicOwned ? name.toLowerCase() : 'una varita nueva'}${w ? ` (${w.name.toLowerCase()} quedó en la mochila)` : ''}`);
+          }
+        } else if (race20 && race20.combatType !== 'mage' && (p.spells || []).includes('curacion')) {
+          // Curación quedó para los magos: el híbrido la cambia por Segundo aliento (se cura solo a sí mismo)
+          p.spells = p.spells.filter((x) => x !== 'curacion');
+          if (A.Data.getById('spells', 'segundo_aliento') && !p.spells.includes('segundo_aliento')) p.spells.push('segundo_aliento');
+          notes20.push('Curación ahora es solo para magos: la cambiaste por Segundo aliento, que te cura solo a vos');
+        }
+        if (notes20.length) State.addChronicle({ type: 'note', text: `Cambios de la versión 3.3: ${notes20.join('; ')}.` });
+        p.schemaVersion = 20;
+        dirty = true;
+      }
       if (dirty) {
         State.persist();
         console.log('[State] Save migrado a estructura v1.5.0');
@@ -359,6 +395,12 @@
      * Crea el personaje y lo coloca en pueblo_inicial.
      */
     createCharacter({ name, raceId }) {
+      function startWeaponFor(rid) {
+        const race = A.Data && A.Data.getById ? A.Data.getById('races', rid) : null;
+        const id = race && race.startWeapon;
+        if (id && A.Data.getById('weapons', id)) return id;
+        return race && race.combatType === 'mage' ? 'varita' : 'daga';
+      }
       const stats = A.Seed.statsForRace(raceId);
       if (!stats) throw new Error('Raza inválida: ' + raceId);
 
@@ -388,9 +430,9 @@
           damage: stats.damage,
           dodge: stats.dodge,
         },
-        // v1.8.0: todas las razas arrancan con el MISMO equipo (justo para todos).
-        // Los que usan magia arrancan sabiendo Chispa.
-        equipment: { weapon: 'daga', armor: 'tunica_cuero', accessory: null },
+        // v3.3: cada raza nace con su arma (todas valen lo mismo que la vieja daga);
+        // los magos, con una varita (solo pueden usar armas mágicas)
+        equipment: { weapon: startWeaponFor(raceId), armor: 'tunica_cuero', accessory: null },
         gearMana: {},
         // v3.1: la comida depende de la raza (el robot arranca con aceite, el vampiro con sangre...)
         inventory: [
@@ -403,8 +445,13 @@
         // v2.1: cada raza con magia nace con su propio hechizo
         spells: hasMagic ? [((A.Data.getById('races', raceId) || {}).startSpell) || 'chispa'] : [],
         travelSteps: 0,
-        schemaVersion: 19,
+        schemaVersion: 20,
       };
+      // v3.3: el maná que da el arma de inicio (la varita: +2)
+      if (A.Accessories && A.Accessories.applyGearMana) {
+        A.Accessories.applyGearMana(State.player, 'weapon', A.Data.getById('weapons', State.player.equipment.weapon));
+        if (State.player.hasMagic) State.player.mana = State.player.maxMana;
+      }
 
       State.world = {
         regionId: 'pueblo_inicial',
