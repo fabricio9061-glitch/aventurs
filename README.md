@@ -241,6 +241,21 @@ Explorar siempre hace pasar algo (`js/systems/explore.js` + `js/data/seed-events
 - En el celular, una franja arriba con vida, maná, comida y dinero.
 - Sin emojis en el juego (desde la v2.2, tampoco en el editor).
 
+## Versión 3.5.0: cada raza de mago con su arma
+
+Cada raza de mago nace con su propia arma de mago (solo la pueden usar los magos): 1d4, +2 de maná y +1 de poder mágico, igual que la varita, pero con su forma.
+
+| Raza | Arma |
+|---|---|
+| Gnomo | Varita de engranajes |
+| Alienígena | Cetro de plasma |
+| Infernal | Bastón de ascuas |
+| Ángel | Báculo de luz |
+| Hada | Varita de hada |
+| Dríade | Vara de sauce |
+
+Partidas de antes: el mago que todavía usaba la varita del principio se pone la de su raza (la varita queda en la mochila).
+
 ## Versión 3.4.0: cada clase con lo suyo, misiones en el centro y Alamuerte
 
 ### Armas por clase (`js/core/balance.js`: `canWield`, `weaponFit`, `canCast`)

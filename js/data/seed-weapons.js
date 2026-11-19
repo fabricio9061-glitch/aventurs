@@ -14,7 +14,8 @@
   const WEAPONS = [
     // ---------- v3.3: las armas con las que nace cada raza ----------
     // Todas valen lo mismo que la vieja daga del principio (1d4, livianas): cambian
-    // la forma y un detalle (sangran o son más certeras). Los magos nacen con Varita.
+    // la forma y un detalle (sangran o son más certeras). v3.5: cada raza de mago, con
+    // su arma de mago (solo para magos): 1d4, +2 de maná y +1 de poder mágico, como la varita.
     { id:'espada_recluta', name:'Espada de recluta', type:'weapon', icon:'', damage:'1d4', value:20, rarity:'common', tier:1, weight:1, magic:false, starter:'humano', statusEffect:{type:'bleed',chance:0.2,turns:3,value:1},
       description:'La espada que reparten en el cuartel del pueblo. Corta poco, pero corta. Arma de los humanos.' },
     { id:'arco_rama', name:'Arco de rama', type:'weapon', icon:'', damage:'1d4', value:20, rarity:'common', tier:1, weight:1, precision:1, magic:false, starter:'elfo',
@@ -37,8 +38,18 @@
       description:'Un colmillo enorme con un mango de cuero. Arma de los licántropos.' },
     { id:'punal_obsidiana', name:'Puñal de obsidiana', type:'weapon', icon:'', damage:'1d4', value:20, rarity:'common', tier:1, weight:1, magic:false, starter:'elfo_oscuro', statusEffect:{type:'poison',chance:0.2,turns:3,value:1},
       description:'Vidrio negro de las cuevas, afilado como una navaja y untado en veneno. Arma de los elfos oscuros.' },
+    { id:'varita_engranajes', name:'Varita de engranajes', type:'weapon', icon:'', damage:'1d4', value:36, rarity:'common', tier:1, weight:0, magic:true, mana:2, starter:'gnomo',
+      description:'Una varita de bronce con engranajes que giran solos cuando junta maná: potencia tus hechizos y da maná (+2). Arma de mago de los gnomos.' },
+    { id:'cetro_plasma', name:'Cetro de plasma', type:'weapon', icon:'', damage:'1d4', value:36, rarity:'common', tier:1, weight:0, magic:true, mana:2, starter:'alienigena',
+      description:'Un tubo de metal que no es de este mundo, con una bola de luz verde en la punta: potencia tus hechizos y da maná (+2). Arma de mago de los alienígenas.' },
+    { id:'baston_ascuas', name:'Bastón de ascuas', type:'weapon', icon:'', damage:'1d4', value:36, rarity:'common', tier:1, weight:0, magic:true, mana:2, starter:'infernal',
+      description:'Madera negra que nunca termina de apagarse: potencia tus hechizos y da maná (+2). Arma de mago de los infernales.' },
+    { id:'baculo_luz', name:'Báculo de luz', type:'weapon', icon:'', damage:'1d4', value:36, rarity:'common', tier:1, weight:0, magic:true, mana:2, starter:'angel',
+      description:'Un báculo blanco con una estrella pequeña en la punta: potencia tus hechizos y da maná (+2). Arma de mago de los ángeles.' },
+    { id:'varita_hada', name:'Varita de hada', type:'weapon', icon:'', damage:'1d4', value:36, rarity:'common', tier:1, weight:0, magic:true, mana:2, starter:'hada',
+      description:'Un tallo de flor que suelta polvo brillante al moverlo: potencia tus hechizos y da maná (+2). Arma de mago de las hadas.' },
     { id:'vara_sauce', name:'Vara de sauce', type:'weapon', icon:'', damage:'1d4', value:36, rarity:'common', tier:1, weight:0, magic:true, mana:2, starter:'driade',
-      description:'Una rama viva que todavía echa hojas: potencia tus hechizos y da maná (+2). Arma mágica de las dríades.' },
+      description:'Una rama viva que todavía echa hojas: potencia tus hechizos y da maná (+2). Arma de mago de las dríades.' },
     { id:'hacha_cuerno', name:'Hacha de cuerno', type:'weapon', icon:'', damage:'1d4', value:20, rarity:'common', tier:1, weight:1, magic:false, starter:'minotauro', statusEffect:{type:'bleed',chance:0.2,turns:3,value:1},
       description:'Un cuerno viejo afilado y montado en un palo. Arma de los minotauros.' },
 

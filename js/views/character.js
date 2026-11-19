@@ -217,7 +217,7 @@
     const diet = A.Survival && A.Survival.dietOf ? A.Survival.dietOf(race.id) : null;
     const food = diet && diet.startText ? diet.startText : 'algo de comida';
     const eats = diet ? `<span class="cc-diet" title="${esc(A.Survival.describeDiet(race.id))}">Come: ${esc(diet.label.toLowerCase())}${diet.only ? ' (nada más)' : ''}.</span> ` : '';
-    // v3.3: cada raza con su arma; los magos, con varita
+    // v3.3: cada raza con su arma · v3.5: también cada raza de mago, con su arma de mago
     const w = A.Data.getById('weapons', race.startWeapon) || A.Data.getById('weapons', race.combatType === 'mage' ? 'varita' : 'daga');
     const wName = w ? w.name.toLowerCase() : 'daga';
     return `${eats}Empieza con ${esc(wName)}, túnica de cuero, dos pociones y ${esc(food)}.`;

@@ -1004,6 +1004,12 @@
     if (/martillo/.test(t)) return { shape: 'hammer', p };
     if (/maza/.test(t)) return { shape: 'mace', p };
     if (/garrote|porra/.test(t)) return { shape: 'club', p };
+    // v3.5: las armas de mago de cada raza
+    if (/varita de engranajes/.test(t)) return { shape: 'wand', p: { ...p, wd: '#a0782a', a: '#d8a040', g: '#ffd040' } };
+    if (/varita de hada/.test(t)) return { shape: 'wand', p: { ...p, wd: '#5a9a4a', a: '#f0a0e0', g: '#ffb0f0' } };
+    if (/cetro de plasma/.test(t)) return { shape: 'scepter', p: { ...p, wd: '#7a8a9a', a: '#a8b4c0', g: '#7affb0' } };
+    if (/bast[oó]n de ascuas/.test(t)) return { shape: 'staff', p: { ...p, wd: '#2a1a1a', f: '#ff6a20', g: '#ffe080' }, o: { head: 'flame' } };
+    if (/b[aá]culo de luz/.test(t)) return { shape: 'staff', p: { ...p, wd: '#e8e0d0', a: '#d0a030', g: '#fff4c0' } };
     if (/varita/.test(t)) return { shape: 'wand', p: { ...p, g: (el && el.g) || '#ffe080' } };
     if (/cetro/.test(t)) return { shape: 'scepter', p: { ...p, a: /abisal/.test(t) ? '#4a8a8a' : '#d0a030', g: (el && el.g) || '#c090ff' } };
     if (/bast[oó]n|b[aá]culo|vara/.test(t)) {

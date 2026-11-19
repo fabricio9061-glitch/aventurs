@@ -16,7 +16,7 @@
    o +3 (hybrid). v2.0: los guerreros tienen maestría con armas y los magos
    más poder mágico (ver weaponFit y spellPowerOf en js/core/balance.js).
    v3.3: cada raza arranca con su arma (startWeapon) y Túnica de cuero;
-   los magos, con Varita. Las armas de raza valen lo mismo que la vieja
+   los magos, con su propia arma de mago (v3.5). Las armas de raza valen lo mismo que la vieja
    daga (1d4): cambia la forma, no la fuerza.
 
    v2.1:
@@ -170,7 +170,7 @@
     // ---------- Magos: mucha magia, menos vida ----------
     {
       id: 'gnomo',
-      startWeapon: 'varita', // v3.3: el arma con la que nace
+      startWeapon: 'varita_engranajes', // v3.5: su arma de mago (solo para magos)
       name: 'Gnomo',
       icon: '🧙',
       sprite: '',
@@ -183,7 +183,7 @@
     },
     {
       id: 'alienigena',
-      startWeapon: 'varita', // v3.3: el arma con la que nace
+      startWeapon: 'cetro_plasma', // v3.5: su arma de mago (solo para magos)
       name: 'Alienígena',
       icon: '👽',
       sprite: '',
@@ -197,7 +197,7 @@
     },
     {
       id: 'infernal',
-      startWeapon: 'varita', // v3.3: el arma con la que nace
+      startWeapon: 'baston_ascuas', // v3.5: su arma de mago (solo para magos)
       name: 'Infernal',
       icon: '😈',
       sprite: '',
@@ -210,7 +210,7 @@
     },
     {
       id: 'angel',
-      startWeapon: 'varita', // v3.3: el arma con la que nace
+      startWeapon: 'baculo_luz', // v3.5: su arma de mago (solo para magos)
       name: 'Ángel',
       icon: '👼',
       sprite: '',
@@ -224,7 +224,7 @@
     // v3.0: la quinta maga
     {
       id: 'hada',
-      startWeapon: 'varita', // v3.3: el arma con la que nace
+      startWeapon: 'varita_hada', // v3.5: su arma de mago (solo para magos)
       name: 'Hada',
       icon: '',
       sprite: '',

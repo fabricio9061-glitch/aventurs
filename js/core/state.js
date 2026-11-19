@@ -318,6 +318,21 @@
         p.schemaVersion = 21;
         dirty = true;
       }
+      if ((p.schemaVersion || 0) < 22) {
+        // v3.5: cada raza de mago tiene su propia arma de mago: el que todavía usa la varita del principio la cambia
+        const race22 = A.Data.getById('races', p.raceId);
+        const own = race22 && race22.combatType === 'mage' && race22.startWeapon ? A.Data.getById('weapons', race22.startWeapon) : null;
+        const eq22 = p.equipment || {};
+        if (own && own.id !== 'varita' && eq22.weapon === 'varita') {
+          const slot = (p.inventory || []).find((x) => x.itemId === 'varita');
+          if (slot) slot.qty += 1; else (p.inventory = p.inventory || []).push({ itemId: 'varita', qty: 1 });
+          eq22.weapon = own.id;
+          if (A.Accessories && A.Accessories.applyGearMana) A.Accessories.applyGearMana(p, 'weapon', own);
+          State.addChronicle({ type: 'note', text: `Cambios de la versión 3.5: cada raza de mago tiene su arma. Te pusiste ${own.name.toLowerCase()} (la varita quedó en la mochila).` });
+        }
+        p.schemaVersion = 22;
+        dirty = true;
+      }
       if (dirty) {
         State.persist();
         console.log('[State] Save migrado a estructura v1.5.0');
@@ -485,7 +500,7 @@
         // v2.1: cada raza con magia nace con su propio hechizo
         spells: hasMagic ? [((A.Data.getById('races', raceId) || {}).startSpell) || 'chispa'] : [],
         travelSteps: 0,
-        schemaVersion: 21,
+        schemaVersion: 22,
       };
       // v3.3: el maná que da el arma de inicio (la varita: +2)
       if (A.Accessories && A.Accessories.applyGearMana) {
