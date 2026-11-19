@@ -357,6 +357,9 @@
     }
     addTurnHeader(combat, 1);
 
+    // v3.1: al bestiario de cada uno (la que no conocía deja de ser "???")
+    if (A.Bestiary) for (const h of heroes) A.State.withHero(h, () => A.Bestiary.see(instances.filter((e) => !e.summoned)));
+
     A.Bus.emit('combat:started', { count: instances.length });
     State().persist();
     later(combat, () => advanceIfNotPlayer(), 500);
@@ -394,6 +397,11 @@
         inflict(c, p, o.status, { turns: o.turns || 2, value: o.value || 1, source: 'explore', say: o.say ? { text: o.say, tone: 'bad' } : null });
       } else if (o.type === 'note' && o.say) {
         addLog(c, 'system', { text: o.say, fx: { kind: 'note' }, say: { text: o.say, tone: o.tone || 'good' } });
+      } else if (o.type === 'buff' && o.mods) {
+        // v3.1: una mejora al empezar (pelear de frente: guardia alta)
+        p.effects = (p.effects || []).filter((e) => !(e.type === 'buff' && e.source === (o.source || 'explore')));
+        p.effects.push({ type: 'buff', source: o.source || 'explore', name: o.name || 'Mejora', mods: o.mods, turns: o.turns || 2, value: 1, fresh: true });
+        if (o.say) addLog(c, 'system', { text: o.say, fx: { kind: 'note' }, say: { text: o.say, tone: 'good' } });
       }
     }
   }
@@ -527,7 +535,7 @@
   function shieldPlayer(c, p, dmg, opts = {}) {
     const ab = P() ? P().absorbHit(c, p, dmg, opts) : { dmg, passive: null };
     const gd = A.ItemFx ? A.ItemFx.guard(c, p, ab.dmg) : { dmg: ab.dmg, tag: null };
-    return { dmg: gd.dmg, passive: ab.passive, guard: gd.tag };
+    return { dmg: gd.dmg, passive: ab.passive, guard: gd.tag, absorbed: ab.absorbed || 0 };
   }
 
   /** Cuenta lo que hizo un objeto que te salvó (después del golpe). */
@@ -876,7 +884,7 @@
     x._regenUsed = (x._regenUsed || 0) + got; // tope por pelea
     addLog(c, 'system', {
       text: `${targetName(x)} se regenera: +${got}.`,
-      fx: { kind: 'heal', actor: fxKey(x), target: fxKey(x), amount: got },
+      fx: { kind: 'heal', actor: fxKey(x), target: fxKey(x), amount: got, skill: 'regeneracion' },
       say: { text: `Las heridas de ${noun} se cierran solas: recupera ${got} de vida.`, tone: isPetX ? 'good' : 'bad' },
     });
   }
@@ -891,7 +899,7 @@
       const n = A.Skills.noun(t);
       addLog(c, 'system', {
         text: `${t.displayName} renace con ${t.hp} de vida.`,
-        fx: { kind: 'heal', actor: fxKey(t), target: fxKey(t), amount: t.hp },
+        fx: { kind: 'heal', actor: fxKey(t), target: fxKey(t), amount: t.hp, skill: 'renacer' },
         say: { text: `¡${n.charAt(0).toUpperCase()}${n.slice(1)} estalla en llamas y renace de sus cenizas con ${t.hp} de vida!`, tone: 'bad' },
       });
       return false;
@@ -1030,7 +1038,7 @@
         result: r.fumble ? 'fumble' : 'evaded',
         fx: { kind: 'attack', actor: 'player', target: fxKey(target) },
       };
-      if (dodge) { miss.text = `${target.displayName} evita el golpe (${A.Skills.get(dodge.skill).name}).`; miss.say = { text: dodge.say, tone: 'neutral' }; }
+      if (dodge) { miss.text = `${target.displayName} evita el golpe (${A.Skills.get(dodge.skill).name}).`; miss.say = { text: dodge.say, tone: 'neutral' }; miss.dodgeSkill = dodge.skill; }
       addLog(c, 'player', miss);
       return r;
     }
@@ -1119,12 +1127,12 @@
     if (re.thorns > 0) {
       if (who === 'pet') {
         victim.health = Math.max(0, victim.health - re.thorns);
-        addLog(c, 'system', { text: `${victim.name} se lastima con las espinas (-${re.thorns}).`, fx: { kind: 'tick', target: 'pet', amount: re.thorns, effect: 'bleed' }, say: { text: `${A.Skills.noun(victim).replace(/^./, (ch) => ch.toUpperCase())} se lastima con las espinas de ${n}: ${re.thorns} de daño.`, tone: 'bad' } });
+        addLog(c, 'system', { text: `${victim.name} se lastima con las espinas (-${re.thorns}).`, fx: { kind: 'tick', target: 'pet', amount: re.thorns, effect: 'bleed', skill: 'espinas', skillOn: fxKey(target) }, say: { text: `${A.Skills.noun(victim).replace(/^./, (ch) => ch.toUpperCase())} se lastima con las espinas de ${n}: ${re.thorns} de daño.`, tone: 'bad' } });
         if (victim.health <= 0) petKnockedOut(c, victim);
       } else {
         const ab = shieldPlayer(c, p, re.thorns, { tick: true });
         A.State.damagePlayer(ab.dmg);
-        addLog(c, 'system', { text: `Espinas: -${ab.dmg} de vida.`, fx: { kind: 'tick', target: 'player', amount: ab.dmg, effect: 'bleed' }, say: { text: `Te lastimás con las espinas de ${n}: ${ab.dmg} de daño.`, tone: 'bad' } });
+        addLog(c, 'system', { text: `Espinas: -${ab.dmg} de vida.`, fx: { kind: 'tick', target: 'player', amount: ab.dmg, effect: 'bleed', skill: 'espinas', skillOn: fxKey(target) }, say: { text: `Te lastimás con las espinas de ${n}: ${ab.dmg} de daño.`, tone: 'bad' } });
         announceGuard(c, ab.guard);
       }
     }
@@ -1515,6 +1523,7 @@
     let finalDmg = mitigate(rawDmg, armor);
     let passive = null;
     let guard = null;
+    let absorbed = 0;
     const victim = targetPet ? pet : p;
     if (targetPet) {
       pet.health = Math.max(0, pet.health - finalDmg);
@@ -1523,6 +1532,7 @@
       finalDmg = ab.dmg;
       passive = ab.passive;
       guard = ab.guard;
+      absorbed = ab.absorbed;
       A.State.damagePlayer(finalDmg);
     }
     const hitEntry = {
@@ -1532,7 +1542,7 @@
       skill: opts.skill || null,
       actor: enemy.displayName, target: targetName, actorIcon: enemyIcon, damageDice: damageNotation,
       roll: r.roll, bonus: atk, total: r.total, vs: defense, vsLabel: 'defensa',
-      rawDmg, targetArmor: armor, dmg: finalDmg, passive,
+      rawDmg, targetArmor: armor, dmg: finalDmg, passive, absorbed,
       hpAfter: targetPet ? pet.health : p.hp, hpMax: targetPet ? pet.maxHealth : p.maxHp,
       result: r.crit ? 'crit' : 'hit',
       fx: { kind: 'attack', actor: fxKey(enemy), target: targetPet ? 'pet' : 'player' },
@@ -1542,7 +1552,7 @@
     else if (sayFn) {
       const s = sayFn('hit', { toPet: targetPet, crit: r.crit, dmg: finalDmg });
       if (s) {
-        if (passive && A.Narrator && A.Narrator.passiveSuffix) s.text += A.Narrator.passiveSuffix(passive);
+        if (passive && A.Narrator && A.Narrator.passiveSuffix) s.text += A.Narrator.passiveSuffix(passive, hitEntry);
         hitEntry.say = s;
       }
     }
@@ -1566,7 +1576,7 @@
     // v2.5: Sed de sangre: se cura con lo que te saca
     if (enemy.hp > 0 && finalDmg > 0 && A.Skills) {
       const ls = A.Skills.lifesteal(enemy);
-      if (ls > 0) healEnemy(c, enemy, Math.max(1, Math.round(finalDmg * ls)), { say: '{E} se relame con tu sangre: recupera {n} de vida.' });
+      if (ls > 0) healEnemy(c, enemy, Math.max(1, Math.round(finalDmg * ls)), { say: '{E} se relame con tu sangre: recupera {n} de vida.', skill: 'sed_sangre' });
     }
     const victimUp = targetPet ? pet.health > 0 : p.hp > 0;
     // v2.5: lo que deja la habilidad (estado, robo, drenar)
@@ -1596,10 +1606,10 @@
     enemy.hp = Math.min(enemy.maxHp, enemy.hp + n);
     const got = enemy.hp - before;
     if (got <= 0) return 0;
-    if (opts.cast) addLog(c, 'enemy', { text: `${enemy.displayName} se cura.`, fx: { kind: 'cast', actor: fxKey(enemy), element: 'holy' }, say: { text: '', tone: 'bad' } });
+    if (opts.cast) addLog(c, 'enemy', { text: `${enemy.displayName} se cura.`, fx: { kind: 'cast', actor: fxKey(enemy), element: 'holy', skill: opts.skill || undefined }, say: { text: '', tone: 'bad' } });
     addLog(c, 'enemy', {
       text: `${enemy.displayName} recupera ${got} de vida.`,
-      fx: { kind: 'heal', actor: fxKey(enemy), target: fxKey(enemy), amount: got },
+      fx: { kind: 'heal', actor: fxKey(enemy), target: fxKey(enemy), amount: got, skill: !opts.cast && opts.skill ? opts.skill : undefined },
       say: { text: A.Skills.fill(opts.say || '{E} recupera {n} de vida.', enemy, { n: got }), tone: 'bad' },
     });
     return got;
@@ -1653,10 +1663,10 @@
     const ab = shieldPlayer(c, p, Math.max(0, dmg));
     A.State.damagePlayer(ab.dmg);
     let say = opts.say ? A.Skills.fill(opts.say, enemy, { d: ab.dmg }) : '';
-    if (say && ab.passive && A.Narrator && A.Narrator.passiveSuffix) say += A.Narrator.passiveSuffix(ab.passive);
+    if (say && ab.passive && A.Narrator && A.Narrator.passiveSuffix) say += A.Narrator.passiveSuffix(ab.passive, ab);
     addLog(c, 'enemy', {
       text: `${enemy.displayName} te hace ${ab.dmg} de daño.`,
-      actor: enemy.displayName, target: p.name, dmg: ab.dmg, hpAfter: p.hp, hpMax: p.maxHp, passive: ab.passive, result: 'hit',
+      actor: enemy.displayName, target: p.name, dmg: ab.dmg, hpAfter: p.hp, hpMax: p.maxHp, passive: ab.passive, absorbed: ab.absorbed, result: 'hit',
       fx: { kind: 'spell', actor: fxKey(enemy), target: 'player', element: opts.element || 'earth' },
       say: ab.guard === 'invincible' ? { text: 'Te alcanza de lleno, pero rebota: no te hace nada.', tone: 'good' } : { text: say, tone: 'bad' },
     });

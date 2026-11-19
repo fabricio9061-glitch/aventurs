@@ -78,7 +78,7 @@
   }
 
   function resetState() {
-    cardFx.clear(); barTweens.clear(); lastPct.clear(); impactAt.clear(); dyingUntil.clear();
+    cardFx.clear(); barTweens.clear(); lastPct.clear(); impactAt.clear(); dyingUntil.clear(); calloutAt.clear();
     holdUntil = 0;
     diceFreeAt = 0;
     lastAt = 0;
@@ -430,12 +430,68 @@
   /** "¡Resistís!" para vos; "¡Resiste!" para el compañero. */
   function mine(entry) { return !entry || !entry.hid || !A.State.me || A.State.hidOf(A.State.me()) === entry.hid; }
 
+  // ---------------------------------------------------------------
+  // v3.1: habilidades de las criaturas (y de las mascotas)
+  // Activa: un cartel con el nombre arriba de la criatura y un brillo.
+  // Pasiva: un cartel más chico y un destello (Escurridizo, Caparazón...).
+  // ---------------------------------------------------------------
+
+  const calloutAt = new Map(); // "<tarjeta>|<habilidad>" -> último cartel
+
+  /** { id, on, hero } de la habilidad (o pasiva de raza) que actúa en esta frase, o null. */
+  function skillOf(entry) {
+    const fx = entry.fx || {};
+    if (fx.skill) return { id: fx.skill, on: fx.skillOn || fx.actor || fx.target };
+    if (entry.dodgeSkill) return { id: entry.dodgeSkill, on: fx.target };
+    if (entry.softened) return { id: entry.softened, on: fx.target };
+    if (entry.skill && fx.actor && !isHeroKey(fx.actor)) return { id: entry.skill, on: fx.actor };
+    // v3.1: las pasivas de raza también se anuncian (Piel de roca, Suerte, Furia...)
+    if (fx.kind === 'passive' && fx.passive) return { id: fx.passive, on: selfKey(entry), hero: true };
+    if (fx.passive && (fx.kind === 'heal' || fx.kind === 'status')) return { id: fx.passive, on: selfKey(entry), hero: true };
+    if (entry.passive && fx.target && isHeroKey(fx.target)) return { id: entry.passive, on: fx.target, hero: true };
+    return null;
+  }
+
+  /** Nombre, ícono y si es pasiva, de una habilidad de criatura o de una pasiva de raza. */
+  function calloutData(sk) {
+    if (sk.hero) {
+      const info = A.Passives && A.Passives.info ? A.Passives.info(sk.id, A.State.player) : null;
+      return info ? { name: info.name, icon: info.icon, kind: 'passive' } : null;
+    }
+    return A.Skills && A.Skills.get ? A.Skills.get(sk.id) : null;
+  }
+
+  function skillCallout(entry, delay) {
+    const sk = skillOf(entry);
+    if (!sk || !sk.on) return;
+    const data = calloutData(sk);
+    if (!data) return;
+    const key = `${sk.on}|${sk.id}`;
+    const t = now() + Math.max(0, delay);
+    if ((calloutAt.get(key) || -1e9) > t - 1600) return; // las de varios golpes, una vez
+    calloutAt.set(key, t);
+    const passive = data.kind === 'passive';
+    later(delay, () => {
+      const r = spriteRect(sk.on);
+      if (!r) return;
+      spawn(`fx-skill-pill ${passive ? 'is-passive' : 'is-active'}`, r.left + r.width / 2, r.top - (passive ? 4 : 10),
+        `${pxIcon(data.icon || 'star', passive ? 14 : 18)}<span>${esc(data.name)}</span>`, passive ? 1300 : 1600);
+      playCardFx(sk.on, passive ? 'fx-skill-pas' : 'fx-skill-act', passive ? 700 : 900);
+      if (!passive) {
+        const ring = spawn('fx-skill-ring', r.left + r.width / 2, r.top + r.height / 2, null, 800);
+        if (ring) ring.style.setProperty('--c', /poison|acid/.test(data.icon || '') ? '#6fbf3a' : /bleed/.test(data.icon || '') ? '#d0342c' : /fire/.test(data.icon || '') ? '#ff8a2a' : /cold|ice/.test(data.icon || '') ? '#7cc6ff' : '#f2c14e');
+      }
+    });
+  }
+
   function play(entry) {
     if (!entry || !entry.fx || !layer || !root) return;
     const fx = entry.fx;
     const t = now();
     const at = entry._at != null ? entry._at : t;
     const me = selfKey(entry);
+    // v3.1: la habilidad se anuncia apenas empieza la acción (antes de que caiga el dado)
+    if (skillOf(entry)) skillCallout(entry, (entry._diceAt != null ? entry._diceAt : at) - t - (entry._diceAt != null ? 0 : 120));
 
     switch (fx.kind) {
       case 'attack': {
@@ -529,8 +585,7 @@
         break;
       }
       case 'passive': {
-        const info = A.Passives && fx.passive ? A.Passives.info(fx.passive, A.State.player) : null;
-        if (info) later(at - t, () => floatText(me, info.name, 'is-status is-passive', -20, info.icon));
+        // v3.1: se anuncia con el cartel de pasiva (skillCallout)
         break;
       }
       case 'tamed': {

@@ -21,11 +21,12 @@
 
   // v2.2.1: números de las clases que se afinan con el simulador (tools/simulador.js)
   const Balance_TUNE = {
-    hpPerLevel: { warrior: 7, hybrid: 6, mage: 5 },   // vida que gana cada clase al subir de nivel (v2.5: guerreros 7, aguantan las habilidades de las criaturas)
+    hpPerLevel: { warrior: 8, hybrid: 6, mage: 5 },   // vida que gana cada clase al subir de nivel (v3.1: guerreros 8; no se curan con magia y quedaban últimos desde el nivel 3)
+    manaPerLevel: { hybrid: 3, mage: 4 },             // maná que gana cada clase al subir de nivel
     warriorPower: { mult: 2, cooldown: 5 },           // Golpe fuerte: x2 de daño, después esperar
     hybridManaOnHit: 1,                               // maná que recupera un híbrido al acertar con el arma
-    hybridManaEvery: 5,                               // ...y 1 más cada tantos niveles (0 = no crece) · v2.5: 5 (antes 4)
-    mageRegenEvery: 3,                                // el maná por turno de los magos se multiplica cada tantos niveles (0 = no crece) · v2.5: 3 (antes 4)
+    hybridManaEvery: 8,                               // ...y 1 más cada tantos niveles (0 = no crece) · v3.1: 8 (2 por golpe recién al nivel 9; antes al 6 y arrasaban)
+    mageRegenEvery: 4,                                // el maná por turno de los magos sube 1 cada tantos niveles (0 = no crece) · v3.1: 4 (niveles 5 y 9; antes 4, 7 y 10)
   };
 
   const MAX_LEVEL = 10;
@@ -200,7 +201,7 @@
         precision: 1,
         dodge: newLevel % 2 === 1 ? 1 : 0,     // niveles 3, 5, 7, 9
         damage: newLevel % 3 === 1 ? 1 : 0,    // niveles 4, 7, 10
-        maxMana: hasMagic ? (combatType === 'mage' ? 4 : 3) : 0,
+        maxMana: hasMagic ? ((Balance_TUNE.manaPerLevel || {})[combatType === 'mage' ? 'mage' : 'hybrid'] || 3) : 0,
       };
     },
 
@@ -545,13 +546,14 @@
   };
 
   // ---------- Viaje ----------
+  // v3.1: viajes más largos (más pasos), con la misma comida y las mismas peleas por viaje
   const Travel = {
-    STEPS_MIN: 3,
-    STEPS_MAX: 12,
+    STEPS_MIN: 5,
+    STEPS_MAX: 18,
     /** Cada cuántos pasos se consume 1 de comida. */
-    STEPS_PER_FOOD: 2,
+    STEPS_PER_FOOD: 4,
     /** Probabilidad de encuentro por paso según tipo de destino. */
-    CREATURE_CHANCE: { combat: 0.28, safe: 0.06 },
+    CREATURE_CHANCE: { combat: 0.15, safe: 0.03 },
   };
 
   A.Balance = {

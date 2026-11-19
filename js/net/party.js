@@ -118,6 +118,8 @@
       weapon: h.equipment ? h.equipment.weapon : null,
       pet,
       regionId: A.State.world ? A.State.world.regionId : null,
+      // v3.1: para verlo en el mapa en medio de un viaje
+      traveling: A.State.traveling ? { fromId: A.State.traveling.fromId, toId: A.State.traveling.toId, step: A.State.traveling.currentStep || 0, total: A.State.traveling.totalSteps || 1 } : null,
       online: true,
     }, extra);
   }
@@ -403,7 +405,7 @@
     'Combat.playerFlee': () => ORIG['Combat.playerFlee'](),
     'Combat.setTarget': (o, id) => ORIG['Combat.setTarget'](id),
     'Explore.explore': () => ORIG['Explore.explore'](),
-    'Explore.choose': (o, idx) => ORIG['Explore.choose'](idx),
+    'Explore.choose': (o, idx, opts) => ORIG['Explore.choose'](idx, opts || {}),
     'Explore.proceed': () => ORIG['Explore.proceed'](),
     'Explore.rest': () => ORIG['Explore.rest'](),
     'Inventory.equip': (o, ...a) => ORIG['Inventory.equip'](...a),
@@ -919,6 +921,7 @@
 
   let heroTimer = null;
   let statusAt = 0;
+  let statusSig = '';
   function onSaved() {
     if (isHost()) { scheduleSnap(); return; }
     if (!isGuest() || P.status !== 'connected' || P.adopting) return;
@@ -927,7 +930,12 @@
       heroTimer = setTimeout(() => {
         if (guestTogether() && !P.mirror.owned) A.Link.send({ t: 'hero', hero: A.State.me() });
       }, HERO_MS);
-    } else if (!P.together && Date.now() - statusAt > STATUS_MS) {
+    } else if (!P.together) {
+      // v3.1: si cambió de lugar o avanzó el viaje, se avisa enseguida (para el mapa del compañero)
+      const t = A.State.traveling;
+      const sig = `${A.State.world ? A.State.world.regionId : ''}|${t ? `${t.toId}:${t.currentStep}` : ''}`;
+      if (sig === statusSig && Date.now() - statusAt <= STATUS_MS) return;
+      statusSig = sig;
       statusAt = Date.now();
       A.Link.send({ t: 'status', member: memberOf(A.State.me(), { together: false }) });
     }

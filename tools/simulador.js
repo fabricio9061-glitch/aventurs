@@ -164,8 +164,11 @@ function playerAI(G) {
     });
     if (pot) { A.Combat.playerUseItem(pot.itemId); return; }
   }
-  // Curación propia si queda poca vida
-  if (p.hasMagic && p.hp < p.maxHp * 0.45) {
+  // Curación propia si queda poca vida (v3.1: o si dos golpes fuertes te tumban,
+  // como haría alguien con poca vida: antes se curaba tarde y caía con maná de sobra)
+  const maxHit = alive.reduce((m, e) => Math.max(m, A.Utils.diceRange ? A.Utils.diceRange(String(e.damage || '1d4')).max : 6), 0);
+  const danger = p.hp <= maxHit * 2 && p.hp < p.maxHp * 0.7;
+  if (p.hasMagic && (p.hp < p.maxHp * 0.45 || danger)) {
     const heal = A.Combat.availableSpells().find((s) => s.heal && p.mana >= cost(s));
     if (heal) { A.Combat.playerSpell(heal.id); return; }
   }
@@ -180,13 +183,19 @@ function playerAI(G) {
   const arm = (weakest && weakest.armor) || 0;
   const hit = A.Balance.hitChance(st.attack, def);
   const weaponEV = hit * Math.max(1, avg(comp.expression.replace(/ - \d+$/, '')) - arm);
-  // Mejor hechizo de daño que alcance
+  // Mejor hechizo de daño que alcance.
+  // v3.1: como haría una persona, guarda maná para una Curación (si la sabe),
+  // salvo que el hechizo termine la pelea o tenga a varios en el área.
   let best = null;
   if (p.hasMagic) {
     const power = st.spellPower + (P ? P.spellBonus(p) : 0);
+    const healSpell = A.Combat.availableSpells().find((s) => s.heal);
+    const reserve = healSpell ? cost(healSpell) : 0;
     for (const s of A.Combat.availableSpells()) {
       if (!s.damage || p.mana < cost(s)) continue;
       const each = Math.max(1, avg(s.damage) + power - Math.floor(arm / 2));
+      const finishes = weakest && each >= weakest.hp && alive.length === 1;
+      if (p.mana - cost(s) < reserve && !finishes && !(s.area && alive.length > 1)) continue;
       const ev = each * (s.area ? alive.length : 1);
       if (!best || ev > best.ev) best = { s, ev };
     }

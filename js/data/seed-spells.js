@@ -16,8 +16,10 @@
     { id:'rayo_helado', name:'Rayo helado', icon:'❄️', damage:'1d6+1', manaCost:4, tier:2, school:'ice', statusEffect:{type:'cold',chance:0.6,turns:2,value:1},
       description:'Aire denso que congela en el aire. Reduce la velocidad del enemigo.' },
     { id:'curacion', name:'Curación', icon:'💚', heal:'2d6+2', manaCost:5, tier:2, school:'holy',
-      description:'Las heridas se cierran al pronunciar la palabra correcta.' },
-    { id:'bola_de_fuego', name:'Bola de fuego', icon:'🔥', damage:'2d6', manaCost:9, tier:5, school:'fire', area:true, mageOnly:true, statusEffect:{type:'fire',chance:0.25,turns:2,value:2},
+      classCost:{ mage:6 },   // v3.1: a los magos les cuesta 6 (con Curación y regeneración eran los más fuertes)
+      description:'Las heridas se cierran al pronunciar la palabra correcta. A los magos les cuesta 6 de maná.' },
+    { id:'bola_de_fuego', name:'Bola de fuego', icon:'🔥', damage:'2d6', manaCost:10, tier:5, school:'fire', area:true, mageOnly:true, statusEffect:{type:'fire',chance:0.25,turns:2,value:2},
+      // v3.1: 10 de maná (antes 9): contra varias criaturas el mago les sacaba 15 puntos a las otras clases
       description:'Una esfera incandescente que estalla al impacto. Daña a varios enemigos. Solo para magos.' },
     { id:'tormenta_arcana', name:'Tormenta arcana', icon:'⚡', damage:'2d8+1', manaCost:12, tier:7, school:'arcane', area:true, mageOnly:true, statusEffect:{type:'shock',chance:0.25,turns:1,value:1},
       description:'El cielo se quiebra y descarga rayos sobre el campo de batalla. Solo para magos.' },

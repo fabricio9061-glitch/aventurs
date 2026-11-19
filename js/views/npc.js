@@ -256,6 +256,17 @@
     `;
   }
 
+  /** v3.1: si es comida, cómo le cae a tu raza (no la come / le encanta / le rinde poco). */
+  function dietBadge(d) {
+    const p = player();
+    if (!p || !A.Survival || !A.Survival.isFood || !A.Survival.isFood(d)) return '';
+    const f = A.Survival.foodFor(p, d);
+    if (f.kind === 'no') return '<span class="shop-card-diet is-no">No lo comés</span>';
+    if (f.kind === 'fav') return '<span class="shop-card-diet is-fav">Te encanta</span>';
+    if (f.kind === 'half') return '<span class="shop-card-diet is-half">Rinde poco</span>';
+    return '';
+  }
+
   function renderBuy(npc, payload) {
     const ids = (npc.sells || []).filter((id) => U().itemData(id));
     const sel = payload.sel && ids.includes(payload.sel) ? payload.sel : null;
@@ -271,7 +282,7 @@
                 <span class="shop-card-sprite">${U().itemSprite(d, 44)}</span>
                 <span class="shop-card-name">${U().esc(d.name)}</span>
                 <span class="shop-card-price">${U().price(price, 14)}</span>
-                ${cmp.verdict && cmp.verdict !== 'same' ? `<span class="shop-card-cmp">${verdictBadge(cmp.verdict)}</span>` : ''}
+                ${cmp.verdict && cmp.verdict !== 'same' ? `<span class="shop-card-cmp">${verdictBadge(cmp.verdict)}</span>` : dietBadge(d)}
               </button>`;
           }).join('')}
         </div>

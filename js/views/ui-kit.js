@@ -74,12 +74,13 @@
   }
 
   /** Línea de una tirada: [ícono] Fuerza +3 · [D20 12] · 60% */
-  function checkLine(check, tier) {
+  function checkLine(check, tier, bonus) {
     if (!check || !A.Explore) return '';
     const st = A.Explore.STATS[check.stat] || { label: check.stat, icon: 'd20' };
-    const mod = A.Explore.statMod(check.stat);
+    // v3.1: las de carrera comparan con la criatura; observar antes suma
+    const mod = A.Explore.statMod(check.stat, undefined, check) + (bonus || 0);
     const dc = A.Explore.dcFor(check, tier);
-    const pct = Math.round(A.Explore.chanceOf(check, tier) * 100);
+    const pct = Math.round(A.Explore.chanceOf(check, tier, undefined, bonus) * 100);
     const cls = pct >= 65 ? 'is-easy' : pct >= 40 ? 'is-mid' : 'is-hard';
     const dcB = A.ItemSprites && A.ItemSprites.dcBadge ? A.ItemSprites.dcBadge(dc, { size: 24, title: `Dificultad: el D20 más tu bonus tiene que llegar a ${dc}` }) : `DC ${dc}`;
     return `<span class="ui-check ${cls}" title="${esc(st.hint || '')}">${icon(st.icon, 16, 'px-soft')}<span>${esc(st.label)} ${mod >= 0 ? '+' : ''}${mod}</span>${dcB}<b>${pct}%</b></span>`;

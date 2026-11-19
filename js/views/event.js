@@ -44,6 +44,57 @@
     `;
   }
 
+  // ============================================================
+  // v3.1: en grupo se vota
+  // ============================================================
+
+  function myHid() { return A.State.me && A.State.hidOf ? A.State.hidOf(A.State.me()) : 'me'; }
+  function nameOfHid(hid) {
+    const h = A.State.heroById ? A.State.heroById(hid) : null;
+    if (h && h.name) return h.name;
+    const m = A.Party && A.Party.member ? A.Party.member(hid) : null;
+    return (m && m.name) || 'Tu compañero';
+  }
+  function votersFor(sc, i) {
+    const out = [];
+    for (const hid of Object.keys(sc.votes || {})) if (sc.votes[hid] === i) out.push(hid);
+    return out;
+  }
+  function voteTags(sc, i) {
+    const list = votersFor(sc, i);
+    if (!list.length) return '';
+    return `<span class="scene-votes">${list.map((hid) => `<span class="scene-vote ${hid === myHid() ? 'is-mine' : ''}">${U().icon('check', 12)}${U().esc(hid === myHid() ? 'Tu voto' : nameOfHid(hid))}</span>`).join('')}</span>`;
+  }
+  function voteBar(sc) {
+    if (!sc.party || sc.stage !== 'choose') return '';
+    const mine = sc.votes && sc.votes[myHid()] != null;
+    const others = Object.keys(sc.votes || {}).filter((h) => h !== myHid());
+    const ally = A.Party && A.Party.ally ? A.Party.ally() : null;
+    const allyName = ally ? ally.name : 'tu compañero';
+    let text = `Voten qué hacer. Si eligen lo mismo, lo hace el que tiene más chance; si no, decide un dado.`;
+    if (mine && !others.length) text = `Votaste. Esperando a ${allyName}… (podés cambiar tu voto)`;
+    else if (!mine && others.length) text = `${allyName} ya votó. Te toca elegir.`;
+    return `
+      <div class="scene-party is-vote">
+        ${U().icon('party', 16)}<span>${U().esc(text)}</span>
+        ${mine && !others.length ? `<button class="btn-mini scene-force is-hidden" data-scene-force title="Si tu compañero no está, se hace lo que votaste">Decidir sin esperar</button>` : ''}
+      </div>`;
+  }
+  function voteResultHtml(res) {
+    const v = res && res.vote;
+    if (!v) return '';
+    if (v.agreed) {
+      return `<div class="scene-vote-res">${U().icon('party', 16)}<span>Votaron lo mismo: lo hace ${U().esc(v.winner === myHid() ? 'vos' : v.winnerName)}, que tenía más chance.</span></div>`;
+    }
+    const rolls = (v.rolls || []).map((r) => `${U().esc(r.hid === myHid() ? 'Vos' : r.name)} sacó <b>${r.d}</b>`).join(' · ');
+    const choice = (v.votes || []).find((x) => x.hid === v.winner);
+    return `
+      <div class="scene-vote-res is-dice">
+        ${U().icon('dice', 20)}
+        <span>Votaron distinto. ${rolls}. Gana ${U().esc(v.winner === myHid() ? 'tu voto' : `el voto de ${v.winnerName}`)}${choice ? `: ${U().esc(choice.label.toLowerCase())}` : ''}.</span>
+      </div>`;
+  }
+
   function optionsHtml(sc) {
     // v2.5: con muchas opciones van en dos columnas (entra todo sin bajar)
     const many = sc.options.length > 3;
@@ -57,10 +108,11 @@
             : o.needs && o.needs.food ? `<span class="ui-check is-cost">${U().icon('food', 16)}<span>${o.needs.food} de comida</span></span>`
             : needItem ? `<span class="ui-check is-cost">${A.ItemSprites ? A.ItemSprites.html(needItem.id, { size: 18 }) : ''}<span>Gastás 1</span></span>` : '';
           return `
-            <button class="scene-opt ${blocked ? 'is-blocked' : ''}" data-scene-opt="${i}" ${blocked ? 'disabled' : ''}>
-              <span class="scene-opt-label">${U().esc(o.label)}</span>
+            <button class="scene-opt ${blocked ? 'is-blocked' : ''} ${sc.votes && sc.votes[myHid()] === i ? 'is-voted' : ''}" data-scene-opt="${i}" ${blocked ? 'disabled' : ''}>
+              <span class="scene-opt-label">${U().esc(o.label)}${sc.party ? voteTags(sc, i) : ''}</span>
+              ${o.hint ? `<span class="scene-opt-hint">${U().esc(o.hint)}</span>` : ''}
               <span class="scene-opt-meta">
-                ${o.check ? U().checkLine(o.check, sc.tier) : ''}
+                ${o.check ? U().checkLine(o.check, sc.tier, sc.bonus || 0) : ''}
                 ${cost}
                 ${!o.check && !cost ? `<span class="ui-check is-safe">${U().icon('check', 14)}<span>Sin tirada</span></span>` : ''}
                 ${blocked ? `<span class="scene-opt-why">${U().esc(blocked)}</span>` : ''}
@@ -92,13 +144,16 @@
     const other = chooserName(res);
     const btn = res.fight
       ? `${U().icon('swords', 22)}<span>${res.fight.surprise ? '¡Atacar primero!' : res.fight.ambush ? (sc.party ? '¡A defenderse!' : '¡Defenderte!') : '¡A pelear!'}</span>`
-      : res.tame ? `${U().icon('paw', 22)}<span>${other ? 'Seguir' : 'Acercarte'}</span>` : `<span>Seguir</span>`;
+      : res.tame ? `${U().icon('paw', 22)}<span>${other ? 'Seguir' : 'Acercarte'}</span>`
+        : res.again ? `${U().icon('eye', 22)}<span>Decidir qué hacer (+2)</span>` : `<span>Seguir</span>`;
     const text = other && A.Persp ? A.Persp.third(res.text, other) : res.text;
     return `
       <div class="scene-result ${res.success ? 'is-ok' : 'is-fail'}">
-        <div class="scene-choice">${U().icon('check', 14)}<span>${other ? `${U().esc(other)} eligió: ` : ''}${U().esc(res.label)}</span></div>
+        ${voteResultHtml(res)}
+        <div class="scene-choice">${U().icon('check', 14)}<span>${other ? `${U().esc(other)} ${res.vote ? 'hace' : 'eligió'}: ` : ''}${U().esc(res.label)}</span></div>
         ${rollHtml(res)}
         ${text ? `<p class="scene-outcome">${U().esc(text)}</p>` : ''}
+        ${res.studied && res.studied.length ? `<p class="scene-studied">${U().icon('skulls', 16)}<span>Al bestiario: ${U().esc(res.studied.join(', '))} (ya conocés sus habilidades y su botín).</span></p>` : ''}
         ${res.chips && res.chips.length && other ? `<div class="scene-for">Para ${U().esc(other)}:</div>` : ''}
         ${U().chips(res.chips)}
         <div class="scene-actions">
@@ -120,7 +175,7 @@
         </div>
         <div class="scene-body">
           <h2 class="scene-title">${U().esc(sc.title)}</h2>
-          ${sc.party ? `<div class="scene-party">${U().icon('party', 16)}<span>En grupo: elige el que toque primero</span></div>` : ''}
+          ${voteBar(sc)}
           <p class="scene-text">${U().esc(sc.text)}</p>
           ${enemiesRow(sc)}
           ${sc.stage === 'result' && sc.result ? resultHtml(sc) : optionsHtml(sc)}
@@ -129,7 +184,25 @@
     `;
   }
 
+  // v3.1: la voz del narrador lee la escena (una vez cada parte)
+  let spokenKey = null;
+  function speak(sc) {
+    if (!A.Voice || !A.Voice.isOn() || !sc) return;
+    const key = `${sc.regionId}|${sc.title}|${sc.text}|${sc.stage}|${sc.result ? sc.result.label : ''}`;
+    if (key === spokenKey) return;
+    spokenKey = key;
+    if (sc.stage === 'result' && sc.result) {
+      const other = chooserName(sc.result);
+      const text = other && A.Persp ? A.Persp.third(sc.result.text, other) : sc.result.text;
+      A.Voice.say(text, { now: true });
+    } else {
+      A.Voice.say(`${sc.title}. ${sc.text}`, { now: true });
+    }
+  }
+
+  let forceTimer = null;
   function bind(overlay, sc) {
+    speak(sc);
     overlay.querySelectorAll('[data-scene-opt]').forEach((b) => {
       b.addEventListener('click', () => {
         if (b.disabled) return;
@@ -137,6 +210,18 @@
         A.Explore.choose(Number(b.dataset.sceneOpt));
       });
     });
+    // v3.1: si el compañero no vota, a los 20 segundos se puede decidir sin esperar
+    clearTimeout(forceTimer);
+    const force = overlay.querySelector('[data-scene-force]');
+    if (force && sc) {
+      const at = (sc.votedAt && sc.votedAt[myHid()]) || Date.now();
+      const wait = Math.max(0, 20000 - (Date.now() - at));
+      forceTimer = setTimeout(() => force.classList.remove('is-hidden'), wait);
+      force.addEventListener('click', () => {
+        const idx = sc.votes ? sc.votes[myHid()] : null;
+        if (idx != null) A.Explore.choose(idx, { force: true });
+      });
+    }
     const next = overlay.querySelector('[data-scene-next]');
     if (next) {
       next.addEventListener('click', () => A.Explore.proceed());

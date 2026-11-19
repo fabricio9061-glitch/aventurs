@@ -1106,6 +1106,15 @@
       const seal = /escape/.test(t) ? '#3a9a3a' : (el ? el.e : '#a02a2a');
       return { shape: 'scroll', p: { b: '#efe0b8', c: '#f8eed4', wd: '#8a5a30', e: seal, g: '#ffffff' } };
     }
+    // v3.1: la comida de las razas que no comen como las demás
+    if (/lata de aceite/.test(t)) return { shape: 'jar', p: { b: '#3a2a10', c: '#d8a030', gl: '#8a929c', wd: '#4a4a52', hl: '#e8eef4' } };
+    if (/bater[ií]a/.test(t)) return { shape: 'core', p: { b: '#4a5a6a', c: '#8aa0b4', g: '#5ad0ff' }, o: { gear: true } };
+    if (/botella de sangre/.test(t)) return { shape: 'potion', p: { b: '#7a0a16', c: '#c8283a', gl: GLASS, wd: '#3a1a1a', hl: '#ffffff' }, o: { shape: 'tall' } };
+    if (/sangre de noble/.test(t)) return { shape: 'potion', p: { b: '#5a0612', c: '#a8182c', gl: GLASS, wd: '#c9a24a', hl: '#ffffff' }, o: { shape: 'round' } };
+    if (/frasco de n[eé]ctar/.test(t)) return { shape: 'jar', p: { b: '#f0c040', c: '#fff0a8', gl: GLASS, wd: '#d080b0', hl: '#ffffff' } };
+    if (/gel de algas/.test(t)) return { shape: 'goo', p: { b: '#2a8a6a', c: '#7ad8b0', g: '#c0ffe0', hl: '#ffffff' } };
+    if (/carb[oó]n ardiente/.test(t)) return { shape: 'rock', p: { b: '#2a2226', c: '#4a3a3e', e: '#ff7a2a', g: '#ffb040' }, o: { specks: true, glow: true } };
+
     // pociones y bebidas
     // v2.1: ron (botella ámbar) y vial de sangre
     if (/(^|\s)ron(\s|$)/.test(t)) return { shape: 'potion', p: { b: '#b8701a', c: '#e8a040', gl: GLASS, wd: '#6a3a1a', hl: '#ffffff' }, o: { shape: 'tall' } };
@@ -1583,6 +1592,19 @@
       P.ell(21.5, 10, 4.6, 4.8, 's'); P.ell(21.5, 24, 8.5, 7, 'b'); P.rect(13, 24, 17, 7, 'b'); P.line([[18, 20], [25, 20]], 0.5, 0.5, 'b2');
       P.ell(11.5, 12.5, 5.2, 5.4, 's'); P.ell(11.5, 27, 9.5, 7, 'a'); P.rect(2, 27, 19, 5, 'a'); P.line([[7, 23], [16, 23]], 0.5, 0.5, 'a2');
       P.dot(10, 12, 0.8, 'k'); P.dot(13.4, 12, 0.8, 'k');
+    } },
+    // v3.1: voz del narrador (parlante con ondas; mute: con una cruz)
+    voice: { p: { k: '#3a2a1a', b: '#d4a42c', b2: '#9a7420', w: '#f4ead2' }, d: (P) => {
+      P.poly([[4, 12], [10, 12], [17, 6], [17, 26], [10, 20], [4, 20]], 'b2');
+      P.poly([[5, 13], [10, 13], [16, 8], [16, 24], [10, 19], [5, 19]], 'b');
+      P.line([[21, 11], [23, 16], [21, 21]], 2, 2, 'w');
+      P.line([[25, 7], [28, 16], [25, 25]], 2, 2, 'w');
+    } },
+    mute: { p: { k: '#3a2a1a', b: '#a08a60', b2: '#6a5a40', r: '#c83a3a' }, d: (P) => {
+      P.poly([[4, 12], [10, 12], [17, 6], [17, 26], [10, 20], [4, 20]], 'b2');
+      P.poly([[5, 13], [10, 13], [16, 8], [16, 24], [10, 19], [5, 19]], 'b');
+      P.line([[21, 11], [28, 21]], 2.4, 2.4, 'r');
+      P.line([[28, 11], [21, 21]], 2.4, 2.4, 'r');
     } },
     // v3.0: raza al azar
     dice: { p: { w: '#f6eedb', w2: '#c9b48a', w3: '#a08a60', k: '#2a1c0c', r: '#c83a3a' }, d: (P) => {

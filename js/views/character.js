@@ -33,11 +33,27 @@
   ];
 
   const TYPE_LINE = { hybrid: 'Híbrido · arma y magia: pegar le da maná', warrior: 'Guerrero · golpe fuerte y maestría con armas', mage: 'Mago · el maná le vuelve solo' };
+  // v3.1: las cuentas salen de la configuración del juego (si cambian, el texto acompaña)
+  const T = () => (A.Balance && A.Balance.TUNE) || {};
   const TYPE_KIT = {
-    hybrid: 'Usa cualquier arma sin problema. Cada golpe con arma que acierta le devuelve 1 de maná (2 desde el nivel 5). Fuera de eso, el maná no le vuelve solo.',
-    warrior: 'Golpe fuerte: doble daño, una vez cada 5 turnos. Maestría: +1 de daño con cualquier arma (+2 desde el nivel 5) y +1 de precisión con armas pesadas.',
+    get hybrid() {
+      const t = T(); const on = t.hybridManaOnHit || 1; const every = t.hybridManaEvery || 0;
+      return `Usa cualquier arma sin problema. Cada golpe con arma que acierta le devuelve ${on} de maná${every > 0 ? ` (${on + 1} desde el nivel ${every + 1})` : ''}. Fuera de eso, el maná no le vuelve solo.`;
+    },
+    get warrior() {
+      return `Golpe fuerte: doble daño, una vez cada 5 turnos. Maestría: +1 de daño con cualquier arma (+2 desde el nivel 5) y +1 de precisión con armas pesadas. Gana ${(T().hpPerLevel || {}).warrior || 7} de vida por nivel, más que nadie.`;
+    },
     mage: 'Vive de la magia. Las armas pesadas le quitan 3 de precisión, y es el más frágil de todos.',
   };
+  /** El texto de la clase para esta raza (al mago se le suma lo que le cuesta Curación, con su descuento si tiene). */
+  function kitText(type, race) {
+    const base = TYPE_KIT[type] || TYPE_KIT.hybrid;
+    if (type !== 'mage') return base;
+    const cura = A.Data.getById('spells', 'curacion');
+    if (!cura) return base;
+    const cost = A.Passives && A.Passives.spellCost ? A.Passives.spellCost({ raceId: race.id, level: 1 }, cura) : cura.manaCost;
+    return `${base} Curación le cuesta ${cost} de maná.`;
+  }
 
   /** v2.1: el hechizo con el que nace la raza y cuánto maná recupera. */
   function magicBox(race) {
@@ -57,9 +73,9 @@
           <span class="cc-passive-label">Hechizo de nacimiento</span>
           <span class="cc-passive-name">${esc(spell.name)}</span>
           <span class="cc-passive-text">${esc(what)}</span>
-          <span class="cc-passive-text cc-regen">${regen
-            ? `Recupera maná solo: +${regen.turn} por turno (+1 más desde el nivel 5) y ${Math.round(regen.win * 100)}% al ganar.`
-            : race.combatType === 'hybrid' ? 'Recupera maná al acertar golpes con el arma.' : 'No recupera maná solo: pociones o dormir.'}</span>
+          ${race.combatType === 'hybrid' && !regen ? '' /* v3.1: lo cuenta el texto de la clase, abajo */ : `<span class="cc-passive-text cc-regen">${regen
+            ? `Recupera maná solo: +${regen.turn} por turno${T().mageRegenEvery > 0 ? ` (+1 más desde el nivel ${T().mageRegenEvery + 1})` : ''} y ${Math.round(regen.win * 100)}% al ganar.`
+            : 'No recupera maná solo: pociones o dormir.'}</span>`}
         </span>
       </div>`;
   }
@@ -193,6 +209,32 @@
     return `<div class="cc-bar-row"><span class="cc-bar-label">${label}</span><span class="cc-bar"><span style="width:${w}%;background:${color}"></span></span><span class="cc-bar-val num">${value}</span></div>`;
   }
 
+  /** Con qué arranca y qué come (v3.1: la comida depende de la raza). HTML. */
+  function startKitHtml(race) {
+    const diet = A.Survival && A.Survival.dietOf ? A.Survival.dietOf(race.id) : null;
+    const food = diet && diet.startText ? diet.startText : 'algo de comida';
+    const eats = diet ? `<span class="cc-diet" title="${esc(A.Survival.describeDiet(race.id))}">Come: ${esc(diet.label.toLowerCase())}${diet.only ? ' (nada más)' : ''}.</span> ` : '';
+    return `${eats}Empieza con daga, túnica de cuero, dos pociones y ${esc(food)}.`;
+  }
+
+  /** v3.1: lo que suma al explorar un personaje nuevo de esta raza (Fuerza, Agilidad...). */
+  function exploreBox(race, st, magic) {
+    if (!A.Explore || !A.Explore.sheet || !st) return '';
+    const fake = {
+      raceId: race.id, level: 1, hasMagic: magic, effects: [],
+      stats: { speed: st.speed, precision: st.precision, armor: st.armor, damage: st.damage, dodge: st.dodge },
+      equipment: { weapon: 'daga', armor: 'tunica_cuero', accessory: null },
+    };
+    let list = [];
+    try { list = A.Explore.sheet(fake, { noHunger: true }); } catch (e) { return ''; }
+    const sign = (v) => (v > 0 ? `+${v}` : `${v}`);
+    return `
+          <div class="cc-xstats">
+            <div class="cc-xstats-title">Al explorar (se suma al dado)</div>
+            ${list.map((x) => `<div class="cc-xstat" title="${esc(`${x.label}: ${x.hint} Se suma al dado de 20 cuando una escena pide ${x.label}.`)}">${icon(x.icon, 16)}<b class="num">${sign(x.value)}</b><span>${esc(x.label)}</span></div>`).join('')}
+          </div>`;
+  }
+
   function detailHtml(race) {
     const st = A.Seed.statsForRace(race.id);
     const magic = A.Seed.raceHasMagic ? A.Seed.raceHasMagic(race.id) : race.combatType !== 'warrior';
@@ -210,7 +252,7 @@
         <span class="cc-passive-icon">${icon(type === 'warrior' ? 'fist' : type === 'mage' ? 'spell' : 'swords', 32)}</span>
         <span class="cc-passive-body">
           <span class="cc-passive-label">${type === 'warrior' ? 'Guerrero' : type === 'mage' ? 'Mago' : 'Híbrido'}</span>
-          <span class="cc-passive-text">${esc(TYPE_KIT[type] || TYPE_KIT.hybrid)}</span>
+          <span class="cc-passive-text">${esc(kitText(type, race))}</span>
         </span>
       </div>`;
     return `
@@ -235,6 +277,7 @@
               </span>
             </div>` : ''}
           ${magic ? magicBox(race) : classBox}
+          ${magic ? `<p class="cc-kit is-class">${esc(kitText(type, race))}</p>` : ''}
         </div>
         <div class="cc-col">
           <div class="cc-bars">
@@ -243,13 +286,13 @@
             ${bar('Velocidad', st.speed, rg.speed, '#7a9c3a')}
           </div>
           <div class="cc-stats">
-            <div class="cc-stat" title="Se suma al dado para acertar"><span>Precisión</span><b>+${st.precision}</b><small>Se suma al dado para acertar</small></div>
+            <div class="cc-stat" title="Se suma al dado para acertar"><span>Precisión</span><b>+${st.precision + (A.Passives && A.Passives.precisionBonus ? A.Passives.precisionBonus({ raceId: race.id, level: 1 }) : 0)}</b><small>Se suma al dado para acertar</small></div>
             <div class="cc-stat" title="Lo que sacás al acertar"><span>Daño</span><b>${dmg}</b><small>Al acertar: ${dmgRange.min}&nbsp;a&nbsp;${dmgRange.max}</small></div>
             <div class="cc-stat" title="Lo que el enemigo necesita sacar para pegarte"><span>Defensa</span><b>${8 + st.dodge}</b><small>Lo que necesitan para pegarte</small></div>
             <div class="cc-stat" title="Se resta de cada golpe que recibís"><span>Armadura</span><b>${st.armor + startArmor}</b><small>Se resta de cada golpe</small></div>
           </div>
-          ${magic ? `<p class="cc-kit is-class">${esc(TYPE_KIT[type] || TYPE_KIT.hybrid)}</p>` : ''}
-          <p class="cc-kit">Empieza con daga, túnica de cuero, dos pociones y algo de comida.</p>
+          ${exploreBox(race, st, magic)}
+          <p class="cc-kit cc-startkit">${startKitHtml(race)}</p>
         </div>
       </div>
     `;

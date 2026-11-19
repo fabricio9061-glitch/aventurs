@@ -147,18 +147,20 @@
 
   /**
    * v1.8.0: Pasos de una ruta. Es SIMÉTRICO: ir de A a B tarda lo mismo que de B a A.
-   *   base      = 2 + 2 × distancia de la ruta (la mayor de las dos regiones: 1..3)
-   *   terreno   = el más difícil de los dos: montaña/volcán +2, desierto/pantano +1,
+   *   base      = 4 + 3 × distancia de la ruta (la mayor de las dos regiones: 1..3)
+   *   terreno   = el más difícil de los dos: montaña/volcán +3, desierto/pantano +2,
    *               llanura/camino -1
    *   carga     = mochila al 70% +1, al 90% +2
    *   velocidad = la real (con el peso del equipo): 14+ -1, 7 o menos +1
-   * Resultado entre 3 y 12 pasos. Se come 1 de comida cada 2 pasos.
+   * Resultado entre 5 y 18 pasos (v3.1: viajes más largos).
+   * Se come 1 de comida cada 4 pasos, y en cada paso hay menos chance de
+   * cruzarse con criaturas: la comida y las peleas de un viaje quedan parecidas.
    */
   function terrainCost(region) {
     const biome = region ? region.biome : '';
     const biomeStr = (Array.isArray(biome) ? biome.join(',') : String(biome || '')).toLowerCase();
-    if (/montaña|mountain|volcán|volcano|nieve|snow/.test(biomeStr)) return 2;
-    if (/desierto|desert|pantano|swamp/.test(biomeStr)) return 1;
+    if (/montaña|mountain|volcán|volcano|nieve|snow/.test(biomeStr)) return 3;
+    if (/desierto|desert|pantano|swamp/.test(biomeStr)) return 2;
     if (/camino|road|llanura|plains/.test(biomeStr)) return -1;
     return 0;
   }
@@ -166,7 +168,7 @@
   function calculateTravelSteps(target, from) {
     const origin = from || A.Data.getById('regions', State().world && State().world.regionId);
     const routeDistance = clamp(Math.max(target.distance || 1, (origin && origin.distance) || 1), 1, 3);
-    let steps = 2 + 2 * routeDistance;
+    let steps = 4 + 3 * routeDistance;
     steps += Math.max(terrainCost(target), terrainCost(origin));
 
     const player = A.State && A.State.player;
@@ -183,7 +185,7 @@
       if (speed >= 14) steps -= 1;
       else if (speed <= 7) steps += 1;
     }
-    const T = (A.Balance && A.Balance.Travel) || { STEPS_MIN: 3, STEPS_MAX: 12 };
+    const T = (A.Balance && A.Balance.Travel) || { STEPS_MIN: 5, STEPS_MAX: 18 };
     return Math.max(T.STEPS_MIN, Math.min(T.STEPS_MAX, steps));
   }
 

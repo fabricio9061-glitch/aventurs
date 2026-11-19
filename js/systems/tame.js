@@ -21,7 +21,7 @@
        Nunca puede tener más nivel que vos.
      - Come según su dieta (la misma comida con la que se doma):
          carnívoros -> carnes · pescado -> pescado · herbívoros -> semillas, pan, bayas
-     - Saciedad 0..10: baja 1 por combate y 1 cada 2 pasos de viaje.
+     - Saciedad 0..10: baja 1 por combate y 1 cada 4 pasos de viaje.
        Con saciedad 0 pega la mitad. Alimentarla sube la saciedad y la cura un poco.
      - A 0 de vida queda inconsciente (no muere). Despierta con una poción
        de curación o descansando en la taberna (ahí además se llena).
@@ -277,9 +277,10 @@
     }
   }
 
-  /** Para el viaje: 1 de saciedad cada 2 pasos. */
+  /** Para el viaje: 1 de saciedad cada 4 pasos (v3.1: igual que la comida tuya). */
   function onTravelStep(stepNumber) {
-    if (stepNumber % 2 === 0) consumePetFood(1);
+    const every = (A.Balance && A.Balance.Travel && A.Balance.Travel.STEPS_PER_FOOD) || 2;
+    if (stepNumber % every === 0) consumePetFood(1);
   }
 
   function foodPoints(item) {

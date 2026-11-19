@@ -194,6 +194,38 @@
         p.schemaVersion = 17;
         dirty = true;
       }
+
+      // v3.1: cada raza come lo suyo. Si la tuya solo come algo especial (aceite, sangre,
+      // néctar) y no tenés nada de eso, el mercader te deja la comida para empezar.
+      if ((p.schemaVersion || 0) < 18) {
+        const diet = A.Survival && A.Survival.dietOf ? A.Survival.dietOf(p.raceId) : null;
+        if (diet && diet.only && A.Survival.hasEdible && !A.Survival.hasEdible(p)) {
+          for (const s of A.Survival.startFood(p.raceId)) {
+            if (!A.Data.getById('items', s.itemId)) continue;
+            const slot = (p.inventory || []).find((x) => x.itemId === s.itemId);
+            if (slot) slot.qty += s.qty; else (p.inventory = p.inventory || []).push({ ...s });
+          }
+          State.addChronicle({ type: 'note', text: `Ahora cada raza come lo suyo. Te dejaron ${diet.startText} para el camino.` });
+        }
+        // v3.1: equilibrio. El guerrero gana 8 de vida por nivel (antes 7): el que ya subió
+        // recibe la diferencia. El Infernal tiene un punto más de esquiva. El Robot nace con
+        // 1 de vida menos, pero a los que ya existen no se les quita nada.
+        const race18 = A.Data && A.Data.getById ? A.Data.getById('races', p.raceId) : null;
+        const gained18 = [];
+        if (race18 && race18.combatType === 'warrior' && (p.level || 1) > 1) {
+          const add = (p.level || 1) - 1;
+          p.maxHp = (p.maxHp || 0) + add;
+          p.hp = Math.min(p.maxHp, (p.hp || 0) + add);
+          gained18.push(`+${add} de vida máxima`);
+        }
+        if (p.raceId === 'infernal' && p.stats) {
+          p.stats.dodge = (p.stats.dodge || 0) + 1;
+          gained18.push('+1 de esquiva');
+        }
+        if (gained18.length) State.addChronicle({ type: 'note', text: `Ajuste de equilibrio de la versión 3.1: ${gained18.join(' y ')}.` });
+        p.schemaVersion = 18;
+        dirty = true;
+      }
       if (dirty) {
         State.persist();
         console.log('[State] Save migrado a estructura v1.5.0');
@@ -344,16 +376,18 @@
         // Los que usan magia arrancan sabiendo Chispa.
         equipment: { weapon: 'daga', armor: 'tunica_cuero', accessory: null },
         gearMana: {},
+        // v3.1: la comida depende de la raza (el robot arranca con aceite, el vampiro con sangre...)
         inventory: [
           { itemId: 'pocion_curacion_menor', qty: 2 },
-          { itemId: 'pan', qty: 3 },
+          ...((A.Survival && A.Survival.startFood ? A.Survival.startFood(raceId) : [{ itemId: 'pan', qty: 3 }])
+            .filter((s) => A.Data.getById('items', s.itemId))),
           { itemId: 'carne_cruda', qty: 2 },
           { itemId: 'coin_copper', qty: 30 },
         ],
         // v2.1: cada raza con magia nace con su propio hechizo
         spells: hasMagic ? [((A.Data.getById('races', raceId) || {}).startSpell) || 'chispa'] : [],
         travelSteps: 0,
-        schemaVersion: 17,
+        schemaVersion: 18,
       };
 
       State.world = {
@@ -578,7 +612,7 @@
      */
     consumeFoodForStep() {
       if (!State.player) return;
-      // v1.8.0: se come 1 cada 2 pasos (Balance.Travel.STEPS_PER_FOOD).
+      // v1.8.0: se come 1 cada pocos pasos (Balance.Travel.STEPS_PER_FOOD; v3.1: cada 4).
       // La mascota también gasta saciedad al viajar.
       const p = State.player;
       p.travelSteps = (p.travelSteps || 0) + 1;

@@ -143,6 +143,135 @@
     A.Bus.emit('player:died', { cause: 'starvation' });
   }
 
+  // ============================================================
+  // v3.1: cada raza come lo suyo
+  //
+  // Cada comida tiene uno o más tipos (carne, fruta, aceite...).
+  // Cada raza tiene una dieta:
+  //   fav   tipos que le encantan: llenan x1,5
+  //   half  tipos que le rinden poco: llenan la mitad ('*' = todo lo que no es fav)
+  //   only  si está, SOLO come esos tipos (el robot, el vampiro, el hada)
+  // Lo "mágico" (ambrosía, huevo de fénix) lo come cualquiera.
+  // Una comida del editor sin tipo cuenta como comida común.
+  // ============================================================
+
+  const FOOD_KINDS = {
+    carne: 'carne', pescado: 'pescado', fruta: 'fruta', verdura: 'verdura', pan: 'pan y masas',
+    dulce: 'dulces', granja: 'huevos y queso', guiso: 'comida casera', bebida: 'bebidas', hongo: 'hongos',
+    sangre: 'sangre', aceite: 'aceite', nectar: 'néctar', brasa: 'brasas', algas: 'algas', magico: 'comida mágica', comun: 'comida común',
+  };
+
+  const KIND_OF = {
+    pan: ['pan'], galletas: ['pan', 'dulce'], arroz: ['pan'], fideos: ['pan', 'guiso'], pan_elfico: ['pan'],
+    queso: ['granja'], huevos: ['granja'],
+    carne_seca: ['carne'], sal_conservante: ['carne'], carne_bestia: ['carne'], carne_ave: ['carne'], carne_reptil: ['carne'],
+    carne_dragon: ['carne'], carne_gigante: ['carne'], carne_insecto: ['carne'], carne_pez: ['pescado'],
+    pollo_asado: ['carne', 'guiso'], pastel_carne: ['carne', 'pan'], tocino: ['carne'], filete: ['carne'],
+    estofado: ['carne', 'guiso', 'verdura'], sopa: ['guiso', 'verdura'], festin_real: ['guiso', 'carne', 'pan', 'fruta'],
+    manzana: ['fruta'], uvas: ['fruta'], frutillas: ['fruta'], naranja: ['fruta'], platano: ['fruta'], sandia: ['fruta'], baya_negra: ['fruta'],
+    zanahoria: ['verdura'], cebolla: ['verdura'], tomate: ['verdura'], papa_asada: ['verdura'], choclo: ['verdura'], ensalada: ['verdura'], cactus_carnoso: ['verdura'],
+    champinones: ['hongo', 'verdura'],
+    miel: ['dulce', 'nectar'], jalea_real: ['dulce', 'nectar'], dulces: ['dulce'],
+    cerveza: ['bebida'], vino: ['bebida'], hidromiel: ['bebida', 'nectar'],
+    ambrosia: ['magico'], huevo_fenix: ['magico'],
+    lata_aceite: ['aceite'], bateria_runica: ['aceite'],
+    botella_sangre: ['sangre'], copa_sangre: ['sangre'],
+    frasco_nectar: ['nectar'], gel_algas: ['algas'], carbon_ardiente: ['brasa'],
+  };
+
+  const DIETS = {
+    humano: { label: 'De todo', fav: [], half: [] },
+    elfo: { label: 'Frutas, verduras y pan', fav: ['fruta', 'verdura', 'pan', 'nectar'], half: ['carne', 'pescado'] },
+    mediano: { label: 'De todo, y mucho', fav: ['pan', 'dulce', 'granja', 'guiso'], half: [] },
+    draconido: { label: 'Carne', fav: ['carne', 'pescado'], half: ['fruta', 'verdura', 'dulce'] },
+    vampiro: { label: 'Sangre', only: ['sangre', 'carne'], fav: ['sangre'], half: [], start: [['botella_sangre', 3]], startText: '3 botellas de sangre' },
+    enano: { label: 'Carne y cerveza', fav: ['carne', 'bebida'], half: [] },
+    orco: { label: 'Carne', fav: ['carne'], half: ['fruta', 'verdura', 'dulce'] },
+    robot: { label: 'Aceite', only: ['aceite'], fav: [], half: [], start: [['lata_aceite', 3]], startText: '3 latas de aceite' },
+    goliat: { label: 'Carne y guisos', fav: ['carne', 'guiso'], half: [] },
+    minotauro: { label: 'Verduras, fruta y pan', fav: ['verdura', 'fruta', 'pan'], half: ['carne', 'pescado'] },
+    gnomo: { label: 'Dulces y hongos', fav: ['dulce', 'hongo'], half: [] },
+    alienigena: { label: 'Algas y hongos', fav: ['algas', 'hongo'], half: '*', start: [['gel_algas', 3]], startText: '3 geles de algas' },
+    infernal: { label: 'Brasas y carne', fav: ['brasa', 'carne'], half: ['fruta', 'verdura'], start: [['carbon_ardiente', 2], ['pan', 1]], startText: 'carbón ardiente y pan' },
+    angel: { label: 'Pan, miel y fruta', fav: ['pan', 'dulce', 'fruta', 'nectar'], half: ['carne'] },
+    hada: { label: 'Néctar, miel y fruta', only: ['nectar', 'dulce', 'fruta'], fav: ['nectar'], half: [], start: [['frasco_nectar', 3]], startText: '3 frascos de néctar' },
+  };
+  const DEFAULT_DIET = DIETS.humano;
+  const FAV_MULT = 1.5;
+  const HALF_MULT = 0.5;
+
+  function dietOf(raceOrPlayer) {
+    const id = typeof raceOrPlayer === 'string' ? raceOrPlayer : raceOrPlayer && raceOrPlayer.raceId;
+    const d = DIETS[id] || DEFAULT_DIET;
+    return { id: DIETS[id] ? id : 'humano', start: [['pan', 3]], startText: 'algo de comida', ...d };
+  }
+
+  function isFood(item) {
+    return !!item && (item.subtype === 'food' || (item.effect && item.effect.type === 'food'));
+  }
+
+  function kindsOf(item) {
+    if (!item) return [];
+    if (item.foodKind) return Array.isArray(item.foodKind) ? item.foodKind : [item.foodKind];
+    return KIND_OF[item.id] || ['comun'];
+  }
+
+  const listY = (arr) => (arr.length <= 1 ? arr.join('') : `${arr.slice(0, -1).join(', ')} y ${arr[arr.length - 1]}`);
+  const kindWords = (kinds) => listY(kinds.map((k) => FOOD_KINDS[k] || k));
+
+  /**
+   * Cuánto le rinde una comida a un héroe.
+   * { mult, kind: 'fav'|'normal'|'half'|'no', why }  mult 0 = no la come.
+   */
+  function foodFor(p, item) {
+    if (!isFood(item)) return { mult: 1, kind: 'normal', why: '' };
+    const d = dietOf(p);
+    const kinds = kindsOf(item);
+    if (kinds.includes('magico')) return { mult: 1, kind: 'normal', why: '' };
+    const race = A.Data && A.Data.getById ? A.Data.getById('races', p && p.raceId) : null;
+    const who = race ? race.name : 'Tu raza';
+    if (d.only && !kinds.some((k) => d.only.includes(k))) {
+      return { mult: 0, kind: 'no', why: `${who === 'Tu raza' ? 'No lo comés' : `Un ${who.toLowerCase()} no come eso`}: solo ${kindWords(d.only)}.` };
+    }
+    if (kinds.some((k) => (d.fav || []).includes(k))) return { mult: FAV_MULT, kind: 'fav', why: '' };
+    const half = d.half === '*' ? true : kinds.every((k) => (d.half || []).includes(k));
+    if (half) return { mult: HALF_MULT, kind: 'half', why: '' };
+    return { mult: 1, kind: 'normal', why: '' };
+  }
+
+  /** Cuánto llena de verdad (con la dieta). */
+  function foodAmount(p, item, base) {
+    const f = foodFor(p, item);
+    if (f.mult <= 0 || !(base > 0)) return 0;
+    return Math.max(1, Math.round(base * f.mult));
+  }
+
+  /** Frase corta para la ficha: qué come y qué le rinde. */
+  function describeDiet(raceOrPlayer) {
+    const d = dietOf(raceOrPlayer);
+    const parts = [];
+    if (d.only) parts.push(`Solo come ${kindWords(d.only)}.`);
+    if ((d.fav || []).length) parts.push(`Le encanta: ${kindWords(d.fav)} (llena más).`);
+    if (d.half === '*') parts.push('Lo demás le rinde la mitad.');
+    else if ((d.half || []).length) parts.push(`${kindWords(d.half).replace(/^./, (c) => c.toUpperCase())}: le rinde la mitad.`);
+    if (!parts.length) parts.push('Come de todo.');
+    return parts.join(' ');
+  }
+
+  /** Comida con la que arranca un personaje nuevo. */
+  function startFood(raceId) {
+    return dietOf(raceId).start.map(([itemId, qty]) => ({ itemId, qty }));
+  }
+
+  /** ¿Tiene en la mochila algo que pueda comer? */
+  function hasEdible(p) {
+    for (const s of (p && p.inventory) || []) {
+      const it = A.Data.getById('items', s.itemId);
+      if (isFood(it) && foodFor(p, it).mult > 0) return true;
+    }
+    return false;
+  }
+
   A.Survival = {
     STATES,
     getStatus,
@@ -150,5 +279,16 @@
     applyTurnTick,
     shouldShowWarning,
     deathByStarvation,
+    // v3.1: dietas
+    FOOD_KINDS,
+    DIETS,
+    dietOf,
+    isFood,
+    kindsOf,
+    foodFor,
+    foodAmount,
+    describeDiet,
+    startFood,
+    hasEdible,
   };
 })(window.Aventurs);

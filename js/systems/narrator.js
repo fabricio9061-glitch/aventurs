@@ -269,8 +269,13 @@
   const PASSIVE_SUFFIX = {
     piel_roca: ' Tu piel de roca frena la mitad del golpe.',
     determinacion: ' ¡Pero tu determinación te mantiene en pie!',
+    // v3.1: el blindaje del robot
+    cuerpo_metal: (e) => ((e && e.dmg === 0) ? ' Tu blindaje frena todo el golpe.' : e && e.absorbed ? ` Tu blindaje frena ${e.absorbed}.` : ' Tu blindaje frena parte del golpe.'),
   };
-  function passiveSuffix(id) { return PASSIVE_SUFFIX[id] || ''; }
+  function passiveSuffix(id, entry) {
+    const x = PASSIVE_SUFFIX[id];
+    return typeof x === 'function' ? x(entry) : (x || '');
+  }
 
   // v2.5: el primer golpe contra una criatura con caparazón (o gelatinosa) hace la mitad
   const SOFT_SUFFIX = {
@@ -283,7 +288,7 @@
     if (out && out.text) {
       const fx = entry.fx || {};
       const toPlayer = fx.target === 'player' && (fx.kind === 'attack' || fx.kind === 'tick');
-      if (toPlayer && entry.passive && PASSIVE_SUFFIX[entry.passive]) out.text += PASSIVE_SUFFIX[entry.passive];
+      if (toPlayer && entry.passive && PASSIVE_SUFFIX[entry.passive]) out.text += passiveSuffix(entry.passive, entry);
       if (entry.softened && SOFT_SUFFIX[entry.softened]) out.text += SOFT_SUFFIX[entry.softened];
       out.text = contract(out.text);
     }

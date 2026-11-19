@@ -6,6 +6,7 @@
 
    Modelo de escena:
      id, biomes: ['forest', ...] o ['any'], weight, icon (ícono pixel),
+     time: 'night' | 'day' (opcional, v3.1: solo a esa hora),
      title, text, options: [opción, opción, (opción)]
 
    Opción:
@@ -667,7 +668,348 @@
     bloodwood: ['entre rosales rojos', 'junto a una tumba de mármol', 'bajo un sauce sin hojas'],
   };
 
+  // ============================================================
+  // v3.1: más escenas (algunas solo de noche o solo de día: time)
+  // ============================================================
+  const MORE = [
+    // ---------- Cualquier zona ----------
+    {
+      id: 'fuego_fatuo', biomes: ['any'], time: 'night', weight: 2, icon: 'spark',
+      title: 'Luces en la oscuridad',
+      text: 'Tres lucecitas azules flotan a la altura de tus ojos y se alejan despacio, como invitándote a seguirlas.',
+      options: [
+        { label: 'Seguirlas', check: { stat: 'suerte', dc: 12 },
+          ok: { text: 'Las luces se apagan sobre una piedra hueca. Adentro alguien guardó un pequeño tesoro.', coins: 4, loot: 1 },
+          fail: { text: 'Te llevan en círculos hasta que se apagan. Tardás un buen rato en volver a encontrar el camino, y te raspás contra las ramas.', time: 2, hurt: 0.08 } },
+        { label: 'Anotar cómo se mueven', check: { stat: 'ingenio', dc: 11 },
+          ok: { text: 'No son espíritus: es gas del suelo que se enciende. Aprendiste algo que pocos saben.', xp: 0.6 },
+          fail: { text: 'Por más que mirás, no le encontrás sentido. Mejor dormir.', time: 1 } },
+        { label: 'Darles la espalda', ok: { text: 'Cerrás los ojos y esperás a que se vayan. Cuando los abrís, ya no están.' } },
+      ],
+    },
+    {
+      id: 'estrella_fugaz', biomes: ['any'], time: 'night', weight: 2, icon: 'stars',
+      title: 'Una estrella fugaz',
+      text: 'Una estrella cruza el cielo de punta a punta y deja una estela dorada que tarda en apagarse.',
+      options: [
+        { label: 'Pedir un deseo', check: { stat: 'suerte', dc: 10 },
+          ok: { text: 'Sentís un calor raro en el pecho. Las heridas te molestan menos y la cabeza se te despeja.', heal: 0.25, mana: 0.25 },
+          fail: { text: 'No pasa nada. Pero el cielo estaba lindo.' } },
+        { label: 'Fijarte dónde cayó', check: { stat: 'punteria', dc: 13 },
+          ok: { text: 'Calculás bien: entre unas piedras chamuscadas encontrás un trozo de metal tibio que brilla.', items: [['mat_gema_arcana', 1, 1]], xp: 0.3 },
+          fail: { text: 'Buscás un rato largo y no encontrás nada. Se te hizo tarde.', time: 1 } },
+      ],
+    },
+    {
+      id: 'campamento_abandonado', biomes: ['any'], weight: 3, icon: 'campfire',
+      title: 'Un campamento abandonado',
+      text: 'Una fogata todavía tibia, una manta tirada y una olla con restos de guiso. Quien estaba acá se fue con mucho apuro.',
+      options: [
+        { label: 'Revisar las cosas', check: { stat: 'ingenio', dc: 11 },
+          ok: { text: 'Debajo de la manta hay una bolsita con monedas y algo más que dejaron olvidado.', coins: 3, loot: 1 },
+          fail: { text: 'Revolvés todo y solo encontrás trapos. Lo que sea que asustó a los dueños podría volver.', time: 1 } },
+        { label: 'Comerte el guiso', check: { stat: 'suerte', dc: 9 },
+          ok: { text: 'Está frío pero rico. Te llena la panza para un buen rato.', food: 3 },
+          fail: { text: 'Tenía algo raro. Te pasás un rato con el estómago revuelto.', hurt: 0.08, food: 1 } },
+        { label: 'Irte antes de que vuelvan', ok: { text: 'No te quedás a averiguar por qué huyeron. Seguís tu camino.' } },
+      ],
+    },
+    {
+      id: 'mercader_ambulante', biomes: ['plains', 'hills', 'meadow', 'forest', 'coast'], time: 'day', weight: 2, icon: 'shop',
+      title: 'Un mercader ambulante',
+      text: 'Un viejo con una mula cargada de bolsas te saluda con la mano. "¡Pociones, cuerdas, buena suerte! ¿Qué te llevás?"',
+      options: [
+        { label: 'Comprarle una poción', needs: { coins: 5 },
+          ok: { text: 'Te da una poción y te guiña un ojo: "Es de las buenas, no como las del pueblo."', coins: -5, items: [['pocion_curacion', 1, 1]] } },
+        { label: 'Regatear', check: { stat: 'ingenio', dc: 12 },
+          ok: { text: 'Lo convencés de que te debe un favor. Se ríe, te da una poción menor y te dice que nunca lo vio nadie regatear así.', items: [['pocion_curacion_menor', 1, 1]], xp: 0.2 },
+          fail: { text: 'Se ofende y sigue de largo con su mula, refunfuñando.' } },
+        { label: 'Saludarlo y seguir', ok: { text: 'Le deseás buen viaje. Te devuelve el saludo y una frase sobre el clima que no entendés.' } },
+      ],
+    },
+    {
+      id: 'restos_de_batalla', biomes: ['plains', 'hills', 'meadow', 'ruins', 'desert'], weight: 2, icon: 'swords',
+      title: 'Restos de una batalla',
+      text: 'Escudos partidos, flechas clavadas en la tierra y huesos que ya nadie va a reclamar. Acá pelearon dos ejércitos hace mucho.',
+      options: [
+        { label: 'Buscar algo que sirva', check: { stat: 'ingenio', dc: 12 },
+          ok: { text: 'Entre el óxido aparece algo que todavía se puede usar.', loot: 2, coins: 2 },
+          fail: { text: 'Todo está podrido o roto. Te cortás la mano con una punta de flecha.', hurt: 0.06 } },
+        { label: 'Enterrar a los caídos', ok: { text: 'Cavás un rato largo. Cuando terminás, el lugar se siente más tranquilo, y vos también.', time: 2, heal: 0.15, xp: 0.4 } },
+        { label: 'Seguir de largo', ok: { text: 'Hay lugares que es mejor no molestar.' } },
+      ],
+    },
+    // ---------- Bosques ----------
+    {
+      id: 'aullidos', biomes: ['forest', 'darkwood', 'plains'], time: 'night', weight: 2, icon: 'paw',
+      title: 'Aullidos en la noche',
+      text: 'Un aullido largo, después otro, más cerca. Una manada se está juntando y huele que andás cerca.',
+      options: [
+        { label: 'Esconderte entre las raíces', check: { stat: 'agilidad', dc: 12 },
+          ok: { text: 'Pasan a pocos metros sin verte. Esperás hasta que el último aullido se pierde a lo lejos.', xp: 0.3 },
+          fail: { text: 'Una rama se quiebra bajo tu peso. Los ojos brillan entre los árboles.', fight: { ambush: true } } },
+        { label: 'Prepararles una emboscada', check: { stat: 'fuerza', dc: 12 },
+          ok: { text: 'Los esperás con el arma lista en un paso angosto. Cuando aparecen, el primero ni te ve venir.', fight: { surprise: true } },
+          fail: { text: 'Te ven antes de tiempo y se separan para rodearte.', fight: {} } },
+        { label: 'Hacer una fogata grande', needs: { food: 1 },
+          ok: { text: 'Quemás lo que tenés a mano y tirás un poco de comida lejos del fuego. Los aullidos se alejan.', food: -1 } },
+      ],
+    },
+    {
+      id: 'colmena', biomes: ['forest', 'meadow', 'grove'], time: 'day', weight: 2, icon: 'food',
+      title: 'Una colmena en un tronco',
+      text: 'Un zumbido grave sale de un tronco hueco. Por las grietas chorrea miel dorada.',
+      options: [
+        { label: 'Sacar la miel rápido', check: { stat: 'agilidad', dc: 12 },
+          ok: { text: 'Metés la mano, sacás un panal entero y te alejás antes de que te sigan.', items: [['miel', 1, 2]] },
+          fail: { text: 'Las abejas te persiguen un buen trecho. Terminás lleno de picaduras.', hurt: 0.12, items: [['miel', 1, 1]] } },
+        { label: 'Echarles humo', check: { stat: 'ingenio', dc: 10 },
+          ok: { text: 'Con unas hojas húmedas hacés humo y las abejas se calman. Sacás miel sin un solo pinchazo.', items: [['miel', 2, 2]], xp: 0.2 },
+          fail: { text: 'El humo se te va a la cara y las abejas se enojan igual. Te vas tosiendo.', hurt: 0.05 } },
+        { label: 'Dejarlas tranquilas', ok: { text: 'Las abejas no te hicieron nada. Seguís de largo.' } },
+      ],
+    },
+    {
+      id: 'trampa_cazador', biomes: ['forest', 'darkwood', 'plains', 'hills'], weight: 2, icon: 'trap',
+      title: 'Una trampa de cazador',
+      text: 'Un cervatillo tiene la pata atrapada en un cepo de hierro. Te mira con ojos enormes y no se mueve.',
+      options: [
+        { label: 'Abrir el cepo', check: { stat: 'fuerza', dc: 11 },
+          ok: { text: 'Hacés palanca con el arma y el cepo se abre. El cervatillo se va saltando entre los árboles. Te sentís bien.', xp: 0.6, heal: 0.1 },
+          fail: { text: 'El cepo se cierra de golpe y te agarra los dedos. Al final lo abrís, pero te duele.', hurt: 0.08, xp: 0.3 } },
+        { label: 'Desarmar la trampa y quedarte el hierro', check: { stat: 'ingenio', dc: 12 },
+          ok: { text: 'Liberás al animal y desarmás el cepo con cuidado. El hierro sirve.', items: [['mineral_hierro', 1, 1]], xp: 0.3 },
+          fail: { text: 'No le encontrás la vuelta. Lo liberás a lo bruto y el cepo queda inservible.', xp: 0.2 } },
+        { label: 'No meterte', ok: { text: 'No es tu trampa ni tu presa. Seguís camino tratando de no mirar atrás.' } },
+      ],
+    },
+    {
+      id: 'rio_crecido', biomes: ['forest', 'plains', 'swamp', 'meadow'], weight: 2, icon: 'search',
+      title: 'Un río crecido',
+      text: 'La lluvia de anoche convirtió el arroyo en un río marrón que arrastra ramas. Tu camino sigue del otro lado.',
+      options: [
+        { label: 'Cruzarlo nadando', check: { stat: 'fuerza', dc: 12 },
+          ok: { text: 'La corriente tira fuerte, pero llegás a la otra orilla empapado y orgulloso.', xp: 0.3 },
+          fail: { text: 'El agua te arrastra varios metros. Salís golpeado y se te mojó parte de la comida.', hurt: 0.1, food: -1 } },
+        { label: 'Buscar un vado', check: { stat: 'ingenio', dc: 10 },
+          ok: { text: 'Más arriba el río se abre y se cruza con el agua por la rodilla.', time: 1 },
+          fail: { text: 'Caminás río arriba un buen rato antes de encontrar por dónde pasar.', time: 2 } },
+      ],
+    },
+    // ---------- Cementerios, criptas y ruinas ----------
+    {
+      id: 'tumba_que_brilla', biomes: ['graveyard', 'crypt'], time: 'night', weight: 2, icon: 'skull',
+      title: 'Una tumba que brilla',
+      text: 'Entre las lápidas, una sola tumba despide una luz verdosa por las rendijas de la piedra.',
+      options: [
+        { label: 'Correr la lápida', check: { stat: 'fuerza', dc: 13 },
+          ok: { text: 'Adentro hay un cofrecito con una reliquia que todavía brilla un poco.', items: [['reliquia_olvidada', 1, 1]], coins: 2 },
+          fail: { text: 'La piedra se mueve y algo, desde adentro, empuja hacia afuera.', fight: { ambush: true } } },
+        { label: 'Rezar por el muerto', check: { stat: 'suerte', dc: 10 },
+          ok: { text: 'La luz se apaga despacio, como si alguien por fin pudiera descansar. Te sentís más liviano.', heal: 0.2, xp: 0.3 },
+          fail: { text: 'La luz sigue ahí, indiferente. Te da un escalofrío y te vas.' } },
+        { label: 'No tocar nada', ok: { text: 'Hay cosas que no se tocan. Te alejás sin darle la espalda.' } },
+      ],
+    },
+    {
+      id: 'fantasma_triste', biomes: ['graveyard', 'crypt', 'ruins'], time: 'night', weight: 2, icon: 'eye',
+      title: 'Un fantasma que llora',
+      text: 'Una figura transparente llora sentada en una escalera. "Perdí mi anillo... no puedo irme sin él."',
+      options: [
+        { label: 'Ayudarlo a buscar', check: { stat: 'ingenio', dc: 12 },
+          ok: { text: 'Lo encontrás entre dos piedras. El fantasma sonríe, te deja unas monedas viejas y se desvanece en paz.', coins: 3, items: [['moneda_antigua', 1, 1]], xp: 0.5 },
+          fail: { text: 'Buscás por todos lados sin suerte. El fantasma suspira y se esfuma. Te queda un frío en los huesos.', time: 1, hurt: 0.05 } },
+        { label: 'Decirle que se vaya', check: { stat: 'fuerza', dc: 11 },
+          ok: { text: 'Le hablás firme y el fantasma se va, ofendido pero tranquilo.', xp: 0.2 },
+          fail: { text: 'El llanto se vuelve un grito. El fantasma se te viene encima.', fight: {} } },
+      ],
+    },
+    {
+      id: 'altar_antiguo', biomes: ['ruins', 'desert', 'crypt'], weight: 2, icon: 'arcane',
+      title: 'Un altar antiguo',
+      text: 'Sobre un altar cubierto de polvo hay un cuenco de piedra y unas runas que todavía brillan apenas.',
+      options: [
+        { label: 'Dejar una ofrenda', needs: { coins: 4 },
+          ok: { text: 'Las monedas desaparecen apenas tocan el cuenco. Una calidez te recorre el cuerpo.', coins: -4, heal: 0.3, mana: 0.4 } },
+        { label: 'Leer las runas', check: { stat: 'ingenio', dc: 13 },
+          ok: { text: 'Es una oración a un dios que ya nadie recuerda. Aprenderla te deja algo de su sabiduría.', xp: 0.8 },
+          fail: { text: 'Las runas se mueven cuando las mirás. Te duele la cabeza.', hurt: 0.06 } },
+        { label: 'Romper el cuenco', check: { stat: 'fuerza', dc: 12 },
+          ok: { text: 'El cuenco se parte y deja caer lo que alguien escondió adentro.', loot: 2, coins: 3 },
+          fail: { text: 'El altar se sacude y algo se despierta para defenderlo.', fight: { ambush: true } } },
+      ],
+    },
+    // ---------- Montañas, colinas y cuevas ----------
+    {
+      id: 'puente_colgante', biomes: ['mountain', 'hills', 'cave'], weight: 2, icon: 'compass',
+      title: 'Un puente colgante',
+      text: 'Un puente de sogas y tablas podridas cruza un precipicio. Del otro lado se ve el camino; abajo, nada.',
+      options: [
+        { label: 'Cruzarlo con cuidado', check: { stat: 'agilidad', dc: 12 },
+          ok: { text: 'Tabla por tabla, sin mirar abajo. Llegás del otro lado con las rodillas temblando.', xp: 0.4 },
+          fail: { text: 'Una tabla se rompe y quedás colgando de la soga. Subís con las manos peladas.', hurt: 0.12 } },
+        { label: 'Dar la vuelta larga', ok: { text: 'Bordeás el precipicio por un sendero de cabras. Tarda mucho, pero llegás entero.', time: 2 } },
+      ],
+    },
+    {
+      id: 'nido_alto', biomes: ['mountain', 'hills', 'forest'], time: 'day', weight: 2, icon: 'feather',
+      title: 'Un nido en lo alto',
+      text: 'En una saliente de roca hay un nido enorme. Plumas brillantes asoman por los bordes y no se ve a la madre.',
+      options: [
+        { label: 'Trepar hasta el nido', check: { stat: 'agilidad', dc: 13 },
+          ok: { text: 'Subís, juntás plumas de las buenas y bajás antes de que vuelva la madre.', items: [['mat_pluma', 2, 3]], xp: 0.3 },
+          fail: { text: 'A mitad de camino aparece la madre, chillando. Bajás más rápido de lo que subiste.', hurt: 0.1 } },
+        { label: 'Bajar plumas a piedrazos', check: { stat: 'punteria', dc: 12 },
+          ok: { text: 'Con un par de tiros justos caen unas plumas sin romper los huevos.', items: [['mat_pluma', 1, 2]] },
+          fail: { text: 'Fallás todos los tiros y una piedra rebota y te pega en el hombro.', hurt: 0.05 } },
+        { label: 'Dejarlo en paz', ok: { text: 'Mejor no enojar a algo que hace nidos de ese tamaño.' } },
+      ],
+    },
+    {
+      id: 'cristales_cueva', biomes: ['cave', 'mountain'], weight: 2, icon: 'arcane',
+      title: 'Cristales que brillan',
+      text: 'Una pared de la cueva está cubierta de cristales que laten con una luz azulada, como si respiraran.',
+      options: [
+        { label: 'Picar unos cristales', check: { stat: 'fuerza', dc: 12 },
+          ok: { text: 'Con cuidado sacás unos trozos limpios. Algunos todavía tibios de magia.', items: [['fragmento_cuarzo', 1, 2], ['cristal_mana', 1, 1]] },
+          fail: { text: 'Un cristal estalla y te llena la cara de astillas brillantes.', hurt: 0.1, items: [['fragmento_cuarzo', 1, 1]] } },
+        { label: 'Absorber su luz', check: { stat: 'ingenio', dc: 11 },
+          ok: { text: 'Apoyás las manos y dejás que la luz te recorra. El maná te llena hasta los dedos.', mana: 0.6, xp: 0.2 },
+          fail: { text: 'La luz te marea. Te sentás un rato hasta que se te pasa.', time: 1 } },
+      ],
+    },
+    {
+      id: 'eco_cueva', biomes: ['cave'], weight: 2, icon: 'talk',
+      title: 'Voces en el eco',
+      text: 'Desde el fondo del túnel llegan voces que repiten tu nombre. Es tu voz, pero vos no dijiste nada.',
+      options: [
+        { label: 'Seguir las voces', check: { stat: 'suerte', dc: 12 },
+          ok: { text: 'Las voces te llevan a una grieta donde alguien escondió sus ahorros hace mucho.', coins: 5 },
+          fail: { text: 'Las voces se callan de golpe. Algo grande respira en la oscuridad.', fight: { ambush: true } } },
+        { label: 'Gritar más fuerte', check: { stat: 'fuerza', dc: 11 },
+          ok: { text: 'Tu grito retumba por toda la cueva y las voces se callan. Lo que sea, se asustó.', xp: 0.3 },
+          fail: { text: 'Tu grito despierta a algo que no tenía ganas de que lo despierten.', fight: {} } },
+        { label: 'Volver por donde viniste', ok: { text: 'No hace falta saber todo. Volvés sobre tus pasos.', time: 1 } },
+      ],
+    },
+    // ---------- Desiertos y pantanos ----------
+    {
+      id: 'espejismo', biomes: ['desert'], time: 'day', weight: 2, icon: 'sun',
+      title: 'Un oasis en el horizonte',
+      text: 'A lo lejos se ven palmeras y agua que brilla. Con este calor, parece demasiado bueno para ser cierto.',
+      options: [
+        { label: 'Ir hacia el oasis', check: { stat: 'suerte', dc: 13 },
+          ok: { text: '¡Es de verdad! Tomás agua fresca, llenás la cantimplora y descansás a la sombra.', heal: 0.3, food: 2 },
+          fail: { text: 'Era un espejismo. Caminaste horas bajo el sol para nada.', time: 2, hurt: 0.1 } },
+        { label: 'Mirar con atención', check: { stat: 'ingenio', dc: 11 },
+          ok: { text: 'Te das cuenta de que la luz miente y seguís tu camino. Aprendés a leer el desierto.', xp: 0.4 },
+          fail: { text: 'No te decidís y perdés un rato mirando.', time: 1 } },
+      ],
+    },
+    {
+      id: 'arenas_movedizas', biomes: ['desert', 'swamp'], weight: 2, icon: 'trap',
+      title: 'El suelo te traga',
+      text: 'De golpe el suelo cede bajo tus botas y te hundís hasta las rodillas. Cuanto más te movés, más te traga.',
+      options: [
+        { label: 'Salir a la fuerza', check: { stat: 'fuerza', dc: 12 },
+          ok: { text: 'Te agarrás de una raíz y tirás con todo. Salís embarrado pero libre.', xp: 0.3 },
+          fail: { text: 'Te cansás tirando y te hundís más. Cuando por fin salís, estás agotado.', hurt: 0.12, food: -1 } },
+        { label: 'Quedarte quieto y flotar', check: { stat: 'ingenio', dc: 11 },
+          ok: { text: 'Te tirás para atrás, abrís los brazos y dejás de hundirte. Salís rodando, despacito.', xp: 0.4 },
+          fail: { text: 'Te da miedo y te movés de más. Tardás muchísimo en salir.', time: 2, hurt: 0.06 } },
+      ],
+    },
+    {
+      id: 'luz_pantano', biomes: ['swamp'], time: 'night', weight: 2, icon: 'spark',
+      title: 'Un farol en el pantano',
+      text: 'Alguien camina con un farol sobre el agua, sin hundirse. Te hace señas para que lo sigas.',
+      options: [
+        { label: 'Seguirlo', check: { stat: 'suerte', dc: 13 },
+          ok: { text: 'El farol se apaga sobre una isla seca. Hay un bote hundido con la carga intacta.', loot: 2, coins: 3 },
+          fail: { text: 'El farol se apaga y quedás con el agua hasta la cintura. Algo se mueve abajo.', fight: { ambush: true } } },
+        { label: 'Quedarte en la orilla', ok: { text: 'Lo mirás alejarse hasta que la niebla se lo traga. Mejor así.' } },
+      ],
+    },
+    // ---------- Costas y mares ----------
+    {
+      id: 'barril_flotando', biomes: ['coast', 'sea', 'pirate'], weight: 2, icon: 'chest',
+      title: 'Un barril que flota',
+      text: 'Un barril sellado con brea se acerca con las olas. Tiene una calavera pintada a medio borrar.',
+      options: [
+        { label: 'Engancharlo con una soga', check: { stat: 'punteria', dc: 11 },
+          ok: { text: 'Al primer intento lo traés a la orilla. Adentro hay ron del bueno.', items: [['ron_anejo', 1, 2]], xp: 0.2 },
+          fail: { text: 'La soga se enreda y el barril se aleja con la corriente.' } },
+        { label: 'Meterte al agua a buscarlo', check: { stat: 'fuerza', dc: 12 },
+          ok: { text: 'Nadás hasta el barril y lo empujás a la orilla. Además del ron, hay unas monedas.', items: [['ron_anejo', 1, 1]], coins: 3 },
+          fail: { text: 'Una ola te revuelca contra las piedras. Salís sin barril y golpeado.', hurt: 0.1 } },
+      ],
+    },
+    {
+      id: 'canto_en_el_agua', biomes: ['sea', 'coast', 'abyss'], time: 'night', weight: 2, icon: 'talk',
+      title: 'Un canto sobre el agua',
+      text: 'Una voz hermosa canta desde las rocas. Sin darte cuenta, ya diste dos pasos hacia el agua.',
+      options: [
+        { label: 'Taparte los oídos', check: { stat: 'ingenio', dc: 12 },
+          ok: { text: 'Con cera de una vela te tapás los oídos. La voz se vuelve un susurro y se apaga.', xp: 0.4 },
+          fail: { text: 'Llegás hasta el agua antes de reaccionar. Una mano fría te agarra del tobillo.', fight: { ambush: true } } },
+        { label: 'Cantarle de vuelta', check: { stat: 'suerte', dc: 13 },
+          ok: { text: 'La voz se ríe, encantada. Una perla aparece sobre la roca más cercana.', items: [['perla_pequeña', 1, 2]], xp: 0.3 },
+          fail: { text: 'La voz se calla, ofendida. No vuelve a cantar.' } },
+      ],
+    },
+    // ---------- Lugares mágicos ----------
+    {
+      id: 'claro_de_luna', biomes: ['dream', 'grove', 'darkwood'], time: 'night', weight: 2, icon: 'moon',
+      title: 'Un claro bajo la luna',
+      text: 'En un claro bañado de luz plateada, unas hadas bailan en ronda y se ríen. Una te hace lugar.',
+      options: [
+        { label: 'Bailar con ellas', check: { stat: 'suerte', dc: 11 },
+          ok: { text: 'Bailás hasta que la luna se esconde. Te despertás descansado y con polvo brillante en los bolsillos.', heal: 0.3, mana: 0.3, items: [['polvo_hada', 1, 2]] },
+          fail: { text: 'Bailás tanto que perdés la noción del tiempo. Te despertás con hambre y lejos de donde estabas.', time: 3, food: -2 } },
+        { label: 'Mirar desde lejos', check: { stat: 'ingenio', dc: 10 },
+          ok: { text: 'Aprendés los pasos de su ronda: es un hechizo antiguo para que las flores crezcan.', xp: 0.5 },
+          fail: { text: 'Te ven espiando y te tiran flores en la cara. Se ríen y desaparecen.' } },
+      ],
+    },
+    {
+      id: 'manantial', biomes: ['forest', 'meadow', 'dream', 'grove', 'hills'], weight: 2, icon: 'heal',
+      title: 'Un manantial',
+      text: 'Agua clara brota entre unas piedras cubiertas de musgo. Huele a menta y está fría como la nieve.',
+      options: [
+        { label: 'Tomar un buen trago', ok: { text: 'El agua te recorre el cuerpo y te saca el cansancio.', heal: 0.15, mana: 0.15 } },
+        { label: 'Buscar hierbas en la orilla', check: { stat: 'ingenio', dc: 11 },
+          ok: { text: 'Alrededor del agua crecen plantas que sirven.', loot: 2 },
+          fail: { text: 'Solo encontrás pasto común.', time: 1 } },
+      ],
+    },
+    // ---------- Fuego y sangre ----------
+    {
+      id: 'campo_de_lava', biomes: ['volcano', 'hell', 'lair'], weight: 2, icon: 'fire',
+      title: 'Un río de lava',
+      text: 'Un río de lava corta el camino. Hay piedras negras que sobresalen, como escalones, hasta el otro lado.',
+      options: [
+        { label: 'Saltar de piedra en piedra', check: { stat: 'agilidad', dc: 13 },
+          ok: { text: 'Saltás sin pensar y llegás del otro lado. En la última piedra brilla una gema.', items: [['gema_ignea', 1, 1]], xp: 0.4 },
+          fail: { text: 'Una piedra se hunde y te quemás las botas y las piernas.', hurt: 0.15 } },
+        { label: 'Rodear el río', ok: { text: 'Caminás por la orilla hasta que la lava se mete bajo tierra.', time: 2 } },
+      ],
+    },
+    {
+      id: 'rosales_de_sangre', biomes: ['bloodwood', 'gothic'], weight: 2, icon: 'heart',
+      title: 'Rosales de espinas largas',
+      text: 'Un rosal enorme cubre una tumba. Sus flores son de un rojo tan oscuro que parecen negras.',
+      options: [
+        { label: 'Cortar unas flores', check: { stat: 'agilidad', dc: 12 },
+          ok: { text: 'Esquivás las espinas y cortás flores perfectas.', items: [['rosa_carmesi', 1, 2]] },
+          fail: { text: 'Las espinas te abren la mano. Las flores se vuelven más rojas con tu sangre.', hurt: 0.1, items: [['rosa_carmesi', 1, 1]] } },
+        { label: 'Leer la tumba', check: { stat: 'ingenio', dc: 11 },
+          ok: { text: 'La tumba cuenta la historia de una condesa que nunca murió del todo. Te guardás el nombre.', xp: 0.5 },
+          fail: { text: 'El mármol está gastado. No se lee nada.' } },
+      ],
+    },
+  ];
+
   A.Seed = A.Seed || {};
-  A.Seed.events = EVENTS;
+  A.Seed.events = EVENTS.concat(MORE.filter((m) => !EVENTS.some((e) => e.id === m.id)));
   A.Seed.creaturePlaces = CREATURE_PLACES;
 })(window.Aventurs);

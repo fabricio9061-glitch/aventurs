@@ -219,6 +219,14 @@
     ['galletas', 'Galletas', 'common', 2, 0, 'Duran semanas en la mochila.'],
     ['dulces', 'Bolsita de dulces', 'common', 1, 1, 'Caramelos de miel. Un gusto.'],
     ['huevo_fenix', 'Huevo de fénix', 'legendary', 12, 30, 'Tibio para siempre. Quien lo come siente que renace.'],
+    // v3.1: la comida de las razas que no comen como las demás
+    ['lata_aceite', 'Lata de aceite', 'common', 5, 0, 'Aceite espeso de máquina. Para un robot, un banquete.'],
+    ['bateria_runica', 'Batería rúnica', 'rare', 14, 6, 'Una piedra cargada de energía. Un robot la siente como un día entero de descanso.'],
+    ['botella_sangre', 'Botella de sangre', 'common', 5, 1, 'Sangre de cordero, todavía tibia. Para un vampiro, la cena.'],
+    ['copa_sangre', 'Sangre de noble', 'rare', 12, 6, 'Oscura y espesa. En Velmora pagan fortunas por ella.'],
+    ['frasco_nectar', 'Frasco de néctar', 'common', 4, 1, 'Néctar de las flores del valle, juntado gota a gota.'],
+    ['gel_algas', 'Gel de algas', 'common', 5, 1, 'Algas del puerto hechas pasta. Huele a mar.'],
+    ['carbon_ardiente', 'Carbón ardiente', 'common', 5, 0, 'Brasas que no se apagan. Un infernal las mastica como caramelos.'],
   ];
 
   // ---------- Armado ----------
@@ -250,16 +258,16 @@
   // ---------- Dónde se venden ----------
   // Cada tienda suma lo que tiene sentido para su pueblo (y su nivel).
   const SHOPS = {
-    npc_mercader_pueblo: ['manzana', 'zanahoria', 'huevos', 'cebolla', 'tomate', 'galletas', 'dulces', 'ropa_acolchada', 'hoz', 'acc_anillo_cobre', 'acc_colgante_hueso', 'perg_misil_arcano', 'perg_escudo'],
+    npc_mercader_pueblo: ['lata_aceite', 'botella_sangre', 'frasco_nectar', 'gel_algas', 'carbon_ardiente', 'manzana', 'zanahoria', 'huevos', 'cebolla', 'tomate', 'galletas', 'dulces', 'ropa_acolchada', 'hoz', 'acc_anillo_cobre', 'acc_colgante_hueso', 'perg_misil_arcano', 'perg_escudo'],
     npc_tabernera_piedrahonda: ['papa_asada', 'champinones', 'sopa', 'cerveza', 'pastel_carne', 'choclo', 'arroz', 'tocino', 'ensalada'],
-    npc_herrero_piedrahonda: ['pieles', 'cuero_tachonado', 'cota_anillas', 'latigo', 'lucero_del_alba', 'alfanje'],
-    npc_herrero_puerto: ['estoque', 'cimitarra', 'nunchaku', 'pica', 'arco_largo', 'armadura_escamas', 'media_placa', 'quitina', 'acc_botas_velocidad'],
-    npc_capitana_puerto: ['uvas', 'frutillas', 'naranja', 'platano', 'sandia', 'vino', 'perg_estatica'],
-    npc_sabio_torre: ['tomo_antiguo', 'orbe', 'tunica_mago', 'vestiduras', 'perg_quemar', 'perg_veneno', 'perg_congelar', 'perg_maldicion', 'perg_prisa', 'perg_precision', 'perg_fuerza', 'pocion_mana_mayor', 'acc_gema_mana', 'acc_amuleto_sabiduria'],
-    npc_druida_santuario: ['baston_natura', 'tunica_druida', 'corteza', 'perg_enredar', 'perg_purificar', 'perg_regenerar', 'pocion_regeneracion', 'miel', 'jalea_real', 'pan_elfico', 'acc_trebol'],
-    npc_tabernero_calavera: ['cerveza', 'vino', 'estofado', 'hidromiel', 'pollo_asado', 'fideos', 'filete', 'festin_real'],
-    npc_contrabandista_calavera: ['cimitarra', 'tridente', 'mangual', 'armadura_sombras', 'pocion_velocidad', 'pocion_piel_piedra', 'perg_terror', 'perg_armadura', 'acc_talisman_fortuna', 'acc_capa_evasion'],
-    npc_boticaria_velmora: ['pocion_curacion_mayor', 'pocion_regeneracion', 'pocion_contra_fuego', 'pocion_contra_frio', 'pocion_invisibilidad', 'perg_drenar', 'perg_curacion_mayor', 'perg_invisibilidad', 'perg_reflejar', 'ropajes_oscuros', 'acc_amuleto_vampirico'],
+    npc_herrero_piedrahonda: ['lata_aceite', 'carbon_ardiente', 'pieles', 'cuero_tachonado', 'cota_anillas', 'latigo', 'lucero_del_alba', 'alfanje'],
+    npc_herrero_puerto: ['lata_aceite', 'bateria_runica', 'carbon_ardiente', 'estoque', 'cimitarra', 'nunchaku', 'pica', 'arco_largo', 'armadura_escamas', 'media_placa', 'quitina', 'acc_botas_velocidad'],
+    npc_capitana_puerto: ['gel_algas', 'uvas', 'frutillas', 'naranja', 'platano', 'sandia', 'vino', 'perg_estatica'],
+    npc_sabio_torre: ['bateria_runica', 'tomo_antiguo', 'orbe', 'tunica_mago', 'vestiduras', 'perg_quemar', 'perg_veneno', 'perg_congelar', 'perg_maldicion', 'perg_prisa', 'perg_precision', 'perg_fuerza', 'pocion_mana_mayor', 'acc_gema_mana', 'acc_amuleto_sabiduria'],
+    npc_druida_santuario: ['frasco_nectar', 'baston_natura', 'tunica_druida', 'corteza', 'perg_enredar', 'perg_purificar', 'perg_regenerar', 'pocion_regeneracion', 'miel', 'jalea_real', 'pan_elfico', 'acc_trebol'],
+    npc_tabernero_calavera: ['botella_sangre', 'copa_sangre', 'cerveza', 'vino', 'estofado', 'hidromiel', 'pollo_asado', 'fideos', 'filete', 'festin_real'],
+    npc_contrabandista_calavera: ['bateria_runica', 'copa_sangre', 'cimitarra', 'tridente', 'mangual', 'armadura_sombras', 'pocion_velocidad', 'pocion_piel_piedra', 'perg_terror', 'perg_armadura', 'acc_talisman_fortuna', 'acc_capa_evasion'],
+    npc_boticaria_velmora: ['copa_sangre', 'botella_sangre', 'pocion_curacion_mayor', 'pocion_regeneracion', 'pocion_contra_fuego', 'pocion_contra_frio', 'pocion_invisibilidad', 'perg_drenar', 'perg_curacion_mayor', 'perg_invisibilidad', 'perg_reflejar', 'ropajes_oscuros', 'acc_amuleto_vampirico'],
   };
 
   // ---------- Dónde se consiguen peleando ----------

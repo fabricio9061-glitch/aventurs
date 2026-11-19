@@ -4,6 +4,7 @@
      Misiones  - la historia principal, los encargos y lo terminado
      Crónicas  - lo que hiciste, agrupado por día y por lugar,
                  sin repetir la misma línea diez veces
+     Bestiario - las criaturas que descubriste (v3.1)
    Registrado como A.ModalViews.journal y 'chronicles-full'.
    ============================================================ */
 
@@ -151,9 +152,61 @@
   }
 
   // ============================================================
+  // v3.1: Bestiario
+  // ============================================================
+
+  const CAT_ORDER = { weak: 0, normal: 1, strong: 2, boss: 3 };
+
+  function bestiaryCard(e) {
+    const known = A.Bestiary.isKnown(e.id);
+    const studied = A.Bestiary.isStudied(e.id);
+    const bk = A.Bestiary.entry(e.id);
+    const tl = known && A.Encounter && A.Encounter.timeLabel ? A.Encounter.timeLabel(e) : '';
+    const meta = !known ? 'Sin descubrir' : bk && bk.killed ? `${bk.killed} ${bk.killed === 1 ? 'vencida' : 'vencidas'}` : 'Vista';
+    return `
+      <button class="bestiary-card ${known ? '' : 'is-unknown'} ${studied ? 'is-studied' : ''} ${e.category === 'boss' ? 'is-boss' : ''}" data-bestiary="${U().esc(e.id)}" title="${U().esc(known ? `${e.name}${tl ? ` · ${tl}` : ''}` : 'Todavía no la viste')}">
+        <span class="bestiary-sprite">${A.Sprites ? A.Sprites.html(e, { size: 48 }) : ''}</span>
+        <span class="bestiary-name">${known ? U().esc(e.name) : '???'}</span>
+        <span class="bestiary-meta">${meta}</span>
+        ${tl ? `<span class="bestiary-time">${U().icon(e.time === 'night' ? 'moon' : 'sun', 14)}</span>` : ''}
+        ${studied ? `<span class="bestiary-star" title="La conocés a fondo">${U().icon('star', 14)}</span>` : ''}
+      </button>`;
+  }
+
+  function renderBestiary() {
+    if (!A.Bestiary) return '<p class="journal-empty">Sin bestiario.</p>';
+    const all = (A.Data.enemies || []).slice().sort((a, b) => ((a.tier || 1) - (b.tier || 1))
+      || ((CAT_ORDER[a.category] || 0) - (CAT_ORDER[b.category] || 0)) || String(a.name).localeCompare(String(b.name), 'es'));
+    const c = A.Bestiary.counts();
+    const pct = c.total ? Math.round((c.known / c.total) * 100) : 0;
+    const groups = [];
+    for (const e of all) {
+      const t = e.tier || 1;
+      let g = groups[groups.length - 1];
+      if (!g || g.tier !== t) { g = { tier: t, list: [] }; groups.push(g); }
+      g.list.push(e);
+    }
+    return `
+      <div class="bestiary-head">
+        ${U().icon('skulls', 26)}
+        <div class="bestiary-head-text">
+          <b>${c.known} de ${c.total} criaturas descubiertas</b>
+          <span>${c.studied} conocidas a fondo (observadas o vencidas ${A.Bestiary.KNOW_KILLS} veces)</span>
+        </div>
+        <span class="bestiary-bar" aria-hidden="true"><i style="width:${pct}%"></i></span>
+      </div>
+      ${groups.map((g) => `
+        <section class="journal-sec">
+          <h3 class="journal-h">Nivel ${g.tier} <span class="num dim">${g.list.filter((e) => A.Bestiary.isKnown(e.id)).length}/${g.list.length}</span></h3>
+          <div class="bestiary-grid">${g.list.map(bestiaryCard).join('')}</div>
+        </section>`).join('')}
+    `;
+  }
+
+  // ============================================================
 
   function render(payload) {
-    const tab = payload && payload.tab === 'chronicles' ? 'chronicles' : 'quests';
+    const tab = payload && (payload.tab === 'chronicles' || payload.tab === 'bestiary') ? payload.tab : 'quests';
     const nActive = A.Quests ? A.Quests.activeList().length : 0;
     return `
       <div class="modal journal" role="dialog" aria-modal="true" aria-label="Diario de viaje">
@@ -164,9 +217,10 @@
         <nav class="npc2-tabs journal-tabs">
           <button class="npc2-tab ${tab === 'quests' ? 'is-active' : ''}" data-journal-tab="quests">${U().icon('quest', 18)}<span class="tab-label">Misiones</span>${nActive ? `<span class="tab-count num">${nActive}</span>` : ''}</button>
           <button class="npc2-tab ${tab === 'chronicles' ? 'is-active' : ''}" data-journal-tab="chronicles">${U().icon('feather', 18)}<span class="tab-label">Crónicas</span></button>
+          <button class="npc2-tab ${tab === 'bestiary' ? 'is-active' : ''}" data-journal-tab="bestiary">${U().icon('skulls', 18)}<span class="tab-label">Bestiario</span>${A.Bestiary ? `<span class="tab-count num">${A.Bestiary.counts().known}</span>` : ''}</button>
         </nav>
         <div class="modal-body journal-body">
-          ${tab === 'quests' ? renderQuests() : renderChronicles()}
+          ${tab === 'quests' ? renderQuests() : tab === 'bestiary' ? renderBestiary() : renderChronicles()}
         </div>
       </div>
     `;
@@ -175,6 +229,10 @@
   function bind(overlay) {
     overlay.querySelectorAll('[data-journal-tab]').forEach((b) => {
       b.addEventListener('click', () => A.State.openModal('journal', { tab: b.dataset.journalTab }));
+    });
+    // v3.1: la ficha de la criatura, con "Volver al bestiario"
+    overlay.querySelectorAll('[data-bestiary]').forEach((b) => {
+      b.addEventListener('click', () => A.State.openModal('creature', { enemyId: b.dataset.bestiary, back: 'bestiary' }));
     });
   }
 

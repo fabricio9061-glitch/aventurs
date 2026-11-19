@@ -30,6 +30,8 @@ aventurs/
 │   │   ├── data.js         Loader de seeds + cambios del editor (parches por id)
 │   │   ├── accounts.js     Cuentas de esta compu: usuario, contraseña, dueño (v3.0)
 │   │   ├── state.js        Estado de partida + persistencia (una por cuenta; withHero para el grupo)
+│   │   ├── survival.js     Comida y hambre; lo que come cada raza (v3.1)
+│   │   ├── voice.js        Voz del narrador (v3.1)
 │   │   └── validate.js     Chequeos de coherencia (refs, regiones vacías, misiones, escenas)
 │   ├── data/               Seeds: races, regions, enemies, items, weapons,
 │   │                       armors, spells, recipes, npcs, bags,
@@ -44,7 +46,8 @@ aventurs/
 │   │                       comidas y pergaminos, mejoras por turnos) (v2.4),
 │   │                       Skills (pasivas y activas de las criaturas),
 │   │                       Spellbook (quién aprende cada hechizo) (v2.5),
-│   │                       Persp (lo del compañero, en tercera persona) (v3.0)
+│   │                       Persp (lo del compañero, en tercera persona) (v3.0),
+│   │                       Bestiary (las criaturas que descubriste) (v3.1)
 │   ├── net/                link.js (conexión con código) y party.js (el grupo) (v3.0)
 │   ├── vendor/             peerjs.min.js (PeerJS 1.5.5, licencia MIT)
 │   ├── editor/             Editor del mundo (v2.2): ed-core (guardado por parches),
@@ -57,7 +60,8 @@ aventurs/
 │   │                       party.js (panel del grupo), login.js (cuentas) (v3.0)
 │   └── app.js              Bootstrap
 └── tools/
-    └── simulador.js        Simulador de balance (Node, no se carga en el juego)
+    ├── simulador.js        Simulador de balance (Node, no se carga en el juego)
+    └── equilibrio.js       Pruebas de equilibrio entre razas y clases, con semillas fijas (v3.1)
 ```
 
 ## Correr local
@@ -81,9 +85,20 @@ node tools/simulador.js economia   # monedas, XP y precios
 node tools/simulador.js viaje      # pasos y niveles del mapa
 ```
 
+Pruebas de equilibrio (v3.1): seis pruebas por raza (1 contra 1, rachas en los niveles 1, 3, 6 y 10 y
+peleas contra parejas), con semillas fijas para comparar antes y después de un cambio:
+
+```powershell
+node tools/equilibrio.js                        # las 15 razas (unos minutos)
+node tools/equilibrio.js --rapido               # la cuarta parte de las rachas
+node tools/equilibrio.js --razas=robot,enano    # solo esas razas
+node tools/equilibrio.js --guardar=antes.json   # guarda los resultados
+node tools/equilibrio.js --comparar=antes.json  # muestra cuánto cambió cada número
+```
+
 ## Contenido del juego (seed)
 
-- **12 razas** parejas, cada una con su pasiva (ver *Razas y pasivas*); las 8 que usan
+- **15 razas** parejas, cada una con su pasiva (ver *Razas y pasivas*); las 10 que usan
   magia nacen con su propio hechizo
 - **31 regiones** (24 de combate y 7 pueblos) ordenadas por nivel (1 a 10)
 - **104 enemigos** (29 domables), cada uno con su zona propia: 4 a 7 criaturas por zona
@@ -224,6 +239,57 @@ Explorar siempre hace pasar algo (`js/systems/explore.js` + `js/data/seed-events
   se cuentan con ×N).
 - En el celular, una franja arriba con vida, maná, comida y dinero.
 - Sin emojis en el juego (desde la v2.2, tampoco en el editor).
+
+## Versión 3.1.0: bestiario, voz del narrador, comida por raza y clases parejas
+
+### Bestiario (`js/systems/bestiary.js`, en el Diario)
+- Las criaturas aparecen como "???" hasta que las ves. Vistas: nombre, nivel, dónde y cuándo salen, vida y daño. Conocidas (observadas o vencidas 3 veces): además sus habilidades y su botín.
+- Partidas de antes: se dan por vistas las criaturas de las zonas donde ya peleaste.
+
+### De día y de noche
+- Algunas criaturas salen solo de noche (de noche y de madrugada) o solo de día; bajo tierra salen siempre. En el Editor: "Cuándo sale".
+- Algunas escenas también son solo de noche o solo de día. Si lo que buscás para una misión sale a otra hora, el juego avisa.
+
+### Explorar
+- Cada opción de una escena dice qué pasa si sale bien y si sale mal, y la escena dice si te vieron o no.
+- **Huir** es una carrera: tu velocidad contra la de la criatura más rápida.
+- **Observar de lejos**: la anotás en el bestiario y sumás +2 a lo que hagas después.
+- **Pelear de frente**: sin tirada, arrancás con la guardia alta (+2 de defensa por 2 turnos).
+- Fuerza, Agilidad, Ingenio, Puntería y Suerte se ven en la ficha ("Al explorar") y al crear el personaje.
+
+### Mapa y viaje
+- El mapa ocupa la pantalla, con la ficha del lugar a la derecha: quién vive ahí y qué criaturas hay.
+- En grupo, tu compañero aparece en el mapa, también mientras viaja.
+- Viajes más largos (de 5 a 18 pasos) con la misma comida y las mismas peleas por viaje: se come 1 cada 4 pasos. En automático, un paso cada 1,5 segundos; en rápido, cada 0,45.
+
+### Voz del narrador (`js/core/voice.js`)
+- Lee en voz alta las peleas, las escenas y lo que pasa en el camino, con la voz del navegador (primero una de español de Latinoamérica). Se prende en el Menú ("Voz del narrador", normal o rápida) o con el parlante del combate. Queda guardado en cada compu, no en la partida.
+
+### Grupo
+- En las escenas se vota. Si eligen lo mismo, lo hace el que tiene más chance; si no, cada uno tira un D20 y gana el más alto. Si el compañero no vota, a los 20 segundos se puede decidir sin esperar.
+- Lo que se usa una vez por pelea (Piel de roca, Determinación, Bendición, el blindaje del Robot) es de cada héroe: no se comparte.
+
+### Cada raza come lo suyo (`js/core/survival.js`)
+- Lo que más le gusta a tu raza rinde una vez y media; lo que no le va, la mitad. El Robot solo come aceite; el Vampiro, sangre y carne; el Hada, néctar, dulces y fruta.
+- Comidas nuevas: lata de aceite, batería rúnica, botella de sangre, sangre de noble, frasco de néctar, gel de algas y carbón ardiente. Las venden los mercaderes, y la tienda marca lo que tu raza no come, lo que le encanta y lo que le rinde poco.
+- Cada raza arranca con su comida. Partidas de antes: si tu raza solo come algo especial y no tenés, te dejan para empezar.
+
+### Combate
+- La crónica se lee: en pantallas anchas va al costado, de arriba abajo (con muchos en la pelea vuelve abajo). **Ver entera** la abre en grande, con todas las tiradas.
+- Cuando una criatura usa una habilidad aparece un cartel con su nombre (dorado si es activa, azul si es pasiva). Lo mismo con las pasivas de raza.
+
+### Equilibrio (`js/core/balance.js`, `js/systems/passives.js`)
+El simulador ahora juega mejor (se cura a tiempo y guarda maná para una Curación), y así magos e híbridos le sacaban casi 20 puntos al guerrero. Cambios, medidos con `tools/equilibrio.js`:
+- Guerrero: 8 de vida por nivel (antes 7).
+- Híbrido: 2 de maná por golpe recién desde el nivel 9 (antes desde el 6).
+- Mago: Curación le cuesta 6 de maná (al híbrido, 5); +1 de maná por turno en los niveles 5 y 9 (antes 4, 7 y 10); Bola de fuego, 10 de maná (antes 9).
+- Robot: *Cuerpo de metal* suma un blindaje que frena 1 de daño por pelea (2 desde el nivel 6); se ve como un escudo en su tarjeta. Nace con 26 de vida (antes 27).
+- Goliat: +1 de precisión desde el nivel 5. Infernal: +1 de esquiva. Gnomo: hechizos un 20% más baratos (antes 25%).
+- Partidas de antes: los guerreros reciben la vida que les falta y los infernales el punto de esquiva al cargar; a los robots no se les quita vida.
+- Resultado: la distancia entre la mejor y la peor clase baja de 19 a 7 puntos en las rachas de nivel 6 y 10, de 27 a 14 al nivel 3 y de 29 a 13 contra parejas.
+
+### Pantalla de creación
+- La ficha de la raza dice qué come y con qué arranca, y cuánto suma al explorar. En pantallas bajas (desde 1280×640) los cuatro números de combate van en una fila para que todo siga entrando sin scroll.
 
 ## Versión 3.0.0: jugar de a dos, cuentas, 3 razas nuevas y una historia más larga
 

@@ -25,6 +25,9 @@
   let layout = null;          // 'arena' | 'result' | 'empty'
   let lastHtml = {};          // sección -> HTML dibujado
   let lastSayKey = null;
+  // v3.1: voz del narrador (hasta qué frase ya se leyó, y de qué pelea)
+  let spokenUpTo = -1;
+  let spokenCombat = null;
   let resultFor = null;
 
   const SECTIONS = ['header', 'arena', 'narrator', 'actions', 'loghead', 'loglist'];
@@ -64,6 +67,20 @@
     return A.Persp.third(e.text, h ? h.name : 'Tu compañero');
   }
   function whoTag(who) { return who ? `<b class="cb-who">${esc(who)}</b> ` : ''; }
+
+  /** v3.1: la voz lee las frases que recién aparecieron (al entrar a una pelea, solo las últimas). */
+  function speakNew(c, shown) {
+    const id = c.id || c.startedAt || 'c';
+    if (spokenCombat !== id) { spokenCombat = id; spokenUpTo = Math.max(-1, shown.length - 3); }
+    if (!A.Voice || !A.Voice.isOn()) { spokenUpTo = shown.length - 1; return; }
+    for (let i = spokenUpTo + 1; i < shown.length; i++) {
+      const e = shown[i];
+      if (!e || !e.say || !e.say.text || (e.fx && e.fx.kind === 'reward')) continue;
+      const s = sayFor(e);
+      if (s && s.text) A.Voice.say(s.who ? `${s.who}: ${s.text}` : s.text);
+    }
+    spokenUpTo = Math.max(spokenUpTo, shown.length - 1);
+  }
   function icon(name, size, cls) { return A.ItemSprites && A.ItemSprites.icon ? A.ItemSprites.icon(name, { size, cls }) : ''; }
   const now = () => performance.now();
 
@@ -115,6 +132,7 @@
     const snap = busy && shown.length ? shown[shown.length - 1]._hp || null : null;
     const ready = !frozen && !busy && isPlayerTurnLocal(c);
     const say = narratorParts(shown);
+    if (!frozen) speakNew(c, shown);
 
     const secs = {
       header: headerHtml(c, frozen, snap),
@@ -160,6 +178,23 @@
       }
     }
 
+    // v3.1: con muchos en la pelea, la crónica vuelve abajo (si no, la arena no entra).
+    // Si igual los botones quedan fuera de la pantalla, abajo hasta que termine esta pelea.
+    const view = mainEl.querySelector('.combat-view.cb.is-arena');
+    if (view) {
+      const crowded = unitCount(c) > 3 || crowdedFor === c.id;
+      view.classList.toggle('is-crowded', crowded);
+      if (!crowded && window.innerWidth >= 1200) {
+        requestAnimationFrame(() => {
+          const act = view.querySelector('.cb-actions');
+          if (act && act.getBoundingClientRect().bottom > window.innerHeight + 2) {
+            crowdedFor = c.id;
+            view.classList.add('is-crowded');
+          }
+        });
+      }
+    }
+
     if (say.key !== lastSayKey) {
       lastSayKey = say.key;
       const n = mainEl.querySelector('[data-sec="narrator"]');
@@ -167,6 +202,15 @@
     }
     if (Fx()) Fx().afterRender();
     if (ready) maybeRunQueued();
+  }
+
+  let crowdedFor = null; // v3.1: id de la pelea que ya no entraba con la crónica al costado
+
+  /** v3.1: cuántos hay en la arena (héroes, mascotas y criaturas). */
+  function unitCount(c) {
+    const heroes = c.party && Array.isArray(c.heroIds) ? c.heroIds.map((id) => heroOf(id)).filter(Boolean) : [A.State.player];
+    const pets = heroes.filter((h) => h && h.pet).length;
+    return heroes.length + pets + (c.enemies || []).length;
   }
 
   /**
@@ -394,10 +438,13 @@
     const dmgTip = composed && composed.components ? composed.components.map((x) => `${x.label}: ${x.expr}`).join(' · ') : 'Daño de tu arma';
     const hp = c && c.result === 'defeat' ? 0 : shown(key, p.hp);
     const mana = shown(o.key ? key.replace(/^hero:/, 'mana:') : 'mana', p.mana);
+    // v3.1: blindaje del Robot que queda en esta pelea
+    const shield = c && !c.result && A.Passives && A.Passives.shieldLeft ? A.Passives.shieldLeft(c, p) : 0;
+    const shieldBadge = shield > 0 ? `<span class="cb-badge is-shield" title="Blindaje: frena ${shield} de daño antes de que te toque la vida">${icon('shield', 12)}${shield}</span>` : '';
     return unitCard({
       kind: o.ally ? 'player is-ally' : 'player', key, i: o.i || 0, isActive, dead: !!o.gone, ko: !o.gone && hp <= 0 && !!c.party,
       name: p.name, title: `${p.name} · ${race ? race.name : ''} de nivel ${p.level}${o.ally ? ' (tu compañero)' : ''}`,
-      badges: `${o.ally ? '<span class="cb-badge is-ally" title="Tu compañero">Aliado</span>' : ''}<span class="cb-badge is-gold">Nv ${p.level}</span>`,
+      badges: `${o.ally ? '<span class="cb-badge is-ally" title="Tu compañero">Aliado</span>' : ''}${shieldBadge}<span class="cb-badge is-gold">Nv ${p.level}</span>`,
       sprite: A.Sprites ? A.Sprites.heroFor(p, { size: 128 }) : '',
       hp, hpMax: p.maxHp, barCls: 'bar-hp',
       sub: p.hasMagic ? { cls: 'is-mana', cur: mana, max: p.maxMana, title: `Maná ${mana}/${p.maxMana}` } : null,
@@ -493,6 +540,12 @@
   // Narrador (las dos últimas frases)
   // ============================================================
 
+  function voiceIcon() { return A.ItemSprites ? A.ItemSprites.icon(A.Voice && A.Voice.isOn() ? 'voice' : 'mute', { size: 22 }) : ''; }
+  function voiceBtn() {
+    if (!A.Voice || !A.Voice.supported()) return '';
+    return `<button type="button" class="cb-voice-btn" data-combat-voice title="${A.Voice.isOn() ? 'Apagar la voz del narrador' : 'Que el narrador lea en voz alta'}">${voiceIcon()}</button>`;
+  }
+
   function narratorParts(shown) {
     const picked = [];
     for (let i = shown.length - 1; i >= 0 && picked.length < 2; i--) {
@@ -502,7 +555,7 @@
       picked.unshift({ e, i });
     }
     if (!picked.length) {
-      return { key: 'none', html: `<div class="cb-narrator" data-sec="narrator"><p class="cb-say is-now tone-neutral">El aire se pone tenso…</p></div>` };
+      return { key: 'none', html: `<div class="cb-narrator" data-sec="narrator">${voiceBtn()}<p class="cb-say is-now tone-neutral">El aire se pone tenso…</p></div>` };
     }
     const last = picked[picked.length - 1];
     const prev = picked.length > 1 ? picked[0] : null;
@@ -514,6 +567,7 @@
       key,
       html: `
         <div class="cb-narrator" data-sec="narrator" data-say="${esc(key)}" role="status" aria-live="polite">
+          ${voiceBtn()}
           ${prev ? `<p class="cb-say is-prev tone-${prev.e.say.tone}">${whoTag(sp.who)}${esc(sp.text)}</p>` : ''}
           <p class="cb-say is-now tone-${last.e.say.tone}">${whoTag(sl.who)}${esc(sl.text)}</p>
         </div>`,
@@ -666,10 +720,13 @@
     return `
       <div class="combat-log-header" data-sec="loghead">
         <span class="combat-log-title">Crónica del combate</span>
-        <label class="cb-rolls-toggle" title="Muestra los dados y las cuentas de cada acción">
-          <input type="checkbox" data-combat-toggle="rolls" ${showRolls ? 'checked' : ''}>
-          <span>Ver tiradas</span>
-        </label>
+        <span class="cb-log-tools">
+          <label class="cb-rolls-toggle" title="Muestra los dados y las cuentas de cada acción">
+            <input type="checkbox" data-combat-toggle="rolls" ${showRolls ? 'checked' : ''}>
+            <span>Ver tiradas</span>
+          </label>
+          <button type="button" class="cb-log-full" data-combat-action="show-full-log" title="Toda la crónica en grande, con las tiradas">${icon('book', 14)}<span>Ver entera</span></button>
+        </span>
       </div>`;
   }
 
@@ -808,6 +865,8 @@
     }
     const chips = rewardChips(c);
     const foes = c.enemies.map((e) => `<span class="cb-result-foe ${e.hp <= 0 ? 'is-fallen' : ''}" title="${esc(e.displayName)}">${A.Sprites ? A.Sprites.html(e, { size: 64 }) : ''}</span>`).join('');
+    // v3.1: el narrador cierra la pelea
+    if (A.Voice && A.Voice.isOn()) A.Voice.say(`${meta.title.replace(/…$/, '.')} ${meta.sub}`);
 
     mainEl.innerHTML = `
       <section class="combat-result cb-result is-${r}">
@@ -832,6 +891,14 @@
 
   function onClick(ev) {
     if (!mainEl) return;
+    // v3.1: parlante del narrador
+    const vEl = ev.target.closest ? ev.target.closest('[data-combat-voice]') : null;
+    if (vEl && mainEl.contains(vEl)) {
+      if (A.Voice) A.Voice.toggle();
+      vEl.innerHTML = voiceIcon();
+      vEl.title = A.Voice && A.Voice.isOn() ? 'Apagar la voz del narrador' : 'Que el narrador lea en voz alta';
+      return;
+    }
     const actEl = ev.target.closest ? ev.target.closest('[data-combat-action]') : null;
     if (actEl && mainEl.contains(actEl)) {
       if (!actEl.disabled) doAction(actEl.dataset.combatAction, actEl);
@@ -943,6 +1010,8 @@
       lastHtml = {};
       lastSayKey = null;
       resultFor = null;
+      spokenUpTo = -1;
+      spokenCombat = null;
     },
     isMounted() { return !!mainEl; },
     rerender: render,

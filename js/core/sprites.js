@@ -1584,6 +1584,9 @@
     return { plan: 'humanoid', s: 1, o, p: h.p };
   }
 
+  /** v3.1: la imagen del héroe sola (para dibujarla en el mapa). */
+  function heroUrl(raceId, weapon) { return urlForSpec(heroSpec(raceId, weapon)); }
+
   function heroHtml(raceId, opts = {}) {
     return imgTag(urlForSpec(heroSpec(raceId, opts.weapon)), opts.size || 48, ['px-hero', opts.cls || ''].filter(Boolean).join(' '));
   }
@@ -1661,7 +1664,7 @@
   }
 
   A.Sprites = {
-    html, svg, dataUrl, petHtml, heroHtml, heroFor, npcHtml, weaponKindOf, clearCache,
+    html, svg, dataUrl, petHtml, heroHtml, heroUrl, heroFor, npcHtml, weaponKindOf, clearCache,
     colorsFor, shapeOptions, shapeLabel, specFor,
     SPECIES, HEROES: Object.keys(HEROES), PLANS: Object.keys(PLANS), PLAN_LABELS,
     _kit: { N, bez, inE, shade, mix, hashStr, hsl, renderCustom, imgTag },

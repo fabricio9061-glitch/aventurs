@@ -1,13 +1,15 @@
 /* ============================================================
-   Aventurs — Mapa del reino (v2.0)
+   Aventurs — Mapa del reino (v2.0; v3.1: ficha a la derecha)
    Pergamino dibujado en SVG, con el mismo grafo de caminos de siempre:
      - cada zona con su ícono pixel del bioma
      - caminos curvos de tinta; los que salen de donde estás, en dorado
      - niebla: lo que todavía no conocés aparece como "?"
      - candado y nivel en las zonas que todavía no podés pisar
      - nombres que no se pisan con los caminos (posición fija por zona)
-   Tocás una zona y abajo aparece su ficha: qué es, cuántos pasos,
-   qué te falta y el botón para viajar.
+   Tocás una zona y a la derecha aparece su ficha: qué es, cuántos pasos,
+   qué te falta, el botón para viajar, quién vive ahí y qué criaturas
+   conocés. El mapa queda fijo y entra entero en la pantalla.
+   v3.1: en grupo, tu compañero aparece en el mapa (también viajando).
    Rueda o botones para el zoom, arrastrar para moverse, Esc para volver.
    ============================================================ */
 
@@ -24,6 +26,8 @@
   let view = { x: 0, y: 0, w: W, h: H };
   let escHandler = null;
   let drag = null;
+  let offParty = null;
+  let resizeHandler = null;
 
   // Posiciones de respaldo (por si una región editada perdió las suyas)
   const FALLBACK_POS = {
@@ -300,8 +304,124 @@
         <g class="map-roads">${roads.join('')}</g>
         <g class="map-nodes">${nodes}</g>
         ${hp ? `<g class="map-you" transform="translate(${hp.x} ${hp.y - 30})"><image href="${pinUrl}" x="-12" y="-26" width="24" height="24"/></g>` : ''}
+        ${allyMarker(pos)}
       </svg>
     `;
+  }
+
+  // ============================================================
+  // v3.1: el compañero en el mapa
+  // ============================================================
+
+  /** Dónde está el compañero: { x, y, m } (en un camino si está viajando). */
+  function allySpot(pos) {
+    const m = A.Party && A.Party.isActive && A.Party.isActive() && A.Party.ally ? A.Party.ally() : null;
+    if (!m || !m.online) return null;
+    const t = m.traveling;
+    if (t && pos[t.fromId] && pos[t.toId]) {
+      const k = Math.max(0, Math.min(1, (t.step || 0) / Math.max(1, t.total || 1)));
+      return { x: pos[t.fromId].x + (pos[t.toId].x - pos[t.fromId].x) * k, y: pos[t.fromId].y + (pos[t.toId].y - pos[t.fromId].y) * k, m, moving: true };
+    }
+    const p = m.regionId && pos[m.regionId];
+    return p ? { x: p.x, y: p.y, m, moving: false } : null;
+  }
+
+  function allyMarker(pos) {
+    const spot = allySpot(pos);
+    if (!spot) return '';
+    const url = A.Sprites && A.Sprites.heroUrl ? A.Sprites.heroUrl(spot.m.raceId || 'humano') : '';
+    // al lado de la zona, del lado contrario a su nombre (no encima de tu marca); viajando, sobre el camino
+    const side = (!spot.moving && spot.m.regionId && pos[spot.m.regionId] && pos[spot.m.regionId].label) || 'r';
+    const off = ({ r: [-34, -8], l: [34, -8], t: [30, 20], b: [32, -18] })[side] || [32, -14];
+    const x = spot.moving ? spot.x : spot.x + off[0];
+    const y = spot.moving ? spot.y - 6 : spot.y + off[1];
+    return `
+      <g class="map-ally ${spot.moving ? 'is-moving' : ''}" transform="translate(${x.toFixed(1)} ${y.toFixed(1)})">
+        <circle class="map-ally-ring" r="17"/>
+        ${url ? `<image href="${url}" x="-14" y="-16" width="28" height="28"/>` : ''}
+        <text class="map-ally-name" y="31" text-anchor="middle">${U().esc(spot.m.name || 'Compañero')}</text>
+      </g>`;
+  }
+
+  /** Línea del compañero para la ficha de una zona. */
+  function allyLine(id) {
+    const m = A.Party && A.Party.isActive && A.Party.isActive() && A.Party.ally ? A.Party.ally() : null;
+    if (!m || !m.online) return '';
+    const t = m.traveling;
+    let text = '';
+    if (t && (t.toId === id || t.fromId === id)) {
+      const to = A.Data.getById('regions', t.toId);
+      text = `${m.name} va de viaje hacia ${to ? to.name : 'otra zona'} (paso ${t.step || 0} de ${t.total || 1}).`;
+    } else if (!t && m.regionId === id) {
+      text = m.together ? `${m.name} está con vos.` : `${m.name} está acá.`;
+    }
+    if (!text) return '';
+    const url = A.Sprites && A.Sprites.heroHtml ? A.Sprites.heroHtml(m.raceId || 'humano', { size: 28 }) : '';
+    return `<p class="map3-ally">${url}<span>${U().esc(text)}</span></p>`;
+  }
+
+  // ============================================================
+  // v3.1: quién vive y qué criaturas hay
+  // ============================================================
+
+  function npcsBlock(r, visited) {
+    const npcs = A.Data.npcsInRegion ? A.Data.npcsInRegion(r.id) : [];
+    if (!npcs.length) return '';
+    if (!visited.has(r.id)) {
+      return `
+        <div class="map3-sec">
+          <h3 class="map3-h">${U().icon('talk', 16)}<span>Habitantes</span></h3>
+          <p class="map3-note">${npcs.length} ${npcs.length === 1 ? 'persona vive' : 'personas viven'} acá. Visitá el lugar para conocerlas.</p>
+        </div>`;
+    }
+    return `
+      <div class="map3-sec">
+        <h3 class="map3-h">${U().icon('talk', 16)}<span>Habitantes</span></h3>
+        <ul class="map3-npcs">
+          ${npcs.map((n) => {
+            const marker = A.Quests ? A.Quests.markerFor(n.id) : null;
+            const role = n.roleName || n.role || '';
+            return `
+              <li class="map3-npc ${marker ? 'has-quest' : ''}">
+                ${A.UI && A.UI.portrait ? A.UI.portrait(n, 34, marker) : ''}
+                <span class="map3-npc-text"><b>${U().esc(n.name)}</b><small>${U().esc(roleText(n, role))}</small></span>
+              </li>`;
+          }).join('')}
+        </ul>
+      </div>`;
+  }
+
+  function roleText(n, role) {
+    const what = [];
+    if ((n.sells || []).length) what.push('vende');
+    if (n.role === 'blacksmith') what.push('forja');
+    if ((n.teaches || []).length) what.push('enseña magia');
+    if (n.services && n.services.restCost != null) what.push('posada');
+    if (A.Quests && A.Quests.list().some((q) => q.giver === n.id)) what.push('encargos');
+    const label = ({ merchant: 'Mercader', blacksmith: 'Herrero', innkeeper: 'Posadero', guard: 'Guardia', sage: 'Sabio' })[role] || role;
+    return [label, what.join(', ')].filter(Boolean).join(' · ');
+  }
+
+  function foesBlock(r) {
+    if (r.type === 'safe') return '';
+    const foes = A.Data.enemiesInRegion(r.id);
+    if (!foes.length) return '';
+    const known = foes.filter((e) => !A.Bestiary || A.Bestiary.isKnown(e.id)).length;
+    return `
+      <div class="map3-sec">
+        <h3 class="map3-h">${U().icon('skulls', 16)}<span>Criaturas</span><span class="map3-count num">${known}/${foes.length}</span></h3>
+        <div class="map3-foes">
+          ${foes.map((e) => {
+            const ok = !A.Bestiary || A.Bestiary.isKnown(e.id);
+            const tl = ok && A.Encounter && A.Encounter.timeLabel ? A.Encounter.timeLabel(e) : '';
+            return `
+              <span class="map3-foe ${ok ? '' : 'is-unknown'}" title="${U().esc(ok ? `${e.name}${tl ? ` · ${tl}` : ''}` : 'Todavía no la viste')}">
+                ${A.Sprites ? A.Sprites.html(e, { size: 30 }) : ''}
+                ${tl ? `<span class="map3-foe-time">${U().icon(e.time === 'night' ? 'moon' : 'sun', 12)}</span>` : ''}
+              </span>`;
+          }).join('')}
+        </div>
+      </div>`;
   }
 
   // ============================================================
@@ -351,20 +471,24 @@
     }
 
     return `
-      <div class="map2-card ${locked ? 'is-locked' : ''} ${isHere ? 'is-here' : ''}">
-        <span class="map2-card-icon">${U().biomeIcon(r, 40)}</span>
-        <div class="map2-card-main">
-          <div class="map2-card-name">${U().esc(r.name)}${isHere ? '<span class="map2-here-tag">Estás acá</span>' : ''}</div>
-          <div class="map2-card-pills">
-            <span class="pill ${r.type === 'safe' ? 'pill-safe' : 'pill-combat'}">${r.type === 'safe' ? 'Zona segura' : 'Zona de peligro'}</span>
-            <span class="pill pill-tier">Nivel ${minLevel(r)}+</span>
-            ${enemies && r.type !== 'safe' ? `<span class="map2-meta">${enemies} criaturas</span>` : ''}
-            ${visited.has(id) ? '' : '<span class="map2-meta">Sin visitar</span>'}
+      <div class="map2-card map3-card ${locked ? 'is-locked' : ''} ${isHere ? 'is-here' : ''}">
+        <div class="map3-top">
+          <span class="map2-card-icon">${U().biomeIcon(r, 40)}</span>
+          <div class="map3-top-text">
+            <div class="map2-card-name">${U().esc(r.name)}${isHere ? '<span class="map2-here-tag">Estás acá</span>' : ''}</div>
+            <div class="map2-card-pills">
+              <span class="pill ${r.type === 'safe' ? 'pill-safe' : 'pill-combat'}">${r.type === 'safe' ? 'Zona segura' : 'Zona de peligro'}</span>
+              <span class="pill pill-tier">Nivel ${minLevel(r)}+</span>
+              ${visited.has(id) ? '' : '<span class="map2-meta">Sin visitar</span>'}
+            </div>
           </div>
-          <p class="map2-card-desc">${U().esc(r.description || '')}</p>
-          ${locked ? `<ul class="map2-reqs">${reqs.map((q) => `<li class="${q.met ? 'is-met' : ''}">${U().icon(q.met ? 'check' : 'lock', 14)}<span>${U().esc(q.label)}${q.current != null && q.target != null && !q.met ? ` (${q.current}/${q.target})` : ''}</span></li>`).join('')}</ul>` : ''}
-          ${action}
         </div>
+        <p class="map2-card-desc">${U().esc(r.description || '')}</p>
+        ${allyLine(id)}
+        ${locked ? `<ul class="map2-reqs">${reqs.map((q) => `<li class="${q.met ? 'is-met' : ''}">${U().icon(q.met ? 'check' : 'lock', 14)}<span>${U().esc(q.label)}${q.current != null && q.target != null && !q.met ? ` (${q.current}/${q.target})` : ''}</span></li>`).join('')}</ul>` : ''}
+        ${action}
+        ${npcsBlock(r, visited)}
+        ${enemies ? foesBlock(r) : ''}
       </div>`;
   }
 
@@ -379,29 +503,54 @@
     const cur = A.Data.getById('regions', w.regionId);
     if (!selectedId) selectedId = w.regionId;
     mainEl.innerHTML = `
-      <section class="map2">
+      <section class="map2 map3">
         <header class="map2-head">
           <button class="btn-ghost map2-back" data-map-back title="Volver (Esc)">Volver</button>
           <h2 class="map2-title">${U().icon('map', 26)}<span>Mapa del reino</span></h2>
           <span class="map2-where">${U().icon('pin', 18)}<span>Estás en <b>${U().esc(cur ? cur.name : '')}</b></span></span>
         </header>
-        <div class="map2-stage">
-          ${svgHtml()}
-          <div class="map2-zoom">
-            <button data-map-zoom="in" aria-label="Acercar">+</button>
-            <button data-map-zoom="out" aria-label="Alejar">−</button>
-            <button data-map-zoom="fit" aria-label="Ver todo">${U().icon('compass', 18)}</button>
+        <div class="map3-body">
+          <div class="map2-stage">
+            ${svgHtml()}
+            <div class="map2-zoom">
+              <button data-map-zoom="in" aria-label="Acercar">+</button>
+              <button data-map-zoom="out" aria-label="Alejar">−</button>
+              <button data-map-zoom="fit" aria-label="Ver todo">${U().icon('compass', 18)}</button>
+            </div>
           </div>
+          <aside class="map2-info map3-side">${cardHtml()}</aside>
         </div>
-        <div class="map2-info">${cardHtml()}</div>
       </section>
     `;
     bind();
+    fitHeight();
+  }
+
+  /** v3.1: el mapa ocupa justo lo que queda de pantalla (sin bajar). */
+  function fitHeight() {
+    const el = mainEl && mainEl.querySelector('.map3');
+    if (!el) return;
+    if (window.innerWidth <= 900) { el.style.height = ''; return; }
+    const top = el.getBoundingClientRect().top + (window.scrollY || 0);
+    el.style.height = `${Math.max(420, Math.floor(window.innerHeight - top - 22))}px`;
+  }
+
+  /** v3.1: redibuja solo el dibujo (el compañero se movió) sin perder zoom ni ficha. */
+  function refreshSvg() {
+    const stage = mainEl && mainEl.querySelector('.map2-stage');
+    const old = stage && stage.querySelector('.map2-svg');
+    if (!old) return;
+    const tmp = document.createElement('div');
+    tmp.innerHTML = svgHtml();
+    const fresh = tmp.querySelector('.map2-svg');
+    if (!fresh) return;
+    old.replaceWith(fresh);
+    bind(true);
   }
 
   function refreshCard() {
     const box = mainEl && mainEl.querySelector('.map2-info');
-    if (box) box.innerHTML = cardHtml();
+    if (box) { box.innerHTML = cardHtml(); box.scrollTop = 0; }
     mainEl.querySelectorAll('.node').forEach((n) => n.classList.toggle('is-selected', n.dataset.region === selectedId));
     bindCard();
   }
@@ -451,14 +600,16 @@
     mainEl.querySelectorAll('[data-map-select]').forEach((b) => b.addEventListener('click', () => select(b.dataset.mapSelect)));
   }
 
-  function bind() {
+  function bind(svgOnly) {
     const svg = mainEl.querySelector('.map2-svg');
-    mainEl.querySelector('[data-map-back]').addEventListener('click', closeMap);
-    mainEl.querySelectorAll('[data-map-zoom]').forEach((b) => b.addEventListener('click', () => {
-      const z = b.dataset.mapZoom;
-      if (z === 'fit') { setView({ x: 0, y: 0, w: W, h: H }); return; }
-      zoomAt(z === 'in' ? 0.8 : 1.25, view.x + view.w / 2, view.y + view.h / 2);
-    }));
+    if (!svgOnly) {
+      mainEl.querySelector('[data-map-back]').addEventListener('click', closeMap);
+      mainEl.querySelectorAll('[data-map-zoom]').forEach((b) => b.addEventListener('click', () => {
+        const z = b.dataset.mapZoom;
+        if (z === 'fit') { setView({ x: 0, y: 0, w: W, h: H }); return; }
+        zoomAt(z === 'in' ? 0.8 : 1.25, view.x + view.w / 2, view.y + view.h / 2);
+      }));
+    }
     mainEl.querySelectorAll('.node').forEach((n) => {
       n.addEventListener('click', (e) => {
         if (drag && drag.moved) return;
@@ -494,7 +645,8 @@
       svg.addEventListener('pointerup', end);
       svg.addEventListener('pointercancel', end);
     }
-    bindCard();
+    if (!svgOnly) bindCard();
+    mainEl.querySelectorAll('.node').forEach((n) => n.classList.toggle('is-selected', n.dataset.region === selectedId));
   }
 
   function closeMap() {
@@ -520,9 +672,14 @@
         escHandler = (e) => { if (e.key === 'Escape' && A.State.ui.showMap && !A.State.ui.openModal) closeMap(); };
         document.addEventListener('keydown', escHandler);
       }
+      // v3.1: el compañero se mueve en el mapa; la pantalla cambia de tamaño
+      if (!offParty && A.Bus) offParty = A.Bus.on('party:changed', () => { refreshSvg(); refreshCard(); });
+      if (!resizeHandler) { resizeHandler = () => fitHeight(); window.addEventListener('resize', resizeHandler); }
     },
     unmount() {
       if (escHandler) { document.removeEventListener('keydown', escHandler); escHandler = null; }
+      if (offParty) { offParty(); offParty = null; }
+      if (resizeHandler) { window.removeEventListener('resize', resizeHandler); resizeHandler = null; }
       if (mainEl) mainEl.innerHTML = '';
     },
     route,

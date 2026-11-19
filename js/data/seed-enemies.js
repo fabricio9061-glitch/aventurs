@@ -144,6 +144,19 @@
     {"id": "guiverno", "name": "Guiverno", "icon": "", "family": ["dragon", "flying"], "category": "strong", "tier": 9, "tags": ["flying"], "biome": ["lair"], "health": 52, "damage": "3d8+2", "attack": 6, "difficulty": 16, "armor": 4, "speed": 14, "drops": [{"itemId": "mat_escama_dragon", "chance": 0.13, "source": "balance"}, {"itemId": "mat_garra", "chance": 0.28, "source": "balance"}, {"itemId": "carne_dragon", "chance": 0.25, "source": "balance"}], "regions": ["nido_de_dragones"], "spawn": {"min": 1, "max": 1, "weight": 1, "groupable": true}, "tameable": false, "autoLoot": false},
   ];
 
+  // v3.1: algunas criaturas salen solo de noche (de noche y de madrugada) o solo de día.
+  // Bajo tierra (minas, cuevas, criptas, infierno, abismo) salen siempre.
+  const TIME = {
+    night: ['murcielago', 'buho', 'zombi', 'fantasma', 'necrofago', 'licantropo', 'espectro', 'banshee', 'aparicion',
+      'vampiro', 'murcielago_vampiro', 'senor_vampiro', 'pesadilla', 'polilla_onirica', 'esqueleto_pirata', 'ahogado'],
+    day: ['cuervo', 'halcon', 'aguila', 'arpia', 'loro_pirata', 'hada_traviesa', 'driade', 'centauro'],
+  };
+  for (const e of ENEMIES) {
+    if (e.time) continue;
+    if (TIME.night.includes(e.id)) e.time = 'night';
+    else if (TIME.day.includes(e.id)) e.time = 'day';
+  }
+
   A.Seed = A.Seed || {};
   A.Seed.enemies = ENEMIES;
 })(window.Aventurs);

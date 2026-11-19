@@ -388,6 +388,12 @@
   .cc3 .cc-hero-portrait .px-sprite { --px-size: 88px !important; }
   .cc3 .cc-desc { font-size: 14.5px; }
   .cc3 .cc-form { padding-bottom: 12px; }
+  /* v3.1: los cuatro números en una fila; la explicación queda en el globo al pasar el mouse */
+  .cc3 .cc-stats { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 5px; }
+  .cc3 .cc-stat { grid-template-columns: minmax(0, 1fr); text-align: center; padding: 5px 3px; row-gap: 0; }
+  .cc3 .cc-stat > b, .cc3 .cc-stat > span { grid-column: 1; grid-row: auto; align-self: auto; }
+  .cc3 .cc-stat > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .cc3 .cc-stat > small { display: none; }
 }
 
 @media (max-width: 1100px) and (min-width: 921px) {
@@ -433,3 +439,271 @@
    9. Diario v3.0: aviso de lugar cerrado en un objetivo
    ============================================================ */
 .qc-hint { font-size: 11.5px; color: #8a5a1a; font-style: italic; white-space: nowrap; }
+
+/* ============================================================
+   10. v3.1: bestiario, criaturas "???" y de día o de noche
+   ============================================================ */
+.creature-chip.is-unknown .px-sprite,
+.creature-list-row.is-unknown .px-sprite,
+.creature-modal.is-unknown .px-sprite,
+.bestiary-card.is-unknown .px-sprite,
+.map3-foe.is-unknown .px-sprite { filter: brightness(0) opacity(0.45); }
+.creature-chip.is-unknown { color: var(--text-muted, #7a6a50); font-style: italic; }
+.creature-chip.is-off { opacity: 0.6; }
+.creature-chip .creature-time { display: inline-flex; margin-left: -2px; }
+.creature-where { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; margin: 10px 0 4px; font-size: 13px; color: #4a3a22; }
+.creature-where > span, .creature-where-time { display: inline-flex; align-items: center; gap: 6px; }
+.creature-secret { display: flex; align-items: center; gap: 8px; margin: 10px 0 0; padding: 8px 10px; border-radius: 10px; background: #f3e7c6; border: 1px dashed #c9a24a; font-size: 13px; color: #5a4320; }
+.creature-drops { margin-top: 10px; }
+.creature-drop-list { display: flex; flex-wrap: wrap; gap: 6px; }
+.creature-drop { display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px 3px 4px; border-radius: 999px; background: #fbf3dc; border: 1px solid #e0cc98; font-size: 12.5px; }
+.creature-back { display: flex; justify-content: flex-end; padding: 0 20px 16px; }
+.creature-back .btn-ghost { display: inline-flex; align-items: center; gap: 6px; }
+
+.bestiary-head { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 4px 12px; padding: 12px 14px; margin-bottom: 6px; border-radius: 12px; background: #fbefc8; border: 1px solid #e3c983; }
+.bestiary-head-text { display: flex; flex-direction: column; gap: 2px; font-size: 13px; color: #5a4320; }
+.bestiary-head-text b { font-size: 15px; color: #2a1c0c; }
+.bestiary-bar { grid-column: 1 / -1; height: 8px; border-radius: 999px; background: #e8d6a6; overflow: hidden; }
+.bestiary-bar > i { display: block; height: 100%; background: linear-gradient(90deg, #b8862e, #e0b030); border-radius: inherit; }
+.bestiary-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 8px; }
+.bestiary-card {
+  position: relative; display: flex; flex-direction: column; align-items: center; gap: 3px;
+  padding: 8px 4px 7px; border-radius: 12px; cursor: pointer;
+  background: linear-gradient(180deg, #fffaf0, #f4e8c8); border: 1px solid #dcc58e; color: #2a1c0c;
+}
+.bestiary-card:hover { border-color: #b8862e; transform: translateY(-1px); }
+.bestiary-card.is-unknown { background: linear-gradient(180deg, #efe4c8, #e2d3ab); color: #7a6a50; }
+.bestiary-card.is-boss { border-color: #b8862e; box-shadow: inset 0 0 0 1px rgba(184, 134, 46, 0.4); }
+.bestiary-sprite { display: grid; place-items: center; width: 56px; height: 56px; border-radius: 10px; background: #2a1f15; }
+.bestiary-name { font-family: var(--font-display); font-weight: 700; font-size: 12.5px; text-align: center; line-height: 1.15; }
+.bestiary-meta { font-size: 11px; color: #7a6040; }
+.bestiary-time { position: absolute; top: 5px; left: 6px; }
+.bestiary-star { position: absolute; top: 5px; right: 6px; }
+
+/* ============================================================
+   11. Mapa v3.1: fijo, con la ficha a la derecha
+   ============================================================ */
+.shell-body.is-map { max-width: min(1760px, calc(100vw - 24px)); }
+.map3 { height: calc(100vh - 110px); min-height: 420px; }
+.map3 .map3-body { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) clamp(330px, 24vw, 440px); gap: 14px; }
+.map3 .map2-stage { min-height: 0; height: 100%; }
+.map3 .map2-svg { width: 100%; height: 100%; max-height: none; aspect-ratio: auto; }
+.map3-side { min-height: 0; overflow-y: auto; border-radius: 14px; scrollbar-width: thin; }
+.map2-card.map3-card { flex-direction: column; align-items: stretch; gap: 10px; min-height: 100%; animation: none; }
+.map3-top { display: flex; gap: 12px; align-items: center; }
+.map3-top-text { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.map3-card .map2-card-desc { font-size: 15px; }
+.map3-card .map2-go { align-self: stretch; justify-content: center; }
+.map3-sec { display: flex; flex-direction: column; gap: 8px; padding-top: 10px; border-top: 1px dashed #c9ab6c; }
+.map3-h { display: flex; align-items: center; gap: 6px; margin: 0; font-family: var(--font-display); font-size: 13px; letter-spacing: 0.06em; text-transform: uppercase; color: #3a2a12; }
+.map3-count { margin-left: auto; font-size: 12px; color: #7a6040; }
+.map3-npcs { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.map3-npc { display: flex; align-items: center; gap: 10px; }
+.map3-npc-text { display: flex; flex-direction: column; min-width: 0; line-height: 1.25; }
+.map3-npc-text b { font-size: 14px; color: #2a1c0c; }
+.map3-npc-text small { font-size: 12px; color: #6b5434; }
+.map3-note { margin: 0; font-size: 13px; color: #6b5434; }
+.map3-foes { display: flex; flex-wrap: wrap; gap: 6px; }
+.map3-foe { position: relative; display: grid; place-items: center; width: 40px; height: 40px; border-radius: 9px; background: #2a1f15; border: 1px solid #6a5232; }
+.map3-foe-time { position: absolute; right: -5px; top: -5px; }
+.map3-ally { display: flex; align-items: center; gap: 8px; margin: 0; padding: 6px 10px; border-radius: 10px; background: #e7f0d0; border: 1px solid #9fb46a; font-size: 13.5px; font-weight: 600; color: #2a3a12; }
+.map-ally-ring { fill: #fff6dc; stroke: #3a7a2a; stroke-width: 3; }
+.map-ally image { image-rendering: pixelated; }
+.map-ally-name { font-family: var(--font-display); font-size: 12px; font-weight: 700; fill: #1f4a14; paint-order: stroke; stroke: rgba(246, 232, 196, 0.95); stroke-width: 4px; stroke-linejoin: round; }
+.map-ally.is-moving .map-ally-ring { stroke-dasharray: 4 3; }
+@media (max-width: 900px) {
+  .map3 { height: auto; }
+  .map3 .map3-body { grid-template-columns: minmax(0, 1fr); }
+  .map3 .map2-svg { height: auto; max-height: 56vh; aspect-ratio: 1280 / 860; }
+  .map3-side { overflow: visible; }
+}
+
+/* ============================================================
+   12. v3.1: escenas con lo que pasa si sale bien o mal
+   ============================================================ */
+.scene-opt-hint { font-size: 12.5px; line-height: 1.3; color: #5a4628; }
+.scene-options.is-grid .scene-opt { gap: 4px; padding: 9px 12px; }
+.scene-options.is-grid .scene-opt-hint { font-size: 12px; }
+.scene-studied { display: flex; align-items: center; gap: 8px; margin: 8px 0 0; padding: 7px 10px; border-radius: 10px; background: #e8f0d6; border: 1px solid #a8bb78; font-size: 13px; color: #2f4214; }
+/* pantallas bajas: el dibujo de arriba más chico para que entren todas las opciones */
+@media (max-height: 820px) and (min-width: 700px) {
+  .scene-modal .scene-art { height: 84px; }
+  .scene-modal .scene-art-icon { width: 64px; height: 64px; }
+  .scene-modal .scene-art-icon .px-icon { width: 44px; height: 44px; }
+  .scene-options.is-grid .scene-opt { padding: 7px 11px; }
+}
+
+/* ============================================================
+   13. v3.1: voz del narrador
+   ============================================================ */
+.menu-voice { display: flex; align-items: stretch; gap: 8px; margin-bottom: 4px; }
+.menu-voice.is-off { align-items: center; gap: 10px; padding: 10px 12px; border-radius: 10px; background: #f0e4c4; font-size: 13px; color: #5a4628; }
+.menu-voice-toggle {
+  flex: 1; display: flex; align-items: center; gap: 10px; padding: 10px 12px; text-align: left;
+  border-radius: 10px; border: 1px solid #b4955a; background: linear-gradient(180deg, #fbf3df, #ecdcb8); color: #2b2014; cursor: pointer;
+}
+.menu-voice-toggle span { display: flex; flex-direction: column; gap: 2px; }
+.menu-voice-toggle small { font-size: 12px; color: #6b5434; }
+.menu-voice.is-on .menu-voice-toggle { border-color: #3a7a2a; background: linear-gradient(180deg, #eef6dc, #d8e8bc); }
+.menu-voice-speed { flex: none; padding: 0 14px; border-radius: 10px; border: 1px solid #b4955a; background: #fbf3df; font-weight: 700; color: #3a2a12; cursor: pointer; }
+.cb-voice-btn {
+  position: absolute; top: 8px; right: 8px; z-index: 3;
+  display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%;
+  border: 1px solid rgba(232, 196, 110, 0.6); background: rgba(31, 23, 15, 0.75); cursor: pointer;
+}
+.cb-voice-btn:hover { border-color: #f2cf73; }
+.cb-narrator:has(.cb-voice-btn) { padding-right: 52px; }
+
+/* ============================================================
+   14. v3.1: votar en grupo
+   ============================================================ */
+.scene-party.is-vote { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; border-radius: 12px; padding: 6px 10px; }
+.scene-force.is-hidden { display: none; }
+.scene-votes { display: inline-flex; flex-wrap: wrap; gap: 4px; margin-left: 8px; vertical-align: middle; }
+.scene-vote { display: inline-flex; align-items: center; gap: 3px; padding: 1px 7px 1px 4px; border-radius: 999px; background: #2a1f15; color: #f2cf73; font-size: 11px; font-weight: 700; letter-spacing: 0.02em; }
+.scene-vote.is-mine { background: #3a7a2a; color: #f4ffe8; }
+.scene-opt.is-voted { border-color: #3a7a2a; box-shadow: 0 2px 0 #2f5f22, inset 0 0 0 1px rgba(58, 122, 42, 0.5); }
+.scene-vote-res { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; padding: 8px 12px; border-radius: 10px; background: #fbefc8; border: 1px solid #e3c983; font-size: 13.5px; color: #3a2a12; }
+.scene-vote-res.is-dice { background: #f3e2f0; border-color: #c9a0c0; }
+/* el diario con mucho contenido (bestiario): las pestañas no se achican */
+.modal.journal .modal-header, .modal.journal .journal-tabs { flex-shrink: 0; }
+.modal.journal .journal-body { min-height: 0; }
+
+/* ============================================================
+   15. v3.1: estadísticas de explorar (ficha y pantalla de inicio)
+   ============================================================ */
+.sb-title-note { order: 3; font-family: var(--font); font-size: 10.5px; font-weight: 600; letter-spacing: 0; text-transform: none; color: #8a744c; }
+.sb-xstats { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; }
+.sb-xstat {
+  display: grid; grid-template-columns: 14px auto; grid-template-rows: auto auto; column-gap: 4px; align-items: center;
+  padding: 3px 5px;
+  border-radius: 8px;
+  background: rgba(255, 251, 238, 0.7);
+  border: 1px solid #d6c08e;
+  cursor: help;
+  min-width: 0;
+}
+.sb-xstat > .px-icon, .sb-xstat > .px-sprite, .sb-xstat > svg { width: 14px; height: 14px; }
+.sb-xstat-val { font-size: 13px; font-weight: 700; line-height: 1.1; white-space: nowrap; }
+.sb-xstat-label { grid-column: 1 / span 2; font-size: 8.5px; letter-spacing: 0.03em; text-transform: uppercase; color: #8a744c; font-weight: 600; line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sb-xstat.is-down .sb-xstat-val { color: #b0301a; }
+
+/* pantalla de inicio */
+.cc-xstats { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 5px; margin-top: 8px; }
+.cc-xstats-title { grid-column: 1 / -1; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #7a5410; margin-bottom: -1px; }
+.cc-xstat { display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 4px 2px; border-radius: 8px; background: rgba(255, 251, 238, 0.75); border: 1px solid #d6c08e; cursor: help; min-width: 0; }
+.cc-xstat b { font-size: 15px; line-height: 1.1; }
+.cc-xstat span { font-size: 10px; text-transform: uppercase; letter-spacing: 0.03em; color: #8a744c; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.cc-xstat .px-icon, .cc-xstat .px-sprite { width: 16px; height: 16px; }
+
+/* ============================================================
+   16. v3.1: cada raza come lo suyo
+   ============================================================ */
+.shop-card-diet { position: absolute; top: 5px; right: 5px; padding: 1px 6px; border-radius: 999px; font-size: 9.5px; font-weight: 700; letter-spacing: 0.02em; line-height: 1.5; white-space: nowrap; }
+.shop-card-diet.is-no { background: #f3dcd4; color: #8d2818; border: 1px solid #d9a898; }
+.shop-card-diet.is-fav { background: #e2efd2; color: #3f6a1c; border: 1px solid #a9c88a; }
+.shop-card-diet.is-half { background: #f6ecd2; color: #7a5a14; border: 1px solid #d8c08a; }
+.inv-diet { display: inline-block; margin-left: 6px; padding: 0 6px; border-radius: 999px; font-size: 10px; font-weight: 700; vertical-align: middle; }
+.inv-diet.is-no { background: #f3dcd4; color: #8d2818; }
+.inv-diet.is-fav { background: #e2efd2; color: #3f6a1c; }
+.cc-diet { font-weight: 700; color: #6b4a14; }
+
+/* ============================================================
+   17. v3.1: la crónica del combate se lee
+   En pantallas anchas va a la derecha, de arriba a abajo; y
+   "Ver entera" la abre en grande con todas las tiradas.
+   ============================================================ */
+.cb-log-tools { display: inline-flex; align-items: center; gap: 12px; }
+.cb-log-full {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 3px 10px; border-radius: 999px;
+  border: 1px solid #c9a24a; background: rgba(255, 248, 228, 0.9);
+  font-size: 12px; font-weight: 700; color: #6b4a14; cursor: pointer; white-space: nowrap;
+}
+.cb-log-full:hover { background: #fff3cf; }
+.modal.modal-fulllog { width: min(920px, calc(100vw - 32px)); max-width: none; }
+.modal.modal-fulllog .combat-fulllog-modal.cb-chronicle { max-height: 74vh; }
+.modal.modal-fulllog .cb-line-text { font-size: 18px; line-height: 1.4; }
+.modal.modal-fulllog .cb-rolls { font-size: 14px; }
+
+@media (min-width: 1200px) and (min-height: 560px) {
+  .shell-body.is-combat .shell-main-content { max-width: min(1560px, calc(100vw - 32px)); }
+  .combat-view.cb.is-arena:not(.is-crowded) {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) clamp(300px, 23vw, 420px);
+    grid-template-rows: auto auto minmax(0, 1fr);
+    grid-template-areas: "head head" "stage log" "actions log";
+    column-gap: 12px;
+    row-gap: 10px;
+  }
+  .combat-view.cb.is-arena:not(.is-crowded) > .cb-header { grid-area: head; }
+  .combat-view.cb.is-arena:not(.is-crowded) > .cb-stage { grid-area: stage; }
+  .combat-view.cb.is-arena:not(.is-crowded) > .cb-actions { grid-area: actions; align-self: start; }
+  .combat-view.cb.is-arena:not(.is-crowded) > .cb-log { grid-area: log; min-height: 0; }
+  .combat-view.cb.is-arena:not(.is-crowded) > .cb-log .combat-log-header { flex-wrap: wrap; row-gap: 4px; }
+  .combat-view.cb.is-arena:not(.is-crowded) > .cb-log .cb-line-text { font-size: 16.5px; line-height: 1.35; }
+}
+
+/* ============================================================
+   18. v3.1: habilidades de las criaturas se ven
+   Activa: cartel dorado con el nombre, anillo de color y la criatura
+   se agranda y brilla. Pasiva: cartel azul más chico y un destello.
+   ============================================================ */
+.fx-skill-pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  transform: translate(-50%, -100%);
+  padding: 4px 12px 4px 8px;
+  border-radius: 999px;
+  font-family: var(--font-display); font-weight: var(--fw-bold, 700);
+  white-space: nowrap; letter-spacing: 0.03em;
+  z-index: 5;
+  animation: skill-pop 1550ms cubic-bezier(.2, .9, .3, 1.2) both;
+}
+.fx-skill-pill.is-active {
+  font-size: 16px; color: #2a1606;
+  background: linear-gradient(180deg, #ffe7a3, #f2b84a);
+  border: 2px solid #8a4a10;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.55), 0 0 18px rgba(255, 190, 80, 0.55);
+}
+.fx-skill-pill.is-passive {
+  font-size: 13px; color: #e8f4ff;
+  background: linear-gradient(180deg, #3b5a86, #243a5c);
+  border: 1px solid #8fb8ee;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.5), 0 0 12px rgba(120, 180, 255, 0.45);
+  animation-duration: 1250ms;
+}
+.fx-skill-pill .px-icon, .fx-skill-pill .px-sprite { flex: none; }
+@keyframes skill-pop {
+  0% { opacity: 0; transform: translate(-50%, -60%) scale(0.5); }
+  14% { opacity: 1; transform: translate(-50%, -110%) scale(1.12); }
+  26% { transform: translate(-50%, -100%) scale(1); }
+  78% { opacity: 1; transform: translate(-50%, -112%) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -150%) scale(0.96); }
+}
+.fx-skill-ring {
+  width: 30px; height: 30px; margin: -15px 0 0 -15px; border-radius: 50%;
+  border: 4px solid var(--c, #f2c14e);
+  box-shadow: 0 0 22px var(--c, #f2c14e), inset 0 0 12px var(--c, #f2c14e);
+  animation: skill-ring 780ms ease-out both;
+}
+@keyframes skill-ring { 0% { opacity: 0.95; transform: scale(0.4); } 100% { opacity: 0; transform: scale(5.2); } }
+.cb-unit.fx-skill-act .cb-sprite { animation: skill-act 900ms ease var(--fx-delay, 0ms) both; }
+@keyframes skill-act {
+  0% { transform: none; filter: none; }
+  25% { transform: scale(1.14) translateY(-6px); filter: drop-shadow(0 0 10px rgba(255, 196, 90, 0.95)) brightness(1.25); }
+  55% { transform: scale(1.08) translateY(-3px); filter: drop-shadow(0 0 14px rgba(255, 150, 60, 0.9)) brightness(1.15); }
+  100% { transform: none; filter: none; }
+}
+.cb-unit.fx-skill-pas .cb-sprite { animation: skill-pas 700ms ease var(--fx-delay, 0ms) both; }
+@keyframes skill-pas {
+  0% { filter: none; }
+  30% { filter: drop-shadow(0 0 10px rgba(130, 190, 255, 0.95)) brightness(1.35) saturate(0.7); }
+  100% { filter: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .fx-skill-pill, .fx-skill-ring, .cb-unit.fx-skill-act .cb-sprite, .cb-unit.fx-skill-pas .cb-sprite { animation-duration: 1ms; }
+}
+
+/* v3.1: blindaje del Robot en su tarjeta */
+.cb-badge.is-shield { display: inline-flex; align-items: center; gap: 2px; background: linear-gradient(180deg, #d8e4f0, #a8bcd0); color: #1f3550; border: 1px solid #6f8aa8; }
+.cb-badge.is-shield .px-icon, .cb-badge.is-shield .px-sprite { width: 12px; height: 12px; }

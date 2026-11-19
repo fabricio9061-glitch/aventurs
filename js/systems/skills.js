@@ -701,7 +701,7 @@
   /** Lo que deja un golpe que pegó (estado con o sin tirada, robo, drenar). */
   function afterHit(sk, x, k, victim, info) {
     const p = A.State.player;
-    if (sk.drain && x.hp > 0 && info.dmg > 0) k.healEnemy(x, Math.round(info.dmg * sk.drain), { say: '{E} recupera {n} de vida.' });
+    if (sk.drain && x.hp > 0 && info.dmg > 0) k.healEnemy(x, Math.round(info.dmg * sk.drain), { say: '{E} recupera {n} de vida.', skill: sk.id });
     if (sk.steal && !info.toPet) stealCoins(x, k);
     const oh = sk.onHit;
     if (!oh) return;
@@ -749,7 +749,7 @@
     },
 
     multi(sk, x, k) {
-      k.log('enemy', { text: `${x.displayName} usa ${sk.name}.`, fx: { kind: 'note', actor: k.fxKey(x) }, say: { text: fill(sk.use, x), tone: 'bad' } });
+      k.log('enemy', { text: `${x.displayName} usa ${sk.name}.`, fx: { kind: 'note', actor: k.fxKey(x), skill: sk.id }, say: { text: fill(sk.use, x), tone: 'bad' } });
       for (let i = 0; i < (sk.hits || 2); i++) {
         if (x.hp <= 0 || A.State.player.hp <= 0) break;
         k.strike(x, { atkMod: sk.atk || 0, skill: sk.id });
@@ -759,7 +759,7 @@
     sweep(sk, x, k) {
       const p = A.State.player;
       const petUp = p.pet && p.pet.health > 0;
-      k.log('enemy', { text: `${x.displayName} usa ${sk.name}.`, fx: { kind: 'note', actor: k.fxKey(x) }, say: { text: fill(sk.use, x), tone: 'bad' } });
+      k.log('enemy', { text: `${x.displayName} usa ${sk.name}.`, fx: { kind: 'note', actor: k.fxKey(x), skill: sk.id }, say: { text: fill(sk.use, x), tone: 'bad' } });
       k.strike(x, { forcePlayer: true, mult: petUp ? 1 : 1.25, skill: sk.id });
       if (petUp && x.hp > 0 && p.hp > 0 && p.pet.health > 0) k.strike(x, { forcePet: true, skill: sk.id });
     },
@@ -771,7 +771,7 @@
     bolt(sk, x, k) {
       const b = boltKind(x);
       const p = A.State.player;
-      k.log('enemy', { text: `${x.displayName} lanza un hechizo.`, fx: { kind: 'cast', actor: k.fxKey(x), element: b.element }, say: { text: fill(b.use, x), tone: 'bad' } });
+      k.log('enemy', { text: `${x.displayName} lanza un hechizo.`, fx: { kind: 'cast', actor: k.fxKey(x), element: b.element, skill: sk.id }, say: { text: fill(b.use, x), tone: 'bad' } });
       const ok = k.save(x, sk.save, { label: sk.name, resist: '', fail: '' });
       const base = k.rollDamage(x, { mult: sk.mult || 1 });
       const armor = Math.floor((k.playerStats().armor || 0) / 2);
@@ -782,7 +782,7 @@
 
     debuff(sk, x, k) {
       const p = A.State.player;
-      k.log('enemy', { text: `${x.displayName} usa ${sk.name}.`, fx: { kind: 'cast', actor: k.fxKey(x) }, say: { text: fill(sk.use, x), tone: 'bad' } });
+      k.log('enemy', { text: `${x.displayName} usa ${sk.name}.`, fx: { kind: 'cast', actor: k.fxKey(x), skill: sk.id }, say: { text: fill(sk.use, x), tone: 'bad' } });
       const value = valueFor(sk.status, x.tier);
       if (k.immune(p, sk.status)) { k.status(p, sk.status, { turns: sk.turns, value, source: x.id }); return; }
       const ok = k.save(x, sk.save, { label: sk.name, dcMod: sk.dcMod, resist: sk.resist, fail: sk.fail });
@@ -791,7 +791,7 @@
 
     heal(sk, x, k) {
       const n = Math.max(1, Math.round(x.maxHp * (sk.amount || 0.25)));
-      k.healEnemy(x, n, { say: healLine(x), cast: true });
+      k.healEnemy(x, n, { say: healLine(x), cast: true, skill: sk.id });
     },
 
     guard(sk, x, k) {
@@ -799,7 +799,7 @@
       const old = x.effects.find((e) => e.type === 'guard');
       if (old) old.turns = Math.max(old.turns, sk.turns || 2);
       else x.effects.push({ type: 'guard', turns: sk.turns || 2, value: sk.value || 3, source: sk.id });
-      k.log('enemy', { text: `${x.displayName} se pone en guardia (+${sk.value || 3} de defensa).`, fx: { kind: 'status', target: k.fxKey(x), effect: 'guard' }, say: { text: fill(guardLine(x), x), tone: 'bad' } });
+      k.log('enemy', { text: `${x.displayName} se pone en guardia (+${sk.value || 3} de defensa).`, fx: { kind: 'status', target: k.fxKey(x), effect: 'guard', skill: sk.id }, say: { text: fill(guardLine(x), x), tone: 'bad' } });
       // y ataca igual
       if (A.State.player.hp > 0) k.strike(x, { skill: sk.id });
     },
@@ -814,7 +814,7 @@
         else e.effects.push({ type: 'rally', turns: sk.turns || 3, value: sk.value || 1, source: sk.id });
         k.log('enemy', {
           text: `${e.displayName} se envalentona (+1 de precisión y daño).`,
-          fx: { kind: 'status', target: k.fxKey(e), effect: 'rally' },
+          fx: { kind: 'status', target: k.fxKey(e), effect: 'rally', skill: i === 0 ? sk.id : undefined, skillOn: i === 0 ? k.fxKey(x) : undefined },
           say: i === 0 ? { text: fill(alone ? sk.alone : sk.use, x), tone: 'bad' } : { text: '', tone: 'bad' },
         });
       });
@@ -837,7 +837,7 @@
 
   /** Aliento o temblor: a vos (con tirada) y a tu mascota. v3.0: en grupo, a cada héroe con su mascota. */
   function areaHit(sk, x, k, o) {
-    k.log('enemy', { text: `${x.displayName} usa ${sk.name}.`, fx: { kind: 'cast', actor: k.fxKey(x), element: o.element || undefined }, say: { text: fill(sk.use, x), tone: 'bad' } });
+    k.log('enemy', { text: `${x.displayName} usa ${sk.name}.`, fx: { kind: 'cast', actor: k.fxKey(x), element: o.element || undefined, skill: sk.id }, say: { text: fill(sk.use, x), tone: 'bad' } });
     const base = k.rollDamage(x, { mult: sk.mult || 1 });
     const value = valueFor(o.status, x.tier);
     const hitOne = () => {
@@ -912,7 +912,7 @@
       });
     },
     multi(sk, pet, t, k) {
-      k.log('pet', { text: `${pet.name} usa ${sk.name}.`, fx: { kind: 'note', actor: 'pet' }, say: { text: fill(sk.ownUse || '{P} ataca dos veces seguidas.', null), tone: 'good' } });
+      k.log('pet', { text: `${pet.name} usa ${sk.name}.`, fx: { kind: 'note', actor: 'pet', skill: sk.id }, say: { text: fill(sk.ownUse || '{P} ataca dos veces seguidas.', null), tone: 'good' } });
       for (let i = 0; i < (sk.hits || 2); i++) {
         const tt = t.hp > 0 ? t : k.alive()[0];
         if (!tt) break;
@@ -930,7 +930,7 @@
     },
     debuff(sk, pet, t, k) {
       const tier = (speciesOf(pet) || {}).tier || 1;
-      k.log('pet', { text: `${pet.name} usa ${sk.name} contra ${t.displayName}.`, fx: { kind: 'cast', actor: 'pet' }, say: { text: `${cap(noun(pet))} usa ${sk.name.toLowerCase()} contra ${noun(t)}.`, tone: 'good' } });
+      k.log('pet', { text: `${pet.name} usa ${sk.name} contra ${t.displayName}.`, fx: { kind: 'cast', actor: 'pet', skill: sk.id }, say: { text: `${cap(noun(pet))} usa ${sk.name.toLowerCase()} contra ${noun(t)}.`, tone: 'good' } });
       if (Math.random() < 0.5) petStatusOn(t, sk.status, sk.turns, tier, k, sk.id);
       else k.log('pet', { text: `${t.displayName} resiste.`, fx: { kind: 'note' }, say: { text: `${cap(noun(t))} lo resiste.`, tone: 'neutral' } });
     },
@@ -958,7 +958,7 @@
 
   function petArea(sk, pet, k, half) {
     const tier = (speciesOf(pet) || {}).tier || 1;
-    k.log('pet', { text: `${pet.name} usa ${sk.name}.`, fx: { kind: 'cast', actor: 'pet', element: sk.element }, say: { text: fill(sk.ownUse || `{P} usa ${sk.name.toLowerCase()}.`, null), tone: 'good' } });
+    k.log('pet', { text: `${pet.name} usa ${sk.name}.`, fx: { kind: 'cast', actor: 'pet', element: sk.element, skill: sk.id }, say: { text: fill(sk.ownUse || `{P} usa ${sk.name.toLowerCase()}.`, null), tone: 'good' } });
     const base = k.rollPetDamage(pet, sk.mult || 1);
     for (const t of k.alive()) {
       const lucky = Math.random() < 0.5;

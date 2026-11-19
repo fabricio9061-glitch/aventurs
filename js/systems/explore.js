@@ -35,6 +35,8 @@
     ingenio: { label: 'Ingenio', icon: 'book', hint: 'Los magos son los más astutos.' },
     punteria: { label: 'Puntería', icon: 'target', hint: 'Sale de tu precisión.' },
     suerte: { label: 'Suerte', icon: 'clover', hint: 'Solo el dado decide.' },
+    // v3.1: huir es una carrera: tu velocidad contra la de la criatura más rápida
+    carrera: { label: 'Velocidad', icon: 'run', hint: 'Tu velocidad contra la de la criatura más rápida.' },
   };
 
   const RECENT_MAX = 6;
@@ -62,8 +64,13 @@
 
   function classOf(p) { return A.Balance && A.Balance.classOf ? A.Balance.classOf(p) : 'hybrid'; }
 
-  /** Bonus del jugador para una tirada. */
-  function statMod(stat, p) {
+  function realSpeed(p) {
+    const st = p.stats || {};
+    return A.Balance && A.Balance.playerCombatStats ? A.Balance.playerCombatStats(p).speed : st.speed || 10;
+  }
+
+  /** Bonus del jugador para una tirada (check: la tirada entera, para las que comparan con algo). */
+  function statMod(stat, p, check, opts = {}) {
     p = p || player();
     if (!p) return 0;
     const half = Math.floor((p.level || 1) / 2);
@@ -71,6 +78,17 @@
     const st = p.stats || {};
     let mod = 0;
     switch (stat) {
+      // v3.1: carrera: la diferencia de velocidad pesa mucho (sin la mitad del nivel)
+      case 'carrera': {
+        const vs = check && check.vs != null ? check.vs : 10;
+        mod = Math.max(-6, Math.min(6, realSpeed(p) - vs));
+        if (!opts.noHunger && A.Survival && A.Survival.getStatus) {
+          const s = A.Survival.getStatus();
+          if (s && s.id === 'weak') mod -= 1;
+          if (s && s.id === 'starving') mod -= 2;
+        }
+        return mod;
+      }
       case 'fuerza': mod = ({ warrior: 3, hybrid: 1, mage: 0 })[type] || 0; break;
       // v2.4: la velocidad real (el peso del equipo frena)
       case 'agilidad': mod = Math.max(0, Math.floor(((A.Balance && A.Balance.playerCombatStats ? A.Balance.playerCombatStats(p).speed : st.speed || 10) - 8) / 2)); break;
@@ -80,7 +98,7 @@
       default: mod = 0;
     }
     // El hambre fuerte te quita reflejos
-    if (A.Survival && A.Survival.getStatus) {
+    if (!opts.noHunger && A.Survival && A.Survival.getStatus) {
       const s = A.Survival.getStatus();
       if (s && s.id === 'weak') mod -= 1;
       if (s && s.id === 'starving') mod -= 2;
@@ -88,22 +106,37 @@
     return mod + half;
   }
 
-  /** Dificultad real de una tirada en una zona de cierto tier. */
+  /**
+   * v3.1: las estadísticas de explorar de un héroe, para mostrarlas
+   * (la ficha y la pantalla de inicio). opts.noHunger: sin contar el hambre.
+   */
+  const SHEET = ['fuerza', 'agilidad', 'ingenio', 'punteria', 'suerte'];
+  function sheet(p, opts = {}) {
+    return SHEET.map((id) => {
+      const value = statMod(id, p, null, opts);
+      const base = opts.noHunger ? value : statMod(id, p, null, { noHunger: true });
+      return { id, label: STATS[id].label, icon: STATS[id].icon, hint: STATS[id].hint, value, down: value < base };
+    });
+  }
+
+  /** Dificultad real de una tirada en una zona de cierto tier (las de carrera no suben con la zona). */
   function dcFor(check, tier) {
     if (!check) return 0;
+    if (check.noTier) return check.dc || 10;
     return (check.dc || 10) + Math.floor(((tier || 1) - 1) / 2);
   }
 
-  /** Probabilidad (0..1) de pasar la tirada. El 20 siempre sale bien y el 1 siempre mal. */
-  function chanceOf(check, tier, p) {
+  /** Probabilidad (0..1) de pasar la tirada. El 20 siempre sale bien y el 1 siempre mal.
+   *  bonus: lo que suma haber observado antes (v3.1). */
+  function chanceOf(check, tier, p, bonus) {
     if (!check) return 1;
-    const need = dcFor(check, tier) - statMod(check.stat, p);
+    const need = dcFor(check, tier) - statMod(check.stat, p, check) - (bonus || 0);
     return Math.max(1, Math.min(19, 21 - need)) / 20;
   }
 
-  function roll(check, tier, p) {
+  function roll(check, tier, p, bonus) {
     const dc = dcFor(check, tier);
-    const mod = statMod(check.stat, p);
+    const mod = statMod(check.stat, p, check) + (bonus || 0);
     let d = 1 + rnd(20);
     let lucky = false;
     // Suerte del mediano: un 1 se vuelve a tirar
@@ -274,9 +307,12 @@
     const all = (A.Data.events && A.Data.events.length ? A.Data.events : (A.Seed.events || []));
     const recent = new Set(recentList());
     // v2.2: una escena puede ser de zonas puntuales (regions) además de biomas
+    // v3.1: algunas escenas son solo de noche o solo de día
+    const night = A.Time && A.Time.isNight ? A.Time.isNight() : false;
     const fits = all.filter((e) => (Array.isArray(e.regions) && e.regions.length
       ? e.regions.includes(region.id)
-      : (e.biomes || ['any']).some((b) => b === 'any' || b === region.biome)));
+      : (e.biomes || ['any']).some((b) => b === 'any' || b === region.biome))
+      && (!e.time || e.time === 'any' || (e.time === 'night') === night));
     const fresh = fits.filter((e) => !recent.has(e.id));
     return fresh.length ? fresh : fits;
   }
@@ -365,6 +401,28 @@
     });
   }
 
+  /**
+   * v3.1: qué tan alerta está el grupo (lo que cuesta sorprenderlo): manda la más atenta.
+   * Las bestias huelen, las que andan en manada o son ágiles se avisan, las que vuelan ven desde
+   * arriba. Los muertos, los constructos, las plantas y las lentas casi no se dan cuenta.
+   */
+  function alertOf(group) {
+    let best = -9;
+    for (const e of group) {
+      const fam = e.family || [];
+      const tags = e.tags || [];
+      let x = 0;
+      if (fam.includes('beast')) x += 1;
+      if (tags.includes('pack') || tags.includes('agile')) x += 1;
+      if (tags.includes('flying')) x += 1;
+      if (fam.includes('undead') || fam.includes('construct') || fam.includes('plant') || tags.includes('slow')) x -= 2;
+      if (fam.includes('elemental') && !fam.includes('arcane')) x -= 1;
+      if (e.elite) x += 1;
+      best = Math.max(best, x);
+    }
+    return Math.max(-2, Math.min(4, best));
+  }
+
   /** Escena con criaturas: se elige cómo encararlas. */
   function creatureScene(region, group, opts = {}) {
     const tier = regionTier(region);
@@ -378,15 +436,21 @@
     const lead = leaderOf(group);
     const elite = group.find((e) => e.elite);
 
+    // v3.1: la escena dice si te vieron o no, y eso cambia lo fácil que es sorprenderlos
+    const variant = night ? -1 : rnd(3);
     let text = night
       ? `En plena noche te despierta un ruido. ${Text} ${phrase.plural ? 'rondan' : 'ronda'} el campamento.`
-      : pick([
+      : [
         `${Text} ${phrase.plural ? 'merodean' : 'merodea'} ${where}. Todavía no te ${phrase.plural ? 'vieron' : 'vio'}.`,
         `Ves ${phrase.text} ${where}. ${phrase.plural ? 'Están distraídos' : 'Está distraído'}, buscando comida.`,
-        `${where.charAt(0).toUpperCase() + where.slice(1)} aparece${phrase.plural ? 'n' : ''} ${phrase.text}. Por ahora no ${phrase.plural ? 'notaron' : 'notó'} tu presencia.`,
-      ]);
+        `${where.charAt(0).toUpperCase() + where.slice(1)} aparece${phrase.plural ? 'n' : ''} ${phrase.text}. ${phrase.plural ? 'Olfatean el aire: algo notaron' : 'Olfatea el aire: algo notó'}.`,
+      ][variant];
     // v2.5: la élite se nota de lejos
     if (elite) text += n > 1 ? ` ${capFirst(nounOf(elite))} los encabeza: es más fuerte que el resto.` : ' Es de élite: más fuerte que los de su especie.';
+
+    // v3.1: qué tan alerta está (sorprenderlos) y qué tan rápida es la más rápida (huir)
+    const alert = alertOf(group) + (variant === 1 ? -2 : variant === 2 ? 2 : 0);
+    const fastest = Math.max(...group.map((e) => e.speed || 10));
 
     // v2.5: el ataque por sorpresa depende de tu clase. Si sale bien, arrancan heridos;
     // si sale mal, la criatura te hace algo antes de empezar.
@@ -399,48 +463,59 @@
     const one = nounOf(group[0]);
     const onThem = n > 1 ? 'ellos' : one;
     const starts = n > 1 ? `arrancan ${adj('herido')}` : `arranca ${adj('herido')}`;
+    const sneakDc = 10 + alert + (n - 1);
+    const sneakHint = `Bien: ${n > 1 ? 'arrancan heridos' : `arranca ${adj('herido')}`} y pegás primero. Mal: te golpean antes de empezar.`;
     const attack = night
       ? { label: 'Levantarte de un salto', check: { stat: 'agilidad', dc: 11 + (n - 1) },
+        hint: 'Bien: peleás despierto y primero. Mal: te agarran dormido.',
         ok: { text: 'Te levantás con el arma en la mano antes de que lleguen.', fight: { surprise: true } },
         fail: { text: 'Todavía estás medio dormido cuando se te tiran encima.', fight: { ambush: true } } }
       : type === 'warrior'
-        ? { label: n > 1 ? 'Cargar contra ellos' : capFirst(`cargar contra ${one}`), check: { stat: 'fuerza', dc: 11 + (n - 1) },
+        ? { label: n > 1 ? 'Cargar contra ellos' : capFirst(`cargar contra ${one}`), check: { stat: 'fuerza', dc: sneakDc }, hint: sneakHint,
           ok: { text: `Te lanzás con todo y ${them} agarrás ${adj('desprevenido')}: tu primer golpe ya ${them} dejó ${adj('tocado')}.`, fight: { surprise: true, wound } },
           fail: { text: `Te ven venir de lejos. ${failSurprise.text}`, fight: { opening: failSurprise.opening } } }
         : type === 'mage'
-          ? { label: 'Lanzar un hechizo desde las sombras', check: { stat: 'ingenio', dc: 11 + (n - 1) },
+          ? { label: 'Lanzar un hechizo desde las sombras', check: { stat: 'ingenio', dc: sneakDc }, hint: sneakHint,
             ok: { text: `Tu hechizo cae sobre ${onThem} antes de que ${n > 1 ? 'reaccionen' : 'reaccione'}: ${starts}.`, fight: { surprise: true, wound } },
             fail: { text: `El zumbido del maná te delata. ${failSurprise.text}`, fight: { opening: failSurprise.opening } } }
-          : { label: 'Atacar por sorpresa', check: { stat: 'agilidad', dc: 11 + (n - 1) },
+          : { label: 'Atacar por sorpresa', check: { stat: 'agilidad', dc: sneakDc }, hint: sneakHint,
             ok: { text: `Te acercás sin hacer ruido y caés sobre ${onThem}: ${starts}.`, fight: { surprise: true, wound } },
             fail: { text: `Una rama cruje bajo tu pie. ${failSurprise.text}`, fight: { opening: failSurprise.opening } } };
 
     const options = [attack];
     if (night) {
       options.push({ label: 'Quedarte quieto y esperar', check: { stat: 'suerte', dc: 11 },
+        hint: 'Bien: se van y seguís durmiendo. Mal: te encuentran entre las mantas.',
         ok: { text: 'Olfatean un rato y se van. Volvés a dormirte con el arma en la mano.', heal: 0.2 },
         fail: { text: 'Te encuentran entre las mantas.', fight: { ambush: true } } });
     } else {
-      // Pelear de frente: sin tirada, como siempre
-      options.push({ label: 'Pelear de frente', ok: { text: 'Te plantás delante y preparás el arma. Que empiece la pelea.', fight: {} } });
-      // v2.5: Huir (antes "Escabullirte"): cuanto más rápidos son, más difícil
-      const fastest = Math.max(...group.map((e) => e.speed || 10));
-      const fleeDc = 10 + (n - 1) * 2 + Math.max(0, Math.floor((fastest - 10) / 2));
-      options.push({ label: 'Huir', check: { stat: 'agilidad', dc: fleeDc },
-        ok: { text: 'Das media vuelta y te alejás antes de que te alcancen.', xp: 0.1 },
+      // v3.1: pelear de frente: sin tirada y con la guardia alta (cuesta más pegarte al principio)
+      options.push({ label: 'Pelear de frente', hint: 'Sin sorpresas: arrancás con la guardia alta (+2 de defensa por 2 turnos).',
+        ok: { text: 'Te plantás delante, con el arma firme y la guardia alta. Que empiece la pelea.', fight: { guard: true } } });
+      // v3.1: Huir es una carrera: tu velocidad contra la de la más rápida
+      options.push({ label: 'Huir', check: { stat: 'carrera', dc: 10 + (n - 1) * 2, vs: fastest, noTier: true },
+        hint: `Bien: te alejás sin pelear. Mal: ${n > 1 ? 'te alcanzan' : 'te alcanza'} y ${n > 1 ? 'pegan' : 'pega'} primero.`,
+        ok: { text: 'Das media vuelta y corrés sin mirar atrás. Te alejás antes de que te alcancen.', xp: 0.1 },
         fail: { text: `${capFirst(nounOf(lead))} es más ${A.Narrator && A.Narrator.isFem && A.Narrator.isFem(lead.id) ? 'rápida' : 'rápido'}: te ${n > 1 ? 'alcanzan' : 'alcanza'} antes de que puedas escapar.`, fight: { ambush: true } } });
+      // v3.1: Observar: aprendés cómo es (bestiario) y sumás a la próxima tirada
+      options.push({ label: n > 1 ? 'Observarlos de lejos' : 'Observar de lejos', observe: true,
+        check: { stat: 'ingenio', dc: 8 + Math.ceil(Math.max(0, alert) / 2) + (n - 1) },
+        hint: 'Bien: la anotás en el bestiario y sumás +2 a lo que hagas después. Mal: te descubren y pelean.',
+        ok: { text: n > 1 ? 'Te quedás quieto mirando cómo se mueven. Ya sabés de qué son capaces.' : `Te quedás quieto mirando cómo se mueve ${one}. Ya sabés de qué es capaz.`, study: true },
+        fail: { text: n > 1 ? 'Una piedra rueda bajo tu bota: te descubren mirando y se te vienen encima.' : 'Una piedra rueda bajo tu bota: te descubre mirando y se te viene encima.', fight: {} } });
       // v2.5: una opción más según quiénes son
       const food = foodFor(group);
       if (food) {
-        options.push({ label: `Tirarles ${food.name.toLowerCase()}`, needs: { item: food.id },
+        options.push({ label: `Tirarles ${food.name.toLowerCase()}`, needs: { item: food.id }, hint: 'Se quedan comiendo y te vas sin pelear.',
           ok: { text: `Les tirás ${food.name.toLowerCase()} y, mientras se pelean por la comida, te alejás.`, consume: [[food.id, 1]], xp: 0.05 } });
       } else if (canBribe(group)) {
         const units = 4 * n;
         const cost = Math.max(1, Math.round(coinUnit(tier) * units));
-        options.push({ label: n > 1 ? 'Pagarles para pasar' : 'Pagarle para pasar', needs: { coins: units },
+        options.push({ label: n > 1 ? 'Pagarles para pasar' : 'Pagarle para pasar', needs: { coins: units }, hint: 'Pagás y te dejan pasar sin pelear.',
           ok: { text: n > 1 ? 'Les tirás unas monedas. Las cuentan, se ríen y te dejan pasar.' : 'Le tirás unas monedas. Las cuenta, se ríe y te deja pasar.', coins: -cost, coinsFlat: true } });
       } else if (canScare(group)) {
         options.push({ label: n > 1 ? 'Intimidarlos' : 'Intimidarlo', check: { stat: 'fuerza', dc: 12 + (n - 1) + (elite ? 2 : 0) },
+          hint: 'Bien: se van sin pelear. Mal: atacan envalentonados (pegan más fuerte).',
           ok: { text: n > 1 ? 'Les plantás cara con un grito y retroceden. Se van sin pelear.' : 'Le plantás cara con un grito y retrocede. Se va sin pelear.', xp: 0.15 },
           fail: { text: n > 1 ? 'No se asustan. Al contrario: se envalentonan y atacan.' : 'No se asusta. Al contrario: se envalentona y ataca.', fight: { rally: true } } });
       }
@@ -449,7 +524,7 @@
       if (e && e.tameable && !p.pet && A.Tame && A.Tame.canTame) {
         const can = A.Tame.canTame(e.id);
         if (can && (can.ok || can.reason === 'missing-item')) {
-          options.push({ label: 'Acercarte con calma', tame: true, ok: { text: 'Te agachás despacio y le mostrás las manos.', tame: true } });
+          options.push({ label: 'Acercarte con calma', tame: true, hint: `Intentás que confíe en vos para domar${them}.`, ok: { text: 'Te agachás despacio y le mostrás las manos.', tame: true } });
         }
       }
     }
@@ -565,6 +640,7 @@
     }
     const scene = buildScene(region);
     if (!scene) return { ok: false };
+    noteSeen(scene);
     if (inGroup()) {
       scene.party = true;
       scene.by = A.State.hidOf(player()); // quién exploró
@@ -576,6 +652,12 @@
 
   function current() {
     return A.State.ui && A.State.ui.openModal === 'event' ? A.State.ui.modalPayload : null;
+  }
+
+  /** v3.1: las criaturas de una escena entran al bestiario de los que están ahí. */
+  function noteSeen(scene) {
+    if (!A.Bestiary || !scene || !scene.enemies || !scene.enemies.length) return;
+    for (const h of groupHeroes()) A.State.withHero(h, () => A.Bestiary.see(scene.enemies));
   }
 
   /** ¿Se puede elegir esta opción? (monedas o comida que pide) */
@@ -596,24 +678,105 @@
     return null;
   }
 
-  /** Elegir una opción de la escena abierta. */
-  function choose(idx) {
+  // ============================================================
+  // v3.1: en grupo se vota. Si eligen lo mismo, lo hace el que tiene
+  // más chance; si no, cada uno tira un D20 y gana el más alto.
+  // ============================================================
+
+  function votersOf(sc) {
+    if (!sc || !sc.party) return [];
+    const heroes = groupHeroes();
+    return heroes.length > 1 ? heroes : [];
+  }
+  function heroName(hid) {
+    const h = A.State.heroById ? A.State.heroById(hid) : null;
+    return (h && h.name) || 'Tu compañero';
+  }
+
+  function resolveVotes(sc, voters) {
+    const ids = voters.map((h) => A.State.hidOf(h)).filter((h) => sc.votes && sc.votes[h] != null);
+    if (!ids.length) return null;
+    const picks = ids.map((h) => sc.votes[h]);
+    const agreed = picks.every((i) => i === picks[0]);
+    let winner = ids[0];
+    let rolls = null;
+    if (agreed) {
+      // lo hace el que tiene más chance de que salga bien
+      const opt = sc.options[picks[0]];
+      let best = -1;
+      for (const h of ids) {
+        const hero = A.State.heroById(h);
+        const ch = opt && opt.check ? A.State.withHero(hero, () => chanceOf(opt.check, sc.tier, hero, sc.bonus || 0)) : 1;
+        if (ch > best + 1e-9) { best = ch; winner = h; }
+      }
+    } else {
+      // un dado cada uno; si empatan arriba, se vuelve a tirar
+      rolls = {};
+      for (let t = 0; t < 6; t++) {
+        for (const h of ids) rolls[h] = 1 + rnd(20);
+        const top = Math.max(...ids.map((h) => rolls[h]));
+        if (ids.filter((h) => rolls[h] === top).length === 1) break;
+      }
+      winner = ids.slice().sort((a, b) => (rolls[b] - rolls[a]) || (a === sc.by ? -1 : b === sc.by ? 1 : 0))[0];
+    }
+    const idx = sc.votes[winner];
+    let res = null;
+    A.State.withHero(A.State.heroById(winner), () => { res = doChoose(idx, sc); });
+    if (sc.result) {
+      sc.result.vote = {
+        agreed,
+        winner,
+        winnerName: heroName(winner),
+        votes: ids.map((h) => ({ hid: h, name: heroName(h), label: (sc.options[sc.votes[h]] || {}).label || '' })),
+        rolls: rolls ? ids.map((h) => ({ hid: h, name: heroName(h), d: rolls[h] })) : null,
+      };
+      A.State.openModal('event', sc);
+    }
+    return res;
+  }
+
+  /** Elegir una opción de la escena abierta (en grupo: votar). opts.force: no esperar al otro. */
+  function choose(idx, opts = {}) {
     const sc = current();
     if (!sc || sc.stage !== 'choose') return null;
     const opt = sc.options[idx];
     if (!opt || optionBlocked(opt)) return null;
+    const voters = votersOf(sc);
+    if (voters.length > 1) {
+      const me = A.State.hidOf(player());
+      sc.votes = Object.assign({}, sc.votes || {}, { [me]: idx });
+      sc.votedAt = Object.assign({}, sc.votedAt || {}, { [me]: Date.now() });
+      const all = voters.every((h) => sc.votes[A.State.hidOf(h)] != null);
+      if (!all && !(opts && opts.force)) {
+        A.State.addChronicle({ type: 'note', text: `${player().name} votó: ${opt.label.toLowerCase()}.` });
+        A.State.openModal('event', sc);
+        return { voted: true };
+      }
+      return resolveVotes(sc, voters);
+    }
+    return doChoose(idx, sc);
+  }
+
+  function doChoose(idx, sc) {
+    const opt = sc.options[idx];
+    if (!opt) return null;
     const region = A.Data.getById('regions', sc.regionId) || regionNow();
     const p = player();
 
     let rollRes = null;
     let outcome = opt.ok;
     if (opt.check) {
-      rollRes = roll(opt.check, sc.tier, p);
+      rollRes = roll(opt.check, sc.tier, p, sc.bonus || 0);
       outcome = rollRes.success ? opt.ok : (opt.fail || { text: 'No sale como esperabas.' });
     }
     outcome = outcome || { text: '' };
     // v2.1: salir bien de una tirada también enseña algo (un poco de experiencia)
-    if (rollRes && rollRes.success && !outcome.fight) outcome = { ...outcome, xp: (outcome.xp || 0) + 0.3 };
+    if (rollRes && rollRes.success && !outcome.fight && !outcome.study) outcome = { ...outcome, xp: (outcome.xp || 0) + 0.3 };
+    // v3.1: observar: al bestiario de los que están ahí, y se vuelve a elegir con +2
+    let studied = [];
+    if (outcome.study && sc.enemies && sc.enemies.length) {
+      for (const h of groupHeroes()) A.State.withHero(h, () => { const fresh = A.Bestiary ? A.Bestiary.study(sc.enemies) : []; if (h === p) studied = fresh; });
+    }
 
     const chips = applyOutcome(outcome, { tier: sc.tier, region });
 
@@ -627,6 +790,7 @@
         if (outcome.fight.wound) fight.wound = outcome.fight.wound;
         if (outcome.fight.opening) fight.opening = outcome.fight.opening;
         if (outcome.fight.rally) fight.rally = true;
+        if (outcome.fight.guard) fight.guard = true;
       }
     }
 
@@ -645,6 +809,9 @@
       chips,
       fight,
       tame: !!outcome.tame,
+      // v3.1: observar sale bien: se vuelve a elegir (sin "observar" y con +2)
+      again: !!(outcome.study && !fight),
+      studied: studied.map((id) => { const d = A.Data.getById('enemies', id); return d ? d.name : id; }),
     };
 
     // Crónica: una sola línea por escena
@@ -668,11 +835,23 @@
     const sc = current();
     if (!sc) { A.State.closeModal(); return; }
     const res = sc.result;
+    // v3.1: después de observar se vuelve a elegir, con +2 a la tirada
+    if (res && res.again) {
+      sc.stage = 'choose';
+      sc.result = null;
+      sc.options = sc.options.filter((o) => !o.observe);
+      sc.bonus = (sc.bonus || 0) + 2;
+      sc.text = `${sc.text.replace(/\s*Ya sabés por dónde ir\.$/, '')} Ya sabés por dónde ir.`;
+      A.State.openModal('event', sc);
+      return;
+    }
     A.State.closeModal();
     if (!res) return;
     if (res.fight) {
       const f = res.fight;
       const opening = (f.opening || []).slice();
+      // v3.1: de frente, con la guardia alta
+      if (f.guard) opening.push({ type: 'buff', source: 'guardia', name: 'Guardia alta', mods: { defense: 2 }, turns: 2, say: 'Arrancás con la guardia alta: por dos turnos cuesta más pegarte.' });
       // v2.5: el ataque por sorpresa les saca un pedazo de vida antes de empezar
       if (f.wound) {
         for (const e of f.enemies) if (e.hp > 0) e.hp = Math.max(1, Math.round(e.hp - (e.maxHp || e.hp) * f.wound));
@@ -845,9 +1024,12 @@
       eat();
       A.Time.passTo('morning');
       w.restLock = true;
-      const group = A.Encounter.generate(region.id);
+      const group = A.Encounter.generate(region.id, { at: 'night' }); // las de la noche (ya pasó a la mañana)
       if (group && group.length) {
-        A.State.openModal('event', creatureScene(region, group, { night: true }));
+        const nightScene = creatureScene(region, group, { night: true });
+        noteSeen(nightScene);
+        if (inGroup()) { nightScene.party = true; nightScene.by = A.State.hidOf(player()); }
+        A.State.openModal('event', nightScene);
         A.State.persist();
         return { kind: 'night-event' };
       }
@@ -882,6 +1064,7 @@
   A.Explore = {
     STATS,
     statMod,
+    sheet,
     _creatureScene: creatureScene, // v2.5: para las pruebas
     dcFor,
     chanceOf,

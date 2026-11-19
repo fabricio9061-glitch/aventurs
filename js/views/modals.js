@@ -558,7 +558,7 @@
         <p>Cada vez que explorás pasa algo: aparece una criatura (y elegís cómo encararla) o te toca una escena con dos o tres caminos. Explorar hace pasar el tiempo y da hambre.</p>
 
         <h3>Clases</h3>
-        <p><b>Guerreros</b>: sin magia, pero pegan más fuerte con cualquier arma y tienen el <b>Golpe fuerte</b>: un ataque con el doble de daño que se puede usar una vez cada 5 turnos. <b>Magos</b>: viven de la magia; el maná les vuelve solo, un poco en cada turno (más desde el nivel 5) y otro poco al ganar, pero son frágiles y las armas pesadas les quitan precisión. <b>Híbridos</b>: usan cualquier arma y algo de magia; cada golpe con arma que aciertan les devuelve maná (más desde el nivel 5). Cada raza con magia nace con su propio hechizo.</p>
+        <p><b>Guerreros</b>: sin magia, pero pegan más fuerte con cualquier arma y tienen el <b>Golpe fuerte</b>: un ataque con el doble de daño que se puede usar una vez cada 5 turnos. <b>Magos</b>: viven de la magia; el maná les vuelve solo, un poco en cada turno (más desde el nivel 5) y otro poco al ganar, pero son frágiles y las armas pesadas les quitan precisión. <b>Híbridos</b>: usan cualquier arma y algo de magia; cada golpe con arma que aciertan les devuelve maná (más desde el nivel 9). Cada raza con magia nace con su propio hechizo.</p>
 
         <h3>Descansar</h3>
         <p>De día, una siesta te cura un poco (hasta la mitad de tu vida) y pasa la tarde. De noche dormís hasta la mañana y te curás más (hasta tres cuartos); al raso, algo puede acercarse. Descansar da hambre, y después de descansar tenés que moverte (explorar, pelear o viajar) antes de volver a descansar. Para recuperarte del todo: la posada del pueblo o una poción.</p>
@@ -572,6 +572,24 @@
 
   // ---------- Menu ----------
 
+  /** v3.1: la voz del narrador: prender/apagar y la velocidad. */
+  function voiceRow() {
+    if (!A.Voice) return '';
+    if (!A.Voice.supported()) return `<div class="menu-voice is-off">${pxi('mute', 22)}<span>Este navegador no tiene voz para el narrador.</span></div>`;
+    const on = A.Voice.isOn();
+    const fast = A.Voice.rate() > 1.1;
+    const name = A.Voice.voiceName();
+    return `
+      <div class="menu-voice ${on ? 'is-on' : ''}">
+        <button class="menu-voice-toggle" data-menu-action="voice" aria-pressed="${on ? 'true' : 'false'}">
+          ${pxi(on ? 'voice' : 'mute', 24)}
+          <span><b>Voz del narrador</b><small>${on ? `Encendida${name ? ` · ${A.Utils.escapeHtml(name)}` : ''}` : 'Apagada: tocá para que lea en voz alta'}</small></span>
+        </button>
+        ${on ? `<button class="menu-voice-speed" data-menu-action="voice-speed" title="Velocidad de la voz">${fast ? 'Rápida' : 'Normal'}</button>` : ''}
+      </div>
+      ${on && !A.Voice.hasSpanish() ? '<p class="muted small">No encontramos una voz en español en este navegador: va a leer con la que tenga.</p>' : ''}`;
+  }
+
   function renderMenu() {
     // v3.0: la cuenta con la que entraste, y lo del editor solo para el dueño
     const acc = A.Accounts && A.Accounts.info ? A.Accounts.info() : null;
@@ -579,6 +597,7 @@
     const body = `
       <div class="menu-modal">
         ${acc ? `<div class="menu-account">${pxi('user', 22)}<span>Cuenta: <b>${A.Utils.escapeHtml(acc.name)}</b>${acc.owner ? ' <span class="menu-owner">dueño</span>' : ''}</span></div>` : ''}
+        ${voiceRow()}
         <button class="menu-action" data-menu-action="rules">Reglas del juego</button>
         <button class="menu-action" data-menu-action="party">Jugar en grupo</button>
         <button class="menu-action" data-menu-action="export-save">Exportar partida</button>
@@ -609,9 +628,51 @@
 
   // ---------- Creature (info / domar) ----------
 
-  function renderCreature({ enemyId }) {
+  /** v3.1: dónde vive y cuándo sale (las zonas que no conocés, como "???"). */
+  function creatureWhere(e) {
+    const w = A.State.world || {};
+    const visited = new Set(w.visited || []);
+    if (w.regionId) visited.add(w.regionId);
+    const zones = (e.regions || []).map((rid) => {
+      const r = A.Data.getById('regions', rid);
+      return r && visited.has(rid) ? r.name : '???';
+    });
+    const uniq = zones.filter((z, i) => zones.indexOf(z) === i);
+    const tl = A.Encounter && A.Encounter.timeLabel ? A.Encounter.timeLabel(e) : '';
+    return `
+      <div class="creature-where">
+        ${A.ItemSprites ? A.ItemSprites.icon('pin', { size: 18 }) : ''}<span>Vive en: ${A.Utils.escapeHtml(uniq.join(', ') || '???')}</span>
+        ${tl ? `<span class="creature-where-time">${A.ItemSprites ? A.ItemSprites.icon(e.time === 'night' ? 'moon' : 'sun', { size: 18 }) : ''}${A.Utils.escapeHtml(tl)}</span>` : ''}
+      </div>`;
+  }
+
+  function renderCreature(payload) {
+    const html = renderCreatureInner(payload);
+    if (!payload || payload.back !== 'bestiary') return html;
+    // v3.1: desde el bestiario, un botón para volver
+    return html.replace(/(<\/div>\s*)$/, `<div class="creature-back"><button class="btn-ghost" data-back-bestiary>${A.ItemSprites ? A.ItemSprites.icon('skulls', { size: 18 }) : ''}<span>Volver al bestiario</span></button></div>$1`);
+  }
+
+  function renderCreatureInner({ enemyId }) {
     const e = A.Data.getById('enemies', enemyId);
     if (!e) return modalShell('Criatura', `<p class="muted">No encontrada.</p>`);
+    // v3.1: bestiario: "???" hasta que la ves; habilidades y botín, cuando la conocés
+    const known = !A.Bestiary || A.Bestiary.isKnown(e.id);
+    const studied = !A.Bestiary || A.Bestiary.isStudied(e.id);
+    if (!known) {
+      return modalShell('???', `
+        <div class="creature-modal is-unknown">
+          <div class="creature-modal-header">
+            <div class="creature-modal-icon">${A.Sprites ? A.Sprites.html(e, { size: 80 }) : ''}</div>
+            <div>
+              <div class="creature-modal-name">???</div>
+              <div class="creature-modal-meta dim"><span class="pill pill-tier">Nivel ${e.tier}</span></div>
+            </div>
+          </div>
+          <p class="muted">Todavía no la viste. Explorá y viajá por las zonas para descubrirla: cuando la encuentres, entra a tu bestiario.</p>
+        </div>`);
+    }
+    const bk = A.Bestiary ? A.Bestiary.entry(e.id) : null;
     const families = (e.family || []).map(escapeChip).join(' ');
     const tags = (e.tags || []).map(escapeChip).join(' ');
     const canTame = !!e.tameable;
@@ -634,6 +695,7 @@
           </div>
         </div>
         ${creatureDiceBlock(e)}
+        ${creatureWhere(e)}
         <div class="creature-stats">
           <div class="stat-row"><span class="dim">Salud</span><span class="num">${e.health}</span></div>
           <div class="stat-row"><span class="dim">Daño</span><span class="num">${e.damage}</span></div>
@@ -641,15 +703,21 @@
           <div class="stat-row"><span class="dim">Armadura</span><span class="num">${e.armor}</span></div>
           <div class="stat-row"><span class="dim">Velocidad</span><span class="num">${e.speed}</span></div>
         </div>
-        ${(() => {
+        ${studied ? (() => {
           // v2.5: pasivas y activas de la criatura
           const list = A.Skills ? A.Skills.listFor(e) : [];
-          if (!list.length) return '';
-          return `<div class="creature-skills">
-            <div class="creature-skills-title">Habilidades</div>
-            ${list.map((sk) => `<div class="creature-skill">${A.ItemSprites ? A.ItemSprites.icon(sk.icon || 'star', { size: 20 }) : ''}<span><b>${A.Utils.escapeHtml(sk.name)}</b> <span class="dim">· ${sk.kind === 'passive' ? 'pasiva' : 'activa'}</span><br><span class="dim small">${A.Utils.escapeHtml(sk.text || '')}</span></span></div>`).join('')}
-          </div>`;
-        })()}
+          const drops = A.Bestiary ? A.Bestiary.dropsOf(e) : [];
+          return `
+            ${list.length ? `<div class="creature-skills">
+              <div class="creature-skills-title">Habilidades</div>
+              ${list.map((sk) => `<div class="creature-skill">${A.ItemSprites ? A.ItemSprites.icon(sk.icon || 'star', { size: 20 }) : ''}<span><b>${A.Utils.escapeHtml(sk.name)}</b> <span class="dim">· ${sk.kind === 'passive' ? 'pasiva' : 'activa'}</span><br><span class="dim small">${A.Utils.escapeHtml(sk.text || '')}</span></span></div>`).join('')}
+            </div>` : ''}
+            ${drops.length ? `<div class="creature-skills creature-drops">
+              <div class="creature-skills-title">Puede soltar</div>
+              <div class="creature-drop-list">${drops.slice(0, 10).map((d) => `<span class="creature-drop" title="${Math.round(d.chance * 100)}%">${A.ItemSprites ? A.ItemSprites.html(d.id, { size: 22 }) : ''}<span>${A.Utils.escapeHtml(d.name)}</span></span>`).join('')}</div>
+            </div>` : ''}`;
+        })() : `<p class="creature-secret">${A.ItemSprites ? A.ItemSprites.icon('question', { size: 18 }) : ''}<span>Sus habilidades y su botín, todavía no. Observala al explorar o vencela ${A.Bestiary ? A.Bestiary.KNOW_KILLS : 3} veces.</span></p>`}
+        ${bk && bk.killed ? `<p class="muted small">La venciste ${bk.killed} ${bk.killed === 1 ? 'vez' : 'veces'}.</p>` : ''}
         <div class="creature-notes">
           <p class="muted small">Aparece al explorar o al viajar por la zona. A veces sale de élite (alfa, campeón o mayor): más fuerte y con mejor botín.</p>
           ${canTame && !tameBlocked ? `<p class="muted small">Se puede domar si es el último enemigo en pie y tenés la comida que le gusta${diet ? ` (come ${A.Utils.escapeHtml(diet.eats)})` : ''}.</p>` : ''}
@@ -698,19 +766,22 @@
       <div class="all-creatures-modal">
         <p class="muted">${enemies.length} criaturas pueden aparecer en ${A.Utils.escapeHtml(region.name)}.</p>
         <div class="creature-list">
-          ${enemies.map((e) => `
-            <button class="creature-list-row" data-creature="${A.Utils.escapeHtml(e.id)}">
+          ${enemies.map((e) => {
+            const known = !A.Bestiary || A.Bestiary.isKnown(e.id);
+            const tl = known && A.Encounter && A.Encounter.timeLabel ? A.Encounter.timeLabel(e) : '';
+            return `
+            <button class="creature-list-row ${known ? '' : 'is-unknown'}" data-creature="${A.Utils.escapeHtml(e.id)}">
               <span class="creature-list-icon">${A.Sprites ? A.Sprites.html(e, { size: 36 }) : ''}</span>
               <span class="creature-list-info">
-                <span class="creature-list-name">${A.Utils.escapeHtml(e.name)}</span>
+                <span class="creature-list-name">${known ? A.Utils.escapeHtml(e.name) : '???'}</span>
                 <span class="creature-list-meta dim">
-                  Nivel ${e.tier} · ${categoryLabel(e.category)}${e.tameable ? ' · domable' : ''}
+                  Nivel ${e.tier}${known ? ` · ${categoryLabel(e.category)}${e.tameable ? ' · domable' : ''}${tl ? ` · ${tl.toLowerCase()}` : ''}` : ' · todavía no la viste'}
                 </span>
               </span>
-              ${A.ItemSprites && A.ItemSprites.dcBadge ? A.ItemSprites.dcBadge(e.difficulty != null ? e.difficulty : 10, { size: 30 }) : ''}
+              ${known && A.ItemSprites && A.ItemSprites.dcBadge ? A.ItemSprites.dcBadge(e.difficulty != null ? e.difficulty : 10, { size: 30 }) : ''}
               <span class="creature-list-arrow dim">›</span>
-            </button>
-          `).join('')}
+            </button>`;
+          }).join('')}
         </div>
       </div>
     `;
@@ -1073,7 +1144,7 @@
     const body = A.Views.Combat && A.Views.Combat.chronicleHtml
       ? A.Views.Combat.chronicleHtml(c.log, { rolls: true, combat: c })
       : c.log.map((e) => `<div class="cb-line"><span class="cb-line-body">${A.Utils.escapeHtml(e.text || '')}</span></div>`).join('');
-    return modalShell('Crónica del combate', `<div class="combat-fulllog-modal cb-chronicle">${body}</div>`);
+    return modalShell('Crónica del combate', `<div class="combat-fulllog-modal cb-chronicle" data-fulllog>${body}</div>`).replace('class="modal"', 'class="modal modal-fulllog"');
   }
 
   function renderCombatSpell() {
@@ -1347,6 +1418,12 @@
       });
     }
 
+    // v3.1: de la ficha de una criatura, volver al bestiario
+    if (id === 'creature') {
+      const back = overlay.querySelector('[data-back-bestiary]');
+      if (back) back.addEventListener('click', () => A.State.openModal('journal', { tab: 'bestiary' }));
+    }
+
     if (id === 'all-creatures') {
       overlay.querySelectorAll('[data-creature]').forEach((b) => {
         b.addEventListener('click', () => {
@@ -1436,6 +1513,14 @@
       return;
     }
     if (action === 'party') { A.State.openModal('party', {}); return; }
+    // v3.1: voz del narrador
+    if (action === 'voice' && A.Voice) { A.Voice.toggle(); A.State.openModal('menu'); return; }
+    if (action === 'voice-speed' && A.Voice) {
+      A.Voice.setRate(A.Voice.rate() > 1.1 ? 1 : 1.25);
+      A.Voice.say(A.Voice.rate() > 1.1 ? 'Así leo más rápido.' : 'Así leo a velocidad normal.', { now: true });
+      A.State.openModal('menu');
+      return;
+    }
     if (action === 'logout') {
       A.State.closeModal();
       if (A.State.player && !A.State.combat) A.State.persist();

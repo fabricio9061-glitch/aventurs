@@ -127,7 +127,7 @@
       combatType: 'warrior',
       magic: false,
       passive: 'cuerpo_metal',
-      bonuses: { hp: 3, mana: 0, speed: -1, precision: 1, armor: 1, damage: 0, dodge: -1 },
+      bonuses: { hp: 2, mana: 0, speed: -1, precision: 1, armor: 1, damage: 0, dodge: -1 }, // v3.1: vida 3 -> 2 (ahora tiene blindaje)
       description: 'Construidos, no nacidos. Inmunes al cansancio, al veneno y a la duda, pero ajenos por completo a la magia.',
     },
     {
@@ -189,7 +189,7 @@
       magic: true,
       passive: 'llama_interior',
       startSpell: 'ascua_infernal', manaRegen: { turn: 1, win: 0.15 },
-      bonuses: { hp: -6, mana: 4, speed: 1, precision: 2, armor: 0, damage: 0, dodge: 1 },
+      bonuses: { hp: -6, mana: 4, speed: 1, precision: 2, armor: 0, damage: 0, dodge: 2 }, // v3.1: esquiva 1 -> 2 (era el mago más flojo)
       description: 'Nacidos con sangre de demonio. Llevan el fuego del abismo en las venas y lo vuelcan en cada hechizo.',
     },
     {

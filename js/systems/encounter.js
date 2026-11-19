@@ -74,6 +74,25 @@
     return levelFactor(e, lvl) * (targetsCache && targetsCache.has(e.id) ? 8 : 1);
   }
 
+  // ---------- v3.1: criaturas de día y de noche ----------
+  const UNDERGROUND = ['cave', 'crypt', 'hell', 'abyss'];
+  function isUnderground(region) {
+    const b = region && region.biome;
+    return (Array.isArray(b) ? b : [b]).some((x) => UNDERGROUND.includes(x));
+  }
+  /** ¿Sale ahora? (las de noche, de noche o de madrugada; las de día, de mañana o de tarde) */
+  function activeNow(e, region, at) {
+    if (!e || !e.time || e.time === 'any') return true;
+    if (region && isUnderground(region)) return true;
+    const night = at ? at === 'night' : (A.Time && A.Time.isNight ? A.Time.isNight() : false);
+    return e.time === 'night' ? night : !night;
+  }
+  /** Texto corto para mostrar cuándo sale: "De noche", "De día" o "". */
+  function timeLabel(e) {
+    if (!e || !e.time || e.time === 'any') return '';
+    return e.time === 'night' ? 'Sale de noche' : 'Sale de día';
+  }
+
   function mustGoAlone(e, lvl) {
     return (e.tier || 1) > lvl || e.category === 'boss';
   }
@@ -163,8 +182,13 @@
     if (!conf) return [];
     const { region, cfg } = conf;
 
-    const candidates = A.Data.enemiesInRegion(regionId);
+    let candidates = A.Data.enemiesInRegion(regionId);
     if (candidates.length === 0) return [];
+    // v3.1: solo las que salen a esta hora (si no queda ninguna, cualquiera)
+    if (!opts.anyTime) {
+      const now = candidates.filter((e) => activeNow(e, region, opts.at));
+      if (now.length) candidates = now;
+    }
 
     // Cantidad de enemigos
     // v2.1: mientras no llegues al tier más alto de la zona, los grupos son de uno menos
@@ -470,5 +494,9 @@
     eliteTitle,
     spawnInstance,
     DEFAULT_ENCOUNTER,
+    // v3.1
+    activeNow,
+    timeLabel,
+    isUnderground,
   };
 })(window.Aventurs);

@@ -42,7 +42,7 @@
           <div class="shell-brand">
             <span class="brand-icon">${A.UI ? A.UI.icon('swords', 26) : ''}</span>
             <span class="brand-name">Aventurs</span>
-            <span class="version-pill" title="Versión del juego">v3.0.0</span>
+            <span class="version-pill" title="Versión del juego">v3.1.0</span>
           </div>
           ${tabs.length > 1 ? `
             <nav class="shell-nav">
@@ -149,6 +149,20 @@
     return `<div class="sb-stat ${down ? 'is-down' : ''}" title="${escH(title || label)}">${ic(iconName, 18)}<span class="sb-stat-val num">${escH(value)}</span><span class="sb-stat-label">${escH(label)}</span></div>`;
   }
 
+  /** v3.1: lo que suma cada estadística al explorar (Fuerza, Agilidad...). */
+  function exploreSheet(p) {
+    if (!A.Explore || !A.Explore.sheet) return '';
+    const list = A.Explore.sheet(p);
+    const sign = (v) => (v > 0 ? `+${v}` : `${v}`);
+    return `
+          <section class="sb-sec sb-sec-explore">
+            <h3 class="sb-title"><span>Al explorar</span><span class="sb-title-note">se suma al dado</span></h3>
+            <div class="sb-xstats">
+              ${list.map((x) => `<div class="sb-xstat ${x.down ? 'is-down' : ''}" title="${escH(`${x.label}: ${x.hint} Se suma al dado de 20 cuando una escena pide ${x.label}.${x.down ? ' Con hambre fuerte, baja.' : ''}`)}">${ic(x.icon, 14)}<span class="sb-xstat-val num">${sign(x.value)}</span><span class="sb-xstat-label">${escH(x.label)}</span></div>`).join('')}
+            </div>
+          </section>`;
+  }
+
   /** v2.4: la velocidad cuenta el peso de arma y armadura. */
   function speedTitle(p, st) {
     const base = 'Velocidad: el más rápido actúa primero, y te ayuda a huir.';
@@ -221,7 +235,7 @@
           <section class="sb-bars">
             ${hudBar('is-hp', 'heart', 'Vida', p.hp, p.maxHp)}
             ${p.hasMagic ? hudBar('is-mana', 'spell', `Maná. ${manaHint}`, p.mana, p.maxMana, regen.turn > 0 ? `<span class="sb-bar-tag" title="${escH(manaHint)}">+${regen.turn}</span>` : '') : ''}
-            ${hudBar(`is-food ${hunger ? 'hunger-' + hunger.id : ''}`, 'food', `Comida${hunger ? ` (${hunger.label})` : ''}`, p.food || 0, p.maxFood || 20, hunger && ['hungry', 'weak', 'starving'].includes(hunger.id) ? `<span class="sb-bar-tag is-warn">${escH(hunger.label)}</span>` : '')}
+            ${hudBar(`is-food ${hunger ? 'hunger-' + hunger.id : ''}`, 'food', `Comida${hunger ? ` (${hunger.label})` : ''}.${A.Survival && A.Survival.describeDiet ? ` ${A.Survival.describeDiet(p)}` : ''}`, p.food || 0, p.maxFood || 20, hunger && ['hungry', 'weak', 'starving'].includes(hunger.id) ? `<span class="sb-bar-tag is-warn">${escH(hunger.label)}</span>` : '')}
           </section>
 
           ${p.pet ? renderPetSidebar(p.pet) : ''}
@@ -237,6 +251,7 @@
               ${p.hasMagic && st ? statChip('arcane', 'Magia', `+${st.spellPower || 0}`, 'Magia: se suma al daño de tus hechizos') : ''}
             </div>
           </section>
+          ${exploreSheet(p)}
           ${classNote(p, weapon)}
 
           <section class="sb-sec">

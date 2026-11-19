@@ -25,7 +25,7 @@
   // ============================================================
 
   let toastTimer = null;
-  function toast(text, kind) {
+  function toast(text, kind, iconName) {
     if (!text || typeof document === 'undefined') return;
     let el = document.querySelector('.pt-toast');
     if (!el) {
@@ -36,7 +36,7 @@
       document.body.appendChild(el);
     }
     el.className = `pt-toast is-${kind || 'info'}`;
-    el.innerHTML = `${icon(kind === 'bad' ? 'warning' : 'party', 22)}<span>${esc(text)}</span>`;
+    el.innerHTML = `${icon(iconName || (kind === 'bad' ? 'warning' : 'party'), 22)}<span>${esc(text)}</span>`;
     // forzar la animación
     void el.offsetWidth;
     el.classList.add('is-on');

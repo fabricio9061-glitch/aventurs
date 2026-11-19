@@ -259,6 +259,14 @@
     if (ef.heal && ef.type !== 'food' && ef.type !== 'heal') out.push(`+${ef.heal} de vida`);
     if (item.healAmount) out.push(`Te cura ${item.healAmount} de vida`);
     if (item.foodValue) out.push(`+${item.foodValue} de comida`);
+    // v3.1: cómo le cae a tu raza
+    const who = player();
+    if (who && A.Survival && A.Survival.isFood && A.Survival.isFood(item)) {
+      const d = A.Survival.foodFor(who, item);
+      if (d.kind === 'no') out.push(d.why);
+      else if (d.kind === 'fav') out.push('A tu raza le encanta: llena más (x1,5)');
+      else if (d.kind === 'half') out.push('A tu raza le rinde poco: llena la mitad');
+    }
     return out.filter(Boolean);
   }
 
@@ -310,6 +318,13 @@
     if (item.hungerRestore) food += item.hungerRestore;
     if (item.foodValue) food += item.foodValue;
 
+    // v3.1: cada raza come lo suyo (lo que no come, ni llena ni cura)
+    const diet = A.Survival && A.Survival.foodFor && A.Survival.isFood(item) ? A.Survival.foodFor(p, item) : null;
+    if (diet && diet.mult <= 0) {
+      return { parts, hp: 0, mana: 0, food: 0, cleaned: [], why: `${item.name}: ${diet.why}`, diet };
+    }
+    if (diet && food > 0) food = Math.max(1, Math.round(food * diet.mult));
+
     if (ef.type === 'mana') mana += A.Utils.rollDice(ef.amount);
     if (ef.manaRestore) mana += A.Utils.rollDice(ef.manaRestore);
     if (ef.type === 'restore') mana = p.maxMana || 0;
@@ -327,7 +342,7 @@
       if (b < max) {
         p.food = Math.min(max, b + food);
         out.food = p.food - b;
-        if (out.food > 0) parts.push(`+${out.food} comida`);
+        if (out.food > 0) parts.push(`+${out.food} comida${diet && diet.kind === 'fav' ? ' (te encanta)' : diet && diet.kind === 'half' ? ' (te rinde poco)' : ''}`);
         A.Bus.emit('player:food-changed', { current: p.food, max });
       }
     }
@@ -380,6 +395,11 @@
     const heals = ef.type === 'heal' || !!item.healAmount || !!ef.heal || (ef.type === 'cleanse' && ef.pct);
     const feeds = ef.type === 'food' || !!item.foodValue || !!item.hungerRestore || !!ef.hungerRestore;
     const mana = ef.type === 'mana' || !!ef.manaRestore;
+    // v3.1: lo que tu raza no come
+    if (A.Survival && A.Survival.foodFor && A.Survival.isFood(item)) {
+      const d = A.Survival.foodFor(p, item);
+      if (d.mult <= 0) return { ok: false, why: d.why };
+    }
     if (ef.type === 'restore') return hurt || lowMana ? { ok: true } : { ok: false, why: 'Ya estás con la vida y el maná completos.' };
     if ((heals && hurt) || (feeds && hungry) || (mana && lowMana) || petHurt) return { ok: true };
     if (ef.type === 'cure' || ef.type === 'cleanse') return { ok: false, why: 'No tenés nada que curar.' };

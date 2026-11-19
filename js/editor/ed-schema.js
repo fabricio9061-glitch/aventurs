@@ -288,6 +288,8 @@
           F.refs('regions', 'Dónde vive', 'regions', { filter: (r) => r.type === 'combat', add: 'Agregar zona', help: (d) => Ed.panels.homeHelp(d) }),
           F.tags('family', 'Es', opts(L.FAMILY), { add: 'Agregar', help: 'Humanoides, demonios, muertos, arcanos y dragones no se pueden domar.' }),
           F.tags('tags', 'Rasgos', opts(L.TAGS), { add: 'Agregar rasgo' }),
+          // v3.1: criaturas de día y de noche
+          F.sel('time', 'Cuándo sale', [{ value: '', label: 'Siempre' }, { value: 'day', label: 'Solo de día' }, { value: 'night', label: 'Solo de noche' }], { help: 'Bajo tierra (cuevas, criptas, infierno, abismo) sale siempre.' }),
         ] },
         { title: 'Combate', help: 'Así se compara con vos en la pelea.', fields: [
           F.num('health', 'Vida', { min: 1, max: 999 }),

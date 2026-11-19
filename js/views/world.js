@@ -45,7 +45,7 @@
     const lastEvent = t.events[t.events.length - 1];
     if (lastEvent && lastEvent.kind === 'creature' && !lastEvent.resolved) return;
 
-    const delay = mode === 'fast' ? 500 : 2000; // rápido = 500ms, auto = 2s
+    const delay = mode === 'fast' ? 450 : 1500; // v3.1: rápido = 0,45 s, auto = 1,5 s (los viajes tienen más pasos)
     autoStepDelay = delay;
     autoStepTimer = setTimeout(() => {
       autoStepTimer = null;
@@ -170,13 +170,7 @@
           <section class="block2">
             <h2 class="block2-title">${icon('skulls', 18)}<span>Criaturas de la zona</span><span class="block2-hint">El número es la dificultad del dado para pegarles</span></h2>
             <div class="creature-strip">
-              ${enemies.slice(0, 8).map((e) => `
-                <button class="creature-chip" data-creature="${esc(e.id)}" title="${esc(e.name)}: dificultad del dado ${e.difficulty != null ? e.difficulty : 10}">
-                  <span class="creature-icon">${enemySprite(e, 32)}</span>
-                  <span>${esc(e.name)}</span>
-                  ${A.ItemSprites && A.ItemSprites.dcBadge ? A.ItemSprites.dcBadge(e.difficulty != null ? e.difficulty : 10, { size: 24, cls: 'creature-dc' }) : ''}
-                </button>
-              `).join('')}
+              ${enemies.slice(0, 8).map((e) => creatureChip(e, region)).join('')}
               ${enemies.length > 8 ? `
                 <button class="creature-chip is-overflow" data-show-all="${esc(region.id)}">
                   <span>+${enemies.length - 8}</span>
@@ -189,6 +183,27 @@
     `;
 
     bindEvents();
+  }
+
+  /** v3.1: ficha de una criatura de la zona: "???" hasta que la ves; sol o luna si sale a una hora. */
+  function creatureChip(e, region) {
+    const known = !A.Bestiary || A.Bestiary.isKnown(e.id);
+    if (!known) {
+      return `
+        <button class="creature-chip is-unknown" data-creature="${esc(e.id)}" title="Todavía no la viste">
+          <span class="creature-icon">${enemySprite(e, 32)}</span>
+          <span>???</span>
+        </button>`;
+    }
+    const tl = A.Encounter && A.Encounter.timeLabel ? A.Encounter.timeLabel(e) : '';
+    const off = tl && A.Encounter.activeNow && !A.Encounter.activeNow(e, region);
+    return `
+      <button class="creature-chip ${off ? 'is-off' : ''}" data-creature="${esc(e.id)}" title="${esc(e.name)}: dificultad del dado ${e.difficulty != null ? e.difficulty : 10}${tl ? ` · ${tl}${off ? ' (ahora no)' : ''}` : ''}">
+        <span class="creature-icon">${enemySprite(e, 32)}</span>
+        <span>${esc(e.name)}</span>
+        ${tl ? `<span class="creature-time">${icon(e.time === 'night' ? 'moon' : 'sun', 16)}</span>` : ''}
+        ${A.ItemSprites && A.ItemSprites.dcBadge ? A.ItemSprites.dcBadge(e.difficulty != null ? e.difficulty : 10, { size: 24, cls: 'creature-dc' }) : ''}
+      </button>`;
   }
 
   /** Objetivos de misiones activas que se cumplen en esta zona. */
@@ -204,7 +219,13 @@
         const fits = (o.type === 'explore' && o.region === region.id)
           || (o.type === 'kill' && ids.some((id) => here.has(id)))
           || (o.type === 'talk' && A.Data.npcsInRegion(region.id).some((n) => n.id === o.npc));
-        if (fits) out.push({ title: q.title, main: q.main, text: A.Quests.objectiveText(o), count: (o.count || 1) > 1 ? `${pr.have}/${pr.need}` : '' });
+        // v3.1: si lo que hay que derrotar sale a otra hora, se avisa
+        let when = '';
+        if (o.type === 'kill' && A.Encounter && A.Encounter.activeNow) {
+          const foes = ids.map((id) => A.Data.getById('enemies', id)).filter((e) => e && here.has(e.id));
+          if (foes.length && !foes.some((e) => A.Encounter.activeNow(e, region))) when = foes[0].time === 'night' ? ' (sale de noche)' : ' (sale de día)';
+        }
+        if (fits) out.push({ title: q.title, main: q.main, text: A.Quests.objectiveText(o) + when, count: (o.count || 1) > 1 ? `${pr.have}/${pr.need}` : '' });
       });
     }
     return out;
@@ -396,8 +417,12 @@
     return icon(EVENT_ICON[ev.kind] || 'feather', size);
   }
 
+  // v3.1: la voz del narrador lee lo que pasa en el camino (una vez cada suceso)
+  let spokenEv = null;
   function renderStageEvent(ev) {
     const k = ev.kind || 'narrative';
+    const evKey = `${k}|${ev.text || ''}|${(A.State.traveling && A.State.traveling.currentStep) || 0}`;
+    if (evKey !== spokenEv && A.Voice && A.Voice.isOn() && ev.text && k !== 'creature') { spokenEv = evKey; A.Voice.say(ev.text); }
     const themeMap = {
       narrative: { cls: 'is-narrative', title: 'Algo en el camino' },
       minor_loot: { cls: 'is-loot', title: '¡Encontraste algo!' },
