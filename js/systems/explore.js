@@ -69,6 +69,12 @@
     return A.Balance && A.Balance.playerCombatStats ? A.Balance.playerCombatStats(p).speed : st.speed || 10;
   }
 
+  /** v3.6: lo que suma la raza al explorar (race.explore); si una raza del editor no lo tiene, lo de su clase. */
+  function exploreBase(p, stat, fallback) {
+    const race = p && A.Data.getById ? A.Data.getById('races', p.raceId) : null;
+    return race && race.explore && typeof race.explore[stat] === 'number' ? race.explore[stat] : fallback;
+  }
+
   /** Bonus del jugador para una tirada (check: la tirada entera, para las que comparan con algo). */
   function statMod(stat, p, check, opts = {}) {
     p = p || player();
@@ -89,12 +95,16 @@
         }
         return mod;
       }
-      case 'fuerza': mod = ({ warrior: 3, hybrid: 1, mage: 0 })[type] || 0; break;
-      // v2.4: la velocidad real (el peso del equipo frena)
-      case 'agilidad': mod = Math.max(0, Math.floor(((A.Balance && A.Balance.playerCombatStats ? A.Balance.playerCombatStats(p).speed : st.speed || 10) - 8) / 2)); break;
-      case 'ingenio': mod = ({ warrior: 0, hybrid: 1, mage: 3 })[type] || 0; break;
-      case 'punteria': mod = Math.max(0, Math.floor((st.precision || 1) / 2)); break;
-      case 'suerte': mod = (A.Passives && A.Passives.idOf && A.Passives.idOf(p) === 'suerte') ? 3 : 0; return mod;
+      // v3.6: cada raza reparte los mismos 5 puntos (race.explore); el peso del equipo frena la agilidad
+      case 'fuerza': mod = exploreBase(p, 'fuerza', ({ warrior: 3, hybrid: 1, mage: 0 })[type] || 0); break;
+      case 'agilidad': {
+        const pen = A.Balance && A.Balance.weightOf ? A.Balance.weightOf(p).penalty : 0;
+        mod = Math.max(0, exploreBase(p, 'agilidad', 1) - Math.ceil(pen / 2));
+        break;
+      }
+      case 'ingenio': mod = exploreBase(p, 'ingenio', ({ warrior: 0, hybrid: 1, mage: 3 })[type] || 0); break;
+      case 'punteria': mod = exploreBase(p, 'punteria', 1); break;
+      case 'suerte': mod = exploreBase(p, 'suerte', 0); return mod;
       default: mod = 0;
     }
     // El hambre fuerte te quita reflejos

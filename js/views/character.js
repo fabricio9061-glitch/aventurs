@@ -236,7 +236,7 @@
     const sign = (v) => (v > 0 ? `+${v}` : `${v}`);
     return `
           <div class="cc-xstats">
-            <div class="cc-xstats-title">Al explorar (se suma al dado)</div>
+            <div class="cc-xstats-title">Al explorar (se suma al dado) · ${list.reduce((t, x) => t + x.value, 0)} puntos, como todas las razas</div>
             ${list.map((x) => `<div class="cc-xstat" title="${esc(`${x.label}: ${x.hint} Se suma al dado de 20 cuando una escena pide ${x.label}.`)}">${icon(x.icon, 16)}<b class="num">${sign(x.value)}</b><span>${esc(x.label)}</span></div>`).join('')}
           </div>`;
   }

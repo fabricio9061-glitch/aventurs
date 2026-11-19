@@ -25,6 +25,9 @@
                  win: parte del maná que vuelve al ganar una pelea }.
                  Los híbridos no recuperan maná solos: pociones o dormir.
 
+   v3.6: TODAS con el mismo poder: bonuses = lo de su clase + 3 puntos de raza
+   (ver CLASS_BASE y COST abajo), y explore (lo que suman al explorar) da 5 para todas.
+
    bonuses son DELTAS sobre la base universal:
      hp 24, mana 12 (solo si tiene magia), speed 10, precision 1,
      armor 0, damage 0, dodge 5
@@ -45,7 +48,8 @@
       magic: true,
       passive: 'determinacion',
       startSpell: 'dardo_arcano',
-      bonuses: { hp: 3, mana: 0, speed: 1, precision: 1, armor: 0, damage: 0, dodge: 1 },
+      bonuses: { hp: 2, mana: 0, speed: 2, precision: 2, armor: 0, damage: 0, dodge: 1 }, // v3.6: clase + 3 puntos de raza
+      explore: { fuerza: 1, agilidad: 1, ingenio: 1, punteria: 1, suerte: 1 }, // v3.6: al explorar, 5 puntos para todos
       description: 'Adaptables y tercos. Equilibrados en todo, dominantes en nada, y nunca se dan por vencidos.',
     },
     {
@@ -58,7 +62,8 @@
       magic: true,
       passive: 'ojo_certero',
       startSpell: 'flecha_lunar',
-      bonuses: { hp: 3, mana: 2, speed: 3, precision: 2, armor: 0, damage: 0, dodge: 1 },
+      bonuses: { hp: 0, mana: 2, speed: 2, precision: 2, armor: 0, damage: 0, dodge: 1 }, // v3.6: clase + 3 puntos de raza
+      explore: { fuerza: 0, agilidad: 2, ingenio: 1, punteria: 2, suerte: 0 }, // v3.6: al explorar, 5 puntos para todos
       description: 'Ágiles y de instinto certero. Viven mil años bajo los bosques antiguos y rara vez bajan al mundo de los hombres.',
     },
     {
@@ -71,7 +76,8 @@
       magic: true,
       passive: 'suerte',
       startSpell: 'dardo_venenoso',
-      bonuses: { hp: 1, mana: 0, speed: 3, precision: 1, armor: 0, damage: 0, dodge: 2 },
+      bonuses: { hp: 0, mana: 0, speed: 3, precision: 1, armor: 0, damage: 0, dodge: 2 }, // v3.6: clase + 3 puntos de raza
+      explore: { fuerza: 0, agilidad: 1, ingenio: 0, punteria: 1, suerte: 3 }, // v3.6: al explorar, 5 puntos para todos
       description: 'Pequeños y silenciosos. Lo que pierden en fuerza lo ganan en velocidad, picardía y una suerte que no se explica.',
     },
     {
@@ -84,7 +90,8 @@
       magic: true,
       passive: 'sangre_dragon',
       startSpell: 'aliento_de_brasas',
-      bonuses: { hp: 2, mana: 0, speed: 0, precision: 1, armor: 1, damage: 1, dodge: 0 },
+      bonuses: { hp: 2, mana: 0, speed: 1, precision: 1, armor: 1, damage: 0, dodge: 1 }, // v3.6: clase + 3 puntos de raza
+      explore: { fuerza: 2, agilidad: 0, ingenio: 1, punteria: 1, suerte: 1 }, // v3.6: al explorar, 5 puntos para todos
       description: 'Descendientes de dragones antiguos. Escamas duras, sangre caliente y orgullo más antiguo que los reinos.',
     },
 
@@ -99,7 +106,8 @@
       magic: true,
       passive: 'colmillos',
       startSpell: 'toque_vampirico',
-      bonuses: { hp: 1, mana: 0, speed: 2, precision: 1, armor: 0, damage: 0, dodge: 1 },
+      bonuses: { hp: 2, mana: 0, speed: 2, precision: 1, armor: 0, damage: 0, dodge: 2 }, // v3.6: clase + 3 puntos de raza
+      explore: { fuerza: 1, agilidad: 2, ingenio: 1, punteria: 0, suerte: 1 }, // v3.6: al explorar, 5 puntos para todos
       description: 'Hijos de la noche que aprendieron a caminar bajo el sol. Cada herida que abren les devuelve un poco de vida.',
     },
 
@@ -113,7 +121,8 @@
       combatType: 'warrior',
       magic: false,
       passive: 'piel_roca',
-      bonuses: { hp: 3, mana: 0, speed: -2, precision: 1, armor: 0, damage: 0, dodge: -1 },
+      bonuses: { hp: 6, mana: 0, speed: -1, precision: 1, armor: 0, damage: 0, dodge: -1 }, // v3.6: clase + 3 puntos de raza
+      explore: { fuerza: 3, agilidad: 0, ingenio: 1, punteria: 1, suerte: 0 }, // v3.6: al explorar, 5 puntos para todos
       description: 'Bajos y robustos. Su cuerpo soporta golpes que partirían a un humano y su voluntad no cede ante nada.',
     },
     {
@@ -125,7 +134,8 @@
       combatType: 'warrior',
       magic: false,
       passive: 'furia',
-      bonuses: { hp: 1, mana: 0, speed: 0, precision: 1, armor: 0, damage: 0, dodge: 0 },
+      bonuses: { hp: 6, mana: 0, speed: -1, precision: 1, armor: 0, damage: 0, dodge: -1 }, // v3.6: clase + 3 puntos de raza
+      explore: { fuerza: 3, agilidad: 1, ingenio: 0, punteria: 1, suerte: 0 }, // v3.6: al explorar, 5 puntos para todos
       description: 'Brutales en combate. La furia es su lenguaje, y cuanto más sangran, más fuerte pegan.',
     },
     {
@@ -137,7 +147,8 @@
       combatType: 'warrior',
       magic: false,
       passive: 'cuerpo_metal',
-      bonuses: { hp: 1, mana: 0, speed: -1, precision: 1, armor: 1, damage: 0, dodge: -1 }, // v3.1: vida 3 -> 2 (ahora tiene blindaje) · v3.3: 1 (era el guerrero más fuerte al nivel 1)
+      bonuses: { hp: 2, mana: 0, speed: -1, precision: 1, armor: 1, damage: 0, dodge: -1 }, // v3.6: clase + 3 puntos de raza
+      explore: { fuerza: 2, agilidad: 0, ingenio: 2, punteria: 1, suerte: 0 }, // v3.6: al explorar, 5 puntos para todos
       description: 'Construidos, no nacidos. Inmunes al cansancio, al veneno y a la duda, pero ajenos por completo a la magia.',
     },
     {
@@ -149,7 +160,8 @@
       combatType: 'warrior',
       magic: false,
       passive: 'golpe_gigante',
-      bonuses: { hp: 8, mana: 0, speed: -2, precision: 0, armor: 0, damage: 0, dodge: 0 },
+      bonuses: { hp: 10, mana: 0, speed: -2, precision: 0, armor: 0, damage: 0, dodge: -1 }, // v3.6: clase + 3 puntos de raza
+      explore: { fuerza: 3, agilidad: 0, ingenio: 0, punteria: 2, suerte: 0 }, // v3.6: al explorar, 5 puntos para todos
       description: 'Gigantes de piel de piedra que viven en las cumbres. Lentos para empezar, pero cuando aciertan, aplastan.',
     },
 
@@ -163,7 +175,8 @@
       combatType: 'warrior',
       magic: false,
       passive: 'embestida',
-      bonuses: { hp: 5, mana: 0, speed: -1, precision: 0, armor: 0, damage: 0, dodge: -1 },
+      bonuses: { hp: 8, mana: 0, speed: -1, precision: 0, armor: 0, damage: 0, dodge: -1 }, // v3.6: clase + 3 puntos de raza
+      explore: { fuerza: 3, agilidad: 1, ingenio: 0, punteria: 0, suerte: 1 }, // v3.6: al explorar, 5 puntos para todos
       description: 'Fuertes como toros y tercos como montañas. Entran a cada pelea con los cuernos por delante.',
     },
 
@@ -178,7 +191,8 @@
       magic: true,
       passive: 'ingenio',
       startSpell: 'descarga', manaRegen: { turn: 1, win: 0.2 },
-      bonuses: { hp: -8, mana: 4, speed: 1, precision: 2, armor: 0, damage: 0, dodge: 2 },
+      bonuses: { hp: -10, mana: 6, speed: 1, precision: 2, armor: 0, damage: 0, dodge: 2 }, // v3.6: clase + 3 puntos de raza
+      explore: { fuerza: 0, agilidad: 1, ingenio: 3, punteria: 1, suerte: 0 }, // v3.6: al explorar, 5 puntos para todos
       description: 'Inventores natos y de mente curiosa. Encuentran la forma de hacer más magia con menos esfuerzo.',
     },
     {
@@ -192,7 +206,8 @@
       passive: 'mente_expansiva',
       // v3.3: 1,5 de maná por turno (antes 2: en el nivel 3 le sacaba 20 puntos a los otros magos); crece de a 1,5
       startSpell: 'rayo_de_plasma', manaRegen: { turn: 1.5, win: 0.3, step: 1.5 },
-      bonuses: { hp: -7, mana: 1, speed: 2, precision: 1, armor: 0, damage: 0, dodge: 2 }, // v3.3: -7 (con menos maná por turno, al nivel 1 quedaba abajo)
+      bonuses: { hp: -8, mana: 4, speed: 2, precision: 1, armor: 0, damage: 0, dodge: 2 }, // v3.6: clase + 3 puntos de raza
+      explore: { fuerza: 0, agilidad: 2, ingenio: 3, punteria: 0, suerte: 0 }, // v3.6: al explorar, 5 puntos para todos
       description: 'Visitantes de mundos lejanos. Sus mentes beben de corrientes de energía que los nativos apenas perciben.',
     },
     {
@@ -205,7 +220,8 @@
       magic: true,
       passive: 'llama_interior',
       startSpell: 'ascua_infernal', manaRegen: { turn: 1, win: 0.15 },
-      bonuses: { hp: -6, mana: 4, speed: 1, precision: 2, armor: 0, damage: 0, dodge: 2 }, // v3.1: esquiva 1 -> 2 (era el mago más flojo)
+      bonuses: { hp: -8, mana: 4, speed: 1, precision: 2, armor: 0, damage: 0, dodge: 2 }, // v3.6: clase + 3 puntos de raza
+      explore: { fuerza: 1, agilidad: 0, ingenio: 3, punteria: 1, suerte: 0 }, // v3.6: al explorar, 5 puntos para todos
       description: 'Nacidos con sangre de demonio. Llevan el fuego del abismo en las venas y lo vuelcan en cada hechizo.',
     },
     {
@@ -218,7 +234,8 @@
       magic: true,
       passive: 'bendicion',
       startSpell: 'luz_sagrada', manaRegen: { turn: 1, win: 0.25 },
-      bonuses: { hp: -5, mana: 1, speed: 1, precision: 1, armor: 0, damage: 0, dodge: 2 }, // v3.3: -5 (era -6: en el nivel 3 quedaba 9 puntos abajo de los magos)
+      bonuses: { hp: -6, mana: 4, speed: 1, precision: 1, armor: 0, damage: 0, dodge: 2 }, // v3.6: clase + 3 puntos de raza
+      explore: { fuerza: 0, agilidad: 1, ingenio: 2, punteria: 1, suerte: 1 }, // v3.6: al explorar, 5 puntos para todos
       description: 'Guardianes bajados del cielo. Una luz suave los acompaña y les cierra las heridas en plena batalla.',
     },
     // v3.0: la quinta maga
@@ -232,7 +249,8 @@
       magic: true,
       passive: 'polvo_hada',
       startSpell: 'chispas_de_hada', manaRegen: { turn: 1, win: 0.2 },
-      bonuses: { hp: -9, mana: 2, speed: 3, precision: 1, armor: 0, damage: 0, dodge: 3 },
+      bonuses: { hp: -8, mana: 2, speed: 2, precision: 1, armor: 0, damage: 0, dodge: 3 }, // v3.6: clase + 3 puntos de raza
+      explore: { fuerza: 0, agilidad: 2, ingenio: 2, punteria: 0, suerte: 1 }, // v3.6: al explorar, 5 puntos para todos
       description: 'Chiquitas, rapidísimas y traviesas. A su paso dejan un polvo brillante que adormece a cualquiera.',
     },
     // ---------- v3.3: tres razas nuevas (una de cada tipo) ----------
@@ -245,7 +263,8 @@
       combatType: 'warrior',
       magic: false,
       passive: 'sangre_lobo',
-      bonuses: { hp: 0, mana: 0, speed: 1, precision: 1, armor: 0, damage: 0, dodge: 0 }, // v3.3: medido con el simulador
+      bonuses: { hp: 4, mana: 0, speed: 1, precision: 0, armor: 0, damage: 0, dodge: -1 }, // v3.6: clase + 3 puntos de raza
+      explore: { fuerza: 2, agilidad: 2, ingenio: 0, punteria: 1, suerte: 0 }, // v3.6: al explorar, 5 puntos para todos
       description: 'Mitad persona, mitad lobo. Mientras pelea, las heridas se le cierran solas.',
     },
     {
@@ -258,7 +277,8 @@
       magic: true,
       passive: 'cazador_sombras',
       startSpell: 'manto_oscuridad',
-      bonuses: { hp: 4, mana: 1, speed: 2, precision: 1, armor: 0, damage: 0, dodge: 1 }, // v3.3: medido con el simulador
+      bonuses: { hp: 4, mana: 0, speed: 2, precision: 1, armor: 0, damage: 0, dodge: 1 }, // v3.6: clase + 3 puntos de raza
+      explore: { fuerza: 1, agilidad: 2, ingenio: 1, punteria: 1, suerte: 0 }, // v3.6: al explorar, 5 puntos para todos
       description: 'Los elfos que se fueron a vivir bajo tierra. Sus hojas envenenan, y pegan más fuerte a lo que ya está envenenado, ciego o herido.',
     },
     {
@@ -271,7 +291,8 @@
       magic: true,
       passive: 'corteza_espinosa',
       startSpell: 'enredadera', manaRegen: { turn: 1, win: 0.2 },
-      bonuses: { hp: -6, mana: 2, speed: 1, precision: 1, armor: 0, damage: 0, dodge: 2 },
+      bonuses: { hp: -8, mana: 4, speed: 1, precision: 1, armor: 0, damage: 0, dodge: 3 }, // v3.6: clase + 3 puntos de raza
+      explore: { fuerza: 1, agilidad: 1, ingenio: 2, punteria: 1, suerte: 0 }, // v3.6: al explorar, 5 puntos para todos
       description: 'Espíritus de los árboles con forma de persona. Su corteza tiene espinas: el que le pega de cerca, se lastima.',
     },
   ];
@@ -295,6 +316,38 @@
    * Stats finales de un personaje nuevo según raza.
    * Devuelve { hp, maxHp, mana, maxMana, speed, precision, armor, damage, dodge }.
    */
+  // ---------- v3.6: todas las razas con el mismo poder ----------
+  // bonuses = lo de la clase (CLASS_BASE) + exactamente RACE_POINTS puntos de raza.
+  // Lo que cuesta cada cosa (COST): +2 de vida, +2 de maná, +1 de velocidad, +1 de
+  // precisión o +1 de esquiva = 1 punto; +1 de armadura o +1 de daño = 2 puntos.
+  // Bajar algo devuelve puntos (el enano es más lento y por eso tiene más vida).
+  // Al explorar (explore), todas suman EXPLORE_POINTS entre Fuerza, Agilidad, Ingenio,
+  // Puntería y Suerte. Lo prueba v36/engine/budget_test.js.
+  const CLASS_BASE = {
+    warrior: { hp: 2, mana: 0, speed: -1, precision: 0, armor: 0, damage: 0, dodge: -1 },
+    hybrid: { hp: 0, mana: 0, speed: 1, precision: 1, armor: 0, damage: 0, dodge: 1 },
+    mage: { hp: -10, mana: 2, speed: 1, precision: 1, armor: 0, damage: 0, dodge: 2 },
+  };
+  const COST = { hp: 0.5, mana: 0.5, speed: 1, precision: 1, dodge: 1, armor: 2, damage: 2 };
+  const RACE_POINTS = 3;
+  const EXPLORE_POINTS = 5;
+  /** Puntos de raza que usa (lo que tiene de más sobre su clase). Debe dar RACE_POINTS. */
+  function racePoints(raceOrId) {
+    const race = typeof raceOrId === 'string' ? findRace(raceOrId) : raceOrId;
+    if (!race) return 0;
+    const base = CLASS_BASE[race.combatType] || CLASS_BASE.hybrid;
+    const b = race.bonuses || {};
+    let t = 0;
+    for (const k of Object.keys(COST)) t += ((b[k] || 0) - (base[k] || 0)) * COST[k];
+    return Math.round(t * 10) / 10;
+  }
+  /** Puntos de explorar (Fuerza + Agilidad + Ingenio + Puntería + Suerte). Debe dar EXPLORE_POINTS. */
+  function explorePoints(raceOrId) {
+    const race = typeof raceOrId === 'string' ? findRace(raceOrId) : raceOrId;
+    const e = (race && race.explore) || {};
+    return ['fuerza', 'agilidad', 'ingenio', 'punteria', 'suerte'].reduce((t, k) => t + (e[k] || 0), 0);
+  }
+
   function statsForRace(raceId) {
     const race = findRace(raceId);
     if (!race) return null;
@@ -331,6 +384,9 @@
   A.Seed.races = RACES;
   A.Seed.baseStats = BASE_STATS;
   A.Seed.statsForRace = statsForRace;
+  A.Seed.racePoints = racePoints; // v3.6
+  A.Seed.explorePoints = explorePoints;
+  A.Seed.RACE_BUDGET = { CLASS_BASE, COST, RACE_POINTS, EXPLORE_POINTS };
   A.Seed.raceHasMagic = raceHasMagic;
   A.Seed.rollMagicForRace = rollMagicForRace;
 })(window.Aventurs);

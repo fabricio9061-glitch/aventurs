@@ -17,23 +17,24 @@
   // v2.2.1: números de las pasivas que se afinan con el simulador
   const TUNE = {
     gigante: { critMin: 18, mult: 2, prec: 1, precLevel: 5 }, // Golpe de gigante: crítico desde 18, doble daño; v3.1: +1 de precisión desde el nivel 5
-    certero: { critMin: 19, prec: 2 },     // Ojo certero: críticos con 19-20 y precisión extra
+    certero: { critMin: 19, prec: 3 },     // Ojo certero: críticos con 19-20 y precisión extra
     suerte: { dodge: 0.15 },               // Suerte: parte de los golpes que te iban a pegar, fallan · v3.3: 15% (era 10%)
     roca: { hits: 2 },                     // Piel de roca (enano): cuántos golpes por pelea te hacen la mitad · v3.3: 2 (era 1)
     furia: { at: 0.75 },                   // Furia (orco): se enciende con esta parte de la vida o menos · v3.3: 3/4 (era la mitad)
     metal: { armor: 0, shield: [1, 2], shieldLevel: 6 }, // Cuerpo de metal: blindaje por pelea (1; 2 desde el nivel 6). v3.1
-    determinacion: { keep: 0.15 },         // Determinación: con cuánta vida quedás (parte de la máxima; 0 = con 1)
+    determinacion: { keep: 0.1 },         // Determinación: con cuánta vida quedás (parte de la máxima; 0 = con 1)
     sangre: { chance: 0.33 },              // Sangre de dragón: chance de prender fuego al pegar
     // v3.0
-    colmillos: { steal: 0.15 },             // Colmillos (vampiro): parte del daño con arma vuelve como vida
+    colmillos: { steal: 0.12 },             // Colmillos (vampiro): parte del daño con arma vuelve como vida
     embestida: { mult: 1.5, powerMult: 1.1 },              // Embestida (minotauro): el primer ataque de la pelea pega seguro y más fuerte
     hada: { turns: 1 },                    // Polvo de hada: al empezar, una criatura (no jefe) se duerme
     // v3.1
     bendicion: { pct: 0.1, min: 3 },       // Bendición (ángel): cuánto cura (parte de la vida máxima)
     ingenio: { pct: 0.2, min: 1 },         // Ingenio (gnomo): hechizos más baratos (parte del costo, con un mínimo) · v3.1: 20% (era 25%: el mago más fuerte)
+    llama: { base: 1, from: 3 },                               // Llama interior (infernal): daño extra de los hechizos (base + la mitad del nivel)
     // v3.3: razas nuevas
-    lobo: { regen: [1, 1, 2], every: 4, below: 0.5 }, // Sangre de lobo (licántropo): con la mitad de la vida o menos, vida al empezar cada turno de pelea (1 · 2 desde nv 9) · medido: con 1/2/3 siempre ganaba 15 puntos más que los otros guerreros
-    sombras: { bonus: 3, every: 4, poison: 0.4 }, // Cazador de sombras (elfo oscuro): daño extra a lo que ya tiene un estado malo, y sus golpes a veces envenenan · medido: sin el veneno quedaba 20 puntos abajo
+    lobo: { regen: [1, 1, 2], every: 4, below: 0.75 }, // Sangre de lobo (licántropo): con la mitad de la vida o menos, vida al empezar cada turno de pelea (1 · 2 desde nv 9) · medido: con 1/2/3 siempre ganaba 15 puntos más que los otros guerreros
+    sombras: { bonus: 3, every: 4, poison: 0.5 }, // Cazador de sombras (elfo oscuro): daño extra a lo que ya tiene un estado malo, y sus golpes a veces envenenan · medido: sin el veneno quedaba 20 puntos abajo
     espinas: { dmg: 1, every: 4 },         // Corteza espinosa (dríade): el que te pega de cerca se lastima
   };
   // v3.3: los estados malos que cuenta el Cazador de sombras
@@ -150,7 +151,7 @@
   // ---------- Números que crecen con el nivel ----------
   function furyAmount(p) { return 2 + step(p, 4); }      // 2 · 3 (nv 5) · 4 (nv 9)
   function furyWhen() { const a = TUNE.furia.at; return a === 0.75 ? 'tres cuartos' : a === 0.5 ? 'la mitad' : pctTxt(a); }
-  function spellAmount(p) { return 1 + Math.floor(lvl(p) / 2); } // 1 · 2 (nv 2) · 3 (nv 4) · 4 (nv 6) · 5 (nv 8) · 6 (nv 10)
+  function spellAmount(p) { return TUNE.llama.base + Math.floor(lvl(p) / 2) + (lvl(p) >= TUNE.llama.from ? 1 : 0); } // 1 · 2 (nv 2) · 3 (nv 4) · 4 (nv 6) · 5 (nv 8) · 6 (nv 10)
   function manaAmount() { return 1; }                    // fijo: con más nivel ya sobra maná
   function blessAmount(p) { return Math.max(TUNE.bendicion.min, Math.round(((p && p.maxHp) || 24) * TUNE.bendicion.pct)); } // parte de la vida máxima (con un mínimo)
   // v3.3

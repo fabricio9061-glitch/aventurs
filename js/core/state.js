@@ -333,6 +333,30 @@
         p.schemaVersion = 22;
         dirty = true;
       }
+      if ((p.schemaVersion || 0) < 23) {
+        // v3.6: todas las razas con el mismo poder (clase + 3 puntos de raza): se ajusta la diferencia
+        // [vida, maná, velocidad, precisión, armadura, daño, esquiva] de cada raza en la v3.5
+        const OLD23 = { humano: [3, 0, 1, 1, 0, 0, 1], elfo: [3, 2, 3, 2, 0, 0, 1], mediano: [1, 0, 3, 1, 0, 0, 2], draconido: [2, 0, 0, 1, 1, 1, 0], vampiro: [1, 0, 2, 1, 0, 0, 1], enano: [3, 0, -2, 1, 0, 0, -1], orco: [1, 0, 0, 1, 0, 0, 0], robot: [1, 0, -1, 1, 1, 0, -1], goliat: [8, 0, -2, 0, 0, 0, 0], minotauro: [5, 0, -1, 0, 0, 0, -1], gnomo: [-8, 4, 1, 2, 0, 0, 2], alienigena: [-7, 1, 2, 1, 0, 0, 2], infernal: [-6, 4, 1, 2, 0, 0, 2], angel: [-5, 1, 1, 1, 0, 0, 2], hada: [-9, 2, 3, 1, 0, 0, 3], licantropo: [0, 0, 1, 1, 0, 0, 0], elfo_oscuro: [4, 1, 2, 1, 0, 0, 1], driade: [-6, 2, 1, 1, 0, 0, 2] };
+        const race23 = A.Data.getById('races', p.raceId);
+        const old = OLD23[p.raceId];
+        if (race23 && old && race23.bonuses) {
+          const nb = race23.bonuses;
+          const d = (i, k) => (nb[k] || 0) - old[i];
+          const dHp = d(0, 'hp');
+          const dMana = p.hasMagic ? d(1, 'mana') : 0;
+          p.maxHp = Math.max(1, (p.maxHp || 1) + dHp);
+          p.hp = Math.max(1, Math.min(p.maxHp, (p.hp || 1) + Math.max(0, dHp)));
+          if (p.hasMagic) { p.maxMana = Math.max(0, (p.maxMana || 0) + dMana); p.mana = Math.max(0, Math.min(p.maxMana, (p.mana || 0) + Math.max(0, dMana))); }
+          p.stats = p.stats || {};
+          [['speed', 2], ['precision', 3], ['armor', 4], ['damage', 5], ['dodge', 6]].forEach(([k, i]) => { p.stats[k] = (p.stats[k] || 0) + d(i, k); });
+          const parts = [];
+          const say = (n, txt) => { if (n) parts.push(`${n > 0 ? '+' : ''}${n} de ${txt}`); };
+          say(dHp, 'vida'); say(dMana, 'maná'); say(d(2, 'speed'), 'velocidad'); say(d(3, 'precision'), 'precisión'); say(d(4, 'armor'), 'armadura'); say(d(5, 'damage'), 'daño'); say(d(6, 'dodge'), 'esquiva');
+          if (parts.length) State.addChronicle({ type: 'note', text: `Cambios de la versión 3.6: todas las razas tienen ahora el mismo poder. A la tuya le tocó: ${parts.join(', ')}.` });
+        }
+        p.schemaVersion = 23;
+        dirty = true;
+      }
       if (dirty) {
         State.persist();
         console.log('[State] Save migrado a estructura v1.5.0');
@@ -500,7 +524,7 @@
         // v2.1: cada raza con magia nace con su propio hechizo
         spells: hasMagic ? [((A.Data.getById('races', raceId) || {}).startSpell) || 'chispa'] : [],
         travelSteps: 0,
-        schemaVersion: 22,
+        schemaVersion: 23,
       };
       // v3.3: el maná que da el arma de inicio (la varita: +2)
       if (A.Accessories && A.Accessories.applyGearMana) {

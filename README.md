@@ -241,6 +241,42 @@ Explorar siempre hace pasar algo (`js/systems/explore.js` + `js/data/seed-events
 - En el celular, una franja arriba con vida, maná, comida y dinero.
 - Sin emojis en el juego (desde la v2.2, tampoco en el editor).
 
+## Versión 3.6.0: todas las razas con el mismo poder
+
+### Los números de cada raza (`js/data/seed-races.js`)
+- Cada raza tiene lo de su clase (`CLASS_BASE`) más **exactamente 3 puntos de raza**. Cuesta 1 punto: +2 de vida, +2 de maná, +1 de velocidad, +1 de precisión o +1 de esquiva; 2 puntos: +1 de armadura o +1 de daño. Bajar algo devuelve puntos.
+- Al explorar, **todas suman 5 puntos** entre Fuerza, Agilidad, Ingenio, Puntería y Suerte (`explore` en cada raza), repartidos según la raza. La armadura pesada baja la Agilidad. La pantalla de crear personaje lo dice ("5 puntos, como todas las razas").
+- Las clases siguen siendo distintas a propósito (el guerrero tiene más vida, el mago más maná y menos vida), pero dentro de cada clase todas suman lo mismo.
+
+| Raza | Clase | Vida | Maná | Velocidad | Fuerza / Agilidad / Ingenio / Puntería / Suerte |
+|---|---|---|---|---|---|
+| Humano | Híbrido | 26 | 12 | 12 | 1 / 1 / 1 / 1 / 1 |
+| Elfo | Híbrido | 24 | 14 | 12 | 0 / 2 / 1 / 2 / 0 |
+| Mediano | Híbrido | 24 | 12 | 13 | 0 / 1 / 0 / 1 / 3 |
+| Dracónido | Híbrido | 26 | 12 | 11 | 2 / 0 / 1 / 1 / 1 |
+| Vampiro | Híbrido | 26 | 12 | 12 | 1 / 2 / 1 / 0 / 1 |
+| Enano | Guerrero | 30 | - | 9 | 3 / 0 / 1 / 1 / 0 |
+| Orco | Guerrero | 30 | - | 9 | 3 / 1 / 0 / 1 / 0 |
+| Robot | Guerrero | 26 | - | 9 | 2 / 0 / 2 / 1 / 0 |
+| Goliat | Guerrero | 34 | - | 8 | 3 / 0 / 0 / 2 / 0 |
+| Minotauro | Guerrero | 32 | - | 9 | 3 / 1 / 0 / 0 / 1 |
+| Gnomo | Mago | 14 | 20 | 11 | 0 / 1 / 3 / 1 / 0 |
+| Alienígena | Mago | 16 | 18 | 12 | 0 / 2 / 3 / 0 / 0 |
+| Infernal | Mago | 16 | 18 | 11 | 1 / 0 / 3 / 1 / 0 |
+| Ángel | Mago | 18 | 18 | 11 | 0 / 1 / 2 / 1 / 1 |
+| Hada | Mago | 16 | 16 | 12 | 0 / 2 / 2 / 0 / 1 |
+| Licántropo | Guerrero | 28 | - | 11 | 2 / 2 / 0 / 1 / 0 |
+| Elfo oscuro | Híbrido | 28 | 12 | 12 | 1 / 2 / 1 / 1 / 0 |
+| Dríade | Mago | 16 | 18 | 11 | 1 / 1 / 2 / 1 / 0 |
+
+(Al nivel 1, con su arma y túnica: la vida y el maná ya cuentan el equipo.)
+
+### Las pasivas, medidas de nuevo
+Con los números parejos, lo que separa a una raza de otra es la pasiva. Ajustes medidos con `node tools/equilibrio.js`: Determinación deja con el 10% de la vida (antes 15%), Colmillos devuelve el 12% (antes 15%), Ojo certero da +3 de precisión (antes +2), el Elfo oscuro envenena una de cada 2 veces, Sangre de lobo cura desde los tres cuartos de la vida y Llama interior suma 1 más desde el nivel 3. Todas las metas de equilibrio se cumplen: las clases quedan a 4-8 puntos entre sí y ninguna raza queda más de 8 puntos abajo de su clase.
+
+### Partidas de antes
+A cada personaje se le ajusta la diferencia entre los números de antes y los de ahora (vida, maná, velocidad, precisión, armadura, daño y esquiva), y el Diario dice cuánto le tocó.
+
 ## Versión 3.5.0: cada raza de mago con su arma
 
 Cada raza de mago nace con su propia arma de mago (solo la pueden usar los magos): 1d4, +2 de maná y +1 de poder mágico, igual que la varita, pero con su forma.
