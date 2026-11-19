@@ -40,13 +40,13 @@
   const TYPE_KIT = {
     get hybrid() {
       const t = T(); const on = t.hybridManaOnHit || 1; const every = t.hybridManaEvery || 0;
-      return `Usa cualquier arma sin problema. Cada golpe con arma que acierta le devuelve ${on} de maná${every > 0 ? ` (${on + 1} desde el nivel ${every + 1})` : ''}. Fuera de eso, el maná no le vuelve solo. Puede aprender Segundo aliento: se cura a sí mismo (a los demás los curan los magos).`;
+      return `Usa las armas comunes (las de mago no). Cada golpe con arma que acierta le devuelve ${on} de maná${every > 0 ? ` (${on + 1} desde el nivel ${every + 1})` : ''}; fuera de eso, el maná no le vuelve solo. Magia corta: su hechizo de raza, Chispa, Llama, Rayo helado, Segundo aliento (se cura a sí mismo) y 6 pergaminos de combate.`;
     },
     get warrior() {
-      return `Golpe fuerte: doble daño, una vez cada 5 turnos. Maestría: +1 de daño con cualquier arma (+2 desde el nivel 5) y +1 de precisión con armas pesadas. Gana ${(T().hpPerLevel || {}).warrior || 7} de vida por nivel, más que nadie.`;
+      return `Golpe fuerte: doble daño, una vez cada 5 turnos. Maestría: +1 de daño con las armas comunes (+2 desde el nivel 5) y +1 de precisión con las pesadas; las de mago no las usa. Gana ${(T().hpPerLevel || {}).warrior || 7} de vida por nivel, más que nadie.`;
     },
-    // v3.3: solo armas mágicas, y Curación es solo para ellos
-    mage: 'Vive de la magia y solo usa armas mágicas (varitas, bastones, cetros). Es el más frágil de todos, pero solo los magos aprenden Curación.',
+    // v3.3: solo armas mágicas, y Curación es solo para ellos · v3.4: sin su arma de mago no lanza; aprende todo
+    mage: 'Vive de la magia: aprende todos los hechizos (Curación, los de área y los de todos los pergaminos). Solo usa armas de mago (bastones, varitas, cetros, orbes y tomos), que le suman poder mágico; sin una puesta no puede lanzar hechizos. Es el más frágil de todos.',
   };
   /** El texto de la clase para esta raza (al mago se le suma lo que le cuesta Curación, con su descuento si tiene). */
   function kitText(type, race) {
@@ -220,7 +220,7 @@
     // v3.3: cada raza con su arma; los magos, con varita
     const w = A.Data.getById('weapons', race.startWeapon) || A.Data.getById('weapons', race.combatType === 'mage' ? 'varita' : 'daga');
     const wName = w ? w.name.toLowerCase() : 'daga';
-    return `${eats}Empieza con ${esc(wName)}, túnica de cuero, dos pociones y ${esc(food)}.${race.combatType === 'mage' ? ' Los magos solo usan armas mágicas.' : ''}`;
+    return `${eats}Empieza con ${esc(wName)}, túnica de cuero, dos pociones y ${esc(food)}.`;
   }
 
   /** v3.1: lo que suma al explorar un personaje nuevo de esta raza (Fuerza, Agilidad...). */

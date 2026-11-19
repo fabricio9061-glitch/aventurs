@@ -96,12 +96,11 @@ function gearForLevel(G, p) {
   const score = (w) => {
     const fit = A.Balance.weaponFit ? A.Balance.weaponFit(p, w) : { atk: 0, dmg: 0 };
     let s = avg(w) + fit.dmg + fit.atk * 0.6;
-    if (type === 'mage' && w.magic) s += 3;
-    if (type === 'hybrid' && w.magic) s += 0.5;
+    if (type === 'mage' && w.magic) s += 3 + (fit.spell || 0);
     return s;
   };
-  // v3.3: los magos solo usan armas mágicas; las armas de raza no se compran
-  const weapons = A.Data.weapons.filter((w) => ok(w) && !w.starter && (p.hasMagic ? true : !w.magic) && (type !== 'mage' || w.magic));
+  // v3.4: cada clase, sus armas (las de mago, solo los magos); las armas de raza no se compran
+  const weapons = A.Data.weapons.filter((w) => ok(w) && !w.starter && (!A.Balance.canWield || A.Balance.canWield(p, w).ok));
   weapons.sort((a, b) => score(b) - score(a));
   const armors = A.Data.armors.filter(ok).sort((a, b) => (b.tier - a.tier) || (b.defense - a.defense));
   if (lvl > 1) {

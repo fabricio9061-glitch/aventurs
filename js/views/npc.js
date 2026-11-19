@@ -90,7 +90,7 @@
       const cur = curId ? A.Data.getById('weapons', curId) : null;
       const fitC = B.weaponFit(p, cand);
       const fitE = cur ? B.weaponFit(p, cur) : { atk: 0, dmg: 0 };
-      // v3.3: un mago no la puede usar (no es mágica)
+      // v3.3: un mago no la puede usar (no es mágica) · v3.4: y un guerrero o un híbrido, una de mago
       if (fitC.blocked) return { verdict: 'blocked', lines: [], note: fitC.note, current: cur };
       const avgC = B.avgOf(cand.damage) + fitC.dmg;
       const avgE = cur ? B.avgOf(cur.damage) + fitE.dmg : 1;
@@ -148,7 +148,13 @@
     if (v === 'worse') return `<span class="cmp-badge is-worse" title="Peor que lo que tenés">${U().icon('arrow-down', 14)}<span class="cmp-label">Peor</span></span>`;
     if (v === 'same') return '<span class="cmp-badge is-same">Parecido</span>';
     if (v === 'equipped') return `<span class="cmp-badge is-eq" title="Lo tenés puesto">${U().icon('check', 12)}<span class="cmp-label">Puesto</span></span>`;
-    if (v === 'blocked') return `<span class="cmp-badge is-worse" title="Los magos solo pueden usar armas mágicas">${U().icon('lock', 12)}<span class="cmp-label">No para magos</span></span>`;
+    if (v === 'blocked') {
+      // v3.4: las armas de mago son solo de magos, y los magos usan solo esas
+      const mage = A.Balance && A.Balance.classOf ? A.Balance.classOf(player()) === 'mage' : false;
+      return mage
+        ? `<span class="cmp-badge is-worse" title="Los magos solo usan armas de mago (bastones, varitas, cetros, orbes y tomos)">${U().icon('lock', 12)}<span class="cmp-label">No para magos</span></span>`
+        : `<span class="cmp-badge is-worse" title="Es un arma de mago: solo la pueden usar los magos">${U().icon('lock', 12)}<span class="cmp-label">Solo magos</span></span>`;
+    }
     return '';
   }
 

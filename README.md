@@ -241,6 +241,30 @@ Explorar siempre hace pasar algo (`js/systems/explore.js` + `js/data/seed-events
 - En el celular, una franja arriba con vida, maná, comida y dinero.
 - Sin emojis en el juego (desde la v2.2, tampoco en el editor).
 
+## Versión 3.4.0: cada clase con lo suyo, misiones en el centro y Alamuerte
+
+### Armas por clase (`js/core/balance.js`: `canWield`, `weaponFit`, `canCast`)
+- **Magos**: solo armas de mago (bastones, varitas, cetros, orbes y tomos). Les suman poder mágico (+1, y más con las de nivel alto). **Sin una puesta no pueden lanzar hechizos.**
+- **Guerreros e híbridos**: solo armas comunes. El guerrero ya no tiene maestría con un bastón (no lo puede usar).
+- Las legendarias Excalibur, Mjölnir, Matamuertos, Colmillo de dragón, Segadora de almas y Lamento helado pasan a ser comunes (para guerreros e híbridos).
+- La tienda marca "Solo magos" o "No para magos", y el editor dice "No la puede usar" en la clase que corresponde.
+
+### Magia (`js/systems/spellbook.js`)
+- **Magos**: aprenden todos los hechizos (Curación, los de área y los de todos los pergaminos).
+- **Híbridos**: su hechizo de raza, Chispa, Llama, Rayo helado, Segundo aliento y 6 pergaminos de combate: Misil arcano, Quemar, Ojo de halcón, Fuerza arcana, Piel de piedra y Furia salvaje (marcados `hybrid: true`). Nunca los de área ni los de curar a otros. Cualquiera puede leer un pergamino una vez en una pelea.
+- En el Editor, el hechizo tiene "También para híbridos".
+
+### Pantalla
+- Las **misiones** pasan de la barra del costado al centro, debajo de "Criaturas de la zona": primero las que tienen algo para hacer en ese lugar (con la marca "Acá"). Tocar una abre el Diario.
+
+### Alamuerte
+- Ahora es el más fuerte de todos: 140 de vida, 3d10+3 de daño, +8 de precisión, defensa 19, y también ruge. Un héroe de nivel 10 solo y sin pociones le gana la mitad de las veces (al dragón anciano, 9 de cada 10). Suelta más y mejor botín.
+
+### Partidas de antes
+- Si tenías puesta un arma que tu clase ya no usa, va a la mochila y te ponés la mejor que sí podés usar (o la de tu raza).
+- Un híbrido que sabía hechizos que ya no le tocan los pierde y le devuelven los pergaminos.
+- En grupo, los dos tienen que tener la v3.4 (si no, el grupo avisa que hay que actualizar).
+
 ## Versión 3.3.0: magia con dado y espera, la muerte en serio, 3 razas nuevas y escenas de grupo
 
 ### Magia (`js/systems/combat.js`, `js/data/seed-spells.js`)

@@ -282,7 +282,7 @@
                   <div class="learn-price num">${price}c</div>
                   ${known
                     ? `<span class="pill">aprendido</span>`
-                    : mageOnly ? `<span class="pill" title="Los híbridos no pueden aprender los grandes hechizos de área">solo magos</span>`
+                    : mageOnly ? `<span class="pill" title="Solo los magos pueden aprenderlo">solo magos</span>`
                     : `<button class="btn-mini" data-learn-spell="${A.Utils.escapeHtml(s.id)}" data-npc-id="${A.Utils.escapeHtml(npc.id)}" ${canPay ? '' : 'disabled'}>Aprender</button>`}
                 </div>
               `;
@@ -488,13 +488,15 @@
     // v3.3: el pergamino que enseña un hechizo lo dice
     if (data.teachesSpell && data.subtype !== 'scroll_spell') {
       const sp = A.Data.getById('spells', data.teachesSpell);
-      if (sp) stats += `<div class="class-note is-good">${pxi('book', 14)}<span>Se puede aprender: <b>${esc(sp.name)}</b> (hechizo de nivel ${sp.tier || 1}${sp.mageOnly ? ', solo magos' : ''}${sp.cooldown ? `, cada ${sp.cooldown} turnos` : ''}). Al aprenderlo, el pergamino se gasta.</span></div>`;
+      // v3.4: quién lo puede aprender (los híbridos, solo algunos)
+      const whoTxt = sp && A.Spellbook && A.Spellbook.who ? ({ mage: ', solo magos', both: ', magos e híbridos', hybrid: ', solo híbridos' })[A.Spellbook.who(sp)] || '' : '';
+      if (sp) stats += `<div class="class-note is-good">${pxi('book', 14)}<span>Se puede aprender: <b>${esc(sp.name)}</b> (hechizo de nivel ${sp.tier || 1}${whoTxt}${sp.cooldown ? `, cada ${sp.cooldown} turnos` : ''}). Al aprenderlo, el pergamino se gasta. Sin aprenderlo, cualquiera lo puede leer una vez en una pelea.</span></div>`;
     }
 
     const actions = [];
     let hint = '';
     if (kind === 'weapon' || kind === 'armor' || kind === 'accessory') {
-      // v3.3: los magos solo usan armas mágicas
+      // v3.3: los magos solo usan armas mágicas · v3.4: y las de mago son solo de ellos
       const cant = !wornView && A.Inventory.cantEquipWhy ? A.Inventory.cantEquipWhy(itemId) : '';
       if (wornView) actions.push(`<button class="btn-primary" data-detail-action="unequip">Quitar</button>`);
       else actions.push(`<button class="btn-primary" data-detail-action="equip" ${cant ? `disabled title="${esc(cant)}"` : ''}>Equipar</button>`);
@@ -594,7 +596,7 @@
         <p>Cada vez que explorás pasa algo: aparece una criatura (y elegís cómo encararla) o te toca una escena con dos o tres caminos. Explorar hace pasar el tiempo y da hambre.</p>
 
         <h3>Clases</h3>
-        <p><b>Guerreros</b>: sin magia, pero pegan más fuerte con cualquier arma y tienen el <b>Golpe fuerte</b>: un ataque con el doble de daño que se puede usar una vez cada 5 turnos. <b>Magos</b>: viven de la magia; el maná les vuelve solo, un poco en cada turno (más desde el nivel 5) y otro poco al ganar, pero son frágiles y <b>solo usan armas mágicas</b> (varitas, bastones, cetros, orbes, tomos). Solo ellos aprenden <b>Curación</b> y los grandes hechizos de área. <b>Híbridos</b>: usan cualquier arma y algo de magia; cada golpe con arma que aciertan les devuelve maná (más desde el nivel 9). Cada raza nace con su propia arma, y cada raza con magia, con su propio hechizo.</p>
+        <p><b>Guerreros</b>: sin magia, pero pegan más fuerte con las armas comunes (maestría) y tienen el <b>Golpe fuerte</b>: un ataque con el doble de daño que se puede usar una vez cada 5 turnos. <b>Magos</b>: viven de la magia; el maná les vuelve solo, un poco en cada turno (más desde el nivel 5) y otro poco al ganar, pero son frágiles. <b>Solo usan armas de mago</b> (bastones, varitas, cetros, orbes y tomos), que les suman poder mágico, y <b>sin una puesta no pueden lanzar hechizos</b>. Aprenden todos los hechizos: Curación, los de área y los de todos los pergaminos. <b>Híbridos</b>: armas comunes y magia corta: su hechizo de raza, Chispa, Llama, Rayo helado, Segundo aliento y 6 pergaminos de combate; cada golpe con arma que aciertan les devuelve maná (más desde el nivel 9). Las armas de mago son solo de los magos. Cada raza nace con su propia arma, y cada raza con magia, con su propio hechizo.</p>
 
         <h3>Descansar</h3>
         <p>De día, una siesta te cura un poco (hasta la mitad de tu vida) y pasa la tarde. De noche dormís hasta la mañana y te curás más (hasta tres cuartos); al raso, algo puede acercarse. Descansar da hambre, y después de descansar tenés que moverte (explorar, pelear o viajar) antes de volver a descansar. Para recuperarte del todo: la posada del pueblo o una poción.</p>

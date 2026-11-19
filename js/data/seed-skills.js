@@ -131,7 +131,7 @@
     balrog: ['cuerpo_fuego', 'barrido', 'aliento_fuego', 'miedo'],
     dragon_anciano: ['ignifugo', 'aliento_fuego', 'rugido', 'barrido'],
     kraken: ['agarre', 'nube_tinta', 'invocar'],
-    alamuerte: ['vuelo', 'cuerpo_fuego', 'aliento_fuego', 'barrido'],
+    alamuerte: ['vuelo', 'cuerpo_fuego', 'aliento_fuego', 'barrido', 'rugido'], // v3.4: más que el dragón anciano
     titan: ['aturdir', 'pisoton'],
     tarrasca: ['caparazon', 'regeneracion', 'mordida', 'barrido'],
   };

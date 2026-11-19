@@ -705,11 +705,15 @@
             hint: power.ready ? (target ? `Daño ${rangeTxt(damageRangeVs(p, target, power.mult))}` : 'Doble daño') : `Listo en ${power.wait} turno${power.wait === 1 ? '' : 's'}`,
             hint2: power.ready ? 'Doble daño' : '',
           }) : ''}
-          ${p.hasMagic ? btn('spell', icon('spell', 32), 'Hechizo', {
-            disabled: off || spells.length === 0,
-            title: spells.length === 0 ? 'No conocés hechizos' : 'Lanzar un hechizo',
-            hint: `${p.mana}/${p.maxMana} maná`,
-          }) : ''}
+          ${p.hasMagic ? (() => {
+            // v3.4: el mago necesita su arma de mago puesta
+            const cast = A.Balance && A.Balance.canCast ? A.Balance.canCast(p) : { ok: true };
+            return btn('spell', icon('spell', 32), 'Hechizo', {
+              disabled: off || spells.length === 0 || !cast.ok,
+              title: !cast.ok ? cast.why : spells.length === 0 ? 'No conocés hechizos' : 'Lanzar un hechizo',
+              hint: !cast.ok ? 'Sin arma de mago' : `${p.mana}/${p.maxMana} maná`,
+            });
+          })() : ''}
           ${btn('item', icon('potion', 32), 'Objeto', {
             disabled: off || items.length === 0,
             // v3.3: pociones, comida y hierbas no gastan el turno (hasta 3)

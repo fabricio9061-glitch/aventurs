@@ -562,7 +562,7 @@
     {
       key: 'weapons', label: 'Armas', one: 'arma', icon: 'swords', group: 'Cosas',
       hint: 'Con qué pegás.',
-      meta: (w) => `Nivel ${w.tier} · ${w.damage}${w.magic ? ' · mágica' : ''}${(w.weight || 0) >= 4 ? ' · pesada' : ''}`,
+      meta: (w) => `Nivel ${w.tier} · ${w.damage}${w.magic ? ' · de mago' : ''}${(w.weight || 0) >= 4 ? ' · pesada' : ''}`,
       sort: (a, b) => (a.tier - b.tier) || String(a.name).localeCompare(String(b.name), 'es'),
       filters: [{ key: 'tier', label: 'Nivel', options: () => Array.from({ length: 10 }, (_, i) => ({ value: String(i + 1), label: `Nivel ${i + 1}` })), test: (w, v) => String(w.tier) === v }],
       template: () => ({ name: 'Arma nueva', type: 'weapon', damage: '1d6', value: 40, rarity: 'common', tier: 1, weight: 2, magic: false, description: '' }),
@@ -576,9 +576,10 @@
         ] },
         { title: 'Combate', fields: [
           F.dice('damage', 'Daño', { help: 'La vida que sacás cuando acertás.' }),
-          F.num('weight', 'Peso', { min: 0, max: 12, help: 'Desde 4 es pesada: los guerreros ganan precisión y los magos pierden 3. Arma y armadura juntas: lo que pase de 4 te quita velocidad.' }),
+          F.num('weight', 'Peso', { min: 0, max: 12, help: 'Desde 4 es pesada: los guerreros ganan precisión. Arma y armadura juntas: lo que pase de 4 te quita velocidad.' }),
           F.num('precision', 'Precisión extra', { min: 0, max: 5, help: 'Se suma al dado de 20 al atacar.' }),
-          F.tog('magic', 'Mágica', { on: 'Sí, potencia los hechizos', off: 'No' }),
+          // v3.4: las armas de mago (bastones, varitas...) son solo para magos, y los magos usan solo esas
+          F.tog('magic', 'Arma de mago', { on: 'Sí: solo la usan los magos y les suma poder mágico', off: 'No: es común (guerreros e híbridos)' }),
           F.num('mana', 'Maná máximo', { min: 0, max: 20, help: 'Lo suma mientras la tenés puesta (si usás magia).' }),
           F.num('slots', 'Casillas que ocupa', { min: 1, max: 4 }),
           ...statusFields('statusEffect'),
@@ -674,8 +675,9 @@
           F.num('tier', 'Nivel', { min: 1, max: 10 }),
           F.num('manaCost', 'Maná que cuesta', { min: 0, max: 40 }),
           F.ref('racial', 'De nacimiento de', 'races', { none: 'Nadie (se aprende)', help: 'Si es de una raza, no se vende ni se enseña.' }),
-          F.tog('mageOnly', 'Solo para magos', { on: 'Sí, los híbridos no lo pueden aprender', off: 'No, también los híbridos', when: (d) => !d.racial }),
-          F.tog('hybridOnly', 'Solo para híbridos', { on: 'Sí, los magos no lo pueden aprender', off: 'No', when: (d) => !d.racial && !d.mageOnly }),
+          // v3.4: los magos aprenden todo; los híbridos, solo lo marcado
+          F.tog('hybrid', 'También para híbridos', { on: 'Sí, los híbridos también lo aprenden', off: 'No, solo magos', when: (d) => !d.racial && !d.hybridOnly, help: 'Para híbridos: hechizos cortos de combate. Nunca los de área ni los de curar a otros.' }),
+          F.tog('hybridOnly', 'Solo para híbridos', { on: 'Sí, los magos no lo pueden aprender', off: 'No', when: (d) => !d.racial }),
           F.num('cooldown', 'Espera entre usos', { min: 0, max: 9, help: 'Turnos que hay que esperar para volver a usarlo (0 = sin espera).' }),
           F.area('description', 'Descripción', { rows: 2 }),
         ] },
@@ -689,7 +691,7 @@
           ...statusFields('statusEffect'),
         ] },
       ],
-      normalize: (d) => { for (const k of ['racial', 'selfHeal', 'mageOnly', 'hybridOnly', 'cooldown', 'sure', 'selfOnly']) if (!d[k]) delete d[k]; if (d.mageOnly) delete d.hybridOnly; },
+      normalize: (d) => { for (const k of ['racial', 'selfHeal', 'mageOnly', 'hybrid', 'hybridOnly', 'cooldown', 'sure', 'selfOnly']) if (!d[k]) delete d[k]; if (d.hybrid) delete d.mageOnly; if (d.hybridOnly) delete d.hybrid; },
     },
   ];
 

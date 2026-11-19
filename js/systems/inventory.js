@@ -63,7 +63,7 @@
     // Verificar que está en el inventario
     const slot = p.inventory.find((s) => s.itemId === itemId);
     if (!slot) return false;
-    // v3.3: los magos solo usan armas mágicas
+    // v3.3: los magos solo usan armas mágicas · v3.4: y las armas de mago son solo de magos
     const why = cantEquipWhy(itemId);
     if (why) {
       lastError = why;

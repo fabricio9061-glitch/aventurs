@@ -2,7 +2,9 @@
    Aventurs — Seed: Armas (v1.8.0)
    Daño y precio salen de js/core/balance.js según tier y rareza:
      - dagas: un poco menos de daño, pero sangrado
-     - armas mágicas: menos daño físico, suman poder a los hechizos
+     - armas de mago (magic: true): bastones, varitas, cetros, orbes y tomos.
+       v3.4: solo las usan los magos (y los magos, solo esas); les suman poder
+       a los hechizos. Las legendarias como Excalibur o Mjölnir son comunes.
      - armas pesadas (peso 5+): más daño, te hacen más lento
    ============================================================ */
 
@@ -121,7 +123,7 @@
     { id:'hacha_runica', name:'Hacha rúnica', type:'weapon', icon:'🪓', tier:8, rarity:'rare', weight:5, magic:false, damage:'3d6+2', value:573,
       description:'Dos hojas que zumban al girar. Pesa, pero lo que toca no se levanta.' },
 
-    { id:'matamuertos', name:'Matamuertos', type:'weapon', icon:'⚔️', damage:'3d6', value:842, rarity:'epic', tier:8, weight:4, slots:2, magic:true,
+    { id:'matamuertos', name:'Matamuertos', type:'weapon', icon:'⚔️', damage:'3d6', value:842, rarity:'epic', tier:8, weight:4, slots:2, magic:false,
       description:'Una espada que hiere a los muertos como a los vivos. Brilla cerca de las tumbas.' },
 
     { id:'arco_elfico', name:'Arco élfico', type:'weapon', icon:'🏹', tier:9, rarity:'epic', weight:2, magic:false, statusEffect:{type:'bleed',chance:0.25,turns:3,value:3}, damage:'3d6+2', value:1221,
@@ -130,13 +132,13 @@
     { id:'cetro_abisal', name:'Cetro abisal', type:'weapon', icon:'🔱', tier:9, rarity:'epic', weight:2, magic:true, statusEffect:{type:'cold',chance:0.3,turns:2,value:1}, damage:'3d6+1', value:1221,
       description:'Coral negro del fondo del mar. Hiela la sangre de quien lo enfrenta.' },
 
-    { id:'colmillo_de_dragon', name:'Colmillo de dragón', type:'weapon', icon:'🦷', damage:'3d8+1', value:2833, rarity:'legendary', tier:10, weight:3, magic:true,
+    { id:'colmillo_de_dragon', name:'Colmillo de dragón', type:'weapon', icon:'🦷', damage:'3d8+1', value:2833, rarity:'legendary', tier:10, weight:3, magic:false,
       description:'Tallado del diente de un dragón ancestral. La carne que toca arde.' },
 
-    { id:'excalibur', name:'Excalibur', type:'weapon', icon:'🗡️', damage:'3d8', value:2833, rarity:'legendary', tier:10, weight:3, magic:true, statusEffect:{type:'shock',chance:0.3,turns:3,value:4},
+    { id:'excalibur', name:'Excalibur', type:'weapon', icon:'🗡️', damage:'3d8', value:2833, rarity:'legendary', tier:10, weight:3, magic:false, statusEffect:{type:'shock',chance:0.3,turns:3,value:4},
       description:'Hoja de luz pura, forjada en el lago. Solo el digno puede empuñarla. Brilla más cuando hay justicia que defender.' },
 
-    { id:'mjolnir', name:'Mjölnir', type:'weapon', icon:'🔨', damage:'3d8+2', value:2833, rarity:'legendary', tier:10, weight:8, slots:2, magic:true, statusEffect:{type:'shock',chance:0.5,turns:4,value:5},
+    { id:'mjolnir', name:'Mjölnir', type:'weapon', icon:'🔨', damage:'3d8+2', value:2833, rarity:'legendary', tier:10, weight:8, slots:2, magic:false, statusEffect:{type:'shock',chance:0.5,turns:4,value:5},
       description:'Martillo del dios del trueno. Pesa lo que pesa la fe del que lo levanta. Suelta rayos al impactar.' },
     // ---------- v2.1 ----------
     {"id": "sable_pirata", "name": "Espada curva pirata", "type": "weapon", "icon": "", "damage": "2d4+1", "value": 99, "rarity": "uncommon", "tier": 4, "weight": 2, "magic": false, "statusEffect": {"type": "bleed", "chance": 0.15, "turns": 3, "value": 1}, "description": "Hoja curva y corta, hecha para pelear en la cubierta de un barco."},

@@ -42,7 +42,7 @@
           <div class="shell-brand">
             <span class="brand-icon">${A.UI ? A.UI.icon('swords', 26) : ''}</span>
             <span class="brand-name">Aventurs</span>
-            <span class="version-pill" title="Versión del juego">v3.3.0</span>
+            <span class="version-pill" title="Versión del juego">v3.4.0</span>
           </div>
           ${tabs.length > 1 ? `
             <nav class="shell-nav">
@@ -286,8 +286,6 @@
           </section>
 
           ${renderBag(bag)}
-
-          ${questTracker()}
         </div>
       </div>
     `;
@@ -509,7 +507,7 @@
     return `<div class="class-note ${bad ? 'is-bad' : 'is-good'}">${A.UI ? A.UI.icon(bad ? 'arrow-down' : 'arrow-up', 14) : ''}<span>${A.Utils.escapeHtml(fit.note)}</span></div>`;
   }
 
-  /** Misiones en curso (hasta 3) con su próximo objetivo. */
+  /** Misiones en curso (hasta 3) con su próximo objetivo. v3.4: ya no va en la barra (está en el centro, ver world.js). */
   function questTracker() {
     if (!A.Quests) return '';
     const active = A.Quests.activeList();

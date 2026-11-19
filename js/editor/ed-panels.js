@@ -347,10 +347,13 @@
     const sample = { warrior: 'orco', hybrid: 'humano', mage: 'gnomo' };
     const lines = Object.keys(sample).map((cls) => {
       const fit = A.Balance.weaponFit({ raceId: sample[cls], level: 1 }, d);
+      // v3.4: cada clase, sus armas (las de mago, solo los magos)
+      if (fit.blocked) return `<div class="ed-fit is-bad"><b>${Ed.schema.L.CLASS[cls]}</b><span>No la puede usar</span></div>`;
       const parts = [];
       if (fit.dmg) parts.push(`+${fit.dmg} de daño`);
       if (fit.atk) parts.push(`${fit.atk > 0 ? '+' : ''}${fit.atk} de precisión`);
-      return `<div class="ed-fit ${fit.atk < 0 ? 'is-bad' : parts.length ? 'is-good' : ''}"><b>${Ed.schema.L.CLASS[cls]}</b><span>${parts.length ? parts.join(', ') : 'normal'}${d.magic && cls !== 'warrior' ? ' · potencia sus hechizos' : ''}</span></div>`;
+      if (fit.spell) parts.push(`+${fit.spell} de poder mágico`);
+      return `<div class="ed-fit ${fit.atk < 0 ? 'is-bad' : parts.length ? 'is-good' : ''}"><b>${Ed.schema.L.CLASS[cls]}</b><span>${parts.length ? parts.join(', ') : 'normal'}</span></div>`;
     }).join('');
     return card('Cómo le queda a cada clase (nivel 1)', lines, { cls: 'is-flat' });
   }

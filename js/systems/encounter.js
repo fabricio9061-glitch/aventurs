@@ -414,7 +414,8 @@
    */
   function pickHumanoidEquipment(enemy) {
     const tier = enemy.tier || 1;
-    const weapons = (window.Aventurs.Data.weapons || []).filter((w) => !w.magic);
+    // las criaturas no usan armas de mago ni las de raza (v3.3)
+    const weapons = (window.Aventurs.Data.weapons || []).filter((w) => !w.magic && !w.starter);
     const armors = (window.Aventurs.Data.armors || []);
     if (weapons.length === 0) return { weapon: null, armor: null };
     // Filtrar por tier acorde

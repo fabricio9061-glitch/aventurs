@@ -50,12 +50,12 @@
     ['espadon', 'Espadón', 8, 'epic', '3d8', 8, {}, 'Más alto que su dueño. El arma más pesada que se puede blandir.'],
     ['baston_sagrado', 'Bastón sagrado', 8, 'epic', '2d6+2', 2, { magic: true, statusEffect: { type: 'fire', chance: 0.25, turns: 3, value: 2 } }, 'Bendecido en el templo de la montaña. Quema a los impuros.'],
     ['matadragones', 'Matadragones', 9, 'epic', '3d8+2', 7, {}, 'Forjada para un solo trabajo, y lo hace bien. Pesadísima.'],
-    ['segadora_almas', 'Segadora de almas', 9, 'legendary', '3d6+3', 5, { magic: true, statusEffect: { type: 'bleed', chance: 0.35, turns: 3, value: 3 } }, 'Una guadaña negra que susurra nombres. Potencia tus hechizos.'],
+    ['segadora_almas', 'Segadora de almas', 9, 'legendary', '3d6+3', 5, { statusEffect: { type: 'bleed', chance: 0.35, turns: 3, value: 3 } }, 'Una guadaña negra que susurra nombres. Abre heridas que no cierran.'],
     ['vengador_sagrado', 'Vengador sagrado', 9, 'legendary', '3d8', 4, { statusEffect: { type: 'fire', chance: 0.3, turns: 3, value: 3 } }, 'Espada de paladín que arde contra la oscuridad.'],
     ['baston_vacio', 'Bastón del vacío', 9, 'legendary', '3d6+1', 3, { magic: true, statusEffect: { type: 'cold', chance: 0.3, turns: 2, value: 2 } }, 'Donde debería tener punta, hay nada. Hiela lo que toca.'],
     ['gungnir', 'Gungnir', 10, 'legendary', '3d8+2', 4, { precision: 2 }, 'La lanza que nunca erra. +2 de precisión.'],
     ['masamune', 'Masamune', 10, 'legendary', '3d8+1', 2, { statusEffect: { type: 'bleed', chance: 0.35, turns: 3, value: 3 } }, 'La katana perfecta. Liviana como una pluma, corta como el viento.'],
-    ['lamento_helado', 'Lamento helado', 10, 'legendary', '3d8+1', 5, { magic: true, statusEffect: { type: 'cold', chance: 0.4, turns: 3, value: 3 } }, 'Una espada rúnica que llora escarcha. Potencia tus hechizos.'],
+    ['lamento_helado', 'Lamento helado', 10, 'legendary', '3d8+1', 5, { statusEffect: { type: 'cold', chance: 0.4, turns: 3, value: 3 } }, 'Una espada rúnica que llora escarcha. Lo que toca se congela.'],
   ];
 
   // ---------- Armaduras ----------

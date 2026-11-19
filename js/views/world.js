@@ -178,14 +178,6 @@
             </button>` : ''}
         </section>
 
-        ${todo.length ? `
-          <section class="block2 todo2">
-            <h2 class="block2-title">${icon('quest', 18)}<span>Para hacer acá</span></h2>
-            <ul class="todo2-list">
-              ${todo.map((t) => `<li>${icon(t.main ? 'crown' : 'scroll', 18)}<span><b>${esc(t.title)}</b> · ${esc(t.text)}</span>${t.count ? `<span class="num todo2-count">${t.count}</span>` : ''}</li>`).join('')}
-            </ul>
-          </section>` : ''}
-
         ${npcs.length ? `
           <section class="block2">
             <h2 class="block2-title">${icon('talk', 18)}<span>Habitantes</span></h2>
@@ -208,6 +200,8 @@
             </div>
           </section>
         ` : ''}
+
+        ${questsBlock(todo)}
       </section>
     `;
 
@@ -235,6 +229,56 @@
       </button>`;
   }
 
+  /**
+   * v3.4: las misiones van en el centro, debajo de las criaturas de la zona (antes en la barra del costado).
+   * Primero las que tienen algo para hacer acá (con su objetivo de acá), después la historia y el resto.
+   */
+  function questsBlock(todo) {
+    if (!A.Quests) return '';
+    const active = A.Quests.activeList();
+    if (!active.length) {
+      if (A.Quests.status('mq1_humo') !== 'available') return '';
+      return `
+        <section class="block2 quests3 is-empty">
+          <button class="quests3-start" data-action="journal">${icon('crown', 18)}<span>La historia empieza con <b>Tomas el guardia</b>, en el Pueblo Inicial.</span></button>
+        </section>`;
+    }
+    const hereOf = {};
+    for (const t of todo || []) if (t.id && !hereOf[t.id]) hereOf[t.id] = t;
+    const rank = (q) => (hereOf[q.id] ? 0 : q.main ? 1 : 2);
+    const list = active.slice().sort((a, b) => rank(a) - rank(b));
+    const shown = list.slice(0, 6);
+    return `
+      <section class="block2 quests3">
+        <h2 class="block2-title">${icon('quest', 18)}<span>Misiones</span>
+          <button class="block2-link" data-action="journal">${list.length > shown.length ? `+${list.length - shown.length} en el Diario` : 'Ver el Diario'}</button>
+        </h2>
+        <div class="quests3-grid">
+          ${shown.map((q) => {
+            const here = hereOf[q.id];
+            const idx = q.objectives.findIndex((o, i) => !A.Quests.objectiveProgress(q, i).done);
+            const ready = idx < 0;
+            const pr = ready ? null : A.Quests.objectiveProgress(q, idx);
+            const giver = A.Data.getById('npcs', q.giver);
+            const obj = here ? here.text : ready ? `Volvé con ${giver ? giver.name : 'quien te la dio'}` : A.Quests.objectiveText(q.objectives[idx]);
+            const count = here ? here.count : pr && pr.need > 1 ? `${pr.have}/${pr.need}` : '';
+            return `
+              <button class="quest3-row ${q.main ? 'is-main' : ''} ${ready ? 'is-ready' : ''} ${here ? 'is-here' : ''}" data-action="journal" title="Abrir el Diario">
+                ${icon(q.main ? 'crown' : 'scroll', 18)}
+                <span class="quest3-text">
+                  <span class="quest3-title">${esc(q.title)}</span>
+                  <span class="quest3-obj">${esc(obj)}</span>
+                </span>
+                <span class="quest3-side">
+                  ${here ? '<span class="quest3-here">Acá</span>' : ''}
+                  ${count ? `<span class="quest3-count num">${esc(count)}</span>` : ready ? icon('question', 16) : ''}
+                </span>
+              </button>`;
+          }).join('')}
+        </div>
+      </section>`;
+  }
+
   /** Objetivos de misiones activas que se cumplen en esta zona. */
   function questsHere(region) {
     if (!A.Quests) return [];
@@ -254,7 +298,7 @@
           const foes = ids.map((id) => A.Data.getById('enemies', id)).filter((e) => e && here.has(e.id));
           if (foes.length && !foes.some((e) => A.Encounter.activeNow(e, region))) when = foes[0].time === 'night' ? ' (sale de noche)' : ' (sale de día)';
         }
-        if (fits) out.push({ title: q.title, main: q.main, text: A.Quests.objectiveText(o) + when, count: (o.count || 1) > 1 ? `${pr.have}/${pr.need}` : '' });
+        if (fits) out.push({ id: q.id, title: q.title, main: q.main, text: A.Quests.objectiveText(o) + when, count: (o.count || 1) > 1 ? `${pr.have}/${pr.need}` : '' });
       });
     }
     return out;
@@ -826,6 +870,8 @@
   }
 
   function onAction(action) {
+    // v3.4: las misiones del centro abren el Diario
+    if (action === 'journal') { A.State.openModal('journal', { tab: 'quests' }); return; }
     if (action === 'open-travel') {
       lastNote = null;
       A.State.ui.showMap = true;

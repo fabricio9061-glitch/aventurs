@@ -12,6 +12,8 @@
      cooldown  N: después de usarlo, se puede volver a usar N turnos después.
      mageOnly  solo los magos lo aprenden (Curación también, desde la v3.3).
      hybridOnly solo los híbridos lo aprenden (Segundo aliento).
+     hybrid    v3.4: también lo aprenden los híbridos (Chispa, Llama, Rayo helado
+               y 6 pergaminos de combate). Lo que no lo tiene, es solo de magos.
      selfOnly  una curación que solo te cura a vos (no se le tira a otro).
    ============================================================ */
 
@@ -19,11 +21,11 @@
   'use strict';
 
   const SPELLS = [
-    { id:'chispa', name:'Chispa', icon:'⚡', damage:'1d6', manaCost:3, tier:1, school:'arcane',
+    { id:'chispa', name:'Chispa', icon:'⚡', damage:'1d6', manaCost:3, tier:1, hybrid:true, school:'arcane',
       description:'Una descarga eléctrica corta. Es lo primero que aprende todo aprendiz.' },
-    { id:'llama', name:'Llama', icon:'🔥', damage:'1d8', manaCost:4, tier:2, school:'fire', statusEffect:{type:'fire',chance:0.3,turns:2,value:1},
+    { id:'llama', name:'Llama', icon:'🔥', damage:'1d8', manaCost:4, tier:2, hybrid:true, school:'fire', statusEffect:{type:'fire',chance:0.3,turns:2,value:1},
       description:'Lengua de fuego que sale de la palma. Quema rápido y deja olor a azufre.' },
-    { id:'rayo_helado', name:'Rayo helado', icon:'❄️', damage:'1d6+1', manaCost:4, tier:2, school:'ice', statusEffect:{type:'cold',chance:0.6,turns:2,value:1},
+    { id:'rayo_helado', name:'Rayo helado', icon:'❄️', damage:'1d6+1', manaCost:4, tier:2, hybrid:true, school:'ice', statusEffect:{type:'cold',chance:0.6,turns:2,value:1},
       description:'Aire denso que congela en el aire. Reduce la velocidad del enemigo.' },
     // v3.3: solo para magos y con espera (con maná que vuelve solo era vida casi infinita): un turno sí y otro no
     { id:'curacion', name:'Curación', icon:'💚', heal:'2d6+2', manaCost:6, tier:2, school:'holy', mageOnly:true, cooldown:2,
@@ -71,12 +73,12 @@
     // Hace falta tener el nivel del hechizo. Los de daño tiran el dado como los demás.
     // effect: lo que hace si no es de daño (como el pergamino, pero con maná y espera).
     // stun: turnos que deja sin moverse al que le pega · drain: la mitad del daño vuelve como vida.
-    { id:'misil_arcano', name:'Misil arcano', iconName:'arcane', damage:'1d6+1', manaCost:4, tier:1, school:'arcane', sure:true, fromScroll:'perg_misil_arcano',
+    { id:'misil_arcano', name:'Misil arcano', iconName:'arcane', damage:'1d6+1', manaCost:4, tier:1, hybrid:true, school:'arcane', sure:true, fromScroll:'perg_misil_arcano',
       description:'Tres chispas que buscan solas a su blanco. No fallan nunca.' },
     { id:'escudo_arcano', name:'Escudo arcano', iconName:'shield', manaCost:4, tier:1, school:'arcane', cooldown:4, fromScroll:'perg_escudo',
       effect:{ type:'buff', stat:'armor', amount:2, duration:3 },
       description:'Una capa de luz te cubre: los golpes pegan menos por unos turnos.' },
-    { id:'quemar', name:'Quemar', iconName:'fire', damage:'1d4', manaCost:4, tier:2, school:'fire', fromScroll:'perg_quemar', statusEffect:{type:'fire',chance:0.6,turns:3,value:1},
+    { id:'quemar', name:'Quemar', iconName:'fire', damage:'1d4', manaCost:4, tier:2, hybrid:true, school:'fire', fromScroll:'perg_quemar', statusEffect:{type:'fire',chance:0.6,turns:3,value:1},
       description:'Prendés fuego a la ropa (o al pelo) del enemigo. Sigue quemando unos turnos.' },
     { id:'estatica', name:'Estática', iconName:'spark', damage:'1d6', manaCost:4, tier:2, school:'arcane', fromScroll:'perg_estatica', statusEffect:{type:'shock',chance:0.4,turns:2,value:1},
       description:'Un chasquido eléctrico que deja los pelos de punta y los músculos tiesos.' },
@@ -99,10 +101,10 @@
     { id:'espinas', name:'Espinas', iconName:'shield', manaCost:5, tier:3, school:'nature', cooldown:4, fromScroll:'perg_espinas',
       effect:{ type:'buff', stat:'reflect', amount:0.3, duration:4 },
       description:'Te crecen espinas: el que te pega recibe parte del golpe.' },
-    { id:'fuerza_arcana', name:'Fuerza arcana', iconName:'fist', manaCost:5, tier:3, school:'arcane', cooldown:4, fromScroll:'perg_fuerza',
+    { id:'fuerza_arcana', name:'Fuerza arcana', iconName:'fist', manaCost:5, tier:3, hybrid:true, school:'arcane', cooldown:4, fromScroll:'perg_fuerza',
       effect:{ type:'buff', stat:'damage', amount:3, duration:3 },
       description:'La magia te sube por los brazos: tus golpes pegan más por unos turnos.' },
-    { id:'ojo_de_halcon', name:'Ojo de halcón', iconName:'eye', manaCost:4, tier:3, school:'light', cooldown:4, fromScroll:'perg_precision',
+    { id:'ojo_de_halcon', name:'Ojo de halcón', iconName:'eye', manaCost:4, tier:3, hybrid:true, school:'light', cooldown:4, fromScroll:'perg_precision',
       effect:{ type:'buff', stat:'precision', amount:4, duration:3 },
       description:'Ves cada movimiento antes de que pase: +4 de precisión por unos turnos.' },
     { id:'relampago', name:'Relámpago', iconName:'spark', damage:'2d6', manaCost:7, tier:4, school:'arcane', cooldown:2, fromScroll:'perg_relampago', statusEffect:{type:'shock',chance:0.4,turns:2,value:1},
@@ -112,7 +114,7 @@
     { id:'terror', name:'Terror', iconName:'skulls', manaCost:6, tier:4, school:'shadow', cooldown:4, fromScroll:'perg_terror',
       effect:{ type:'stun', turns:1, status:{ type:'blind', turns:2, value:1 } },
       description:'Una visión espantosa: el enemigo se paraliza un turno y después le cuesta acertar.' },
-    { id:'piel_de_piedra', name:'Piel de piedra', iconName:'shield', manaCost:6, tier:4, school:'nature', cooldown:5, fromScroll:'perg_armadura',
+    { id:'piel_de_piedra', name:'Piel de piedra', iconName:'shield', manaCost:6, tier:4, hybrid:true, school:'nature', cooldown:5, fromScroll:'perg_armadura',
       effect:{ type:'buff', stat:'armor', amount:3, duration:4 },
       description:'La piel se te pone dura como roca: +3 de armadura por unos turnos.' },
     { id:'ola_de_fuego', name:'Ola de fuego', iconName:'fire', damage:'2d4', manaCost:9, tier:5, school:'fire', area:true, mageOnly:true, cooldown:3, fromScroll:'perg_ola_fuego', statusEffect:{type:'fire',chance:0.25,turns:2,value:1},
@@ -124,7 +126,7 @@
     { id:'regenerar', name:'Regenerar', iconName:'heart', manaCost:8, tier:5, school:'nature', mageOnly:true, cooldown:5, fromScroll:'perg_regenerar',
       effect:{ type:'buff', stat:'regen', amount:3, duration:4 },
       description:'Tus heridas se cierran solas: recuperás vida al empezar cada turno. Solo para magos.' },
-    { id:'furia_salvaje', name:'Furia salvaje', iconName:'fist', manaCost:7, tier:5, school:'fire', cooldown:5, fromScroll:'perg_furia',
+    { id:'furia_salvaje', name:'Furia salvaje', iconName:'fist', manaCost:7, tier:5, hybrid:true, school:'fire', cooldown:5, fromScroll:'perg_furia',
       effect:{ type:'buff', stat:'damage', amount:5, duration:3, also:{ defense:-2 } },
       description:'Pegás mucho más fuerte, pero te descuidás: un poco menos de defensa.' },
     { id:'trueno', name:'Trueno', iconName:'storm', damage:'2d6', manaCost:12, tier:6, school:'arcane', mageOnly:true, cooldown:4, stun:1, fromScroll:'perg_trueno',

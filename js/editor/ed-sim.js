@@ -29,7 +29,9 @@
       const fit = A.Balance.weaponFit ? A.Balance.weaponFit(p, w) : { atk: 0, dmg: 0 };
       return avg(w) + fit.dmg + fit.atk * 0.6;
     };
-    const weapons = A.Data.weapons.filter((w) => ok(w) && !w.magic).sort((a, b) => score(b) - score(a));
+    // v3.4: cada clase, sus armas (los magos, las de mago; los demás, las comunes)
+    const weapons = A.Data.weapons.filter((w) => ok(w) && !w.starter && (!A.Balance.canWield || A.Balance.canWield(p, w).ok))
+      .sort((a, b) => (score(b) + (b.magic ? 3 : 0)) - (score(a) + (a.magic ? 3 : 0)));
     const armors = A.Data.armors.filter(ok).sort((a, b) => (b.tier - a.tier) || ((b.defense || 0) - (a.defense || 0)));
     if (lvl > 1) {
       if (weapons[0]) p.equipment.weapon = weapons[0].id;

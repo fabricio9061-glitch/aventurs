@@ -30,7 +30,7 @@
 (function (A) {
   'use strict';
 
-  const VERSION = 5;        // si cambian los mensajes, sube y avisa "actualicen los dos" (v3.2: 4 · v3.3: 5)
+  const VERSION = 6;        // si cambian los mensajes o las reglas, sube y avisa "actualicen los dos" (v3.2: 4 · v3.3: 5 · v3.4: 6)
   const MAX_MEMBERS = 4;     // v3.2: hasta cuatro jugadores
   const SNAP_MS = 50;       // juntar cambios antes de mandar la foto
   const HERO_MS = 150;      // juntar cambios del invitado antes de mandarlos

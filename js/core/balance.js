@@ -282,44 +282,70 @@
     return { win: 0 };
   }
 
+  // ---------- v3.4: cada clase, sus armas ----------
+  // Armas de mago (las que tienen "magic"): bastones, varitas, cetros, orbes y tomos.
+  // Solo las usan los magos, y les suman poder mágico. Guerreros e híbridos usan las comunes.
+  const MAGE_WEAPONS_TXT = 'bastones, varitas, cetros, orbes y tomos';
+  function isMageWeapon(w) { return !!(w && w.magic); }
+  /** Poder mágico que le suma un arma de mago a los hechizos del mago. */
+  function mageWeaponPower(w) { return isMageWeapon(w) ? 1 + Math.floor((w.tier || 1) / 4) : 0; }
+
+  /**
+   * Cómo le queda un arma a cada clase: { type, atk, dmg, spell, note, blocked }.
+   *   guerrero: maestría (+daño, y +precisión con las pesadas) con las armas comunes
+   *   híbrido: las comunes, sin ventajas (su magia sale de pegar)
+   *   mago: solo las de mago; le suman poder mágico
+   */
   function weaponFit(p, weapon) {
     const type = classOf(p);
     const lvl = Math.max(1, (p && p.level) || 1);
     const w = weapon ? weapon.weight || 0 : 0;
     const heavy = w >= 4;
-    const medium = w >= 2 && w < 4;
-    const magicW = !!(weapon && weapon.magic);
-    const out = { type, atk: 0, dmg: 0, note: '' };
+    const magicW = isMageWeapon(weapon);
+    const out = { type, atk: 0, dmg: 0, spell: 0, note: '' };
+    if (!weapon) return out;
+    if (type === 'mage') {
+      if (!magicW) { out.blocked = true; out.note = `Los magos solo usan armas de mago (${MAGE_WEAPONS_TXT}).`; return out; }
+      out.spell = mageWeaponPower(weapon);
+      out.note = `Arma de mago: +${out.spell} de poder mágico a tus hechizos.`;
+      return out;
+    }
+    if (magicW) { out.blocked = true; out.note = 'Es un arma de mago: solo la pueden usar los magos.'; return out; }
     if (type === 'warrior') {
       out.dmg = 1 + Math.floor((lvl - 1) / 4);
       if (heavy) out.atk = 1;
       out.note = `Maestría con armas: +${out.dmg} de daño${out.atk ? ' y +1 de precisión' : ''}.`;
-    } else if (type === 'mage') {
-      // v3.3: los magos solo usan armas mágicas
-      if (!magicW) { out.blocked = true; out.note = 'Los magos solo pueden usar armas mágicas (varitas, bastones, cetros, orbes, tomos).'; }
-      else if (heavy) { out.atk = -3; out.note = 'Muy pesada para un mago: -3 de precisión.'; }
-      else out.note = 'Arma mágica: potencia tus hechizos.';
     }
     return out;
   }
 
-  /** v3.3: ¿puede usar esta arma? (los magos, solo las mágicas) { ok, why } */
+  /** ¿Puede usar esta arma? { ok, why } (v3.4: las de mago, solo los magos; los magos, solo esas) */
   function canWield(p, weapon) {
     if (!weapon) return { ok: true, why: '' };
-    if (classOf(p) === 'mage' && !weapon.magic) return { ok: false, why: 'Los magos solo pueden usar armas mágicas (varitas, bastones, cetros, orbes, tomos).' };
+    const mage = classOf(p) === 'mage';
+    if (mage && !isMageWeapon(weapon)) return { ok: false, why: `Los magos solo usan armas de mago (${MAGE_WEAPONS_TXT}).` };
+    if (!mage && isMageWeapon(weapon)) return { ok: false, why: 'Es un arma de mago: solo la pueden usar los magos.' };
     return { ok: true, why: '' };
+  }
+
+  /** v3.4: ¿puede lanzar hechizos ahora? El mago necesita su arma de mago puesta. { ok, why } */
+  function canCast(p) {
+    if (!p || !p.hasMagic) return { ok: false, why: 'No podés canalizar magia.' };
+    if (classOf(p) !== 'mage') return { ok: true, why: '' };
+    const w = p.equipment && p.equipment.weapon && A.Data && A.Data.getById ? A.Data.getById('weapons', p.equipment.weapon) : null;
+    if (isMageWeapon(w)) return { ok: true, why: '' };
+    return { ok: false, why: 'Sin un arma de mago (bastón, varita, cetro, orbe o tomo) no podés lanzar hechizos.' };
   }
 
   // v3.3: los hechizos de daño tiran el dado como un arma, con esta ayuda
   const SPELL_HIT = 2;
 
-  /** Poder mágico: los magos lo tienen más alto y crece más rápido. */
+  /** Poder mágico: los magos lo tienen más alto y crece más rápido; su arma de mago suma (v3.4: solo ellos la usan). */
   function spellPowerOf(p, weapon) {
     const type = classOf(p);
     const lvl = Math.max(1, (p && p.level) || 1);
-    const wBonus = weapon && weapon.magic ? 1 + Math.floor((weapon.tier || 1) / 4) : 0;
-    if (type === 'mage') return Math.floor(lvl / 2) + wBonus;
-    if (type === 'hybrid') return Math.floor((lvl - 1) / 2) + wBonus;
+    if (type === 'mage') return Math.floor(lvl / 2) + mageWeaponPower(weapon);
+    if (type === 'hybrid') return Math.floor((lvl - 1) / 2);
     return 0;
   }
 
@@ -625,7 +651,11 @@
     weightOf,
     FREE_WEIGHT,
     weaponFit,
-    canWield,  // v3.3
+    canWield,  // v3.3 (v3.4: las de mago, solo los magos)
+    canCast,   // v3.4
+    isMageWeapon, // v3.4
+    mageWeaponPower, // v3.4
+    MAGE_WEAPONS_TXT, // v3.4
     SPELL_HIT, // v3.3
     manaRegenOf,
     regenLabel, // v3.3: "1,5"

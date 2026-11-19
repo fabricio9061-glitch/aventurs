@@ -1303,6 +1303,9 @@
     if (!p.hasMagic) return;
     const spell = A.Data.getById('spells', spellId);
     if (!spell || !(p.spells || []).includes(spellId)) return;
+    // v3.4: el mago necesita su arma de mago (bastón, varita...) puesta para lanzar
+    const cast = B().canCast ? B().canCast(p) : { ok: true };
+    if (!cast.ok) { addLog(c, 'system', { text: cast.why, fx: { kind: 'note' } }); return; }
     // v3.2: la curación se le puede tirar a tu mascota o a un compañero
     // v3.3: Segundo aliento (selfOnly) solo te cura a vos
     const ally = spell.heal ? allyTarget(spell.selfOnly ? 'self' : on) : null;

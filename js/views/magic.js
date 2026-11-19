@@ -31,7 +31,6 @@
     if (s.damage) out.push(s.sure ? '<span class="book-tag is-sure" title="No tira el dado: siempre pega">No falla</span>' : `<span class="book-tag" title="Tira el dado como un arma, con +${(A.Balance && A.Balance.SPELL_HIT) || 2} a tu precisión: puede fallar y, con 20, es crítico (doble daño)">Puede fallar</span>`);
     if (s.area) out.push('<span class="book-tag">A todos</span>');
     if (s.racial) out.push('<span class="book-tag is-race">De tu raza</span>');
-    if (s.mageOnly) out.push('<span class="book-tag">Solo magos</span>');
     if (s.hybridOnly) out.push('<span class="book-tag">Solo híbridos</span>');
     if (s.selfOnly) out.push('<span class="book-tag" title="No se le puede tirar a otro">Solo a vos</span>');
     return out.join('');
@@ -70,15 +69,18 @@
       ? `En las peleas recuperás ${A.Balance.regenLabel(regen.turn)} de maná por turno${regen.turn % 1 ? ' (en promedio)' : ''} y ${Math.round(regen.win * 100)}% al ganar.`
       : 'Tu maná no vuelve solo en las peleas: pociones de maná o dormir.';
     const type = classOf(p);
+    // v3.4: los magos aprenden todo; los híbridos, pocos
     const more = type === 'mage'
-      ? 'Más hechizos: algunos habitantes los enseñan y muchos pergaminos se pueden aprender (en la mochila, tocá el pergamino y "Aprender").'
-      : 'Más hechizos: algunos habitantes los enseñan y algunos pergaminos se pueden aprender. Los grandes y los de curar son solo para magos.';
+      ? 'Más hechizos: algunos habitantes los enseñan y todos los pergaminos de hechizo se pueden aprender (en la mochila, tocá el pergamino y "Aprender").'
+      : 'Los híbridos aprenden pocos hechizos: Chispa, Llama, Rayo helado y Segundo aliento (con los maestros) y 6 pergaminos de combate: Misil arcano, Quemar, Ojo de halcón, Fuerza arcana, Piel de piedra y Furia salvaje. Todo lo demás es de magos.';
+    const cast = A.Balance && A.Balance.canCast ? A.Balance.canCast(p) : { ok: true };
     return `
       <div class="book">
         <div class="book-mana">
           <span class="book-mana-num num">${icon('spell', 16)}${p.mana} / ${p.maxMana} de maná</span>
           <span class="book-mana-hint dim">${esc(regenTxt)}</span>
         </div>
+        ${cast.ok ? '' : `<div class="class-note is-bad">${icon('lock', 14)}<span>${esc(cast.why)} Ponete uno desde la mochila.</span></div>`}
         ${known.length ? `<div class="book-list">${known.map((s) => spellRow(p, s)).join('')}</div>` : `
           <div class="empty-card">
             <div class="empty-icon">${icon('book', 40)}</div>

@@ -278,6 +278,46 @@
         p.schemaVersion = 20;
         dirty = true;
       }
+      if ((p.schemaVersion || 0) < 21) {
+        // v3.4: cada clase, sus armas (las de mago, solo los magos; los magos, solo esas)
+        // y los híbridos aprenden pocos hechizos: los que ya no pueden saber, devuelven su pergamino
+        const notes21 = [];
+        const eq21 = p.equipment || (p.equipment = { weapon: null, armor: null, accessory: null });
+        const B21 = A.Balance;
+        const wNow = eq21.weapon ? A.Data.getById('weapons', eq21.weapon) : null;
+        if (wNow && B21 && B21.canWield && !B21.canWield(p, wNow).ok) {
+          // el arma de antes vuelve a la mochila
+          const back = (id) => { const slot = (p.inventory || []).find((x) => x.itemId === id); if (slot) slot.qty += 1; else (p.inventory = p.inventory || []).push({ itemId: id, qty: 1 }); };
+          const take = (id) => { const slot = (p.inventory || []).find((x) => x.itemId === id); if (slot) { slot.qty -= 1; if (slot.qty <= 0) p.inventory = p.inventory.filter((x) => x !== slot); } };
+          back(wNow.id);
+          // la mejor que sí puede usar de la mochila; si no tiene, la de su raza (o una varita, si es mago)
+          const race21 = A.Data.getById('races', p.raceId);
+          const usable = (p.inventory || []).map((x) => A.Data.getById('weapons', x.itemId)).filter((x) => x && B21.canWield(p, x).ok)
+            .sort((a, b) => ((b.tier || 1) - (a.tier || 1)) || ((B21.avgOf ? B21.avgOf(b.damage) : 0) - (B21.avgOf ? B21.avgOf(a.damage) : 0)))[0];
+          const fallback = (race21 && race21.startWeapon && A.Data.getById('weapons', race21.startWeapon)) || A.Data.getById('weapons', B21.classOf(p) === 'mage' ? 'varita' : 'daga');
+          const pick = usable || fallback;
+          if (pick) {
+            if (usable) take(pick.id);
+            eq21.weapon = pick.id;
+            if (A.Accessories && A.Accessories.applyGearMana) A.Accessories.applyGearMana(p, 'weapon', pick);
+            notes21.push(`${wNow.name} ahora es ${B21.isMageWeapon(wNow) ? 'un arma de mago' : 'un arma común'} y quedó en la mochila: te pusiste ${pick.name.toLowerCase()}`);
+          }
+        }
+        if (A.Spellbook && A.Spellbook.who && B21 && B21.classOf && B21.classOf(p) === 'hybrid') {
+          const lost = (p.spells || []).map((id) => A.Data.getById('spells', id)).filter((sp) => sp && A.Spellbook.who(sp) === 'mage');
+          for (const sp of lost) {
+            p.spells = p.spells.filter((x) => x !== sp.id);
+            if (sp.fromScroll && A.Data.getById('items', sp.fromScroll)) {
+              const slot = (p.inventory || []).find((x) => x.itemId === sp.fromScroll);
+              if (slot) slot.qty += 1; else (p.inventory = p.inventory || []).push({ itemId: sp.fromScroll, qty: 1 });
+            }
+          }
+          if (lost.length) notes21.push(`los híbridos ya no aprenden ${lost.map((sp) => sp.name).join(', ')}: ${lost.length > 1 ? 'te devolvieron sus pergaminos' : 'te devolvieron el pergamino'} (lo podés leer una vez en una pelea o venderlo)`);
+        }
+        if (notes21.length) State.addChronicle({ type: 'note', text: `Cambios de la versión 3.4: ${notes21.join('; ')}.` });
+        p.schemaVersion = 21;
+        dirty = true;
+      }
       if (dirty) {
         State.persist();
         console.log('[State] Save migrado a estructura v1.5.0');
@@ -445,7 +485,7 @@
         // v2.1: cada raza con magia nace con su propio hechizo
         spells: hasMagic ? [((A.Data.getById('races', raceId) || {}).startSpell) || 'chispa'] : [],
         travelSteps: 0,
-        schemaVersion: 20,
+        schemaVersion: 21,
       };
       // v3.3: el maná que da el arma de inicio (la varita: +2)
       if (A.Accessories && A.Accessories.applyGearMana) {
