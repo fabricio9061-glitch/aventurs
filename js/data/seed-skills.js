@@ -92,8 +92,8 @@
     panda: ['piel_gruesa', 'derribo', 'zarpazo', 'merienda'],
     profundo: ['manada', 'agarre', 'mordida'],
     grifo: ['vuelo', 'rafaga', 'picotazo', 'zarpazo'],
-    kyubi: ['colas_zorro', 'ilusion', 'fuego_zorro', 'encantar', 'invocar'], // v3.8
-    kitsune: ['colas_zorro', 'escurridizo', 'fuego_zorro', 'encantar'],
+    kitsune: ['colas_zorro', 'escurridizo', 'fuego_zorro', 'encantar'], // v3.8: le crecen colas (de 1 a 9)
+    kyubi: ['colas_zorro', 'ilusion', 'fuego_zorro', 'encantar', 'invocar'], // v3.8: la jefa, ya con nueve colas
     cthulhu: ['abismal', 'gigante', 'vision_abismo', 'agarre', 'invocar'],
     capitan_pirata: ['lobo_mar', 'grito', 'disparo', 'invocar'],
     huargo: ['manada', 'mordida', 'derribo'],

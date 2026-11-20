@@ -93,6 +93,50 @@
     return e.time === 'night' ? 'Sale de noche' : 'Sale de día';
   }
 
+  // ---------- v3.8: los jefes tiran su propia chance ----------
+  // Antes el jefe competía como una "categoría" más y, al ser el único de su
+  // categoría, su "Qué tan seguido sale" no cambiaba nada (y casi nunca salía).
+  // Ahora cada jefe tiene su chance por encuentro:
+  //   3% × "Qué tan seguido sale" × lo cerca que estés de su nivel
+  //   (a su nivel o más: todo; un nivel menos: la mitad; dos: un quinto; más: casi nada).
+  // Si una misión te pide derrotarlo, sale 8 veces más seguido.
+  const BOSS_CHANCE = 0.03;
+  function bossFit(e, lvl) {
+    const d = (e.tier || 1) - lvl;
+    if (d <= 0) return 1;
+    if (d === 1) return 0.5;
+    if (d === 2) return 0.2;
+    return 0.05;
+  }
+  /** Chance (0..1) de que este jefe aparezca en un encuentro. */
+  function bossChance(e, lvl) {
+    const w = (e.spawn && e.spawn.weight != null) ? e.spawn.weight : 1;
+    const quest = targetsCache && targetsCache.has(e.id) ? 8 : 1;
+    return Math.min(0.5, BOSS_CHANCE * w * bossFit(e, lvl) * quest);
+  }
+  /** Tira la chance de cada jefe de la zona; devuelve el que salió o null. */
+  function rollBoss(bosses, lvl) {
+    let r = Math.random();
+    for (const e of bosses) {
+      const ch = bossChance(e, lvl);
+      if (r < ch) return e;
+      r -= ch;
+    }
+    return null;
+  }
+  /** Para mostrar o probar: { id: chance } de los jefes de una zona a un nivel. */
+  function bossChances(regionId, level) {
+    const conf = configFor(regionId);
+    if (!conf) return {};
+    const sw = conf.cfg.spawnWeights || {};
+    if (!((sw.boss || 0) > 0)) return {};
+    const lvl = level != null ? level : playerLevel();
+    targetsCache = level != null ? new Set() : questTargets();
+    const out = {};
+    for (const e of A.Data.enemiesInRegion(regionId)) if (e.category === 'boss') out[e.id] = bossChance(e, lvl);
+    return out;
+  }
+
   function mustGoAlone(e, lvl) {
     return (e.tier || 1) > lvl || e.category === 'boss';
   }
@@ -210,8 +254,13 @@
     const lvl = opts.level != null ? opts.level : playerLevel();
     targetsCache = opts.level != null ? new Set() : questTargets();
     const sw = cfg.spawnWeights || {};
+    // v3.8: primero, ¿sale un jefe? (cada uno con su chance; "Jefes" en 0 = la zona no tiene)
+    if (byCat.boss.length && (sw.boss || 0) > 0 && !opts.noBoss) {
+      const boss = rollBoss(byCat.boss, lvl);
+      if (boss) return [spawnInstance(boss)];
+    }
     const catWeights = {};
-    for (const cat of ['weak', 'normal', 'strong', 'boss']) {
+    for (const cat of ['weak', 'normal', 'strong']) {
       if (byCat[cat].length > 0 && (sw[cat] || 0) > 0) {
         const fit = byCat[cat].reduce((s, e) => s + spawnFactor(e, lvl), 0) / byCat[cat].length;
         catWeights[cat] = sw[cat] * fit;
@@ -499,5 +548,8 @@
     activeNow,
     timeLabel,
     isUnderground,
+    // v3.8
+    bossChances,
+    BOSS_CHANCE,
   };
 })(window.Aventurs);

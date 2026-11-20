@@ -1308,8 +1308,8 @@
     panda: { plan: 'beast', p: { b: '#f2f2ee', c: '#f2f2ee', h: '#26262a', a: '#e8e0d0', e: '#101010' }, o: { len: 19, h: 11, leg: 4.5, legW: 2.3, head: 4.8, snout: 2.4, snoutH: 2.6, ears: 'round', tail: 'short', neck: 0, headLow: true, legKey: 'h', earKey: 'h', eyePatch: 'h' } },
     profundo: { plan: 'humanoid', p: { sk: '#3a7a7a', h: '#1a4a4a', cl: '#2a5a5a', cl2: '#1a3a3a', a: '#8ac0b0', hl: '#e8f0d0', m: '#a0b0b0', wd: '#4a3a2a', e: '#101010' }, o: { size: 'medium', head: 'fish', outfit: 'loincloth', weapon: 'trident', claws: true } },
     grifo: { plan: 'beast', p: { b: '#c89a4a', c: '#f2ead8', h: '#f2ead8', wg: '#8a5a2a', a: '#f0c030', e: '#ffcc33' }, o: { len: 18, h: 9, leg: 5.5, legW: 1.5, head: 3.8, snout: 0, beak: true, ears: 'pointy', mane: 'horse', wings: 'feather', tail: 'thin', tailTip: 'b', claws: true, neck: 2 } },
-    kitsune: { plan: 'beast', s: 0.9, dx: -3, p: { b: '#f4ecdc', c: '#ffffff', a: '#c83a2a', e: '#ff6a20' }, o: { len: 16, h: 7.5, leg: 4.5, legW: 1.3, head: 3.9, snout: 4, snoutH: 2.3, ears: 'pointy', tail: 'plume', tailTip: 'a', tails: 3, tailRoom: 3.5, neck: 1.5, eyes: 'glow' } },
-    kyubi: { plan: 'beast', s: 0.95, dx: -3.5, p: { b: '#f6e6c0', c: '#fffaf0', a: '#3a8aff', e: '#7ad8ff' }, o: { len: 16, h: 7.5, leg: 4.5, legW: 1.3, head: 3.9, snout: 4, snoutH: 2.3, ears: 'pointy', tail: 'plume', tailTip: 'a', tails: 9, tailRoom: 3.5, neck: 1.5, eyes: 'glow' } }, // v3.8
+    kitsune: { plan: 'beast', s: 0.9, dx: -3, p: { b: '#f4ecdc', c: '#ffffff', a: '#c83a2a', e: '#ff6a20' }, o: { len: 16, h: 7.5, leg: 4.5, legW: 1.3, head: 3.9, snout: 4, snoutH: 2.3, ears: 'pointy', tail: 'plume', tailTip: 'a', tails: 1, tailRoom: 3.5, neck: 1.5, eyes: 'glow' } },
+    kyubi: { plan: 'beast', s: 0.98, dx: -3.5, p: { b: '#f4ecdc', c: '#ffffff', a: '#c83a2a', e: '#ff6a20' }, o: { len: 16, h: 7.5, leg: 4.5, legW: 1.3, head: 3.9, snout: 4, snoutH: 2.3, ears: 'pointy', tail: 'plume', tailTip: 'a', tails: 9, tailRoom: 3.5, neck: 1.5, eyes: 'glow' } }, // v3.8: la de nueve colas
     cthulhu: { plan: 'humanoid', p: { sk: '#3a6a4a', h: '#1a3a2a', cl: '#1a2a20', cl2: '#0e1a14', wg: '#2a3a2e', a: '#6a8a5a', e: '#e0ff60' }, o: { size: 'huge', head: 'octopus', wings: 'bat', outfit: 'none', claws: true, weapon: 'none' } },
     unicornio: { plan: 'beast', s: 1, p: { b: '#f4f2fa', c: '#ffffff', h: '#c8a0f0', a: '#f0d060', e: '#6a4ac8', o: '#b8b0c8' }, o: { len: 17, h: 9.5, leg: 7, legW: 1.3, head: 3.8, snout: 3.8, snoutH: 2.6, ears: 'pointy', tail: 'bushy', neck: 3.4, mane: 'horse', feet: 'hoof', horns: 'unicorn' } },
     ciervo_astral: { plan: 'beast', s: 0.96, p: { b: '#c8d0f0', c: '#ffffff', a: '#9af0d0', e: '#3a6ac8' }, o: { len: 16, h: 9, leg: 7, legW: 1.2, head: 3.6, snout: 3.4, snoutH: 2.4, ears: 'pointy', tail: 'thin', neck: 3, horns: 'goat' } },
@@ -1504,6 +1504,7 @@
     // v3.8: en combate, el kitsune muestra las colas que tiene ahora
     let o = base.o || {};
     if (o.tails && e.tails > 0) o = { ...o, tails: Math.min(9, e.tails) };
+    if (o.tails >= 9 && !ov.a) { p.a = '#3a8aff'; p.e = '#7ad8ff'; } // con nueve colas despierta: fuego azul en las puntas y los ojos
     return { plan: base.plan, s: base.s || 1, dx: base.dx || 0, o, p };
   }
 

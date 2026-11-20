@@ -181,7 +181,7 @@
             F.num('weak', 'Débiles', { min: 0, max: 100 }),
             F.num('normal', 'Normales', { min: 0, max: 100 }),
             F.num('strong', 'Fuertes', { min: 0, max: 100 }),
-            F.num('boss', 'Jefes', { min: 0, max: 100 }),
+            F.num('boss', 'Jefes', { min: 0, max: 100, help: 'En 0 la zona no tiene jefes. Si es más de 0, cada jefe sale según su "Qué tan seguido sale".' }),
           ], { help: 'Son pesos: 50 y 10 quiere decir que las débiles salen 5 veces más que las fuertes.' }),
           F.custom('regionCreatures', (d) => Ed.panels.regionCreatures(d)),
           F.custom('regionTest', (d) => Ed.panels.regionTest(d), { live: true, heavy: true }),
@@ -328,11 +328,11 @@
         { title: 'Grupo', fields: [
           F.tog('spawn.groupable', 'Anda en grupo', { on: 'Sí', off: 'No, siempre sola' }),
           F.num('spawn.max', 'Cuántas pueden venir juntas', { min: 1, max: 8, when: (d) => !d.spawn || d.spawn.groupable !== false }),
-          F.num('spawn.weight', 'Qué tan seguido sale', { min: 0.05, max: 5, step: 0.05, help: '1 = normal; 0,1 = muy rara.' }),
+          F.num('spawn.weight', 'Qué tan seguido sale', { min: 0.05, max: 5, step: 0.05, help: '1 = normal; 0,1 = muy rara. Un jefe con 1 sale en el 3% de los encuentros cuando tenés su nivel (con 2, el 6%).' }),
         ] },
         { title: 'Domar', fields: [
           F.tog('tameable', 'Se puede domar', { on: 'Sí', off: 'No' }),
-          F.ref('tameItem', 'Qué le das para domarla', 'items', { none: 'Carne cruda', when: (d) => !!d.tameable, filter: (i) => i.subtype === 'food' || i.subtype === 'tame' }),
+          F.ref('tameItem', 'Qué le das para domarla', 'items', { none: 'Carne cruda', when: (d) => !!d.tameable, filter: (i) => i.subtype === 'food' || i.subtype === 'tame' || i.rarity === 'rare' || i.rarity === 'epic' || i.rarity === 'legendary' }), // v3.8: también un objeto raro (la kitsune, una Perla)
         ] },
         { title: 'Apariencia', fields: [
           F.choice('sprite.t', 'Dibujo', () => A.Sprites.shapeOptions().map((o) => ({ ...o, thumbFor: o.value })), { none: 'Automático', thumbs: 'shape' }),

@@ -66,8 +66,8 @@
       // v1.8.0: coherencia de domesticación
       if (e.tameable) {
         const smart = (e.family || []).some((f) => ['humanoid', 'demon', 'undead', 'arcane', 'dragon'].includes(f));
-        if (e.category === 'boss' || smart) {
-          out.push({ level: 'warn', collection: 'enemies', entityId: e.id, msg: `"${e.name}" está marcado como domable pero es ${e.category === 'boss' ? 'un jefe' : 'inteligente'}: nunca se va a poder domar.` });
+        if (smart) { // v3.8: los jefes marcados sí se pueden domar (la kitsune)
+          out.push({ level: 'warn', collection: 'enemies', entityId: e.id, msg: `"${e.name}" está marcado como domable pero es inteligente: nunca se va a poder domar.` });
         }
         if (e.tameItem && !itemIds.has(e.tameItem)) {
           out.push({ level: 'error', collection: 'enemies', entityId: e.id, msg: `"${e.name}" pide para domar un item inexistente "${e.tameItem}".` });

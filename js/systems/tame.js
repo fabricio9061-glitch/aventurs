@@ -2,7 +2,7 @@
    Aventurs — Mascotas y domesticación (v1.8.0)
 
    Qué se puede domar:
-     - Enemigos con tameable:true (criaturas instintivas, nunca jefes).
+     - Enemigos con tameable:true (criaturas instintivas; v3.8: un jefe solo si está marcado, como la kitsune).
      - Su tier tiene que ser <= a tu nivel.
      - Solo una mascota a la vez (liberá la actual para domar otra).
      - Hace falta su comida (enemy.tameItem). Se gasta al intentar.
@@ -30,7 +30,7 @@
 (function (A) {
   'use strict';
 
-  const BASE_CHANCE = { weak: 0.60, normal: 0.45, strong: 0.25, boss: 0 };
+  const BASE_CHANCE = { weak: 0.60, normal: 0.45, strong: 0.25, boss: 0.10 }; // v3.8: solo los jefes marcados como domables (la kitsune)
   const DEFAULT_TAME_ITEM = 'carne_cruda';
   const INTELLIGENT = ['humanoid', 'demon', 'undead', 'arcane', 'dragon'];
 
@@ -91,7 +91,7 @@
   function canTame(enemyId, instanceId) {
     const enemy = A.Data.getById('enemies', enemyId);
     if (!enemy) return { ok: false, reason: 'enemy-not-found' };
-    if (!enemy.tameable || enemy.category === 'boss') return { ok: false, reason: 'not-tameable' };
+    if (!enemy.tameable) return { ok: false, reason: 'not-tameable' }; // v3.8: un jefe se puede domar solo si está marcado (la kitsune)
     if (!isInstinctive(enemy)) return { ok: false, reason: 'not-instinctive' };
     if ((enemy.tier || 1) > (player().level || 1)) return { ok: false, reason: 'level-too-low', requiredLevel: enemy.tier };
     if (player().pet) return { ok: false, reason: 'already-have-pet' };

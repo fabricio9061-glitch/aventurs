@@ -243,9 +243,14 @@ Explorar siempre hace pasar algo (`js/systems/explore.js` + `js/data/seed-events
 
 ## Versión 3.8.0: cada criatura con su personalidad
 
-**Kitsune de nueve colas** (jefa del Bosque de los Susurros, nivel 7): Colas de zorro, Ilusiones, Fuego de zorro, Encantar e Invocar (convierte una hoja en una kitsune).
+**Dos kitsunes** en el Bosque de los Susurros:
 
-**Colas de zorro** (kitsune y kitsune de nueve colas): le crece una cola por turno (la kitsune arranca con 3, la jefa con 4). Cada dos colas de más pega con +1 de precisión, y cada cola suma un 4% de daño. Con nueve colas despierta: se cura un 20% y tiene +2 de defensa. La tarjeta de combate muestra la barra de colas y el dibujo va sumando colas.
+- **Kitsune** (nivel 6, normal): nace con una cola y le crece otra en cada turno. Si la pelea se alarga y llega a nueve, despierta: el fuego de las colas y los ojos se vuelve azul, se cura un 20% y tiene +2 de defensa (pasa en 1 de cada 5 peleas a su nivel). Se doma solo con **Pan élfico** (comida rara: la vende Sylveth, la druida del Santuario del Roble).
+- **Kitsune de nueve colas** (nivel 7, jefa): ya aparece con las nueve colas azules, despierta desde el principio. Tiene Ilusiones (tus dos primeros golpes le dan a una copia), Fuego de zorro, Encantar e Invocar (sopla una hoja y aparece una kitsune). No se doma.
+
+**Colas de zorro**: cada tres colas, +1 de precisión; cada cola, +3% de daño. La tarjeta de combate muestra la barra de colas y el dibujo va sumando colas.
+
+**Jefes**: antes competían como una categoría más y, al ser el único jefe de su zona, cambiarle "Qué tan seguido sale" no hacía nada (y salían en el 1 o 2% de los encuentros). Ahora cada jefe tira su propia chance: **3% × "Qué tan seguido sale"** cuando tenés su nivel (un nivel menos, la mitad; dos, un quinto). Con 2 sale en el 6%, con 5 en el 15%. Los jefes de nivel 7 a 9 tienen 1; los legendarios de nivel 10, 0,5. "Jefes" de la zona en 0 = sin jefes.
 
 Pasivas nuevas (`js/systems/skills.js`):
 
@@ -265,7 +270,7 @@ Pasivas nuevas (`js/systems/skills.js`):
 Activas nuevas: **Fuego de zorro** (kitsune), **Tragar** (Leviatán, Gusano de arena), **Ventisca** (Yeti), **Ola gigante** (Leviatán, Kraken), **Ráfaga de alas** (Grifo), **Destello** (Unicornio, Ciervo astral), **Visión del abismo** (Cthulhu) y **Merienda de bambú** (Panda).
 
 - Ahora todas las criaturas tienen al menos una pasiva y una activa. Cthulhu invoca un profundo.
-- Las mascotas usan las activas nuevas de su especie (tu kitsune también suma colas en la pelea).
+- Las mascotas usan las activas nuevas de su especie; una kitsune domada también suma colas en la pelea.
 - Se revisó la dificultad de cada criatura con el simulador. Cthulhu sigue a la altura del Dragón anciano; el Archimago bajó de vida por las ilusiones.
 - Juego en grupo: versión 7 (los dos tienen que actualizar).
 

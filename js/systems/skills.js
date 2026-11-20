@@ -63,7 +63,7 @@
     renacer: { kind: 'passive', name: 'Renacer', icon: 'fire', text: 'Una vez por pelea, al caer renace de sus cenizas con un cuarto de la vida.' },
     lider: { kind: 'passive', name: 'Líder', icon: 'crown', text: 'Mientras siga en pie, sus compañeros tienen +1 de precisión.' },
     // v3.8: más pasivas, para que cada criatura tenga su personalidad
-    colas_zorro: { kind: 'passive', name: 'Colas de zorro', icon: 'stars', text: 'Le crece una cola nueva en cada turno (hasta nueve). Cada cola la hace pegar más fuerte; con nueve colas despierta todo su poder: se cura y cuesta más pegarle.' },
+    colas_zorro: { kind: 'passive', name: 'Colas de zorro', icon: 'stars', text: 'Le crece una cola en cada turno, hasta nueve. Cada cola la hace pegar más fuerte; con nueve colas despierta todo su poder: el fuego de las colas se vuelve azul, se cura y cuesta más pegarle.' },
     ilusion: { kind: 'passive', name: 'Ilusiones', icon: 'eye', text: 'Los dos primeros golpes de arma que le iban a acertar pegan contra una ilusión (un crítico no).' },
     piel_gruesa: { kind: 'passive', name: 'Piel gruesa', icon: 'shield', text: 'Cada golpe de arma le hace 1 menos de daño (2 menos si es de nivel 8 o más).' },
     emboscada: { kind: 'passive', name: 'Emboscada', icon: 'target', text: 'Ataca por sorpresa: hasta que acierta su primer golpe tiene +2 de precisión, y ese golpe hace un cuarto más de daño.' },
@@ -502,7 +502,7 @@
   const TAILS_MAX = 9;
   function tailsStart(x) {
     const d = speciesOf(x);
-    return Math.max(1, Math.min(TAILS_MAX, (d && d.tailsStart) || 3));
+    return Math.max(1, Math.min(TAILS_MAX, (d && d.tailsStart) || 1));
   }
   /** Cuántas colas tiene ahora (0 si no es un zorro de colas). */
   function tailsOf(x) {
@@ -536,10 +536,10 @@
     if (!inst) return out;
     const ids = idsOf(inst);
     if (ids.includes('vuelo')) out.defense += 1;
-    // v3.8: cada dos colas de más, +1 de precisión; con nueve, +2 de defensa
+    // v3.8: cada tres colas, +1 de precisión (+2 con siete); con nueve, +2 de defensa
     const tails = tailsOf(inst);
     if (tails) {
-      out.attack += Math.floor(Math.max(0, tails - 3) / 2);
+      out.attack += Math.floor((tails - 1) / 3);
       if (tails >= TAILS_MAX) out.defense += 2;
     }
     // v3.8: Emboscada: +2 de precisión hasta que acierta su primer golpe
@@ -564,7 +564,7 @@
   function bonusDamage(x) {
     let mult = 1;
     const t = tailsOf(x);
-    if (t > 3) mult *= 1 + 0.04 * (t - 3);
+    if (t > 1) mult *= 1 + 0.03 * (t - 1);
     let ambush = false;
     if (x && x.instanceId && has(x, 'emboscada') && !x._ambushDone) {
       x._ambushDone = true;
