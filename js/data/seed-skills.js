@@ -85,6 +85,15 @@
     brightwing: ['vuelo', 'hechizo', 'polvo_sueno'],
     gusano_arena: ['agarre', 'pisoton'],
     pesadilla: ['etereo', 'miedo', 'embestida'],
+    unicornio: ['embestida', 'curarse', 'escurridizo'], // v3.7: carga con el cuerno, se cura y es difícil de tocar
+    yeti: ['cuerpo_hielo', 'rugido', 'zarpazo'],
+    leviatan: ['agarre', 'barrido', 'mordida'],
+    leon: ['manada', 'rugido', 'zarpazo'],
+    panda: ['derribo', 'zarpazo'],
+    profundo: ['manada', 'agarre', 'mordida'],
+    grifo: ['vuelo', 'picotazo', 'zarpazo'],
+    kitsune: ['escurridizo', 'encantar', 'hechizo'],
+    cthulhu: ['miedo', 'maldicion', 'agarre', 'invocar'],
     capitan_pirata: ['grito', 'disparo', 'invocar'],
     huargo: ['manada', 'mordida', 'derribo'],
 

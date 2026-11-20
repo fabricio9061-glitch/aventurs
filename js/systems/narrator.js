@@ -18,6 +18,7 @@
 
   // ---------- Artículos (la araña, el lobo, Brightwing) ----------
   const FEM = new Set([
+    'kitsune', // v3.7
     'rata', 'arana', 'serpiente', 'tortuga', 'arpia', 'rata_gigante', 'banshee', 'gargola', 'sirena',
     'driade', 'salamandra', 'medusa', 'naga', 'manticora', 'serp_marina', 'aparicion', 'quimera', 'hidra', 'tarrasca',
     // v2.5: las que se sumaron después ("la bruja", no "el bruja")

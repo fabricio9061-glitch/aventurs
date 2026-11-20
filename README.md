@@ -101,7 +101,7 @@ node tools/equilibrio.js --comparar=antes.json  # muestra cuánto cambió cada n
 - **18 razas** parejas, cada una con su pasiva y su arma (ver *Razas y pasivas*); las 12 que usan
   magia nacen con su propio hechizo
 - **31 regiones** (24 de combate y 7 pueblos) ordenadas por nivel (1 a 10)
-- **104 enemigos** (29 domables), cada uno con su zona propia: 4 a 7 criaturas por zona
+- **113 enemigos** (34 domables), cada uno con su zona propia: 4 a 7 criaturas por zona
 - **80 armas**, **44 armaduras**, **278 objetos** (22 accesorios, 51 pergaminos,
   20 pociones, 53 comidas), **5 mochilas**; todo con rareza (común a legendario)
 - **44 hechizos** (12 de nacimiento, 24 que se aprenden de pergaminos), **25 recetas**, **13 habitantes**
@@ -240,6 +240,25 @@ Explorar siempre hace pasar algo (`js/systems/explore.js` + `js/data/seed-events
   se cuentan con ×N).
 - En el celular, una franja arriba con vida, maná, comida y dinero.
 - Sin emojis en el juego (desde la v2.2, tampoco en el editor).
+
+## Versión 3.7.0: nueve criaturas nuevas
+
+Con su dibujo, sus habilidades y su botín (`js/data/seed-enemies.js`, `js/data/seed-skills.js`, `js/core/sprites.js`):
+
+| Criatura | Dónde | Nivel | Tipo | Habilidades | Se doma con |
+|---|---|---|---|---|---|
+| Panda | Bosque Sombrío | 2 | normal | Derribo, Zarpazo | Hierba silvestre |
+| León | Colinas Rotas | 4 | normal (en manada) | Manada, Rugido, Zarpazo | Carne cruda |
+| Yeti | Montañas | 5 | fuerte | Cuerpo de hielo, Rugido, Zarpazo | — |
+| Unicornio | Bosque de los Sueños | 6 | fuerte, rara | Escurridizo, Embestida, Curarse | Manzana |
+| Kitsune | Bosque de los Susurros | 6 | normal | Escurridizo, Encantar, Hechizo | Pan |
+| Profundo | Alta Mar | 6 | normal (en grupo) | Manada, Agarre, Mordida | — |
+| Grifo | Pradera de los Cíclopes | 7 | fuerte | Vuelo, Picotazo, Zarpazo | Carne cruda |
+| Leviatán | Alta Mar | 7 | jefe | Agarre, Barrido, Mordida | — |
+| Cthulhu | Abismo Marino | 10 | jefe | Miedo, Maldición, Agarre, Invocar | — |
+
+- El unicornio puede soltar un **Cuerno de unicornio** (legendario). El Leviatán es el jefe de Alta Mar. Cthulhu está a la altura del Dragón anciano; Alamuerte sigue siendo el más fuerte.
+- Dibujos nuevos: cuerno de unicornio, cabeza de pulpo (Cthulhu), cabeza de pez (profundo), pico de águila (grifo), tres colas (kitsune) y patas y orejas negras (panda).
 
 ## Versión 3.6.0: todas las razas con el mismo poder
 

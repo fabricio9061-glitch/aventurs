@@ -322,8 +322,11 @@
       if (o.claws) { P.put(f[0] - lw - 1.4, GY - 1, 'a'); P.put(f[0] - lw - 0.4, GY - 1, 'a'); }
     };
 
-    if (leg > 0) { drawLeg(fxp + 2.2, 'b~', true); drawLeg(bxp + 2.2, 'b~', false); }
-    beastTail(P, xr - 1.2, cy - ry * 0.25, o);
+    const lk = o.legKey || 'b'; // v3.7: patas de otro color (panda)
+    if (leg > 0) { drawLeg(fxp + 2.2, `${lk}~`, true); drawLeg(bxp + 2.2, `${lk}~`, false); }
+    // v3.7: varias colas (kitsune)
+    const nt = o.tails || 1;
+    for (let i = nt - 1; i >= 0; i--) beastTail(P, xr - 1.2, cy - ry * 0.25, nt > 1 ? { ...o, _dx: (i - (nt - 1) / 2) * 2.6 } : o);
     if (o.wings === 'bat') batWingSide(P, cx + 1, cy - ry + 1.5, o.wingSize, true);
     if (o.wings === 'feather') featherWingSide(P, cx + 1, cy - ry + 1.5, o.wingSize, true);
     P.ell(cx, cy, rx, ry, 'b');
@@ -333,7 +336,7 @@
     if (o.spots) [[0.25, -0.25], [-0.15, -0.05], [0.5, 0.1], [0.0, -0.5], [-0.35, -0.4]].forEach(([dx, dy]) =>
       P.recolor(['b'], 'b~', (x, y) => inE(x, y, cx + dx * rx * 2, cy + dy * ry * 2, 1.2, 0.9)));
     if (o.back) ridge(P, xl + 3, xr - 2.5, (x) => cy - ry * Math.sqrt(Math.max(0, 1 - ((x - cx) / rx) ** 2)) + 0.3, o.back, o.back === 'bristles' ? 'h' : 'a');
-    if (leg > 0) { drawLeg(fxp, 'b', true); drawLeg(bxp, 'b', false); }
+    if (leg > 0) { drawLeg(fxp, lk, true); drawLeg(bxp, lk, false); }
 
     // cabeza
     const hr = o.head || 4;
@@ -358,17 +361,27 @@
       for (let x = tipX + 1; x < scx + sl / 2; x += 1) P.put(x, my, 'o');
       if (o.jaw === 'open' || o.fangs) { P.put(tipX + 1.2, my + 1, 't'); P.put(tipX + 3, my + 1, 't'); }
       if (o.horns === 'tusks') { P.put(tipX + 1.4, my - 1, 't'); P.put(tipX + 1.4, my - 2, 't'); P.put(tipX + 0.4, my - 2.8, 't'); }
+    } else if (o.beak) {
+      // v3.7: pico de águila (grifo)
+      P.poly([[hx - hr + 0.6, hy - 0.8], [hx - hr - 3.4, hy + 0.4], [hx - hr - 2.6, hy + 2.4], [hx - hr - 1.6, hy + 1.2], [hx - hr + 0.6, hy + 1.8]], 'a');
     } else {
       P.put(hx - hr + 0.6, hy + hr * 0.3, 'k');
       P.put(hx - hr + 1.6, hy + hr * 0.55, 'o');
     }
     // ojo
     const ex = hx - hr * 0.42, ey = hy - hr * 0.28;
+    if (o.eyePatch) P.ell(ex + 0.5, ey + 0.4, 1.5, 1.3, o.eyePatch); // v3.7: panda
     if (o.eyes === 'glow') { P.put(ex, ey, 'e'); P.put(ex + 1, ey, 'e'); }
     else { P.put(ex, ey, 'k'); P.put(ex + 1, ey, 'e'); if (hr >= 4.6) { P.put(ex, ey + 1, 'k'); P.put(ex + 1, ey + 1, 'e'); } }
     // cuernos
     if (o.horns === 'goat') P.line(bez([hx + 0.4, hy - hr * 0.75], [hx + 1, hy - hr - 3], [hx + 4.5, hy - hr - 3], [hx + 5.5, hy - hr * 0.2], 10), 1.0, 0.45, 'a');
     if (o.horns === 'bull') P.line([[hx + 0.4, hy - hr * 0.7], [hx - 1.6, hy - hr - 1.2], [hx - 1, hy - hr - 3.2]], 0.9, 0.4, 'a');
+    // v3.7: el cuerno del unicornio, derecho hacia adelante, con la espiral marcada
+    if (o.horns === 'unicorn') {
+      const x0 = hx - hr * 0.35, y0 = hy - hr * 0.78, x1 = x0 - 2.6, y1 = y0 - 5.2;
+      P.line([[x0, y0], [x1, y1]], 0.95, 0.25, 'a');
+      for (let t = 0.25; t < 0.9; t += 0.25) P.put(x0 + (x1 - x0) * t, y0 + (y1 - y0) * t, 'c');
+    }
     if (o.wings === 'bat') batWingSide(P, cx - 1, cy - ry + 1.5, o.wingSize, false);
     if (o.wings === 'feather') featherWingSide(P, cx - 1, cy - ry + 1.5, o.wingSize, false);
   }
@@ -377,7 +390,8 @@
     const e = o.ears || 'pointy';
     if (e === 'none') return;
     const d = far ? 1.8 : 0;
-    const k = far ? 'b~' : 'b';
+    const ek = o.earKey || 'b'; // v3.7: orejas de otro color (panda)
+    const k = far ? `${ek}~` : ek;
     if (e === 'pointy' || e === 'cat') {
       const tall = e === 'cat' ? 2.6 : 3;
       P.poly([[hx - 0.4 + d, hy - hr * 0.5], [hx + hr * 0.25 + d, hy - hr - tall], [hx + hr * 0.95 + d, hy - hr * 0.3]], k);
@@ -403,6 +417,14 @@
     } else if (t === 'up') P.line(bez([x0, y0], [x0 + 2.5, y0 - 1], [x0 + 3.5, y0 - 6], [x0 + 2, y0 - 10]), 0.9, 0.8, k);
     else if (t === 'curl') P.line([[x0, y0], [x0 + 1.8, y0 - 1], [x0 + 2.4, y0 - 2.6], [x0 + 1.2, y0 - 3.2], [x0 + 0.8, y0 - 2]], 0.55, 0.45, k);
     else if (t === 'short') P.dot(x0 + 0.6, y0, 1.4, k);
+    // v3.7: cola de penacho para arriba (kitsune: varias, abiertas en abanico con _dx)
+    else if (t === 'plume') {
+      const dx = o._dx || 0;
+      const pts = bez([x0 - 0.5, y0], [x0 + 3, y0 - 0.5], [x0 + 5 + dx, y0 - 4], [x0 + 3 + dx * 1.6, y0 - 9 + Math.abs(dx) * 0.4]);
+      P.line(pts, 1.1, 0.9, k, 1.9);
+      const e = pts[pts.length - 1];
+      if (o.tailTip) P.dot(e[0], e[1], 1.2, o.tailTip);
+    }
     else if (t === 'stinger') {
       const pts = bez([x0, y0], [x0 + 6, y0 - 3], [x0 + 4, y0 - 14], [x0 - 4.5, y0 - 13.5], 12);
       pts.forEach((p, i) => { if (i % 2 === 0) P.dot(p[0], p[1], 1.5 - i * 0.04, 'b~'); });
@@ -1041,6 +1063,20 @@
       P.put(hx - 1.4, hy + r * 0.55, 'k'); P.put(hx + 0.4, hy + r * 0.55, 'k');
       P.put(hx - r * 0.5, hy - r * 0.25, 'e'); P.put(hx + r * 0.5 - 1, hy - r * 0.25, 'e');
       if (o.ring) P.put(hx - 0.5, hy + r * 0.95, 'a');
+    } else if (head === 'octopus') {
+      // v3.7: Cthulhu: cabeza de pulpo, ojos que brillan y tentáculos en la cara
+      P.ell(hx, hy - 0.8, r * 1.08, r * 1.15, skinKey);
+      P.recolor([skinKey], `${skinKey}~`, (x, y) => y < hy - r * 0.6 && (Math.floor(x) + Math.floor(y)) % 2 === 0);
+      P.rect(hx - r * 0.6 - 0.5, hy - r * 0.25, 2, 1, 'e'); P.rect(hx + r * 0.6 - 1.5, hy - r * 0.25, 2, 1, 'e');
+      for (const dx of [-0.65, -0.22, 0.22, 0.65]) P.line(bez([hx + dx * r, hy + r * 0.35], [hx + dx * r * 1.1, hy + r + 1.4], [hx + dx * r * 1.6, hy + r + 2.6], [hx + dx * r * 1.25, hy + r + 4.2], 8), 0.8, 0.35, skinKey);
+    } else if (head === 'fish') {
+      // v3.7: profundo: cabeza de pez, ojos saltones, aleta y agallas
+      P.line([[hx - 0.5, hy - r - 0.5], [hx + 1.5, hy - r - 2.5], [hx + 3, hy - r + 0.5]], 0.9, 0.4, 'a');
+      P.ell(hx, hy, r * 1.1, r * 0.95, skinKey);
+      P.ell(hx - r * 0.55, hy - r * 0.25, 1.4, 1.4, 'hl'); P.ell(hx + r * 0.55, hy - r * 0.25, 1.4, 1.4, 'hl');
+      P.put(hx - r * 0.55, hy - r * 0.25, 'e'); P.put(hx + r * 0.55, hy - r * 0.25, 'e');
+      P.line([[hx - r * 0.7, hy + r * 0.5], [hx + r * 0.7, hy + r * 0.5]], 0.45, 0.45, 'o');
+      for (const d of [-1, 1]) P.line([[hx + d * r * 0.95, hy + 0.2], [hx + d * r * 0.95, hy + r * 0.6]], 0.35, 0.35, `${skinKey}~`);
     } else if (head === 'lizard') {
       P.ell(hx, hy - 0.2, r * 0.92, r, skinKey);
       P.ell(hx, hy + r * 0.5, r * 0.6, r * 0.5, skinKey);
@@ -1252,6 +1288,15 @@
     gusano_arena: { plan: 'serpent', s: 1.1, p: { b: '#b08a50', c: '#e0c890', a: '#f0e8d0', e: '#ff4020', r: '#c03020' } },
     hada_traviesa: { plan: 'humanoid', p: { sk: '#f0d8f0', h: '#f0a0e0', cl: '#a0e0d0', cl2: '#70c0b0', a: '#fff0a0', wg: '#d0f0ff', g: '#9af0d0', e: '#7a3ac8' }, o: { size: 'tiny', hair: 'long', outfit: 'leaves', wings: 'feather', pose: 'cast' } },
     polilla_onirica: { plan: 'bat', s: 0.86, p: { b: '#9a8ad0', c: '#d0c8f0', wg: '#b0a0e8', a: '#f0e0a0', e: '#9af0d0' } },
+    yeti: { plan: 'humanoid', p: { sk: '#c8d4e0', h: '#f2f4f8', c: '#9aa8bc', cl: '#e8ecf2', a: '#b8c4d4', wd: '#6a7a8a', e: '#3a6ac8' }, o: { size: 'large', head: 'beast', hair: 'wild', outfit: 'fur', furry: true, claws: true, mouth: 'fangs', weapon: 'none' } },
+    leviatan: { plan: 'serpent', p: { b: '#1a4a5a', c: '#5a9aa0', a: '#c8e8e0', e: '#ff4030', r: '#ff6060' }, o: { fin: true, big: true } },
+    leon: { plan: 'beast', p: { b: '#d0a050', c: '#ecd090', h: '#8a4a1a', a: '#2a1a10', e: '#ffcc33' }, o: { len: 18, h: 9, leg: 5.5, legW: 1.6, head: 4.4, snout: 2.4, ears: 'round', mane: 'lion', tail: 'thin', tailTip: 'h', neck: 1 } },
+    panda: { plan: 'beast', p: { b: '#f2f2ee', c: '#f2f2ee', h: '#26262a', a: '#e8e0d0', e: '#101010' }, o: { len: 19, h: 11, leg: 4.5, legW: 2.3, head: 4.8, snout: 2.4, snoutH: 2.6, ears: 'round', tail: 'short', neck: 0, headLow: true, legKey: 'h', earKey: 'h', eyePatch: 'h' } },
+    profundo: { plan: 'humanoid', p: { sk: '#3a7a7a', h: '#1a4a4a', cl: '#2a5a5a', cl2: '#1a3a3a', a: '#8ac0b0', hl: '#e8f0d0', m: '#a0b0b0', wd: '#4a3a2a', e: '#101010' }, o: { size: 'medium', head: 'fish', outfit: 'loincloth', weapon: 'trident', claws: true } },
+    grifo: { plan: 'beast', p: { b: '#c89a4a', c: '#f2ead8', h: '#f2ead8', wg: '#8a5a2a', a: '#f0c030', e: '#ffcc33' }, o: { len: 18, h: 9, leg: 5.5, legW: 1.5, head: 3.8, snout: 0, beak: true, ears: 'pointy', mane: 'horse', wings: 'feather', tail: 'thin', tailTip: 'b', claws: true, neck: 2 } },
+    kitsune: { plan: 'beast', s: 0.9, p: { b: '#f4ecdc', c: '#ffffff', a: '#c83a2a', e: '#ff6a20' }, o: { len: 16, h: 7.5, leg: 4.5, legW: 1.3, head: 3.9, snout: 4, snoutH: 2.3, ears: 'pointy', tail: 'plume', tailTip: 'a', tails: 3, neck: 1.5, eyes: 'glow' } },
+    cthulhu: { plan: 'humanoid', p: { sk: '#3a6a4a', h: '#1a3a2a', cl: '#1a2a20', cl2: '#0e1a14', wg: '#2a3a2e', a: '#6a8a5a', e: '#e0ff60' }, o: { size: 'huge', head: 'octopus', wings: 'bat', outfit: 'none', claws: true, weapon: 'none' } },
+    unicornio: { plan: 'beast', s: 1, p: { b: '#f4f2fa', c: '#ffffff', h: '#c8a0f0', a: '#f0d060', e: '#6a4ac8', o: '#b8b0c8' }, o: { len: 17, h: 9.5, leg: 7, legW: 1.3, head: 3.8, snout: 3.8, snoutH: 2.6, ears: 'pointy', tail: 'bushy', neck: 3.4, mane: 'horse', feet: 'hoof', horns: 'unicorn' } },
     ciervo_astral: { plan: 'beast', s: 0.96, p: { b: '#c8d0f0', c: '#ffffff', a: '#9af0d0', e: '#3a6ac8' }, o: { len: 16, h: 9, leg: 7, legW: 1.2, head: 3.6, snout: 3.4, snoutH: 2.4, ears: 'pointy', tail: 'thin', neck: 3, horns: 'goat' } },
     pesadilla: { plan: 'ghost', s: 1, p: { b: '#3a2a5a', c: '#6a4a9a', e: '#ff3a6a', t: '#d0c0f0' } },
     esqueleto_pirata: { plan: 'humanoid', p: { t: '#e8e0c8', cl: '#5a4a3a', cl2: '#8a1a1a', m: '#a0a8b0', wd: '#5a3a1a', e: '#60c0ff' }, o: { size: 'medium', body: 'skeleton', head: 'skull', hat: 'bandana', weapon: 'sword' } },
