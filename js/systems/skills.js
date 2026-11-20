@@ -62,6 +62,18 @@
     venenoso: { kind: 'passive', name: 'Venenoso', icon: 'poison', text: 'Sus golpes envenenan más seguido.' },
     renacer: { kind: 'passive', name: 'Renacer', icon: 'fire', text: 'Una vez por pelea, al caer renace de sus cenizas con un cuarto de la vida.' },
     lider: { kind: 'passive', name: 'Líder', icon: 'crown', text: 'Mientras siga en pie, sus compañeros tienen +1 de precisión.' },
+    // v3.8: más pasivas, para que cada criatura tenga su personalidad
+    colas_zorro: { kind: 'passive', name: 'Colas de zorro', icon: 'stars', text: 'Le crece una cola nueva en cada turno (hasta nueve). Cada cola la hace pegar más fuerte; con nueve colas despierta todo su poder: se cura y cuesta más pegarle.' },
+    ilusion: { kind: 'passive', name: 'Ilusiones', icon: 'eye', text: 'Los dos primeros golpes de arma que le iban a acertar pegan contra una ilusión (un crítico no).' },
+    piel_gruesa: { kind: 'passive', name: 'Piel gruesa', icon: 'shield', text: 'Cada golpe de arma le hace 1 menos de daño (2 menos si es de nivel 8 o más).' },
+    emboscada: { kind: 'passive', name: 'Emboscada', icon: 'target', text: 'Ataca por sorpresa: hasta que acierta su primer golpe tiene +2 de precisión, y ese golpe hace un cuarto más de daño.' },
+    gigante: { kind: 'passive', name: 'Gigante', icon: 'arrow-up', text: 'Es demasiado grande: no se lo puede tirar al suelo ni agarrar.', immune: ['prone', 'grab'] },
+    valiente: { kind: 'passive', name: 'Valiente', icon: 'crown', text: 'No conoce el miedo.', immune: ['fear'] },
+    pureza: { kind: 'passive', name: 'Alma pura', icon: 'heal', text: 'Las maldiciones, el veneno y el miedo no le hacen nada.', immune: ['curse', 'poison', 'fear'] },
+    mente_arcana: { kind: 'passive', name: 'Mente arcana', icon: 'spell', text: 'Su mente está protegida por la magia: no se aturde y las maldiciones no le hacen nada.', immune: ['stun', 'curse'] },
+    lobo_mar: { kind: 'passive', name: 'Pies de marinero', icon: 'compass', text: 'Acostumbrado a pelear en cubierta: no se lo puede tirar al suelo.', immune: ['prone'] },
+    aguante: { kind: 'passive', name: 'Aguante', icon: 'heart', text: 'Testarudo: una vez por pelea, un golpe que lo iba a voltear lo deja en pie con 1 de vida.' },
+    abismal: { kind: 'passive', name: 'Horror del abismo', icon: 'warning', text: 'Mirarlo de cerca enloquece: si lo golpeás con un arma, a veces te llenás de miedo.' },
 
     // ---------------- Golpes con algo extra ----------------
     mordida: {
@@ -351,13 +363,74 @@
       kind: 'active', name: 'Invocar', icon: 'skulls', act: 'summon', once: true,
       text: 'Una vez por pelea, llama a una criatura para que lo ayude.',
     },
+
+    // ---------------- v3.8: activas nuevas ----------------
+    fuego_zorro: {
+      kind: 'active', name: 'Fuego de zorro', icon: 'fire', act: 'bolt', cd: 3, mult: 1, save: 'ingenio',
+      bolt: { element: 'fire', status: 'fire', turns: 2, use: '{E} sacude las colas y te lanza una llamarada azul.', fail: 'El fuego azul te envuelve: {d} de daño.', own: '{P} le lanza fuego azul a {e}: {d} de daño.' },
+      text: 'Llamas azules que salen de sus colas: resistí con ingenio para recibir la mitad; si no, te podés prender fuego.',
+    },
+    tragar: {
+      kind: 'active', name: 'Tragar', icon: 'lock', act: 'strike', cd: 5, mult: 1.3,
+      onHit: { type: 'grab', save: 'fuerza', turns: 2 },
+      text: 'Abre la boca enorme y te traga: pega más fuerte, y si no resistís con fuerza quedás atrapado.',
+      hit: ['{E} abre una boca enorme y te traga a medias: {d} de daño.'],
+      miss: ['{E} cierra la boca de golpe, pero saltás a un costado.'],
+      fail: 'Quedás atrapado adentro: no podés escapar y te cuesta pegar.', resist: 'Te abrís paso a patadas y salís.',
+      own: ['{P} se traga a medias a {e}: {d} de daño.'],
+    },
+    ventisca: {
+      kind: 'active', name: 'Ventisca', icon: 'ice', act: 'breath', cd: 5, first: true, mult: 0.9,
+      element: 'ice', status: 'cold', turns: 2, save: 'agilidad',
+      text: 'Levanta una tormenta de nieve: resistí con agilidad para recibir la mitad; si no, quedás congelado.',
+      use: ['{E} golpea el suelo y levanta una ventisca helada.'],
+      fail: 'La nieve te azota y te congela: {d} de daño.', resist: 'Te cubrís de la ventisca: {d} de daño.',
+      pet: 'La ventisca alcanza a {p}: {d} de daño.',
+      ownUse: ['{P} levanta una ventisca helada.'],
+    },
+    ola: {
+      kind: 'active', name: 'Ola gigante', icon: 'storm', act: 'quake', cd: 5, first: true, mult: 1.1, save: 'fuerza', status: 'prone', turns: 2,
+      text: 'Levanta una ola enorme: resistí con fuerza o te arrastra y te tira al suelo.',
+      use: ['{E} se hunde y levanta una ola enorme que se te viene encima.'],
+      fail: 'La ola te revuelca: {d} de daño.', resist: 'Te agarrás fuerte y la ola pasa de largo.',
+      pet: 'La ola arrastra a {p}: {d} de daño.',
+      ownUse: ['{P} levanta una ola enorme.'],
+    },
+    rafaga: {
+      kind: 'active', name: 'Ráfaga de alas', icon: 'feather', act: 'quake', cd: 4, mult: 0.8, save: 'fuerza', status: 'prone', turns: 2,
+      text: 'Bate las alas con fuerza: resistí con fuerza o el viento te tira al suelo.',
+      use: ['{E} bate las alas y levanta un vendaval.'],
+      fail: 'El viento te voltea: {d} de daño.', resist: 'Te plantás contra el viento y no caés.',
+      pet: 'El vendaval voltea a {p}: {d} de daño.',
+      ownUse: ['{P} bate las alas y levanta un vendaval.'],
+    },
+    destello: {
+      kind: 'active', name: 'Destello', icon: 'sun', act: 'debuff', cd: 4, save: 'agilidad', status: 'blind', turns: 2,
+      text: 'Un destello de luz: resistí con agilidad o te encandila y casi no acertás.',
+      use: ['{E} brilla de golpe con una luz blanca.'],
+      fail: 'La luz te encandila: te cuesta acertar.', resist: 'Cerrás los ojos a tiempo.',
+    },
+    vision_abismo: {
+      kind: 'active', name: 'Visión del abismo', icon: 'eye', act: 'debuff', cd: 5, save: 'ingenio', dcMod: 1, status: 'curse', turns: 3,
+      text: 'Te muestra lo que hay en el fondo del mar: resistí con ingenio (más difícil) o pegás y te defendés peor por 3 turnos.',
+      use: ['{E} abre la mente y te muestra el fondo del abismo.'],
+      fail: 'Lo que viste no se te va de la cabeza: pegás y te defendés peor.', resist: 'Te aferrás a la cordura y apartás la vista.',
+    },
+    merienda: {
+      kind: 'active', name: 'Merienda de bambú', icon: 'food', act: 'heal', cd: 4, max: 1, amount: 0.25, when: 'hurt',
+      say: '{E} se sienta, mordisquea un brote de bambú y recupera {n} de vida.',
+      text: 'Con poca vida se sienta a comer bambú y se cura un cuarto de la vida (una vez por pelea).',
+    },
   };
 
   // Lo que invoca cada criatura (si no está, no invoca)
   const SUMMONS = {
     nigromante: 'esqueleto', lich: 'momia', capitan_pirata: 'grumete_pirata', kraken: 'tentaculo', senor_vampiro: 'murcielago_vampiro',
+    cthulhu: 'profundo', kyubi: 'kitsune', // v3.8
   };
   const SUMMON_LINES = {
+    cthulhu: '{E} murmura desde el fondo del mar y {s} sube a la superficie.',
+    kyubi: '{E} sopla sobre una hoja y la hoja se vuelve {s}.',
     nigromante: '{E} alza los brazos y {s} sale de la tierra.',
     lich: '{E} pronuncia una palabra prohibida y {s} se levanta para servirlo.',
     capitan_pirata: '{E} silba fuerte: ¡{s} salta a la pelea!',
@@ -425,12 +498,52 @@
     return max > 0 && hp <= max / 2;
   }
 
+  // ---------- v3.8: Colas de zorro (kitsune) ----------
+  const TAILS_MAX = 9;
+  function tailsStart(x) {
+    const d = speciesOf(x);
+    return Math.max(1, Math.min(TAILS_MAX, (d && d.tailsStart) || 3));
+  }
+  /** Cuántas colas tiene ahora (0 si no es un zorro de colas). */
+  function tailsOf(x) {
+    if (!x || !has(x, 'colas_zorro')) return 0;
+    return Math.min(TAILS_MAX, x.tails || tailsStart(x));
+  }
+  /**
+   * Al empezar su turno le crece una cola. Devuelve null o
+   * { tails, awake, heal } (awake: acaba de llegar a nueve; heal: lo que se cura).
+   */
+  function growTails(x) {
+    if (!x || !has(x, 'colas_zorro')) return null;
+    const cur = tailsOf(x);
+    if (cur >= TAILS_MAX) { x.tails = cur; return null; }
+    x.tails = cur + 1;
+    const out = { tails: x.tails, awake: false, heal: 0 };
+    if (x.tails >= TAILS_MAX) {
+      out.awake = true;
+      const pet = isPet(x);
+      const max = (pet ? x.maxHealth : x.maxHp) || 0;
+      const hp = pet ? x.health : x.hp;
+      const n = Math.min(Math.max(0, max - hp), Math.max(1, Math.round(max * 0.2)));
+      if (n > 0 && hp > 0) { if (pet) x.health += n; else x.hp += n; out.heal = n; }
+    }
+    return out;
+  }
+
   /** Bonos de las pasivas a precisión/defensa/armadura (Manada, Líder, Vuela). */
   function statMods(inst, c) {
     const out = { attack: 0, defense: 0, armor: 0 };
     if (!inst) return out;
     const ids = idsOf(inst);
     if (ids.includes('vuelo')) out.defense += 1;
+    // v3.8: cada dos colas de más, +1 de precisión; con nueve, +2 de defensa
+    const tails = tailsOf(inst);
+    if (tails) {
+      out.attack += Math.floor(Math.max(0, tails - 3) / 2);
+      if (tails >= TAILS_MAX) out.defense += 2;
+    }
+    // v3.8: Emboscada: +2 de precisión hasta que acierta su primer golpe
+    if (ids.includes('emboscada') && inst.instanceId && !inst._ambushDone) out.attack += 2;
     if (c && Array.isArray(c.enemies) && inst.instanceId) {
       const others = c.enemies.filter((e) => e !== inst && e.hp > 0);
       if (ids.includes('manada')) out.attack += Math.min(2, others.filter((e) => e.id === inst.id).length);
@@ -442,6 +555,23 @@
   /** Multiplicador de daño (Furia con media vida). */
   function damageMult(x) {
     return has(x, 'furia') && hurt(x) ? 1.25 : 1;
+  }
+
+  /**
+   * v3.8: otros multiplicadores de daño (las colas del kitsune y la Emboscada).
+   * La Emboscada se gasta acá: devuelve { mult, ambush }.
+   */
+  function bonusDamage(x) {
+    let mult = 1;
+    const t = tailsOf(x);
+    if (t > 3) mult *= 1 + 0.04 * (t - 3);
+    let ambush = false;
+    if (x && x.instanceId && has(x, 'emboscada') && !x._ambushDone) {
+      x._ambushDone = true;
+      ambush = true;
+      mult *= 1.25;
+    }
+    return { mult, ambush };
   }
 
   /** ¿Es inmune a este estado por una pasiva? */
@@ -480,6 +610,11 @@
     const n = noun(target);
     // v3.2: si el golpe es de tu mascota, no es "tu golpe"
     const blow = byPet ? `el golpe de ${noun(byPet)}` : 'tu golpe';
+    // v3.8: Ilusiones: los dos primeros golpes que pegaban le dan a una ilusión
+    if (has(target, 'ilusion') && (target._illusions || 0) < 2 && !r.crit) {
+      target._illusions = (target._illusions || 0) + 1;
+      return { skill: 'ilusion', say: pick([`${cap(blow)} atraviesa a ${n}… y ${n} se deshace en humo: era una ilusión.`, `${cap(blow)} le da a una copia de ${n} que se desvanece en el aire.`]) };
+    }
     if (has(target, 'escurridizo') && !target._slipped && !r.crit) {
       target._slipped = true;
       return { skill: 'escurridizo', say: pick([`${cap(n)} se escurre en el último instante: el golpe no llega.`, `${cap(n)} se retuerce y ${blow} pasa de largo.`]) };
@@ -492,17 +627,31 @@
 
   /** El primer golpe de arma le hace la mitad (Caparazón / Gelatinoso). Devuelve { dmg, skill }. */
   function softenHit(target, dmg) {
-    if (!target || target._softened) return { dmg, skill: null };
-    const id = ['caparazon', 'gelatinoso'].find((s) => has(target, s));
-    if (!id) return { dmg, skill: null };
-    target._softened = true;
-    return { dmg: Math.max(1, Math.floor(dmg / 2)), skill: id };
+    if (!target) return { dmg, skill: null };
+    let skill = null;
+    if (!target._softened) {
+      const id = ['caparazon', 'gelatinoso'].find((s) => has(target, s));
+      if (id) {
+        target._softened = true;
+        dmg = Math.max(1, Math.floor(dmg / 2));
+        skill = id;
+      }
+    }
+    // v3.8: Piel gruesa: cada golpe de arma hace 1 menos (2 desde el nivel 8)
+    if (has(target, 'piel_gruesa')) {
+      const cut = (target.tier || 1) >= 8 ? 2 : 1;
+      const nd = Math.max(1, dmg - cut);
+      if (nd < dmg && !skill && !target._hideSaid) { target._hideSaid = true; skill = 'piel_gruesa'; }
+      dmg = nd;
+    }
+    return { dmg, skill };
   }
 
   /** Lo que le pasa al que lo golpea con un arma: { burn, chill, thorns }. */
   function reactions(target) {
-    const out = { burn: 0, chill: 0, thorns: 0 };
+    const out = { burn: 0, chill: 0, thorns: 0, dread: 0 };
     if (!target) return out;
+    if (has(target, 'abismal')) out.dread = 0.15; // v3.8
     const t = target.tier || 1;
     if (has(target, 'cuerpo_fuego')) out.burn = 0.2;
     if (has(target, 'cuerpo_hielo')) out.chill = 0.2;
@@ -510,13 +659,23 @@
     return out;
   }
 
-  /** Renacer: una vez por pelea vuelve con un tercio de la vida. */
+  /**
+   * Renacer: una vez por pelea vuelve con un cuarto de la vida.
+   * v3.8: Aguante: una vez por pelea queda en pie con 1 de vida.
+   * Devuelve el id de la pasiva que lo salvó, o false.
+   */
   function tryRevive(inst) {
-    if (!inst || inst.hp > 0 || inst._reborn || !has(inst, 'renacer')) return false;
+    if (!inst || inst.hp > 0) return false;
+    if (!inst._held && has(inst, 'aguante')) {
+      inst._held = true;
+      inst.hp = 1;
+      return 'aguante';
+    }
+    if (inst._reborn || !has(inst, 'renacer')) return false;
     inst._reborn = true;
     inst.hp = Math.max(1, Math.round(inst.maxHp / 4));
     inst.effects = [];
-    return true;
+    return 'renacer';
   }
 
   // ============================================================
@@ -771,7 +930,7 @@
     quake(sk, x, k) { areaHit(sk, x, k, { element: null, status: sk.status, turns: sk.turns, half: false }); },
 
     bolt(sk, x, k) {
-      const b = boltKind(x);
+      const b = sk.bolt || boltKind(x);
       const p = A.State.player;
       k.log('enemy', { text: `${x.displayName} lanza un hechizo.`, fx: { kind: 'cast', actor: k.fxKey(x), element: b.element, skill: sk.id }, say: { text: fill(b.use, x), tone: 'bad' } });
       const ok = k.save(x, sk.save, { label: sk.name, resist: '', fail: '' });
@@ -793,7 +952,7 @@
 
     heal(sk, x, k) {
       const n = Math.max(1, Math.round(x.maxHp * (sk.amount || 0.25)));
-      k.healEnemy(x, n, { say: healLine(x), cast: true, skill: sk.id });
+      k.healEnemy(x, n, { say: sk.say || healLine(x), cast: true, skill: sk.id });
     },
 
     guard(sk, x, k) {
@@ -924,7 +1083,7 @@
     breath(sk, pet, t, k) { petArea(sk, pet, k, true); },
     quake(sk, pet, t, k) { petArea(sk, pet, k, false); },
     bolt(sk, pet, t, k) {
-      const b = boltKind(speciesOf(pet) || {});
+      const b = sk.bolt || boltKind(speciesOf(pet) || {});
       const tier = (speciesOf(pet) || {}).tier || 1;
       const dmg = Math.max(1, k.rollPetDamage(pet, 1.1) - Math.floor((t.armor || 0) / 2));
       k.hurtEnemy(t, dmg, { actor: 'pet', element: b.element, say: fill(b.own, t, { d: dmg, e: noun(t) }) });
@@ -937,7 +1096,8 @@
       else k.log('pet', { text: `${t.displayName} resiste.`, fx: { kind: 'note' }, say: { text: `${cap(noun(t))} lo resiste.`, tone: 'neutral' } });
     },
     heal(sk, pet, t, k) {
-      k.healPet(Math.max(1, Math.round(pet.maxHealth * (sk.amount || 0.25))), { say: `${cap(noun(pet))} se lame las heridas y recupera {n} de vida.` });
+      const line = sk.id === 'merienda' ? 'se sienta a comer un brote de bambú y recupera {n} de vida.' : 'se lame las heridas y recupera {n} de vida.';
+      k.healPet(Math.max(1, Math.round(pet.maxHealth * (sk.amount || 0.25))), { say: `${cap(noun(pet))} ${line}` });
     },
     guard(sk, pet, t, k) {
       pet.effects = pet.effects || [];
@@ -984,7 +1144,8 @@
   A.Skills = {
     LIB, SUMMONS, STAT_NAME,
     get, info, all, idsOf, has, listFor,
-    statMods, damageMult, immune, regenOf, lifesteal, poisonBoost,
+    statMods, damageMult, bonusDamage, immune, regenOf, lifesteal, poisonBoost,
+    tailsOf, growTails, TAILS_MAX,
     dodgeHit, softenHit, reactions, tryRevive,
     saveDC, valueFor, fill, noun,
     enemyTurn, petTurn,

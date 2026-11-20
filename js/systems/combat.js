@@ -338,6 +338,7 @@
         h.pet.effects = [];
         // v2.5: las habilidades de la mascota arrancan listas en cada pelea
         h.pet._cds = {}; h.pet._used = {}; h.pet._uses = {}; h.pet._turns = 0; h.pet._regenUsed = 0;
+        h.pet.tails = 0; h.pet._ambushDone = false; // v3.8: las colas del kitsune vuelven a las de siempre
       }
     }
     if (party) { scaleForParty(instances, heroes.length); assignLabels(instances); }
@@ -548,6 +549,14 @@
         const n = A.Skills.noun(enemy);
         addLog(c, 'system', { text: `${enemy.displayName} se enfurece: pega más fuerte.`, fx: { kind: 'status', target: fxKey(enemy), effect: 'fury' }, say: { text: `Con las heridas, ${n} se enfurece: pega más fuerte.`, tone: 'bad' } });
       }
+    }
+    // v3.8: las colas del kitsune y la Emboscada
+    const bonus = A.Skills && A.Skills.bonusDamage ? A.Skills.bonusDamage(enemy) : { mult: 1 };
+    raw *= bonus.mult;
+    if (bonus.ambush) {
+      const c = State().combat;
+      const n = A.Skills.noun(enemy);
+      if (c) addLog(c, 'system', { text: `${enemy.displayName} ataca por sorpresa.`, fx: { kind: 'note', actor: fxKey(enemy), skill: 'emboscada' }, say: { text: `${n.charAt(0).toUpperCase()}${n.slice(1)} ataca por sorpresa: el golpe viene con todo.`, tone: 'bad' } });
     }
     if (opts.mult) raw *= opts.mult;
     return Math.max(1, Math.round(raw));
@@ -984,6 +993,7 @@
   /** v2.5: Regeneración de criaturas y mascotas al empezar su turno (el fuego la frena). */
   function creatureTurnPassives(c, kind, x) {
     if (!A.Skills || !x) return;
+    tailPassive(c, kind, x);
     const n = A.Skills.regenOf(x);
     if (!n) return;
     const isPetX = kind === 'pet';
@@ -1008,13 +1018,46 @@
     });
   }
 
+  /** v3.8: Colas de zorro: le crece una cola por turno; con nueve despierta. */
+  function tailPassive(c, kind, x) {
+    if (!A.Skills.growTails) return;
+    const g = A.Skills.growTails(x);
+    if (!g) return;
+    const isPetX = kind === 'pet';
+    const noun = A.Skills.noun(x);
+    const Noun = noun.charAt(0).toUpperCase() + noun.slice(1);
+    if (g.awake) {
+      addLog(c, 'system', {
+        text: `${targetName(x)} despliega nueve colas${g.heal ? ` y recupera ${g.heal} de vida` : ''}.`,
+        fx: g.heal ? { kind: 'heal', actor: fxKey(x), target: fxKey(x), amount: g.heal, skill: 'colas_zorro' } : { kind: 'note', actor: fxKey(x), skill: 'colas_zorro' },
+        say: { text: `¡A ${noun} le brota la novena cola! Un fuego azul la envuelve: despierta todo su poder${g.heal ? ` y recupera ${g.heal} de vida` : ''}.`, tone: isPetX ? 'good' : 'bad' },
+      });
+      return;
+    }
+    addLog(c, 'system', {
+      text: `${targetName(x)}: ${g.tails} colas.`,
+      fx: { kind: 'note', actor: fxKey(x), skill: 'colas_zorro' },
+      say: { text: `${Noun} sacude el cuerpo y le crece otra cola: ya tiene ${g.tails}.`, tone: isPetX ? 'good' : 'bad' },
+    });
+  }
+
   /**
    * v2.5: una criatura llegó a 0. Si tiene Renacer, vuelve (y devuelve false).
    * how: 'player' | 'spell' | 'pet' | 'tick' | 'item' | 'thorns'
    */
   function enemyDown(c, t, how) {
     if (!t || t.hp > 0) return false;
-    if (A.Skills && A.Skills.tryRevive(t)) {
+    const saved = A.Skills ? A.Skills.tryRevive(t) : false;
+    if (saved === 'aguante') {
+      const n = A.Skills.noun(t);
+      addLog(c, 'system', {
+        text: `${t.displayName} aguanta en pie con 1 de vida.`,
+        fx: { kind: 'note', actor: fxKey(t), skill: 'aguante' },
+        say: { text: `${n.charAt(0).toUpperCase()}${n.slice(1)} se tambalea… pero aprieta los dientes y sigue en pie con 1 de vida.`, tone: 'bad' },
+      });
+      return false;
+    }
+    if (saved) {
       const n = A.Skills.noun(t);
       addLog(c, 'system', {
         text: `${t.displayName} renace con ${t.hp} de vida.`,
@@ -1241,7 +1284,7 @@
   function hitReactions(c, target, who) {
     if (!A.Skills || !target) return;
     const re = A.Skills.reactions(target);
-    if (!re.burn && !re.chill && !re.thorns) return;
+    if (!re.burn && !re.chill && !re.thorns && !re.dread) return;
     const p = State().player;
     const victim = who === 'pet' ? p.pet : p;
     if (!victim || (who === 'pet' ? victim.health <= 0 : victim.hp <= 0)) return;
@@ -1252,6 +1295,10 @@
     }
     if (re.chill && Math.random() < re.chill) {
       inflict(c, victim, 'cold', { turns: 1, value: 1, source: target.id, say: { text: who === 'pet' ? `${A.Skills.noun(victim).replace(/^./, (ch) => ch.toUpperCase())} se congela al tocar a ${n}.` : `El frío de ${n} te sube por los brazos.`, tone: 'bad' } });
+    }
+    // v3.8: Horror del abismo: tocarlo de cerca da miedo
+    if (re.dread && Math.random() < re.dread) {
+      inflict(c, victim, 'fear', { turns: 2, value: 1, source: target.id, say: { text: who === 'pet' ? `${A.Skills.noun(victim).replace(/^./, (ch) => ch.toUpperCase())} mira a ${n} de cerca y se encoge de miedo.` : `Al golpearlo ves de cerca a ${n} y un miedo antiguo te paraliza las manos.`, tone: 'bad' } });
     }
     if (re.thorns > 0) {
       if (who === 'pet') {
@@ -1771,6 +1818,7 @@
     const fx = B().statusMods(pet);
     let raw = rollDamage(pet.damage) - (fx.damagePenalty || 0);
     if (A.Skills) raw *= A.Skills.damageMult(pet);
+    if (A.Skills && A.Skills.bonusDamage) raw *= A.Skills.bonusDamage(pet).mult; // v3.8: colas
     raw *= mult || 1;
     if (pet.food != null && pet.food <= 0) raw = raw / 2;
     return Math.max(1, Math.round(raw));

@@ -19,6 +19,7 @@
   // ---------- Artículos (la araña, el lobo, Brightwing) ----------
   const FEM = new Set([
     'kitsune', // v3.7
+    'kyubi', // v3.8
     'rata', 'arana', 'serpiente', 'tortuga', 'arpia', 'rata_gigante', 'banshee', 'gargola', 'sirena',
     'driade', 'salamandra', 'medusa', 'naga', 'manticora', 'serp_marina', 'aparicion', 'quimera', 'hidra', 'tarrasca',
     // v2.5: las que se sumaron después ("la bruja", no "el bruja")
@@ -74,6 +75,7 @@
   };
 
   const STYLE_BY_ID = {
+    kitsune: 'bite', kyubi: 'bite', // v3.8: zorros espíritu, pero muerden
     rata: 'bite', rata_gigante: 'bite', lobo: 'bite', perro_salvaje: 'bite', zorro: 'bite', murcielago: 'bite',
     serpiente: 'bite', serp_marina: 'bite', tiburon: 'bite', arana: 'bite', necrofago: 'bite', zombi: 'bite',
     gato: 'claw', oso: 'claw', licantropo: 'claw', manticora: 'claw', quimera: 'claw', gargola: 'claw', arpia: 'claw',
@@ -186,6 +188,7 @@
   const TICK_BLOODLESS = { bleed: 'La herida sigue abierta: {e} pierde {n} de vida.', poison: 'El veneno corroe a {e}: pierde {n} de vida.' };
   function bloodless(inst) {
     const fam = (inst && inst.family) || [];
+    if (fam.includes('beast') && fam.includes('spirit')) return false; // v3.8: la kitsune sangra
     return fam.includes('undead') || fam.includes('spirit') || fam.includes('construct') || fam.includes('elemental');
   }
 
@@ -282,6 +285,7 @@
   const SOFT_SUFFIX = {
     caparazon: ' Su caparazón frena la mitad del golpe.',
     gelatinoso: ' El golpe se hunde en su cuerpo blando y pierde fuerza.',
+    piel_gruesa: ' Su piel gruesa le saca fuerza al golpe.', // v3.8
   };
 
   function say(entry, c) {

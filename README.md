@@ -241,6 +241,34 @@ Explorar siempre hace pasar algo (`js/systems/explore.js` + `js/data/seed-events
 - En el celular, una franja arriba con vida, maná, comida y dinero.
 - Sin emojis en el juego (desde la v2.2, tampoco en el editor).
 
+## Versión 3.8.0: cada criatura con su personalidad
+
+**Kitsune de nueve colas** (jefa del Bosque de los Susurros, nivel 7): Colas de zorro, Ilusiones, Fuego de zorro, Encantar e Invocar (convierte una hoja en una kitsune).
+
+**Colas de zorro** (kitsune y kitsune de nueve colas): le crece una cola por turno (la kitsune arranca con 3, la jefa con 4). Cada dos colas de más pega con +1 de precisión, y cada cola suma un 4% de daño. Con nueve colas despierta: se cura un 20% y tiene +2 de defensa. La tarjeta de combate muestra la barra de colas y el dibujo va sumando colas.
+
+Pasivas nuevas (`js/systems/skills.js`):
+
+| Pasiva | Qué hace | Quiénes |
+|---|---|---|
+| Ilusiones | Los dos primeros golpes de arma que pegaban le dan a una ilusión | Kitsune de nueve colas, Archimago |
+| Piel gruesa | Cada golpe de arma hace 1 menos (2 desde el nivel 8) | Panda |
+| Emboscada | +2 de precisión hasta acertar, y ese golpe hace un tercio más | Bandido, Contrabandista, Gusano de arena, Tiburón |
+| Gigante | No se lo tira al suelo ni se lo agarra | Ogro, Ettin, Cíclope, Ent, Titán, Leviatán, Kraken, Cthulhu |
+| Valiente | No siente miedo | Hobgoblin, León, Centauro |
+| Alma pura | Sin maldición, veneno ni miedo | Unicornio, Ciervo astral |
+| Mente arcana | No se aturde, sin maldiciones | Mago oscuro, Nigromante, Bruja, Contemplador |
+| Pies de marinero | No se lo tira al suelo | Pirata, Contramaestre, Capitán pirata |
+| Aguante | Una vez por pelea queda en pie con 1 de vida | Titán |
+| Horror del abismo | Golpearlo con un arma a veces te da miedo | Cthulhu |
+
+Activas nuevas: **Fuego de zorro** (kitsune), **Tragar** (Leviatán, Gusano de arena), **Ventisca** (Yeti), **Ola gigante** (Leviatán, Kraken), **Ráfaga de alas** (Grifo), **Destello** (Unicornio, Ciervo astral), **Visión del abismo** (Cthulhu) y **Merienda de bambú** (Panda).
+
+- Ahora todas las criaturas tienen al menos una pasiva y una activa. Cthulhu invoca un profundo.
+- Las mascotas usan las activas nuevas de su especie (tu kitsune también suma colas en la pelea).
+- Se revisó la dificultad de cada criatura con el simulador. Cthulhu sigue a la altura del Dragón anciano; el Archimago bajó de vida por las ilusiones.
+- Juego en grupo: versión 7 (los dos tienen que actualizar).
+
 ## Versión 3.7.0: nueve criaturas nuevas
 
 Con su dibujo, sus habilidades y su botín (`js/data/seed-enemies.js`, `js/data/seed-skills.js`, `js/core/sprites.js`):

@@ -326,7 +326,12 @@
     if (leg > 0) { drawLeg(fxp + 2.2, `${lk}~`, true); drawLeg(bxp + 2.2, `${lk}~`, false); }
     // v3.7: varias colas (kitsune)
     const nt = o.tails || 1;
-    for (let i = nt - 1; i >= 0; i--) beastTail(P, xr - 1.2, cy - ry * 0.25, nt > 1 ? { ...o, _dx: (i - (nt - 1) / 2) * 2.6 } : o);
+    // v3.8: abiertas en abanico (de casi vertical a casi horizontal), para que se cuenten bien
+    // (cola por medio un poco más oscura, así se distinguen una de otra)
+    const spread = Math.min(2.3, 0.36 * (nt - 1));
+    for (let i = nt - 1; i >= 0; i--) {
+      beastTail(P, xr - 1.2, cy - ry * 0.25, nt > 1 ? { ...o, _ang: -1.05 - spread / 2 + (spread * i) / (nt - 1), _thin: nt > 4, tailKey: i % 2 ? 'b~' : o.tailKey } : o);
+    }
     if (o.wings === 'bat') batWingSide(P, cx + 1, cy - ry + 1.5, o.wingSize, true);
     if (o.wings === 'feather') featherWingSide(P, cx + 1, cy - ry + 1.5, o.wingSize, true);
     P.ell(cx, cy, rx, ry, 'b');
@@ -419,11 +424,20 @@
     else if (t === 'short') P.dot(x0 + 0.6, y0, 1.4, k);
     // v3.7: cola de penacho para arriba (kitsune: varias, abiertas en abanico con _dx)
     else if (t === 'plume') {
-      const dx = o._dx || 0;
-      const pts = bez([x0 - 0.5, y0], [x0 + 3, y0 - 0.5], [x0 + 5 + dx, y0 - 4], [x0 + 3 + dx * 1.6, y0 - 9 + Math.abs(dx) * 0.4]);
-      P.line(pts, 1.1, 0.9, k, 1.9);
+      let pts;
+      if (o._ang != null) {
+        const L = o._thin ? 8 : 9;
+        const ca = Math.cos(o._ang), sa = Math.sin(o._ang);
+        const tip = [Math.min(30.5 + (o.tailRoom || 0), x0 + 1.5 + ca * L), Math.max(1.5, y0 + sa * L)];
+        pts = bez([x0 - 0.5, y0], [x0 + 2.2, y0 - 0.3], [x0 + 1.5 + ca * L * 0.55 + 1, y0 + sa * L * 0.55], tip);
+      } else {
+        const dx = o._dx || 0;
+        pts = bez([x0 - 0.5, y0], [x0 + 3, y0 - 0.5], [x0 + 5 + dx, y0 - 4], [x0 + 3 + dx * 1.6, y0 - 9 + Math.abs(dx) * 0.4]);
+      }
+      if (o._thin) P.line(pts, 0.75, 0.6, k, 1.2);
+      else P.line(pts, 1.1, 0.9, k, 1.9);
       const e = pts[pts.length - 1];
-      if (o.tailTip) P.dot(e[0], e[1], 1.2, o.tailTip);
+      if (o.tailTip) P.dot(e[0], e[1], o._thin ? 0.95 : 1.2, o.tailTip);
     }
     else if (t === 'stinger') {
       const pts = bez([x0, y0], [x0 + 6, y0 - 3], [x0 + 4, y0 - 14], [x0 - 4.5, y0 - 13.5], 12);
@@ -1294,7 +1308,8 @@
     panda: { plan: 'beast', p: { b: '#f2f2ee', c: '#f2f2ee', h: '#26262a', a: '#e8e0d0', e: '#101010' }, o: { len: 19, h: 11, leg: 4.5, legW: 2.3, head: 4.8, snout: 2.4, snoutH: 2.6, ears: 'round', tail: 'short', neck: 0, headLow: true, legKey: 'h', earKey: 'h', eyePatch: 'h' } },
     profundo: { plan: 'humanoid', p: { sk: '#3a7a7a', h: '#1a4a4a', cl: '#2a5a5a', cl2: '#1a3a3a', a: '#8ac0b0', hl: '#e8f0d0', m: '#a0b0b0', wd: '#4a3a2a', e: '#101010' }, o: { size: 'medium', head: 'fish', outfit: 'loincloth', weapon: 'trident', claws: true } },
     grifo: { plan: 'beast', p: { b: '#c89a4a', c: '#f2ead8', h: '#f2ead8', wg: '#8a5a2a', a: '#f0c030', e: '#ffcc33' }, o: { len: 18, h: 9, leg: 5.5, legW: 1.5, head: 3.8, snout: 0, beak: true, ears: 'pointy', mane: 'horse', wings: 'feather', tail: 'thin', tailTip: 'b', claws: true, neck: 2 } },
-    kitsune: { plan: 'beast', s: 0.9, p: { b: '#f4ecdc', c: '#ffffff', a: '#c83a2a', e: '#ff6a20' }, o: { len: 16, h: 7.5, leg: 4.5, legW: 1.3, head: 3.9, snout: 4, snoutH: 2.3, ears: 'pointy', tail: 'plume', tailTip: 'a', tails: 3, neck: 1.5, eyes: 'glow' } },
+    kitsune: { plan: 'beast', s: 0.9, dx: -3, p: { b: '#f4ecdc', c: '#ffffff', a: '#c83a2a', e: '#ff6a20' }, o: { len: 16, h: 7.5, leg: 4.5, legW: 1.3, head: 3.9, snout: 4, snoutH: 2.3, ears: 'pointy', tail: 'plume', tailTip: 'a', tails: 3, tailRoom: 3.5, neck: 1.5, eyes: 'glow' } },
+    kyubi: { plan: 'beast', s: 0.95, dx: -3.5, p: { b: '#f6e6c0', c: '#fffaf0', a: '#3a8aff', e: '#7ad8ff' }, o: { len: 16, h: 7.5, leg: 4.5, legW: 1.3, head: 3.9, snout: 4, snoutH: 2.3, ears: 'pointy', tail: 'plume', tailTip: 'a', tails: 9, tailRoom: 3.5, neck: 1.5, eyes: 'glow' } }, // v3.8
     cthulhu: { plan: 'humanoid', p: { sk: '#3a6a4a', h: '#1a3a2a', cl: '#1a2a20', cl2: '#0e1a14', wg: '#2a3a2e', a: '#6a8a5a', e: '#e0ff60' }, o: { size: 'huge', head: 'octopus', wings: 'bat', outfit: 'none', claws: true, weapon: 'none' } },
     unicornio: { plan: 'beast', s: 1, p: { b: '#f4f2fa', c: '#ffffff', h: '#c8a0f0', a: '#f0d060', e: '#6a4ac8', o: '#b8b0c8' }, o: { len: 17, h: 9.5, leg: 7, legW: 1.3, head: 3.8, snout: 3.8, snoutH: 2.6, ears: 'pointy', tail: 'bushy', neck: 3.4, mane: 'horse', feet: 'hoof', horns: 'unicorn' } },
     ciervo_astral: { plan: 'beast', s: 0.96, p: { b: '#c8d0f0', c: '#ffffff', a: '#9af0d0', e: '#3a6ac8' }, o: { len: 16, h: 9, leg: 7, legW: 1.2, head: 3.6, snout: 3.4, snoutH: 2.4, ears: 'pointy', tail: 'thin', neck: 3, horns: 'goat' } },
@@ -1486,7 +1501,10 @@
     if (ov.c) p[humanoid ? 'cl' : 'c'] = ov.c;
     if (ov.a) p.a = ov.a;
     if (ov.e) p.e = ov.e;
-    return { plan: base.plan, s: base.s || 1, o: base.o || {}, p };
+    // v3.8: en combate, el kitsune muestra las colas que tiene ahora
+    let o = base.o || {};
+    if (o.tails && e.tails > 0) o = { ...o, tails: Math.min(9, e.tails) };
+    return { plan: base.plan, s: base.s || 1, dx: base.dx || 0, o, p };
   }
 
   // ============================================================
@@ -1581,7 +1599,9 @@
 
   function petHtml(pet, opts = {}) {
     if (!pet) return '';
-    const enemy = (A.Data && A.Data.getById && A.Data.getById('enemies', pet.species)) || { id: pet.species, family: pet.family, tags: pet.tags, name: pet.name };
+    let enemy = (A.Data && A.Data.getById && A.Data.getById('enemies', pet.species)) || { id: pet.species, family: pet.family, tags: pet.tags, name: pet.name };
+    // v3.8: en combate, tu kitsune muestra las colas que le crecieron
+    if (pet.tails > 0 && A.State && A.State.combat && !A.State.combat.result) enemy = { ...enemy, tails: pet.tails };
     return html(enemy, { flip: true, ...opts });
   }
 

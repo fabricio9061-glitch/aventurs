@@ -1036,3 +1036,6 @@
 .quest3-count { font-size: 12.5px; font-weight: 700; color: #7a5410; }
 .quests3.is-empty { padding: 10px 12px; }
 .quests3-start { display: flex; align-items: center; gap: 8px; width: 100%; padding: 0; border: 0; background: none; cursor: pointer; font-size: 14px; color: #4a3518; text-align: left; }
+
+/* 34. v3.8: barra de colas del kitsune (le crece una por turno) */
+.cb-subbar.is-tails > span { background: linear-gradient(90deg, #c83a2a, #ff9a40 60%, #7ac8ff); }

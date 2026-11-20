@@ -33,7 +33,7 @@
     ingenio: { pct: 0.2, min: 1 },         // Ingenio (gnomo): hechizos más baratos (parte del costo, con un mínimo) · v3.1: 20% (era 25%: el mago más fuerte)
     llama: { base: 1, from: 3 },                               // Llama interior (infernal): daño extra de los hechizos (base + la mitad del nivel)
     // v3.3: razas nuevas
-    lobo: { regen: [1, 1, 2], every: 4, below: 0.75 }, // Sangre de lobo (licántropo): con la mitad de la vida o menos, vida al empezar cada turno de pelea (1 · 2 desde nv 9) · medido: con 1/2/3 siempre ganaba 15 puntos más que los otros guerreros
+    lobo: { regen: [1, 1, 2], every: 4, below: 0.9 }, // v3.8: desde el 90% (las criaturas nuevas lo dejaban 9 abajo) · Sangre de lobo (licántropo): vida al empezar cada turno de pelea (1 · 2 desde nv 9) · medido: con 1/2/3 siempre ganaba 15 puntos más que los otros guerreros
     sombras: { bonus: 3, every: 4, poison: 0.5 }, // Cazador de sombras (elfo oscuro): daño extra a lo que ya tiene un estado malo, y sus golpes a veces envenenan · medido: sin el veneno quedaba 20 puntos abajo
     espinas: { dmg: 1, every: 4 },         // Corteza espinosa (dríade): el que te pega de cerca se lastima
   };

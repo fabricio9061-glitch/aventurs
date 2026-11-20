@@ -511,6 +511,7 @@
       : cat === 'strong' ? '<span class="cb-badge is-cat-strong">Fuerte</span>' : '';
     const shownName = e.elite && e.baseName ? `${e.baseName}${e.label ? ` ${e.label}` : ''}` : e.displayName;
     const skills = A.Skills ? A.Skills.listFor(e).map((sk) => sk.name).join(', ') : '';
+    const tails = A.Skills && A.Skills.tailsOf ? A.Skills.tailsOf(e) : 0;
     const fx = mods(e);
     // v2.5: envalentonado (+daño) o con miedo (-daño): se suma al dado ("2d4+1" -> "2d4+2")
     const dmgTxt = withFlat(String(e.damage || '1d3').replace(/\s+/g, ''), -(fx.damagePenalty || 0));
@@ -522,7 +523,8 @@
       badges: `${e.elite ? '' : `<span class="cb-badge" title="Nivel de peligro">Nv ${e.tier}</span>`}${catBadge}`,
       sprite: A.Sprites ? A.Sprites.html(e, { size: 128 }) : '',
       hp, hpMax: e.maxHp, barCls: 'bar-enemy-hp',
-      sub: null,
+      // v3.8: las colas del kitsune (le crece una por turno)
+      sub: tails ? { cls: 'is-tails', cur: tails, max: A.Skills.TAILS_MAX, title: `Colas: ${tails} de ${A.Skills.TAILS_MAX}` } : null,
       effects: e.effects,
       dc: now.defense,
       dcTitle: dcText(e, now.defense),
