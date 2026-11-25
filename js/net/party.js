@@ -30,7 +30,7 @@
 (function (A) {
   'use strict';
 
-  const VERSION = 8;        // si cambian los mensajes o las reglas, sube y avisa "actualicen los dos" (v3.2: 4 · v3.3: 5 · v3.4: 6 · v3.8: 7 · v3.9: 8)
+  const VERSION = 9;        // si cambian los mensajes o las reglas, sube y avisa "actualicen los dos" (v3.2: 4 · v3.3: 5 · v3.4: 6 · v3.8: 7 · v3.9: 8 · v3.10: 9)
   const MAX_MEMBERS = 4;     // v3.2: hasta cuatro jugadores
   const SNAP_MS = 50;       // juntar cambios antes de mandar la foto
   const HERO_MS = 150;      // juntar cambios del invitado antes de mandarlos
@@ -565,6 +565,7 @@
   const RPC = {
     'Combat.playerAttack': (o) => { if (o && o.target) ORIG['Combat.setTarget'](o.target); return ORIG['Combat.playerAttack'](); },
     'Combat.playerPowerAttack': (o) => { if (o && o.target) ORIG['Combat.setTarget'](o.target); return ORIG['Combat.playerPowerAttack'](); },
+    'Combat.playerTechnique': (o) => { if (o && o.target) ORIG['Combat.setTarget'](o.target); return ORIG['Combat.playerTechnique'](); },
     'Combat.playerSpell': (o, spellId, on) => { if (o && o.target) ORIG['Combat.setTarget'](o.target); return ORIG['Combat.playerSpell'](spellId, on); },
     'Combat.playerUseItem': (o, itemId, on) => { if (o && o.target) ORIG['Combat.setTarget'](o.target); return ORIG['Combat.playerUseItem'](itemId, on); },
     'Combat.playerTame': (o, instanceId) => ORIG['Combat.playerTame'](instanceId),
@@ -1234,7 +1235,7 @@
   }
 
   function installWrappers() {
-    ['playerAttack', 'playerPowerAttack', 'playerSpell', 'playerUseItem', 'playerTame', 'playerFlee', 'setTarget', 'finish', 'start'].forEach((f) => wrap(A.Combat, 'Combat', f));
+    ['playerAttack', 'playerPowerAttack', 'playerTechnique', 'playerSpell', 'playerUseItem', 'playerTame', 'playerFlee', 'setTarget', 'finish', 'start'].forEach((f) => wrap(A.Combat, 'Combat', f));
     ['explore', 'choose', 'proceed', 'rest'].forEach((f) => wrap(A.Explore, 'Explore', f));
     ['start', 'step', 'cancel'].forEach((f) => wrap(A.Travel, 'Travel', f));
     ['equip', 'unequip', 'use', 'drop'].forEach((f) => wrap(A.Inventory, 'Inventory', f));

@@ -287,6 +287,21 @@
     });
   }
 
+  // v3.10: más criaturas que te pueden aturdir (con tirada para resistir)
+  const addSkill = (enemyId, skill) => { const e = byId(S.enemies, enemyId); if (e && !(e.skills || []).includes(skill)) e.skills = (e.skills || []).concat([skill]); };
+  addSkill('jabali', 'cabezazo');
+  addSkill('escarabajo_minero', 'cabezazo');
+  addSkill('hobgoblin', 'cabezazo');
+  addSkill('orco', 'cabezazo');
+  addSkill('escorpion', 'paralizar');
+  addSkill('serpiente', 'paralizar');
+  addSkill('chispa_arcana', 'calambre');
+  addSkill('aprendiz_renegado', 'calambre');
+  // v3.10: jefes con Furia de jefe (se enfurecen a la mitad de la vida) y habilidades únicas
+  for (const e of S.enemies || []) if (e.category === 'boss') addSkill(e.id, 'enfurecer');
+  addSkill('titan', 'terremoto');
+  addSkill('huargo', 'llamar_manada');
+
   // ---------------------------------------------------------------
   // 8) Misiones acordes a lo que sueltan las criaturas
   //    (medido con tools: con la misión activa, las que tienen lo pedido salen más seguido;
@@ -314,4 +329,59 @@
   // Colmillos de hidra: la hidra suelta siempre el suyo
   const hidra = byId(S.enemies, 'hidra');
   if (hidra) for (const d of hidra.drops || []) if (d.itemId === 'mat_colmillo_hidra') d.chance = Math.max(d.chance || 0, 0.9);
+
+  // ---------------------------------------------------------------
+  // 9) v3.10: criaturas en el camino a los pueblos (adentro siguen sin peleas)
+  // ---------------------------------------------------------------
+  const ENC = (w) => ({ minEnemies: 1, maxEnemies: 2, allowMixed: true, spawnWeights: w || { weak: 40, normal: 45, strong: 15, boss: 0 } });
+  const roadTo = (regionId, tier, creatures) => {
+    const r = byId(S.regions, regionId);
+    if (!r) return;
+    r.type = 'road';
+    r.tier = tier;
+    r.encounter = r.encounter || ENC();
+    for (const id of creatures) {
+      const e = byId(S.enemies, id);
+      if (e && !(e.regions || []).includes(regionId)) e.regions = (e.regions || []).concat([regionId]);
+    }
+  };
+  roadTo('santuario_roble', [5, 5], ['hada_traviesa', 'driade', 'polilla_onirica', 'ciervo_astral']);
+  roadTo('aldea_piedrahonda', [2, 2], ['kobold', 'jabali', 'lobo', 'goblin']);
+  roadTo('puerto', [3, 3], ['grumete_pirata', 'contrabandista', 'loro_pirata', 'aguila']);
+  roadTo('puerto_calavera', [4, 5], ['pirata', 'contramaestre', 'sirena', 'esqueleto_pirata']);
+  roadTo('velmora', [7, 7], ['murcielago_vampiro', 'siervo_sangre', 'vampiro', 'espectro']);
+
+  // ---------------------------------------------------------------
+  // 10) v3.10: destinos nuevos
+  // ---------------------------------------------------------------
+  const place = (r, creatures, links) => {
+    if (byId(S.regions, r.id)) return;
+    S.regions.push(Object.assign({ type: 'combat', distance: 2, icon: '', labelAt: 'b', encounter: ENC({ weak: 30, normal: 45, strong: 20, boss: 5 }), _source: 'v310' }, r, { connections: links.slice() }));
+    for (const other of links) {
+      const o = byId(S.regions, other);
+      if (o && !(o.connections || []).includes(r.id)) o.connections = (o.connections || []).concat([r.id]);
+    }
+    for (const id of creatures) {
+      const e = byId(S.enemies, id);
+      if (e && !(e.regions || []).includes(r.id)) e.regions = (e.regions || []).concat([r.id]);
+    }
+  };
+  place({
+    id: 'lago_espejo', name: 'Lago Espejo', biome: 'coast', tier: [3, 5], pos: { x: 545, y: 105 }, labelAt: 't',
+    description: 'Un lago tan quieto que el cielo se ve dos veces. En la orilla croan sapos enormes y algo canta bajo el agua.',
+    unlockConditions: { minLevel: 4 },
+    events: [{ type: 'find', chance: 10, reward: 'perla_pequeña' }, { type: 'find', chance: 8, reward: 'gel_algas' }],
+  }, ['sapo_gigante', 'hombre_lagarto', 'cangrejo', 'ahogado', 'sirena'], ['aldea_piedrahonda', 'minas_olvidadas', 'montanas']);
+  place({
+    id: 'picos_helados', name: 'Picos Helados', biome: 'mountain', tier: [5, 8], pos: { x: 690, y: 45 }, labelAt: 'r',
+    description: 'Cumbres blancas donde el viento corta. Los yetis cazan entre la niebla y el hielo camina solo.',
+    unlockConditions: { minLevel: 7 },
+    events: [{ type: 'find', chance: 8, reward: 'mat_zafiro' }],
+  }, ['yeti', 'elem_hielo', 'ogro', 'troll', 'golem', 'huargo'], ['montanas', 'cuevas_ancestrales', 'lago_espejo']);
+  place({
+    id: 'fortaleza_caida', name: 'Fortaleza Caída', biome: 'ruins', tier: [6, 9], pos: { x: 70, y: 630 }, labelAt: 'b',
+    description: 'Una fortaleza que perdió su guerra hace siglos. Sus caballeros siguen de guardia, aunque ya no respiran.',
+    unlockConditions: { minLevel: 8 },
+    events: [{ type: 'find', chance: 8, reward: 'mat_rubi' }],
+  }, ['nigromante', 'espectro', 'aparicion', 'cab_muerte', 'siervo_sangre'], ['bosque_susurros', 'cementerio']);
 })(window.Aventurs);

@@ -407,112 +407,36 @@
     const esc = A.Utils.escapeHtml;
     const row = (label, value) => `<div class="detail-stat"><span class="dim">${label}</span><span>${value}</span></div>`;
 
-    // v2.4: rareza con su color, y lo que pagan si lo vendés
     const rar = (A.Balance && A.Balance.RARITY && A.Balance.RARITY[data.rarity || 'common']) || null;
-    // v3.9: en el equipo, rareza/nivel/peso/venta van en una línea chica al final (lo importante arriba)
     const gearKind = ['weapon', 'armor', 'accessory'].includes(kind);
-    const rarityRow = gearKind ? '' : row('Rareza', `<span class="rarity-tag rarity-${esc(data.rarity || 'common')}">${rarityLabel(data.rarity || 'common')}</span>`);
-    const sellRow = gearKind ? '' : (data.subtype !== 'coin' && data.value > 0 ? row('Se vende a', `<span class="num">${A.Currency.formatPrice(Math.max(1, Math.floor(data.value / 2)))}</span>`) : '');
-    const tierRow = gearKind ? '' : (data.tier ? row('Nivel', `<span class="num">${data.tier}</span>`) : '');
-    const metaBits = [];
-    if (gearKind) {
-      metaBits.push(`<span class="rarity-tag rarity-${esc(data.rarity || 'common')}">${rarityLabel(data.rarity || 'common')}</span>`);
-      if (data.tier) metaBits.push(`Nivel ${data.tier}`);
-      if (data.weight != null && kind !== 'accessory') { const w = data.weight || 0; metaBits.push(`Peso ${w} (${w === 0 ? 'no pesa' : w <= 2 ? 'liviana' : w <= 4 ? 'mediana' : w <= 6 ? 'pesada' : 'muy pesada'})`); }
-      if (data.value > 0) metaBits.push(`Se vende a ${A.Currency.formatPrice(Math.max(1, Math.floor(data.value / 2)))}`);
-    }
-    const metaLine = metaBits.length ? `<div class="item-meta-line">${metaBits.join('<span class="dot">·</span>')}</div>` : '';
     // v3.9: ¿te conviene? (comparado con lo que tenés puesto) y para qué sirve
     const IC = A.ItemCompare;
     const verdict = IC && gearKind && !wornView ? IC.compare(itemId).verdict : null;
     const cmpHtml = IC && gearKind && !wornView ? IC.cmpBox(itemId) : '';
     const usesHtml = IC ? IC.usesHtml(itemId, { withSell: !gearKind }) : '';
 
-    // v2.4: el peso frena (arma + armadura que pasen de 4)
-    function weightRows() {
-      if (kind !== 'weapon' && kind !== 'armor') return '';
-      const w = data.weight || 0;
-      const B = A.Balance;
-      const free = (B && B.FREE_WEIGHT) || 4;
-      const otherId = kind === 'weapon' ? eq.armor : eq.weapon;
-      const other = otherId ? (kind === 'weapon' ? A.Data.getById('armors', otherId) : A.Data.getById('weapons', otherId)) : null;
-      const total = w + (other ? other.weight || 0 : 0);
-      const pen = Math.max(0, total - free);
-      const word = w === 0 ? 'No pesa' : w <= 2 ? 'Liviana' : w <= 4 ? 'Mediana' : w <= 6 ? 'Pesada' : 'Muy pesada';
-      let note;
-      if (pen > 0) note = `<div class="class-note is-bad">${pxi('boot', 14)}<span>${isWorn ? 'Con lo que llevás puesto' : `Con tu ${kind === 'weapon' ? 'armadura' : 'arma'}`} pesa ${total}: perdés ${pen} de velocidad (lo que pase de ${free}).</span></div>`;
-      else note = w > 0 ? `<div class="class-note is-good">${pxi('boot', 14)}<span>${isWorn ? 'Con lo que llevás puesto' : `Con tu ${kind === 'weapon' ? 'armadura' : 'arma'}`} pesa ${total}: no te frena (hasta ${free} no pasa nada).</span></div>` : '';
-      return note; // v3.9: el número del peso va en la línea de abajo; acá queda solo si te frena
-    }
-
-    let stats = '';
-    const slotsLine = data.slots && data.slots > 1
-      ? `<div class="detail-stat"><span class="dim">Slots</span><span class="num">${data.slots} (voluminoso)</span></div>`
-      : '';
-    if (kind === 'weapon') {
-      const rg = A.Balance && A.Balance.rangeOf ? A.Balance.rangeOf(data.damage) : null;
-      stats = `
-        <div class="detail-stat"><span class="dim">Daño</span><span class="num">${data.damage}${rg ? ` <span class="dim">(de ${rg.min} a ${rg.max})</span>` : ''}</span></div>
-        ${tierRow}
-        ${rarityRow}
-        ${data.precision ? row('Precisión', `<span class="num">+${data.precision}</span>`) : ''}
-        ${data.magic ? row('Mágica', 'Sí (potencia tus hechizos)') : ''}
-        ${data.mana ? row('Maná máximo', `<span class="num">+${data.mana}</span> <span class="dim">(si usás magia)</span>`) : ''}
-        ${data.statusEffect ? row('Al pegar', `${Math.round((data.statusEffect.chance || 0) * 100)}% de ${esc((A.Combat && A.Combat.effectLabel ? A.Combat.effectLabel(data.statusEffect.type) : data.statusEffect.type))}`) : ''}
-        ${data.statusEffect && A.ItemFx && A.ItemFx.weaponEffectLine ? `<div class="class-note is-good">${pxi(data.statusEffect.type, 14)}<span>${esc(A.ItemFx.weaponEffectLine(data))}.</span></div>` : ''}
-        ${sellRow}
-        ${slotsLine}
-        ${weightRows()}
-        ${(() => {
-          // v2.0: cómo le queda a tu clase (maestría del guerrero, penalidad del mago)
-          const fit = p && A.Balance && A.Balance.weaponFit ? A.Balance.weaponFit(p, data) : null;
-          const bad = fit && (fit.atk < 0 || fit.blocked);
-          return fit && fit.note ? `<div class="class-note ${bad ? 'is-bad' : 'is-good'}">${pxi(fit.blocked ? 'lock' : bad ? 'arrow-down' : 'arrow-up', 14)}<span>${esc(fit.note)}</span></div>` : '';
-        })()}
-      `;
-    } else if (kind === 'armor') {
-      const RES = { fire: 'fuego', cold: 'frío', shock: 'rayos', poison: 'veneno' };
-      stats = `
-        <div class="detail-stat"><span class="dim">Armadura</span><span class="num">+${data.defense || 0}</span></div>
-        ${data.dodge ? `<div class="detail-stat"><span class="dim">Esquiva</span><span class="num">${data.dodge > 0 ? '+' : ''}${data.dodge}</span></div>` : ''}
-        ${tierRow}
-        ${rarityRow}
-        ${data.mana ? row('Maná máximo', `<span class="num">+${data.mana}</span> <span class="dim">(si usás magia)</span>`) : ''}
-        ${Array.isArray(data.resist) && data.resist.length ? row('Inmune a', esc(data.resist.map((t) => RES[t] || t).join(' y '))) : ''}
-        ${sellRow}
-        ${slotsLine}
-        ${weightRows()}
-        <div class="class-note is-good">${pxi('shield', 14)}<span>La armadura se resta de cada golpe que recibís${data.dodge ? '; la esquiva sube tu defensa' : ''}.</span></div>
-      `;
-    } else if (kind === 'accessory') {
-      const lines = A.Accessories ? A.Accessories.describe(data) : [];
-      stats = `
-        ${tierRow}
-        ${rarityRow}
-        ${sellRow}
-        <ul class="effect-list">${lines.map((l) => `<li>${pxi('star', 14)}<span>${esc(l)}</span></li>`).join('')}</ul>
-        <div class="class-note is-good">${pxi('gear', 14)}<span>Se lleva en el casillero de accesorio: uno por vez.</span></div>
-      `;
-    } else if ((kind === 'consumable' || kind === 'scroll') && data.subtype !== 'scroll_spell') {
-      const lines = A.ItemFx ? A.ItemFx.describe(data) : [];
-      const onlyCombat = A.ItemFx && A.ItemFx.combatOnly(data);
-      stats = `
-        ${rarityRow}
-        ${sellRow}
-        ${lines.length ? `<ul class="effect-list">${lines.map((l) => `<li>${pxi(onlyCombat ? 'swords' : 'heal', 14)}<span>${esc(l)}</span></li>`).join('')}</ul>` : ''}
-        ${onlyCombat ? `<div class="class-note is-good">${pxi('swords', 14)}<span>Se usa en combate, con el botón Objeto${data.subtype === 'scroll' ? ' (gasta tu turno)' : ''}.</span></div>` : ''}
-      `;
-    } else {
-      stats = `${rarityRow}${sellRow}`;
-    }
-
-    // v3.3: el pergamino que enseña un hechizo lo dice
+    // v3.10: la ficha ordenada: qué te da (sin repetir números), comparado con lo tuyo, para qué sirve
+    let learnNote = '';
     if (data.teachesSpell && data.subtype !== 'scroll_spell') {
+      // v3.3: el pergamino que enseña un hechizo lo dice · v3.4: quién lo puede aprender
       const sp = A.Data.getById('spells', data.teachesSpell);
-      // v3.4: quién lo puede aprender (los híbridos, solo algunos)
       const whoTxt = sp && A.Spellbook && A.Spellbook.who ? ({ mage: ', solo magos', both: ', magos e híbridos', hybrid: ', solo híbridos' })[A.Spellbook.who(sp)] || '' : '';
-      if (sp) stats += `<div class="class-note is-good">${pxi('book', 14)}<span>Se puede aprender: <b>${esc(sp.name)}</b> (hechizo de nivel ${sp.tier || 1}${whoTxt}${sp.cooldown ? `, cada ${sp.cooldown} turnos` : ''}). Al aprenderlo, el pergamino se gasta. Sin aprenderlo, cualquiera lo puede leer una vez en una pelea.</span></div>`;
+      if (sp) learnNote = `<li>${pxi('book', 14)}<span>Se puede aprender <b>${esc(sp.name)}</b> (hechizo de nivel ${sp.tier || 1}${whoTxt}${sp.cooldown ? `, cada ${sp.cooldown} turnos` : ''}). Al aprenderlo, el pergamino se gasta.</span></li>`;
+    } else if (data.subtype === 'scroll_spell' && data.teachesSpell) {
+      const sp = A.Data.getById('spells', data.teachesSpell);
+      if (sp) learnNote = `<li>${pxi('book', 14)}<span>Enseña <b>${esc(sp.name)}</b>: ${esc(sp.description || '')}</span></li>`;
     }
+    let gains = IC && IC.gainsHtml ? IC.gainsHtml(itemId) : '';
+    if (learnNote) gains = gains ? gains.replace('</ul></div>', `${learnNote}</ul></div>`) : `<div class="gains"><div class="gains-title">Qué te da</div><ul class="effect-list gains-list">${learnNote}</ul></div>`;
+    const statsLine = IC && IC.itemStatsLine ? IC.itemStatsLine(itemId) : '';
+    const chips = [`<span class="rarity-tag rarity-${esc(data.rarity || 'common')}">${rarityLabel(data.rarity || 'common')}</span>`, esc(kindLabel(kind))];
+    if (data.tier) chips.push(`Nivel ${data.tier}`);
+    if (statsLine) chips.push(esc(statsLine));
+    if (wornView) chips.push('<b>Lo tenés puesto</b>');
+    else if (qty > 1) chips.push(`Tenés ${qty}`);
+    const foot = [];
+    if (data.subtype !== 'coin' && data.value > 0) foot.push(`Se vende a ${A.Currency.formatPrice(Math.max(1, Math.floor(data.value / 2)))}`);
+    if (!gearKind && data.weight) foot.push(`Pesa ${data.weight}`);
 
     const actions = [];
     let hint = '';
@@ -565,21 +489,19 @@
     }
 
     const body = `
-      <div class="item-modal">
+      <div class="item-modal item-modal-v310">
         <div class="item-modal-header">
           <div class="item-modal-icon ${rar ? `rarity-frame rarity-${esc(data.rarity || 'common')}` : ''}">${(A.ItemSprites ? A.ItemSprites.html(data, { size: 72 }) : '')}</div>
-          <div>
+          <div class="item-modal-head-text">
             <div class="item-modal-name">${esc(data.name)} ${verdict && IC ? IC.verdictBadge(verdict) : ''}</div>
-            <div class="item-modal-meta dim">${kindLabel(kind)}${wornView ? ' · lo tenés puesto' : ''}${qty > 1 ? ` · ×${qty}` : ''}</div>
+            <div class="item-modal-chips">${chips.join('<span class="dot">·</span>')}</div>
           </div>
         </div>
-        <p class="item-modal-desc">${esc(data.description || '')}</p>
+        ${data.description ? `<p class="item-modal-desc">${esc(data.description)}</p>` : ''}
+        ${gains}
         ${cmpHtml}
-        <div class="detail-stats">
-          ${stats}
-        </div>
-        ${usesHtml ? `<div class="item-uses-box"><div class="item-uses-title">Para qué sirve</div>${usesHtml}</div>` : ''}
-        ${metaLine}
+        ${usesHtml ? `<div class="item-uses-box"><div class="gains-title">Para qué sirve</div>${usesHtml}</div>` : ''}
+        ${foot.length ? `<div class="item-meta-line">${foot.join('<span class="dot">·</span>')}</div>` : ''}
         ${hint}
         <div class="item-modal-actions">
           ${actions.join('')}

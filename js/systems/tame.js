@@ -400,7 +400,16 @@
       const it = A.Data.getById('items', s.itemId);
       return it && s.qty > 0 && it.subtype === 'potion' && ((it.effect && it.effect.type === 'heal') || it.healAmount > 0);
     }).sort((a, b) => ((A.Data.getById('items', a.itemId).value || 0) - (A.Data.getById('items', b.itemId).value || 0)))[0];
-    if (!slot) return { ok: false, text: `No tenés pociones de curación para ${pet.name}.` };
+    // v3.10: si está inconsciente y no hay pociones, la hierba de la vida también la despierta
+    if (!slot && pet.health <= 0) {
+      const herb = (p.inventory || []).find((s) => { const it = A.Data.getById('items', s.itemId); return it && s.qty > 0 && it.effect && it.effect.type === 'revive'; });
+      if (herb && A.ItemFx && A.ItemFx.useOutside) {
+        const r = A.ItemFx.useOutside(A.Data.getById('items', herb.itemId));
+        if (r.ok) { A.State.removeItem(herb.itemId, 1); A.State.persist(); A.State.addChronicle({ type: 'note', text: r.text }); }
+        return r;
+      }
+    }
+    if (!slot) return { ok: false, text: `No tenés pociones de curación${pet.health <= 0 ? ' ni hierbas de la vida' : ''} para ${pet.name}.` };
     if (pet.health >= pet.maxHealth) return { ok: false, text: `${pet.name} ya tiene la vida completa.` };
     const it = A.Data.getById('items', slot.itemId);
     const ef = it.effect || {};

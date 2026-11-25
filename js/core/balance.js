@@ -447,16 +447,18 @@
     maxEnemies: 5,   // tope de criaturas en la arena
     hp: 1.15,        // vida de cada criatura
     dmg: 1.1,        // daño de cada criatura
-    bossHp: 1.9,     // un jefe (o élite) solo: más vida...
-    bossDmg: 1.35,   // ...y más daño
+    bossHp: 2.3,     // un jefe (o élite) solo: más vida... (v3.10: antes 1,9; con dos se ganaba muy fácil)
+    bossDmg: 1.45,   // ...y más daño (v3.10: antes 1,35)
     share: 0.42,     // parte de la experiencia, las monedas y el botín de la pelea que se lleva cada uno
     // v3.2: la pelea se reparte más (antes 0.6 con dos): cada uno se lleva más o menos
     // 3/4 de lo que ganaría peleando solo (las peleas en grupo son más cortas y seguras).
     shares: { 3: 0.37, 4: 0.3 },
     // v3.2: grupos de hasta 4. Cada héroe de más (después del segundo) suma esto
     // (medido con el simulador: tres o cuatro pierden más o menos la vida que pierde uno solo)
-    perHero: { extra: 0.5, maxEnemies: 1, hp: 0.35, dmg: 0.15, bossHp: 0.8, bossDmg: 0.2 },
+    perHero: { extra: 0.5, maxEnemies: 1, hp: 0.35, dmg: 0.15, bossHp: 1.0, bossDmg: 0.25 },
   };
+  // v3.10: los jefes también solos (vida y daño). Medido con tools/jefes.js
+  const BOSS = { hp: 1.15, dmg: 1.05, rage: 1.2 }; // rage: cuánto más pega enfurecido (con la mitad de la vida)
 
   /**
    * v3.2: cómo se ponen las criaturas según cuántos héroes pelean juntos.
@@ -638,6 +640,7 @@
 
   A.Balance = {
     PARTY,
+    BOSS,
     partyScale,
     partyShare,
     MAX_LEVEL,

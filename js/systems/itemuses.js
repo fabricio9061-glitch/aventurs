@@ -87,7 +87,7 @@
     }
 
     // Lugares que lo piden para entrar
-    const places = (A.Data.regions || []).filter((r) => ((r.unlockConditions && r.unlockConditions.items) || []).some((x) => (x.itemId || x) === id));
+    const places = (A.Data.regions || []).filter((r) => ((r.unlockConditions && (r.unlockConditions.items || r.unlockConditions.requiredItems)) || []).some((x) => (x.itemId || x) === id));
     if (places.length) out.push({ kind: 'key', icon: 'map', text: `Lo necesitás para entrar a ${listOf(places.map((r) => r.name))}.` });
 
     // Si no sirve para otra cosa: al menos se vende

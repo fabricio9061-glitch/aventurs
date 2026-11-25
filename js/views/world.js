@@ -138,8 +138,11 @@
       A.Voice.say(`${region.name}. ${region.description || ''}`);
     }
 
+    // v3.10: huiste de una pelea en grupo y volviste: tus compañeros siguen peleando
+    const bgFight = A.State.combat && !A.State.combat.result && A.State.ui.combatHidden === A.State.combat.id;
     mainEl.innerHTML = `
       <section class="world2">
+        ${bgFight ? `<div class="world-bgfight">${icon('swords', 18)}<span>Tus compañeros siguen peleando sin vos. Cuando terminen, cada uno sigue por su cuenta.</span><button class="btn-ghost btn-sm" data-watch-fight>Ver la pelea</button></div>` : ''}
         <header class="region2 ${isSafeRegion ? 'is-safe' : 'is-danger'} biome-${esc(region.biome)}">
           ${A.UI && A.UI.voiceToggle ? `<span class="region2-voice">${A.UI.voiceToggle(20)}</span>` : ''}
           <div class="region2-art">${A.UI ? A.UI.biomeIcon(region, 72) : ''}</div>
@@ -329,6 +332,8 @@
     `;
   }
 
+  function regionNameOf(id) { const r = A.Data.getById('regions', id); return r ? r.name : id; }
+
   function renderTraveling() {
     const t = A.State.traveling;
     const fromR = A.Data.getById('regions', t.fromId);
@@ -349,7 +354,7 @@
             <div class="travel-endpoint travel-endpoint-from">
               <div class="travel-endpoint-icon">${A.UI ? A.UI.biomeIcon(fromR, 36) : ''}</div>
               <div class="travel-endpoint-name">${A.Utils.escapeHtml(fromR ? fromR.name : t.fromId)}</div>
-              <div class="travel-endpoint-label dim">Origen</div>
+              <div class="travel-endpoint-label dim">${t.back ? 'Volvés acá' : 'Origen'}</div>
             </div>
             ${renderRoutePath(t)}
             <div class="travel-endpoint travel-endpoint-to">
@@ -434,7 +439,7 @@
               <span class="travel-route-checkpoint-dot"></span>
             </div>
           `).join('')}
-          <div class="travel-route-marker" style="left: ${pctNum}%" title="Tu posición">
+          <div class="travel-route-marker ${t.back ? 'is-back' : ''}" style="left: ${pctNum}%" title="${t.back ? 'Volviendo' : 'Tu posición'}">
             <span class="travel-route-marker-icon">${icon('pin', 22)}</span>
           </div>
         </div>
@@ -472,9 +477,11 @@
       <div class="travel-actions-v2">
         <button class="btn-primary btn-travel-step" data-travel-action="step" ${mode !== 'manual' ? 'title="Avanzar manualmente (cancela auto)"' : ''}>
           <span class="btn-icon">${icon('boot', 20)}</span>
-          <span>Avanzar${mode !== 'manual' ? ' ahora' : ''}</span>
+          <span>${t.back ? `Volver a ${esc(regionNameOf(t.fromId))}` : `Avanzar${mode !== 'manual' ? ' ahora' : ''}`}</span>
         </button>
-        <button class="btn-ghost" data-travel-action="cancel">Volver al origen</button>
+        ${(t.currentStep || 0) <= 0 && !t.back
+          ? '<button class="btn-ghost" data-travel-action="cancel">Quedarme acá</button>'
+          : `<button class="btn-ghost" data-travel-action="turn" title="${t.back ? 'Seguir hacia el destino' : 'Volver por el mismo camino (paso a paso)'}">${icon(t.back ? 'arrow-up' : 'arrow-down', 16)}<span>${t.back ? `Seguir hacia ${esc(regionNameOf(t.toId))}` : 'Dar la vuelta'}</span></button>`}
       </div>
     `;
   }
@@ -747,6 +754,7 @@
   // ---------- Bindings ----------
 
   function bindEvents() {
+    mainEl.querySelectorAll('[data-watch-fight]').forEach((b) => b.addEventListener('click', () => { A.State.ui.combatHidden = null; A.Bus.emit('view:changed'); }));
     mainEl.querySelectorAll('[data-travel]').forEach((btn) => {
       btn.addEventListener('click', () => {
         if (btn.dataset.locked === '1') {
@@ -793,6 +801,9 @@
           setTimeout(scheduleAutoStep, 100);
         } else if (action === 'cancel') {
           A.Travel.cancel();
+        } else if (action === 'turn') {
+          A.Travel.turnBack(); // v3.10: dar la vuelta (o seguir) a mitad de camino (re-dibuja por travel:step)
+          setTimeout(scheduleAutoStep, 100);
         } else if (action === 'avoid') {
           // v1.6.4: Evitar requiere tirada D20+speedBonus vs DC del encuentro
           const t = A.State.traveling;

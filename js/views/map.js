@@ -533,6 +533,7 @@
         </div>
         <p class="map2-card-desc">${U().esc(r.description || '')}</p>
         ${allyLine(id)}
+        ${(() => { const w = reqs.find((q) => q.warn); return w ? `<p class="map3-warn">${U().icon('skull', 16)}<span>${U().esc(w.hint)}</span></p>` : ''; })()}
         ${locked ? `<ul class="map2-reqs">${reqs.map((q) => `<li class="${q.met ? 'is-met' : ''}">${U().icon(q.met ? 'check' : 'lock', 14)}<span>${U().esc(q.label)}${q.current != null && q.target != null && !q.met ? ` (${q.current}/${q.target})` : ''}</span></li>`).join('')}</ul>` : ''}
         ${action}
         ${npcsBlock(r, visited)}

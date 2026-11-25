@@ -156,6 +156,16 @@ function playerAI(G) {
   const alive = A.Combat.aliveEnemies();
   const P = A.Passives;
   const cost = (s) => (P ? P.spellCost(p, s) : s.manaCost);
+  // v3.10: la técnica de nacimiento del guerrero (una vez por pelea): las de área con 2 o más enemigos;
+  // las demás, en el primer turno (como haría una persona)
+  const tq = A.Combat.techniqueInfo ? A.Combat.techniqueInfo() : null;
+  if (tq && !tq.used && process.env.SIN_TECNICAS !== '1') {
+    const T = A.Techniques.of(p);
+    const area = T && T.area; // el barrido sirve también contra uno solo
+    // la cornada, después de la Embestida (no se suman)
+    const chargeLeft = T && T.gore && P && P.has(p, 'embestida') && !((c.passives || {}).embestida);
+    if (!chargeLeft && (!area || alive.length >= 2)) { A.Combat.playerTechnique(); return; }
+  }
   // Cura con poción si queda poca vida
   if (p.hp < p.maxHp * 0.35) {
     const pot = (p.inventory || []).find((s) => {

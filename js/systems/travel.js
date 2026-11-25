@@ -79,16 +79,17 @@
       });
     }
 
-    // 2. Nivel mínimo
+    // 2. Nivel recomendado. v3.10: avisa pero no te impide ir (podés ir, y podés morir)
     if (conds.minLevel && player) {
       const lvl = player.level || 1;
       result.push({
         id: 'level',
-        label: `Nivel ${conds.minLevel}`,
-        met: lvl >= conds.minLevel,
+        label: `Nivel ${conds.minLevel} recomendado`,
+        met: true,
+        warn: lvl < conds.minLevel,
         current: lvl,
         target: conds.minLevel,
-        hint: `Subí a nivel ${conds.minLevel}.`,
+        hint: `Es para nivel ${conds.minLevel} (vos sos ${lvl}): podés ir, pero las criaturas te pueden matar.`,
       });
     }
 
@@ -202,7 +203,7 @@
     if (!check.ok) {
       return { ok: false, error: check.error || 'No se puede viajar a esa región desde aquí.', locked: !!check.locked };
     }
-    if (A.State.combat) return { ok: false, error: 'Estás en combate.' };
+    if (A.State.combat) return { ok: false, error: A.State.ui && A.State.ui.combatHidden === A.State.combat.id ? 'Tus compañeros todavía pelean: esperá a que terminen para irte.' : 'Estás en combate.' };
     const target = A.Data.getById('regions', targetId);
     if (!target) return { ok: false, error: 'Región inválida.' };
 
@@ -238,7 +239,9 @@
     // v3.3: si moriste en el camino, el viaje no sigue
     if (heroDead()) return { ok: false, error: 'Tu aventura terminó.' };
 
-    t.currentStep += 1;
+    // v3.10: si diste la vuelta, cada paso te acerca al origen
+    t.currentStep += t.back ? -1 : 1;
+    const arrived = t.back ? t.currentStep <= 0 : t.currentStep >= t.totalSteps;
 
     // Consumir food por paso (v3.0: en grupo, cada uno come lo suyo)
     const group = A.Party && A.Party.combatHeroes ? A.Party.combatHeroes() : null;
@@ -264,7 +267,7 @@
 
     // Si es el último paso, no resolvemos evento (paso final = llegar)
     let event = null;
-    if (t.currentStep < t.totalSteps) {
+    if (!arrived) {
       event = resolveEvent();
       if (event) {
         t.events.push(event);
@@ -274,7 +277,11 @@
 
     A.Bus.emit('travel:step', { currentStep: t.currentStep, totalSteps: t.totalSteps });
 
-    if (t.currentStep >= t.totalSteps) {
+    if (arrived && t.back) {
+      backHome();
+      return { ok: true, traveling: t, event, completed: true, returned: true };
+    }
+    if (arrived) {
       complete();
       return { ok: true, traveling: t, event, completed: true };
     }
@@ -294,6 +301,35 @@
     // v1.5.9: viajar avanza 2 unidades de tiempo
     if (A.Time) A.Time.advance(2, 'travel');
     A.Bus.emit('travel:completed', { fromId, toId });
+  }
+
+  /** v3.10: llegaste de vuelta al origen caminando. */
+  function backHome() {
+    const t = State().traveling;
+    if (!t) return;
+    const fromId = t.fromId;
+    t.completed = true;
+    State().traveling = null;
+    if (A.Time) A.Time.advance(1, 'travel');
+    State().persist();
+    A.Bus.emit('travel:cancelled', { fromId, walked: true });
+    const from = A.Data.getById('regions', fromId);
+    A.State.addChronicle({ type: 'travel', text: `Volviste a ${from ? from.name : 'donde estabas'}.` });
+  }
+
+  /**
+   * v3.10: dar la vuelta a mitad de camino (y volver a darla para seguir). En el paso 0, volver es inmediato.
+   */
+  function turnBack() {
+    const t = State().traveling;
+    if (!t || t.completed) return { ok: false, error: 'No hay viaje activo.' };
+    if (t.currentStep <= 0 && !t.back) { cancel(); return { ok: true, cancelled: true }; }
+    t.back = !t.back;
+    State().persist();
+    const dest = A.Data.getById('regions', t.back ? t.fromId : t.toId);
+    A.State.addChronicle({ type: 'travel', text: t.back ? `Diste la vuelta hacia ${dest ? dest.name : 'el origen'}.` : `Seguís hacia ${dest ? dest.name : 'el destino'}.` });
+    A.Bus.emit('travel:step', { currentStep: t.currentStep, totalSteps: t.totalSteps, turned: true });
+    return { ok: true, back: t.back };
   }
 
   /**
@@ -934,6 +970,7 @@
     start,
     step,
     cancel,
+    turnBack, // v3.10
     complete,
     resolveEvent,
     calculateTravelSteps,

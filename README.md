@@ -106,6 +106,13 @@ node tools/hordas.js --guardar=antes.json     # guarda los resultados
 node tools/hordas.js --comparar=antes.json    # muestra cuánto cambió
 ```
 
+Contra jefes (v3.10): cada jefe contra un guerrero, un híbrido y un mago de su nivel y de dos niveles más:
+
+```powershell
+node tools/jefes.js                      # todos los jefes (unos 8 minutos)
+node tools/jefes.js --jefes=kyubi,kraken # solo esos
+```
+
 ## Contenido del juego (seed)
 
 - **18 razas** parejas, cada una con su pasiva y su arma (ver *Razas y pasivas*); las 12 que usan
@@ -250,6 +257,33 @@ Explorar siempre hace pasar algo (`js/systems/explore.js` + `js/data/seed-events
   se cuentan con ×N).
 - En el celular, una franja arriba con vida, maná, comida y dinero.
 - Sin emojis en el juego (desde la v2.2, tampoco en el editor).
+
+## Versión 3.10.0: talleres con ventana, jefes de verdad y caminos que se pueden desandar
+
+### Objetos
+- **Forja, encantamiento y alquimia como la tienda**: la lista a la izquierda y, a la derecha, la ventana del objeto: qué es, **qué te da** (en palabras simples y para tu clase), comparado con lo que tenés puesto, los materiales (con cuántos tenés) y el botón.
+- **"Qué te da"** también en la tienda: daño con su rango y tu maestría, precisión, poder mágico del arma, maná, lo que deja al pegar, si te frena el peso, armadura, esquiva, inmunidades, lo que cura o alimenta y si tu raza lo come.
+- **Ficha del objeto ordenada**: sin datos repetidos. Arriba nombre, rareza, nivel y números; después la descripción, "Qué te da", la comparación y "Para qué sirve".
+- Las armas vuelven a mostrar el **maná máximo** que dan (sí se suma al ponértelas).
+- El Amuleto de fuego dice que abre el Volcán.
+
+### Mundo y viajes
+- **Destinos nuevos**: Lago Espejo (nivel 4), Picos Helados (nivel 7) y Fortaleza Caída (nivel 8).
+- **Criaturas en el camino** a Santuario del Roble, Aldea de Piedrahonda, Puerto, Puerto Calavera y Velmora (adentro siguen sin peleas).
+- **El nivel de un lugar ya no te prohíbe ir**: el mapa avisa "Es para nivel 8 (vos sos 5): podés ir, pero las criaturas te pueden matar".
+- **Dar la vuelta en el camino**: a mitad de viaje, "Dar la vuelta" te hace volver paso a paso (con lo que aparezca), y "Seguir hacia..." retoma el destino. Ya no se vuelve al origen de golpe.
+- Si huís de una pelea en grupo, elegís **Seguir mirando** o **Volver**; desde el lugar, "Ver la pelea" te lleva de nuevo.
+- Arreglado: en grupo, después de **Observar de lejos** se votaba solo la otra opción.
+
+### Combate
+- **Técnicas de nacimiento de los guerreros** (un botón, una vez por pelea): Guardia de piedra (Enano), Rugido de guerra (Orco), Aullido de manada (Licántropo), Pulso de interferencia (Robot), Barrido colosal (Goliat) y Cornada brutal (Minotauro). Las de mejora no gastan tu ataque.
+- **Más golpes que aturden** desde el nivel 2: Cabezazo, Picadura paralizante y Calambre (siempre con tirada para resistir).
+- **Jefes más duros**, solos y en grupo: +15% de vida y +5% de daño solos; en pareja ×2,3 de vida y ×1,45 de daño (antes ×1,9 y ×1,35), y más por cada héroe de más. Con la mitad de la vida **se enfurecen** (+20% de daño). Medido con `node tools/jefes.js`: antes se les ganaba el 85 a 100% de las veces en su mismo nivel; ahora, entre 40 y 90% según el jefe y la clase.
+- **Invocaciones nuevas**: la Kitsune de nueve colas llama a **kitsunes de cinco colas** (dos si estás solo, tres con un compañero, una más por cada héroe de más). También Invocar a dos, Invocar a tres y Llamar a la manada (para el editor), y Terremoto para el Titán.
+- La **hierba de la vida** despierta a tu mascota fuera de la pelea (desde la ficha o con el botón de curar de la mascota).
+
+### Grupo
+- Versión de grupo **9**: los dos tienen que actualizar.
 
 ## Versión 3.9.0: la gran actualización
 

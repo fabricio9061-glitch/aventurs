@@ -1005,6 +1005,9 @@
       sc.stage = 'choose';
       sc.result = null;
       sc.options = sc.options.filter((o) => !o.observe);
+      // v3.10: los votos eran por número de opción; al sacar "observar" quedaban apuntando a otra (se votaba sola)
+      sc.votes = {};
+      sc.votedAt = {};
       sc.bonus = (sc.bonus || 0) + 2;
       sc.text = `${sc.text.replace(/\s*Ya sabés por dónde ir\.$/, '')} Ya sabés por dónde ir.`;
       tagPartyOptions(sc);

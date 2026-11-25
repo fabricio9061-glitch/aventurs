@@ -464,6 +464,13 @@
 
     // v3.9: muy de vez en cuando sale una criatura brillante (colores raros, mejor premio)
     if (inst.category !== 'boss' && Math.random() < SHINY_CHANCE) makeShiny(inst);
+    // v3.10: los jefes, más duros también solos (Balance.BOSS); en grupo, encima, Balance.partyScale
+    if (inst.category === 'boss' && A.Balance && A.Balance.BOSS) {
+      const BB = A.Balance.BOSS;
+      inst.maxHp = Math.max(1, Math.round((inst.maxHp || inst.hp || 1) * (BB.hp || 1)));
+      inst.hp = inst.maxHp;
+      if (BB.dmg && BB.dmg !== 1) inst.dmgMult = (inst.dmgMult || 1) * BB.dmg;
+    }
     return inst;
   }
 

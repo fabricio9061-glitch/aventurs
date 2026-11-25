@@ -113,6 +113,10 @@
       const spdE = speedWith(p, cur, armorNow);
       if (spdC !== spdE || (cand.weight || 0) > 4) lines.push({ label: 'Velocidad', value: `${spdC}`, diff: spdC - spdE });
       if (p.hasMagic) lines.push({ label: 'Poder mágico', value: `+${spC}`, diff: dSp });
+      // el maná que da el arma se suma a tu maná máximo al ponértela (Accessories.applyGearMana)
+      const mC = A.Accessories ? A.Accessories.gearManaOf(cand) : 0;
+      const mE = A.Accessories ? A.Accessories.gearManaOf(cur) : 0;
+      if (p.hasMagic && (mC || mE)) lines.push({ label: 'Maná máximo', value: `+${mC}`, diff: mC - mE });
       // v3.9: lo que deja al pegar (sangrado, veneno...)
       const procOf = (w) => (w && w.statusEffect && w.statusEffect.type ? `${Math.round((w.statusEffect.chance || 0) * 100)}% de ${(A.Combat && A.Combat.effectLabel ? A.Combat.effectLabel(w.statusEffect.type) : w.statusEffect.type).toLowerCase()}` : '');
       if (procOf(cand) || procOf(cur)) lines.push({ label: 'Al pegar', value: procOf(cand) || 'nada', diff: null, text: true });
@@ -293,17 +297,85 @@
     return '';
   }
 
-  function buyDetail(npc, id) {
+  /** v3.10: "Qué te da": las ventajas del objeto en palabras simples, para tu clase. [{ icon, text, bad }] */
+  function gainsOf(id) {
     const p = player();
     const d = U().itemData(id);
-    if (!d) return `<div class="shop-detail is-empty">${U().icon('shop', 40)}<p>Tocá un objeto para ver qué hace y si te conviene.</p></div>`;
-    const price = priceOf(npc, id);
-    const canPay = A.Currency.canPay(price);
-    const hasRoom = A.State.inventoryHasSpaceFor ? A.State.inventoryHasSpaceFor(id) : A.State.inventoryHasSpace();
+    if (!d || !p) return [];
+    const kind = kindOf(id);
+    const B = A.Balance;
+    const out = [];
+    const range = (e, plus) => { const r = A.Utils.diceRange ? A.Utils.diceRange(String(e)) : null; return r ? `de ${r.min + (plus || 0)} a ${r.max + (plus || 0)}` : ''; };
+    const num = (x) => String(Math.round(x * 10) / 10).replace('.', ',');
+    if (kind === 'weapon') {
+      const fit = B.weaponFit(p, d);
+      if (fit.blocked) return [{ icon: 'lock', text: fit.note, bad: true }];
+      const avg = B.avgOf(d.damage) + (fit.dmg || 0);
+      out.push({ icon: 'swords', text: `Pega ${d.damage}${fit.dmg ? ` y +${fit.dmg} por tu maestría` : ''}: ${range(d.damage, fit.dmg)}, ${num(avg)} en promedio.` });
+      const prec = (fit.atk || 0) + (d.precision || 0);
+      if (prec) out.push({ icon: 'target', text: `${prec > 0 ? '+' : ''}${prec} de precisión: ${prec > 0 ? 'le pegás más seguido' : 'le errás más seguido'}.`, bad: prec < 0 });
+      const sp = fit.spell || 0; // lo que suma el arma (no tu poder total)
+      if (sp) out.push({ icon: 'spell', text: `+${sp} de poder mágico: tus hechizos pegan ${sp} más.` });
+      const mana = p.hasMagic && A.Accessories ? A.Accessories.gearManaOf(d) : 0;
+      if (mana) out.push({ icon: 'spark', text: `+${mana} de maná máximo mientras la tengas puesta.` });
+      const proc = A.ItemFx && A.ItemFx.weaponEffectLine ? A.ItemFx.weaponEffectLine(d) : null;
+      if (proc) out.push({ icon: d.statusEffect.type, text: `${proc}.` });
+      const armorNow = p.equipment.armor ? A.Data.getById('armors', p.equipment.armor) : null;
+      const spd = speedWith(p, d, armorNow);
+      const base = (p.stats && p.stats.speed) || 10;
+      if (spd < base) out.push({ icon: 'boot', text: `Pesa ${d.weight || 0}: con tu armadura, tu velocidad queda en ${spd} (sin peso, ${base}).`, bad: true });
+      return out;
+    }
+    if (kind === 'armor') {
+      if (d.defense) out.push({ icon: 'shield', text: `+${d.defense} de armadura: cada golpe te hace ${d.defense} menos (si el golpe no la supera, no te hace nada).` });
+      if (d.dodge) out.push({ icon: 'run', text: `${d.dodge > 0 ? '+' : ''}${d.dodge} de esquiva: ${d.dodge > 0 ? 'te cuesta más que te peguen' : 'te pegan más fácil'}.`, bad: d.dodge < 0 });
+      const mana = p.hasMagic && A.Accessories ? A.Accessories.gearManaOf(d) : 0;
+      if (mana) out.push({ icon: 'spark', text: `+${mana} de maná máximo mientras la tengas puesta.` });
+      const RES = { fire: 'el fuego', cold: 'el frío', shock: 'los rayos', poison: 'el veneno', bleed: 'el sangrado' };
+      if (Array.isArray(d.resist) && d.resist.length) out.push({ icon: 'shield', text: `${d.resist.map((t) => RES[t] || t).join(' y ').replace(/^./, (c) => c.toUpperCase())} no te afecta.` });
+      const weaponNow = p.equipment.weapon ? A.Data.getById('weapons', p.equipment.weapon) : null;
+      const spd = speedWith(p, weaponNow, d);
+      const base = (p.stats && p.stats.speed) || 10;
+      if (spd < base) out.push({ icon: 'boot', text: `Pesa ${d.weight || 0}: con tu arma, tu velocidad queda en ${spd} (sin peso, ${base}). Con menos velocidad actuás después.`, bad: true });
+      else if (d.weight) out.push({ icon: 'boot', text: `Pesa ${d.weight}: con tu arma no te frena.` });
+      return out;
+    }
+    if (kind === 'accessory') {
+      for (const l of A.Accessories ? A.Accessories.describe(d) : []) out.push({ icon: 'star', text: `${l}.` });
+      out.push({ icon: 'lock', text: 'Se lleva un accesorio por vez.' });
+      return out;
+    }
+    if (kind === 'bag') {
+      const b = bagData(id);
+      if (b) out.push({ icon: 'bag', text: `${b.slots} espacios en la mochila.` });
+      return out;
+    }
+    // consumibles: lo que hace al usarlo
+    const fx = A.ItemFx && (d.effect || d.healAmount || d.foodValue) ? A.ItemFx.describe(d) : [];
+    const fight = A.ItemFx && A.ItemFx.combatOnly(d);
+    for (const l of fx) out.push({ icon: fight ? 'swords' : 'heal', text: l });
+    if (fx.length && fight) out.push({ icon: 'swords', text: `Se usa en combate${d.subtype === 'scroll' ? ' (gasta tu turno)' : ''}.` });
+    if (A.Survival && A.Survival.isFood && A.Survival.isFood(d)) {
+      const f = A.Survival.foodFor(p, d);
+      if (f.kind === 'no') out.push({ icon: 'food', text: 'Tu raza no lo come.', bad: true });
+      else if (f.kind === 'fav') out.push({ icon: 'food', text: 'A tu raza le encanta: rinde más.' });
+      else if (f.kind === 'half') out.push({ icon: 'food', text: 'A tu raza le rinde la mitad.', bad: true });
+    }
+    return out;
+  }
+  function gainsHtml(id) {
+    const g = gainsOf(id);
+    if (!g.length) return '';
+    return `<div class="gains"><div class="gains-title">Qué te da</div><ul class="effect-list gains-list">${g.map((x) => `<li class="${x.bad ? 'is-bad' : ''}">${U().icon(x.icon, 14)}<span>${U().esc(x.text)}</span></li>`).join('')}</ul></div>`;
+  }
+
+  /** v3.10: la ficha del objeto para las ventanas de la tienda y del taller (cabeza, descripción, qué te da, comparación). */
+  function itemPanel(id) {
+    const d = U().itemData(id);
+    if (!d) return '';
     const cmp = compare(id);
-    const why = !canPay ? 'No te alcanza' : !hasRoom ? 'Mochila llena' : '';
+    const gear = ['weapon', 'armor', 'accessory', 'bag'].includes(kindOf(id));
     return `
-      <div class="shop-detail">
         <div class="shop-detail-head">
           <span class="shop-detail-sprite">${U().itemSprite(d, 64)}</span>
           <div>
@@ -313,18 +385,22 @@
           </div>
         </div>
         ${d.description ? `<p class="shop-detail-desc">${U().esc(d.description)}</p>` : ''}
-        ${(() => {
-          // v2.4: lo que hace (pociones, comida, pergaminos y accesorios)
-          const lines = d.subtype === 'accessory' ? (A.Accessories ? A.Accessories.describe(d) : []) : (A.ItemFx && (d.effect || d.healAmount || d.foodValue) ? A.ItemFx.describe(d) : []);
-          // v2.5: armas que dejan un estado al pegar (la daga hace sangrar)
-          const proc = A.ItemFx && A.ItemFx.weaponEffectLine ? A.ItemFx.weaponEffectLine(d) : null;
-          if (proc) return `<ul class="effect-list shop-effects"><li>${U().icon(d.statusEffect.type, 14)}<span>${U().esc(proc)}.</span></li></ul>`;
-          if (!lines.length) return '';
-          const fight = A.ItemFx && A.ItemFx.combatOnly(d);
-          return `<ul class="effect-list shop-effects">${lines.map((l) => `<li>${U().icon(d.subtype === 'accessory' ? 'star' : fight ? 'swords' : 'heal', 14)}<span>${U().esc(l)}</span></li>`).join('')}${fight ? `<li class="dim">${U().icon('swords', 14)}<span>Se usa en combate${d.subtype === 'scroll' ? ' (gasta tu turno)' : ''}.</span></li>` : ''}</ul>`;
-        })()}
-        ${cmpBox(id)}
-        ${['weapon', 'armor', 'accessory', 'bag'].includes(kindOf(id)) ? '' : usesHtml(id, { withSell: false })}
+        ${gainsHtml(id)}
+        ${cmp.verdict === 'blocked' ? '' : cmpBox(id)}
+        ${gear ? '' : usesHtml(id, { withSell: false })}`;
+  }
+
+  function buyDetail(npc, id) {
+    const p = player();
+    const d = U().itemData(id);
+    if (!d) return `<div class="shop-detail is-empty">${U().icon('shop', 40)}<p>Tocá un objeto para ver qué hace y si te conviene.</p></div>`;
+    const price = priceOf(npc, id);
+    const canPay = A.Currency.canPay(price);
+    const hasRoom = A.State.inventoryHasSpaceFor ? A.State.inventoryHasSpaceFor(id) : A.State.inventoryHasSpace();
+    const why = !canPay ? 'No te alcanza' : !hasRoom ? 'Mochila llena' : '';
+    return `
+      <div class="shop-detail">
+        ${itemPanel(id)}
         <div class="shop-buy-row">
           <span class="shop-buy-price">${U().price(price, 18)}</span>
           <button class="btn-primary" data-buy="${U().esc(id)}" ${why ? 'disabled' : ''}>${why || 'Comprar'}</button>
@@ -458,46 +534,86 @@
     `;
   }
 
-  function renderCraft(npc, only) {
-    // v3.3: en la pestaña de alquimia, solo pociones; en la de forja, lo demás que haga este habitante
+  // v3.10: el taller (forja, encantamiento, alquimia) como la tienda: la lista a la izquierda y la
+  // ventana del objeto a la derecha (qué es, qué te da, comparado con lo tuyo, materiales y el botón)
+  function craftGroups(npc, only) {
     const ws = workshopsOf(npc);
-    const groups = [
+    return [
       ['forge', 'Forja', 'anvil', 'Forjar'], ['alchemy', 'Alquimia', 'potion', 'Preparar'], ['enchant', 'Encantamiento', 'arcane', 'Encantar'],
-    ].filter(([w]) => ws.includes(w) && (only === 'alchemy' ? w === 'alchemy' : w !== 'alchemy'));
-    const inv = player().inventory || [];
-    const html = groups.map(([w, label, ic, verb]) => {
-      // v3.9: primero lo que ya podés hacer; después, por nivel
-      const recipes = A.Crafting.recipesForWorkshop(w).slice().sort((a, b) => (A.Crafting.canCraft(b.id).ok - A.Crafting.canCraft(a.id).ok) || ((a.tier || 1) - (b.tier || 1)));
-      if (!recipes.length) return '';
-      return `
-        <div class="craft2-group">
-          <div class="craft2-label">${U().icon(ic, 18)}<span>${label}</span></div>
-          ${recipes.map((r) => {
-            const ok = A.Crafting.canCraft(r.id).ok;
-            const res = U().itemData(r.result);
-            return `
-              <div class="craft2-row ${ok ? 'is-ready' : ''}">
-                <span class="craft2-sprite">${U().itemSprite(res, 36)}</span>
-                <span class="craft2-info">
-                  <span class="craft2-name">${U().esc(res ? res.name : r.result)}${craftWhat(r.result)}</span>
-                  <span class="craft2-ings">
-                    ${(r.ingredients || []).map((ing) => {
-                      const d = U().itemData(ing.itemId);
-                      const slot = inv.find((s) => s.itemId === ing.itemId);
-                      const have = slot ? slot.qty : 0;
-                      return `<span class="craft2-ing ${have >= ing.qty ? 'is-ok' : ''}">${U().itemSprite(d, 18)}<span>${U().esc(d ? d.name : ing.itemId)}</span><b class="num">${have}/${ing.qty}</b></span>`;
-                    }).join('')}
-                  </span>
-                </span>
-                <button class="btn-mini" data-craft2="${U().esc(r.id)}" data-craft-tab="${only === 'alchemy' ? 'alchemy' : 'craft'}" ${ok ? '' : 'disabled'}>${verb}</button>
-              </div>`;
-          }).join('')}
-        </div>`;
+    ].filter(([w]) => ws.includes(w) && (only === 'alchemy' ? w === 'alchemy' : w !== 'alchemy'))
+      .map(([w, label, ic, verb]) => ({
+        w, label, ic, verb,
+        // primero lo que ya podés hacer; después, por nivel
+        recipes: A.Crafting.recipesForWorkshop(w).slice().sort((a, b) => (A.Crafting.canCraft(b.id).ok - A.Crafting.canCraft(a.id).ok) || ((a.tier || 1) - (b.tier || 1))),
+      }))
+      .filter((g) => g.recipes.length);
+  }
+  function haveOf(itemId) {
+    const slot = (player().inventory || []).find((s) => s.itemId === itemId);
+    return slot ? slot.qty : 0;
+  }
+  function craftDetail(r, verb, tab) {
+    if (!r) return `<div class="shop-detail is-empty">${U().icon('anvil', 40)}<p>Tocá una receta para ver qué sale, qué te da y qué materiales faltan.</p></div>`;
+    const check = A.Crafting.canCraft(r.id);
+    const ings = (r.ingredients || []).map((ing) => {
+      const d = U().itemData(ing.itemId);
+      const have = haveOf(ing.itemId);
+      return `<li class="${have >= ing.qty ? 'is-ok' : 'is-missing'}">${U().itemSprite(d, 22)}<span>${ing.qty > 1 ? `${ing.qty} × ` : ''}${U().esc(d ? d.name : ing.itemId)}</span><b class="num">tenés ${have}</b></li>`;
     }).join('');
+    return `
+      <div class="shop-detail craft-detail">
+        ${itemPanel(r.result)}
+        ${r.qty > 1 ? `<p class="shop-hint">Salen ${r.qty}.</p>` : ''}
+        <div class="gains-title">Materiales</div>
+        <ul class="craft-ings">${ings}</ul>
+        <div class="shop-buy-row">
+          <span class="shop-hint ${check.ok ? 'is-good' : ''}">${check.ok ? 'Tenés todo' : U().esc(check.why || 'Te faltan materiales')}</span>
+          <button class="btn-primary" data-craft2="${U().esc(r.id)}" data-craft-tab="${tab}" ${check.ok ? '' : 'disabled'}>${verb}</button>
+        </div>
+      </div>`;
+  }
+
+  function renderCraft(npc, only, payload = {}) {
+    const groups = craftGroups(npc, only);
+    const tab = only === 'alchemy' ? 'alchemy' : 'craft';
+    const all = groups.flatMap((g) => g.recipes.map((r) => ({ r, g })));
+    const picked = all.find((x) => x.r.id === payload.sel) || all.find((x) => A.Crafting.canCraft(x.r.id).ok) || all[0] || null;
+    const html = groups.map((g) => `
+        <div class="shop-group">
+          <div class="shop-group-label">${U().icon(g.ic, 14)} ${U().esc(g.label)} <span class="dim">${g.recipes.length}</span></div>
+          <div class="craft3-list">
+            ${g.recipes.map((r) => {
+              const ok = A.Crafting.canCraft(r.id).ok;
+              const res = U().itemData(r.result);
+              const kind = kindOf(r.result);
+              const cmp = ['weapon', 'armor', 'accessory', 'bag'].includes(kind) ? compare(r.result) : { verdict: null };
+              const missing = (r.ingredients || []).filter((ing) => haveOf(ing.itemId) < ing.qty).length;
+              const short = gainsOf(r.result)[0];
+              return `
+                <button class="craft3-row ${ok ? 'is-ready' : ''} ${picked && picked.r.id === r.id ? 'is-selected' : ''}" data-craft-sel="${U().esc(r.id)}" data-craft-tab="${tab}">
+                  <span class="craft3-sprite">${U().itemSprite(res, 32)}</span>
+                  <span class="craft3-info">
+                    <span class="craft3-name">${U().esc(res ? res.name : r.result)}</span>
+                    <span class="craft3-what">${U().esc(itemStatsLine(r.result) || (short ? short.text : ''))}</span>
+                  </span>
+                  <span class="craft3-side">
+                    ${cmp.verdict && cmp.verdict !== 'same' ? verdictBadge(cmp.verdict) : ''}
+                    <span class="craft3-mats ${ok ? 'is-ok' : ''}" title="${ok ? 'Tenés todos los materiales' : 'Materiales que te faltan'}">${ok ? 'Listo' : `Faltan ${missing}`}</span>
+                  </span>
+                </button>`;
+            }).join('')}
+          </div>
+        </div>`).join('');
     const lead = only === 'alchemy'
       ? `<p class="npc2-note">${U().esc(npc.name.split(' ')[0])} te prepara pociones con lo que juntes al explorar y viajar (hierbas, flores, hongos).</p>`
       : '';
-    return `<div class="craft2">${lead}${html || '<p class="npc2-note">No hay recetas.</p>'}</div>`;
+    if (!html) return `<div class="craft2">${lead}<p class="npc2-note">No hay recetas.</p></div>`;
+    return `
+      ${lead}
+      <div class="shop2 craft3">
+        <div class="shop-groups">${html}</div>
+        <aside class="shop-side">${craftDetail(picked && picked.r, picked ? picked.g.verb : '', tab)}</aside>
+      </div>`;
   }
 
   function renderInn(npc) {
@@ -552,8 +668,8 @@
     else if (tab === 'buy') body = renderBuy(npc, payload);
     else if (tab === 'sell') body = renderSell(npc);
     else if (tab === 'learn') body = renderLearn(npc);
-    else if (tab === 'craft') body = renderCraft(npc, 'craft');
-    else if (tab === 'alchemy') body = renderCraft(npc, 'alchemy');
+    else if (tab === 'craft') body = renderCraft(npc, 'craft', payload);
+    else if (tab === 'alchemy') body = renderCraft(npc, 'alchemy', payload);
     else if (tab === 'inn') body = renderInn(npc);
 
     const newsHtml = news.map((n) => {
@@ -621,9 +737,10 @@
       const r = A.NPC.learnSpell(npc.id, b.dataset.learn);
       if (r.ok) reopen(cur, { tab: 'learn' });
     }));
+    overlay.querySelectorAll('[data-craft-sel]').forEach((b) => b.addEventListener('click', () => reopen(cur, { tab: b.dataset.craftTab || 'craft', sel: b.dataset.craftSel })));
     overlay.querySelectorAll('[data-craft2]').forEach((b) => b.addEventListener('click', () => {
       const r = A.Crafting.craft(b.dataset.craft2);
-      if (r.ok) { A.Bus.emit('inventory:changed'); reopen(cur, { tab: b.dataset.craftTab || 'craft' }); }
+      if (r.ok) { A.Bus.emit('inventory:changed'); reopen(cur, { tab: b.dataset.craftTab || 'craft', sel: b.dataset.craft2 }); }
     }));
     overlay.querySelectorAll('[data-inn]').forEach((b) => b.addEventListener('click', () => {
       if (b.dataset.inn === 'sleep') {
@@ -655,5 +772,5 @@
   A.ModalViews = A.ModalViews || {};
   A.ModalViews.npc = { render, bind };
   // v3.9: la misma comparación sirve para la ficha del objeto, las misiones y la forja
-  A.ItemCompare = { compare, cmpBox, usesHtml, verdictBadge, itemStatsLine, kindOf };
+  A.ItemCompare = { compare, cmpBox, usesHtml, verdictBadge, itemStatsLine, kindOf, gainsOf, gainsHtml };
 })(window.Aventurs);

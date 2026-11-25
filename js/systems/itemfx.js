@@ -467,6 +467,11 @@
     if (!p || !item) return { ok: false, why: '' };
     const ef = item.effect || {};
     if (combatOnly(item)) return { ok: false, why: 'Se usa en combate.' };
+    // v3.10: la hierba de la vida fuera de la pelea despierta a tu mascota inconsciente (antes el botón quedaba apagado)
+    if (ef.type === 'revive') {
+      if (p.pet && (p.pet.health || 0) <= 0) return { ok: true };
+      return { ok: false, why: p.pet ? `${p.pet.name} está despierta: la hierba de la vida es para levantar a un caído.` : 'Sirve para levantar a tu mascota inconsciente o a un compañero caído en plena pelea.' };
+    }
     const hurt = p.hp < p.maxHp;
     const hungry = (p.food || 0) < (p.maxFood || 20);
     const lowMana = p.hasMagic && p.mana < p.maxMana;

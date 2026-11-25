@@ -266,7 +266,33 @@
       text: 'Te lanza magia: resistí con ingenio para recibir la mitad.',
     },
 
+    // v3.10: más golpes que aturden (antes casi no había antes del nivel 4)
+    cabezazo: {
+      kind: 'active', name: 'Cabezazo', icon: 'hourglass', act: 'strike', cd: 5, mult: 1,
+      onHit: { type: 'stun', save: 'fuerza', turns: 1 },
+      text: 'Un cabezazo seco: si no resistís con fuerza, perdés tu próximo turno.',
+      hit: ['{E} te da un cabezazo que te hace ver estrellas: {d} de daño.'],
+      miss: ['{E} baja la cabeza y embiste, pero lo esquivás.'],
+      fail: 'Te zumban los oídos: perdés el próximo turno.', resist: 'Te tambaleás, pero seguís firme.',
+      own: ['{P} le da un cabezazo a {e}: {d} de daño.'],
+    },
+    paralizar: {
+      kind: 'active', name: 'Picadura paralizante', icon: 'poison', act: 'strike', cd: 5, mult: 0.9,
+      onHit: { type: 'stun', save: 'fuerza', turns: 1 },
+      text: 'Un veneno que paraliza: si no resistís con fuerza, perdés tu próximo turno.',
+      hit: ['{E} te clava su aguijón: {d} de daño, y un frío te sube por el brazo.'],
+      miss: ['{E} intenta picarte, pero te corrés a tiempo.'],
+      fail: 'Se te duermen las piernas: perdés el próximo turno.', resist: 'El veneno te hormiguea, pero te movés igual.',
+      own: ['{P} pica a {e}: {d} de daño.'],
+    },
+
     // ---------------- Sin daño: te dejan un estado ----------------
+    calambre: {
+      kind: 'active', name: 'Calambre', icon: 'spark', act: 'debuff', cd: 5, save: 'agilidad', status: 'stun', turns: 1,
+      text: 'Una descarga que te acalambra: resistí con agilidad o perdés tu próximo turno.',
+      use: ['{E} chisporrotea y te tira una descarga.'],
+      fail: 'Se te acalambra todo el cuerpo: perdés el próximo turno.', resist: 'Saltás a un costado y la descarga pega en el piso.',
+    },
     chillido: {
       kind: 'active', name: 'Chillido', icon: 'warning', act: 'debuff', cd: 5, save: 'ingenio', status: 'stun', turns: 1,
       text: 'Un chillido que aturde: resistí con ingenio o perdés tu próximo turno.',
@@ -361,7 +387,33 @@
     },
     invocar: {
       kind: 'active', name: 'Invocar', icon: 'skulls', act: 'summon', once: true,
-      text: 'Una vez por pelea, llama a una criatura para que lo ayude.',
+      text: 'Una vez por pelea, llama a sus aliados para que lo ayuden (en grupo vienen más).',
+    },
+    // v3.10: más invocaciones
+    invocar_dos: {
+      kind: 'active', name: 'Invocar a dos', icon: 'skulls', act: 'summon', once: true, count: 2,
+      text: 'Una vez por pelea, llama a dos aliados (en grupo vienen más).',
+    },
+    invocar_tres: {
+      kind: 'active', name: 'Invocar a tres', icon: 'skulls', act: 'summon', once: true, count: 3,
+      text: 'Una vez por pelea, llama a tres aliados (en grupo vienen más).',
+    },
+    llamar_manada: {
+      kind: 'active', name: 'Llamar a la manada', icon: 'paw', act: 'summon', once: true, count: 2, pack: true,
+      text: 'Una vez por pelea, aúlla y llegan dos de los suyos, más chicos (en grupo vienen más).',
+    },
+    // v3.10: únicas de jefe
+    enfurecer: {
+      kind: 'passive', name: 'Furia de jefe', icon: 'fire',
+      text: 'Cuando le queda la mitad de la vida, se enfurece: pega un 20% más fuerte el resto de la pelea.',
+    },
+    terremoto: {
+      kind: 'active', name: 'Terremoto', icon: 'hourglass', act: 'quake', cd: 5, mult: 0.8, save: 'agilidad', status: 'stun', turns: 1,
+      text: 'Golpea el suelo: a todos, daño y, si no resisten con agilidad, pierden su próximo turno.',
+      use: ['{E} golpea el suelo con todas sus fuerzas y la tierra se abre bajo tus pies.'],
+      fail: 'Caés al suelo y perdés el próximo turno: {d} de daño.', resist: 'Saltás a tiempo y caés de pie.',
+      pet: 'La tierra se abre bajo {p}: {d} de daño.',
+      ownUse: ['{P} golpea el suelo con todas sus fuerzas.'],
     },
 
     // ---------------- v3.8: activas nuevas ----------------
@@ -424,13 +476,27 @@
   };
 
   // Lo que invoca cada criatura (si no está, no invoca)
+  // v3.10: cada uno con su invocación: { id, count, tails } (un texto suelto = 1 de esa criatura)
   const SUMMONS = {
-    nigromante: 'esqueleto', lich: 'momia', capitan_pirata: 'grumete_pirata', kraken: 'tentaculo', senor_vampiro: 'murcielago_vampiro',
-    cthulhu: 'profundo', kyubi: 'kitsune', // v3.8
+    // (medido con tools/jefes.js: la cantidad es para uno solo; en grupo viene uno más por cada héroe de más)
+    nigromante: 'esqueleto', lich: { id: 'momia', count: 2 }, capitan_pirata: { id: 'grumete_pirata', count: 2 }, kraken: { id: 'tentaculo', count: 1 },
+    senor_vampiro: { id: 'murcielago_vampiro', count: 2 }, cthulhu: { id: 'profundo', count: 1 },
+    // v3.10: la de nueve colas llama a kitsunes de cinco colas (dos si estás solo, tres con un compañero...)
+    kyubi: { id: 'kitsune', count: 2, tails: 5, hp: 0.7 },
   };
+  function summonSpec(x, sk) {
+    const raw = SUMMONS[x.id];
+    const base = typeof raw === 'string' ? { id: raw, count: 1 } : raw ? { ...raw } : { id: x.id, count: 1, weak: true };
+    if (sk && sk.count) base.count = sk.count;
+    if (sk && sk.pack) { base.id = x.id; base.weak = true; }
+    // en grupo vienen más (uno más por cada héroe de más, hasta 4)
+    const heroes = A.Party && A.Party.combatHeroes ? (A.Party.combatHeroes() || []).length : 1;
+    if (heroes > 1) base.count = Math.min(4, (base.count || 1) + heroes - 1);
+    return base;
+  }
   const SUMMON_LINES = {
     cthulhu: '{E} murmura desde el fondo del mar y {s} sube a la superficie.',
-    kyubi: '{E} sopla sobre una hoja y la hoja se vuelve {s}.',
+    kyubi: '{E} sopla sobre unas hojas y las hojas se vuelven {s}.',
     nigromante: '{E} alza los brazos y {s} sale de la tierra.',
     lich: '{E} pronuncia una palabra prohibida y {s} se levanta para servirlo.',
     capitan_pirata: '{E} silba fuerte: ¡{s} salta a la pelea!',
@@ -821,8 +887,11 @@
         return 1.5;
       }
       case 'summon': {
-        const id = SUMMONS[x.id];
-        if (!id || !A.Data.getById('enemies', id)) return 0;
+        // v3.10: invocaciones de varios (y las de manada, de su propia especie)
+        const spec = summonSpec(x, sk);
+        if (!spec.id || !A.Data.getById('enemies', spec.id)) return 0;
+        if (!SUMMONS[x.id] && !sk.pack && !sk.count) return 0; // "Invocar" a secas, solo los que tienen a quién llamar
+        if (x.summoned) return 0; // una invocada no invoca
         return k.alive().length < 3 ? 1.5 : 0;
       }
       case 'sweep': return p && p.pet && p.pet.health > 0 ? 1.5 : 1;
@@ -1012,16 +1081,27 @@
     },
 
     summon(sk, x, k) {
-      const id = SUMMONS[x.id];
-      const inst = id ? k.summon(x, id) : null;
-      if (!inst) return;
-      const data = A.Data.getById('enemies', id);
-      const fem = A.Narrator && A.Narrator.isFem ? A.Narrator.isFem(id) : false;
-      const s = `${fem ? 'una' : 'un'} ${(data ? data.name : inst.name).replace(/^./, (ch) => ch.toLowerCase())}`;
+      // v3.10: puede llamar a varios (y la de nueve colas, kitsunes de cinco colas)
+      const spec = summonSpec(x, sk);
+      const made = [];
+      for (let n = 0; n < (spec.count || 1); n++) {
+        const inst = spec.id ? k.summon(x, spec.id, { tails: spec.tails, weak: spec.weak, hp: spec.hp }) : null;
+        if (!inst) break;
+        made.push(inst);
+      }
+      if (!made.length) return;
+      const data = A.Data.getById('enemies', spec.id);
+      const fem = A.Narrator && A.Narrator.isFem ? A.Narrator.isFem(spec.id) : false;
+      const one = (data ? data.name : made[0].name).replace(/^./, (ch) => ch.toLowerCase());
+      const NUM = ['', '', 'dos', 'tres', 'cuatro'];
+      const s = made.length > 1 ? `${NUM[made.length] || made.length} ${one}${/[aeiou]$/i.test(one) ? 's' : 'es'}${spec.tails ? ` de ${['', '', '', '', '', 'cinco'][spec.tails] || spec.tails} colas` : ''}` : `${fem ? 'una' : 'un'} ${one}${spec.tails ? ` de ${spec.tails} colas` : ''}`;
+      for (const inst of made) {
+        k.log('enemy', { text: `${x.displayName} invoca a ${inst.displayName}.`, fx: { kind: 'summon', actor: k.fxKey(x), target: k.fxKey(inst) } });
+      }
       k.log('enemy', {
-        text: `${x.displayName} invoca a ${inst.displayName}.`,
-        fx: { kind: 'summon', actor: k.fxKey(x), target: k.fxKey(inst) },
-        say: { text: fill(SUMMON_LINES[x.id] || '{E} llama a {s} para que lo ayude.', x, { s }), tone: 'bad' },
+        text: `${x.displayName} llamó a ${made.length} aliado${made.length === 1 ? '' : 's'}.`,
+        fx: { kind: 'note' },
+        say: { text: fill(sk.pack ? '{E} aúlla y llegan {s} a ayudarlo.' : (SUMMON_LINES[x.id] || '{E} llama a {s} para que lo ayude.'), x, { s }), tone: 'bad' },
       });
     },
   };

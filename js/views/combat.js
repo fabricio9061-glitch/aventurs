@@ -52,6 +52,7 @@
     return ids.map((hid) => ({ hid, hero: heroOf(hid), gone: (c.goneHids || []).includes(hid), fled: (c.fledHids || []).includes(hid) })).filter((x) => x.hero);
   }
   /** v3.3: ¿tu héroe huyó de esta pelea del grupo? (el anfitrión se queda mirando) */
+  function placeName() { const w = A.State.world; const r = w ? A.Data.getById('regions', w.regionId) : null; return r ? r.name : 'tu lugar'; }
   function iFled(c) { return !!(c && c.party && (c.fledHids || []).includes(localHid())); }
   /** La frase de una acción, contada para esta compu (la del compañero, en tercera persona). */
   function sayFor(e) {
@@ -665,7 +666,8 @@
     }
     // v3.3: si huiste (y sos el que lleva el grupo), mirás cómo termina
     if (iFled(c)) {
-      return `<section class="cb-actions is-waiting is-fled" data-sec="actions"><div class="cb-turn-line">${icon('boot', 18)} ${waitingText(c, busy)}</div><div class="cb-action-row is-empty"></div></section>`;
+      // v3.10: después de huir en grupo, elegís: seguir mirando o volver a tus cosas (la pelea sigue sin vos)
+      return `<section class="cb-actions is-waiting is-fled" data-sec="actions"><div class="cb-turn-line">${icon('boot', 18)} ${waitingText(c, busy)}</div><div class="cb-action-row cb-fled-row"><button class="btn-ghost" data-fled-watch>${icon('eye', 16)}<span>Seguir mirando</span></button><button class="btn-primary" data-fled-leave>${icon('boot', 16)}<span>Volver a ${esc(placeName())}</span></button></div></section>`;
     }
     const p = A.State.player;
     const spells = A.Combat.availableSpells();
@@ -715,6 +717,18 @@
             hint: power.ready ? (target ? `Daño ${rangeTxt(damageRangeVs(p, target, power.mult))}` : 'Doble daño') : `Listo en ${power.wait} turno${power.wait === 1 ? '' : 's'}`,
             hint2: power.ready ? 'Doble daño' : '',
           }) : ''}
+          ${(() => {
+            // v3.10: la técnica de nacimiento del guerrero (una vez por pelea)
+            const tq = A.Combat.techniqueInfo ? A.Combat.techniqueInfo() : null;
+            if (!tq) return '';
+            return btn('technique', icon(tq.icon, 32), tq.name, {
+              cls: tq.used ? '' : 'is-power',
+              disabled: off || tq.used,
+              title: tq.used ? 'Ya la usaste en esta pelea' : tq.text,
+              hint: tq.used ? 'Ya la usaste' : 'Una vez por pelea',
+              hint2: tq.used ? '' : (tq.free ? 'Y pegás igual' : ''),
+            });
+          })()}
           ${p.hasMagic ? (() => {
             // v3.4: el mago necesita su arma de mago puesta
             const cast = A.Balance && A.Balance.canCast ? A.Balance.canCast(p) : { ok: true };
@@ -999,6 +1013,15 @@
       vEl.title = A.Voice && A.Voice.isOn() ? 'Apagar la voz del narrador' : 'Que el narrador lea en voz alta';
       return;
     }
+    // v3.10: huiste en grupo: volver a tus cosas (la pelea de tus compañeros sigue)
+    const leaveEl = ev.target.closest ? ev.target.closest('[data-fled-leave]') : null;
+    if (leaveEl && mainEl.contains(leaveEl)) {
+      const c = A.State.combat;
+      if (c) { A.State.ui.combatHidden = c.id; A.Bus.emit('view:changed'); }
+      return;
+    }
+    const watchEl = ev.target.closest ? ev.target.closest('[data-fled-watch]') : null;
+    if (watchEl && mainEl.contains(watchEl)) { watchEl.closest('.cb-fled-row').classList.add('is-watching'); return; }
     const actEl = ev.target.closest ? ev.target.closest('[data-combat-action]') : null;
     if (actEl && mainEl.contains(actEl)) {
       if (!actEl.disabled) doAction(actEl.dataset.combatAction, actEl);
@@ -1026,6 +1049,9 @@
     } else if (action === 'power') {
       const ready = c && !c.result && isPlayerTurnLocal(c) && revealedLog(c).length === (c.log || []).length;
       if (ready && A.Combat.playerPowerAttack) A.Combat.playerPowerAttack();
+    } else if (action === 'technique') {
+      const ready = c && !c.result && isPlayerTurnLocal(c) && revealedLog(c).length === (c.log || []).length;
+      if (ready && A.Combat.playerTechnique) A.Combat.playerTechnique();
     } else if (action === 'flee') A.Combat.playerFlee();
     else if (action === 'spell') A.State.openModal('combat-spell');
     else if (action === 'item') A.State.openModal('combat-item');

@@ -42,7 +42,7 @@
           <div class="shell-brand">
             <span class="brand-icon">${A.UI ? A.UI.icon('swords', 26) : ''}</span>
             <span class="brand-name">Aventurs</span>
-            <span class="version-pill" title="Versión del juego">v3.9.0</span>
+            <span class="version-pill" title="Versión del juego">v3.10.0</span>
           </div>
           ${tabs.length > 1 ? `
             <nav class="shell-nav">
@@ -312,7 +312,7 @@
             <div class="sb-pet-meta ${hungry && !isKO ? 'is-bad' : ''}">${isKO ? 'Inconsciente' : hungry ? `Con hambre: dale ${escH(diet ? diet.eats : 'comida')}` : (diet ? `Come: ${escH(diet.eats)}` : 'Tu compañera')}</div>
           </div>
           <div class="sb-pet-actions">
-            <button class="sb-pet-btn" data-pet-action="heal" title="Curarla con una poción (también la despierta)">${ic('potion', 18)}</button>
+            <button class="sb-pet-btn" data-pet-action="heal" title="${isKO ? 'Despertarla con una poción o una hierba de la vida' : 'Curarla con una poción'}">${ic('potion', 18)}</button>
             <button class="sb-pet-btn" data-pet-action="feed" title="Darle comida de su dieta" ${isKO ? 'disabled' : ''}>${ic('food', 18)}</button>
             <button class="sb-pet-btn is-release" data-pet-action="release" title="Liberarla (para poder domar otra)">${ic('run', 18)}</button>
           </div>
@@ -399,9 +399,11 @@
     if (!mainEl) return;
     const shellBody = rootEl.querySelector('.shell-body');
     const gameShell = rootEl.querySelector('.game-shell');
-    if (gameShell) gameShell.classList.toggle('is-combat-mode', !!A.State.combat);
+    // v3.10: si huiste de una pelea en grupo y elegiste volver, la pelea de tus compañeros sigue sin mostrarse
+    const hidden = !!(A.State.combat && A.State.ui.combatHidden && A.State.ui.combatHidden === A.State.combat.id && !A.State.combat.result);
+    if (gameShell) gameShell.classList.toggle('is-combat-mode', !!A.State.combat && !hidden);
     // Si hay combate activo, renderizar Combat y ocultar paneles laterales
-    if (A.State.combat) {
+    if (A.State.combat && !hidden) {
       if (shellBody) {
         shellBody.classList.add('is-combat');
         shellBody.classList.remove('is-map');

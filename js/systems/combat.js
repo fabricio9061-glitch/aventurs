@@ -925,6 +925,13 @@
     if (cur.kind === 'enemy') {
       entity = c.enemies.find((e) => e.instanceId === cur.id);
       if (!entity || entity.hp <= 0) { c.currentActorIdx += 1; return advanceIfNotPlayer(); }
+      // v3.10: los jefes (y los que tienen Furia de jefe) se enfurecen con la mitad de la vida
+      if (!entity.enraged && entity.hp <= entity.maxHp / 2 && (entity.category === 'boss' || (entity.skills || []).includes('enfurecer'))) {
+        entity.enraged = true;
+        entity.dmgMult = (entity.dmgMult || 1) * ((B().BOSS && B().BOSS.rage) || 1.2);
+        const n = A.Skills ? A.Skills.noun(entity) : entity.displayName;
+        addLog(c, 'enemy', { text: `¡${entity.displayName} se enfurece!`, fx: { kind: 'status', target: fxKey(entity), effect: 'rally' }, say: { text: `¡${n.charAt(0).toUpperCase()}${n.slice(1)} se enfurece! Desde ahora pega más fuerte.`, tone: 'bad' } });
+      }
     } else if (cur.kind === 'pet') {
       owner = heroOfEntry(c, cur);
       entity = owner ? owner.pet : null;
@@ -1180,6 +1187,65 @@
     const wait = c && c.powerCd > 0 ? c.powerCd : 0;
     return { ...info, wait, ready: wait === 0 };
   }
+  // ---------- v3.10: técnicas de nacimiento de los guerreros (una vez por pelea) ----------
+  function techniqueInfo() {
+    const c = State().combat;
+    const p = State().player;
+    const t = A.Techniques ? A.Techniques.info(p) : null;
+    if (!t) return null;
+    return { ...t, used: A.Techniques.used(c, p) };
+  }
+  function playerTechnique() {
+    const c = State().combat;
+    if (!c || c.result || !isPlayerTurn(c)) return;
+    const p = State().player;
+    const T = A.Techniques ? A.Techniques.of(p) : null;
+    if (!T || A.Techniques.used(c, p)) return;
+    A.Techniques.markUsed(c, p);
+    const b = A.Techniques.band(p);
+    addLog(c, 'player', { text: `${T.name}.`, fx: { kind: 'buff', target: 'player', label: T.name, icon: T.icon }, say: { text: T.say, tone: 'crit' } });
+    if (T.buff) {
+      const mods = T.buff(b);
+      p.effects = (p.effects || []).filter((e) => !(e.type === 'buff' && e.source === T.id));
+      p.effects.push({ type: 'buff', source: T.id, name: T.name, mods, turns: T.turns || 2, value: 1, fresh: true });
+      // en grupo, a tus compañeros también
+      if (T.allies && c.party) {
+        for (const h of heroesOf(c)) {
+          if (h === p || h.hp <= 0) continue;
+          h.effects = (h.effects || []).filter((e) => !(e.type === 'buff' && e.source === `${T.id}:aliado`));
+          h.effects.push({ type: 'buff', source: `${T.id}:aliado`, name: T.name, mods: { ...T.allies }, turns: T.turns || 2, value: 1, fresh: true });
+        }
+      }
+      // no gasta el ataque: el guerrero pega igual en este turno
+      if (T.free) {
+        const target = getTarget();
+        if (target) playerStrike(c, p, target, {});
+      }
+    } else if (T.area) {
+      const dice = T.area.dice(b);
+      for (const e of aliveEnemies()) {
+        const dmg = Math.max(1, A.Utils.rollDice(dice));
+        e.hp = Math.max(0, e.hp - dmg);
+        addLog(c, 'player', { text: `${T.name}: ${e.displayName} recibe ${dmg} de daño.`, target: e.displayName, dmg, hpAfter: e.hp, hpMax: e.maxHp, result: 'hit', fx: { kind: 'spell', actor: 'player', target: fxKey(e), element: 'shock' }, say: { text: `La descarga sacude a ${A.Skills ? A.Skills.noun(e) : e.displayName}: ${dmg} de daño.`, tone: 'good' } });
+        if (e.hp <= 0) enemyDown(c, e, 'player');
+        else if (T.area.status) inflict(c, e, T.area.status, { turns: T.area.turns || 2, source: T.id });
+      }
+    } else if (T.sweep) {
+      const foes = aliveEnemies();
+      const m = foes.length >= 2 ? T.sweep : (T.sweepSolo || 1);
+      for (const e of foes) if (e.hp > 0) playerStrike(c, p, e, { mult: m });
+    } else if (T.gore) {
+      const target = getTarget();
+      if (target) {
+        const before = target.hp;
+        playerStrike(c, p, target, { mult: T.gore.mult, prec: T.gore.prec, noCharge: true });
+        if (target.hp > 0 && target.hp < before && T.gore.status) inflict(c, target, T.gore.status, { turns: T.gore.turns || 2, source: T.id });
+      }
+    }
+    checkEnd();
+    if (!c.result) afterPlayerAction();
+  }
+
   function playerPowerAttack() {
     const info = powerInfo();
     if (!info || !info.ready) return;
@@ -1217,13 +1283,13 @@
     const es = enemyStats(target);
     // v3.9: la marca de tu Dardo arcano (solo la tuya) afina la puntería desde el nivel 9
     const mark = P() && P().markOf ? P().markOf(c, p, target) : null;
-    const r = attackRoll(st.attack + (mark ? mark.prec : 0), es.defense, playerRollOpts(p));
+    const r = attackRoll(st.attack + (mark ? mark.prec : 0) + (opts.prec || 0), es.defense, playerRollOpts(p));
     const weaponName = st.weapon ? st.weapon.name : 'puños';
     if (r.lucky) addLog(c, 'system', { text: 'Suerte: sacaste un 1 y el dado se vuelve a tirar.', fx: { kind: 'passive', passive: 'suerte' } });
     // v2.5: Escurridizo (el primero) y Etéreo (1 de cada 4) hacen fallar un golpe que pegaba.
     // El golpe fuerte del guerrero no se esquiva con esos trucos (ni lo frena un caparazón).
     // v3.0: Embestida (minotauro): el primer ataque de la pelea no falla y pega más fuerte
-    const charge = !opts.counter && P() && P().chargeReady ? P().chargeReady(c, p) : false;
+    const charge = !opts.counter && !opts.noCharge && P() && P().chargeReady ? P().chargeReady(c, p) : false;
     const dodge = A.Skills && !pw && !charge ? A.Skills.dodgeHit(target, r) : null;
     if (dodge) { r.hit = false; r.crit = false; }
     if (charge && !r.hit) { r.hit = true; r.fumble = false; }
@@ -1248,6 +1314,7 @@
     const shadow = P() && P().shadowBonusVs ? P().shadowBonusVs(p, target) : 0;
     rawDmg += shadow;
     if (pw) rawDmg *= pw.mult;
+    if (opts.mult) rawDmg *= opts.mult; // v3.10: técnicas (barrido, cornada)
     if (charge) rawDmg = Math.round(rawDmg * P().chargeMult(!!pw)); // con Golpe fuerte, un poco menos
     if (r.crit) rawDmg = Math.round(rawDmg * (P() ? P().critMult(p) : 2));
     // v3.9: después del crítico (no se duplican): Frenesí vampírico, forma bestial y la marca del Dardo arcano
@@ -2256,10 +2323,17 @@
   }
 
   /** Invoca una criatura que se suma a la pelea (actúa al final de la ronda). */
-  function summonEnemy(c, by, id) {
+  function summonEnemy(c, by, id, opts = {}) {
     const data = A.Data.getById('enemies', id);
     if (!data || !A.Encounter || !A.Encounter.spawnInstance) return null;
     const inst = A.Encounter.spawnInstance(data);
+    if (inst.shiny) { inst.shiny = false; inst.name = data.name; } // las invocadas nunca son brillantes
+    // v3.10: invocaciones especiales (kitsunes de cinco colas, crías de la manada)
+    const WORD = ['', 'una', 'dos', 'tres', 'cuatro', 'cinco', 'seis', 'siete', 'ocho', 'nueve'];
+    if (opts.tails) { inst.tails = opts.tails; inst.name = `${inst.name} de ${WORD[opts.tails] || opts.tails} colas`; }
+    if (opts.weak) { inst.maxHp = Math.max(1, Math.round(inst.maxHp * 0.6)); inst.hp = inst.maxHp; inst.name = `${inst.name} joven`; }
+    if (opts.hp && opts.hp !== 1) { inst.maxHp = Math.max(1, Math.round(inst.maxHp * opts.hp)); inst.hp = inst.maxHp; }
+    inst.displayName = inst.name;
     normalizeInstance(inst);
     inst.summoned = true;
     c.enemies.push(inst);
@@ -2280,7 +2354,7 @@
     hurtEnemy: (t, dmg, opts) => hurtEnemy(State().combat, t, dmg, opts),
     healEnemy: (enemy, n, opts) => healEnemy(State().combat, enemy, n, opts),
     healPet: (n, opts) => healPet(State().combat, n, opts),
-    summon: (by, id) => summonEnemy(State().combat, by, id),
+    summon: (by, id, opts) => summonEnemy(State().combat, by, id, opts),
     rollDamage: (enemy, opts) => rollEnemyDamage(enemy, opts),
     rollPetDamage: (pet, mult) => rollPetDamage(pet, mult),
     playerStats: () => playerStats(),
@@ -2649,6 +2723,7 @@
     aliveEnemies,
     playerAttack,
     playerPowerAttack,
+    playerTechnique, techniqueInfo, // v3.10
     powerInfo,
     playerSpell,
     playerUseItem,
