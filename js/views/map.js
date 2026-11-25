@@ -250,7 +250,7 @@
         isFog ? 'is-fog' : '',
         locked ? 'is-locked' : '',
         r.id === selectedId ? 'is-selected' : '',
-        r.type === 'safe' ? 'is-safe' : 'is-danger',
+        (r.type === 'safe' || r.type === 'road') ? 'is-safe' : 'is-danger',
       ].filter(Boolean).join(' ');
       const iconUrl = isFog ? '' : (A.ItemSprites && A.ItemSprites.iconUrl ? A.ItemSprites.iconUrl(`biome-${r.biome}`) || A.ItemSprites.iconUrl('map') : '');
       const lab = labelAttrs(p);
@@ -412,6 +412,44 @@
     return [label, what.join(', ')].filter(Boolean).join(' · ');
   }
 
+  // v3.9: qué se consigue en cada lugar (lo que sueltan las criaturas que ya viste y lo que se encuentra explorando)
+  const RAR_ORDER = { legendary: 5, epic: 4, rare: 3, uncommon: 2, common: 1 };
+  function lootBlock(r) {
+    const foes = r.type === 'safe' ? [] : A.Data.enemiesInRegion(r.id);
+    const isKnown = (e) => !A.Bestiary || A.Bestiary.isKnown(e.id);
+    const items = new Map();
+    const add = (itemId, from, chance) => {
+      if (!itemId || /^coin_/.test(itemId)) return;
+      const d = A.Inventory.resolveData(itemId);
+      if (!d) return;
+      const it = items.get(itemId) || { d, from: new Set(), chance: 0 };
+      it.from.add(from);
+      it.chance = Math.max(it.chance, chance || 0);
+      items.set(itemId, it);
+    };
+    for (const e of foes.filter(isKnown)) for (const dr of e.drops || []) add(dr.itemId, e.name.toLowerCase(), dr.chance);
+    for (const ev of r.events || []) if (ev.type === 'find' && ev.reward) add(ev.reward, 'explorando', (ev.chance || 0) / 100);
+    const hidden = foes.filter((e) => !isKnown(e)).length;
+    if (!items.size && !hidden) return '';
+    const wanted = A.Quests && A.Quests.wantedItems ? A.Quests.wantedItems() : new Set();
+    const list = [...items.entries()].sort((a, b) => (wanted.has(b[0]) - wanted.has(a[0])) || ((RAR_ORDER[b[1].d.rarity] || 1) - (RAR_ORDER[a[1].d.rarity] || 1)) || (b[1].chance - a[1].chance));
+    const MAX = 12;
+    const shown = list.slice(0, MAX);
+    const often = (c) => (c >= 0.35 ? 'seguido' : c >= 0.15 ? 'a veces' : 'raro');
+    return `
+      <div class="map3-sec">
+        <h3 class="map3-h">${U().icon('bag', 16)}<span>Se consigue</span>${list.length ? `<span class="map3-count num">${list.length}</span>` : ''}</h3>
+        ${shown.length ? `<div class="map3-loot">
+          ${shown.map(([id, it]) => `
+            <span class="map3-loot-item rarity-${U().esc(it.d.rarity || 'common')} ${wanted.has(id) ? 'is-wanted' : ''}" title="${U().esc(`${it.d.name}: ${[...it.from].slice(0, 3).join(', ')} (${often(it.chance)})${wanted.has(id) ? ' · lo pide una misión' : ''}`)}">
+              ${U().itemSprite(it.d, 22)}<span>${U().esc(it.d.name)}</span>${wanted.has(id) ? U().icon('quest', 12) : ''}
+            </span>`).join('')}
+          ${list.length > MAX ? `<span class="map3-loot-more">+${list.length - MAX} más</span>` : ''}
+        </div>` : ''}
+        ${hidden ? `<p class="map3-note">${hidden === 1 ? 'Una criatura que todavía no viste puede' : `${hidden} criaturas que todavía no viste pueden`} tener más cosas.</p>` : ''}
+      </div>`;
+  }
+
   function foesBlock(r) {
     if (r.type === 'safe') return '';
     const foes = A.Data.enemiesInRegion(r.id);
@@ -419,7 +457,7 @@
     const known = foes.filter((e) => !A.Bestiary || A.Bestiary.isKnown(e.id)).length;
     return `
       <div class="map3-sec">
-        <h3 class="map3-h">${U().icon('skulls', 16)}<span>Criaturas</span><span class="map3-count num">${known}/${foes.length}</span></h3>
+        <h3 class="map3-h">${U().icon('skulls', 16)}<span>${r.type === 'road' ? 'Criaturas en el camino' : 'Criaturas'}</span><span class="map3-count num">${known}/${foes.length}</span></h3>
         <div class="map3-foes">
           ${foes.map((e) => {
             const ok = !A.Bestiary || A.Bestiary.isKnown(e.id);
@@ -487,7 +525,7 @@
           <div class="map3-top-text">
             <div class="map2-card-name">${U().esc(r.name)}${isHere ? '<span class="map2-here-tag">Estás acá</span>' : ''}</div>
             <div class="map2-card-pills">
-              <span class="pill ${r.type === 'safe' ? 'pill-safe' : 'pill-combat'}">${r.type === 'safe' ? 'Zona segura' : 'Zona de peligro'}</span>
+              <span class="pill ${(r.type === 'safe' || r.type === 'road') ? 'pill-safe' : 'pill-combat'}">${r.type === 'road' ? 'Segura adentro · criaturas en el camino' : r.type === 'safe' ? 'Zona segura' : 'Zona de peligro'}</span>
               <span class="pill pill-tier">Nivel ${minLevel(r)}+</span>
               ${visited.has(id) ? '' : '<span class="map2-meta">Sin visitar</span>'}
             </div>
@@ -499,6 +537,7 @@
         ${action}
         ${npcsBlock(r, visited)}
         ${enemies ? foesBlock(r) : ''}
+        ${lootBlock(r)}
       </div>`;
   }
 
@@ -600,7 +639,26 @@
     const res = A.Travel.start(id);
     if (!res || !res.ok) {
       const box = mainEl.querySelector('.map2-info');
-      if (box && res && res.error) box.insertAdjacentHTML('afterbegin', `<p class="map2-error">${U().esc(res.error)}</p>`);
+      // v3.9: un solo aviso (antes se repetía en cada toque) y, en grupo, el botón para separarse acá mismo
+      if (box) box.querySelectorAll('.map2-error').forEach((n) => n.remove());
+      if (box && res && res.error) {
+        const sep = res.separable && A.Party && A.Party.separate
+          ? `<button type="button" class="btn-ghost btn-sm map2-separate" data-map-separate="${U().esc(id)}">${U().icon('map', 14)}<span>Separarme y viajar solo</span></button>` : '';
+        box.insertAdjacentHTML('afterbegin', `<div class="map2-error"><p>${U().esc(res.error)}</p>${sep}</div>`);
+        const b = box.querySelector('[data-map-separate]');
+        if (b) b.addEventListener('click', () => {
+          const r = A.Party.separate();
+          if (r && r.ok === false && r.error) { b.replaceWith(Object.assign(document.createElement('span'), { className: 'dim', textContent: r.error })); return; }
+          b.disabled = true;
+          // cuando llega la respuesta del anfitrión, sale el viaje
+          let tries = 0;
+          const go = () => {
+            if (A.Party.guestTogether && A.Party.guestTogether()) { if (++tries < 20) setTimeout(go, 200); return; }
+            travel(id);
+          };
+          setTimeout(go, 200);
+        });
+      }
     }
     // travel:started cierra el mapa desde el shell
   }

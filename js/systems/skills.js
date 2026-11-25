@@ -625,6 +625,36 @@
     return null;
   }
 
+  /** v3.9: la mascota también esquiva con sus pasivas cuando la atacan (Ilusiones, Escurridizo, Etéreo). */
+  function petDodge(pet, r, enemy) {
+    if (!pet || !r || !r.hit) return null;
+    const P = cap(noun(pet));
+    const e = noun(enemy);
+    if (has(pet, 'ilusion') && (pet._illusions || 0) < 2 && !r.crit) {
+      pet._illusions = (pet._illusions || 0) + 1;
+      return { skill: 'ilusion', say: `${cap(e)} le pega a ${noun(pet)}… y se deshace en humo: era una ilusión.` };
+    }
+    if (has(pet, 'escurridizo') && !pet._slipped && !r.crit) {
+      pet._slipped = true;
+      return { skill: 'escurridizo', say: `${P} se escurre en el último instante: el golpe de ${e} no llega.` };
+    }
+    if (has(pet, 'etereo') && Math.random() < 0.25) return { skill: 'etereo', say: `El golpe de ${e} atraviesa a ${noun(pet)} como si fuera humo.` };
+    return null;
+  }
+
+  /** v3.9: si la mascota tiene espinas o el cuerpo en llamas/helado, el que le pega de cerca lo sufre. */
+  function petReactions(c, pet, enemy, k) {
+    if (!pet || !enemy || !k) return;
+    const re = reactions(pet);
+    const n = noun(enemy);
+    const tier = (speciesOf(pet) || {}).tier || 1;
+    if (re.thorns > 0 && enemy.hp > 0) {
+      k.hurtEnemy(enemy, re.thorns, { actor: 'pet', say: `${cap(n)} se clava las espinas de ${noun(pet)}: ${re.thorns} de daño.` });
+    }
+    if (re.burn && enemy.hp > 0 && Math.random() < re.burn * 1.5) petStatusOn(enemy, 'fire', 1, tier, k, 'cuerpo_fuego');
+    if (re.chill && enemy.hp > 0 && Math.random() < re.chill * 1.5) petStatusOn(enemy, 'cold', 1, tier, k, 'cuerpo_hielo');
+  }
+
   /** El primer golpe de arma le hace la mitad (Caparazón / Gelatinoso). Devuelve { dmg, skill }. */
   function softenHit(target, dmg) {
     if (!target) return { dmg, skill: null };
@@ -1039,6 +1069,7 @@
   function petTurn(c, pet, target) {
     const k = kit();
     if (!k || !pet || pet.health <= 0 || !target) return false;
+    if (pet.food != null && pet.food <= 0) return false; // v3.9: con hambre no usa sus habilidades
     pet._turns = (pet._turns || 0) + 1;
     tickCds(pet);
     const opts = activesOf(pet).filter((sk) => PET_ACTS.includes(sk.act) && !sk.steal && ready(pet, sk)).filter((sk) => {
@@ -1064,7 +1095,14 @@
       const tier = (speciesOf(pet) || {}).tier || 1;
       k.petStrike(pet, t, {
         atkMod: sk.atk || 0, mult: sk.mult || 1, pierce: !!sk.pierce, skill: sk.id,
-        say: (kind, info) => (kind === 'hit' && sk.own ? { text: fill(sk.own, t, { d: info.dmg, e: noun(t) }), tone: info.crit ? 'crit' : 'good' } : null),
+        say: (kind, info) => {
+          if (kind === 'hit') {
+            if (sk.own) return { text: fill(sk.own, t, { d: info.dmg, e: noun(t) }), tone: info.crit ? 'crit' : 'good' };
+            return { text: `${cap(noun(pet))} usa ${sk.name.toLowerCase()} contra ${noun(t)}: ${info.dmg} de daño${info.crit ? ', ¡de lleno!' : '.'}`, tone: info.crit ? 'crit' : 'good' };
+          }
+          if (kind === 'miss') return { text: `${cap(noun(pet))} intenta ${sk.name.toLowerCase()}, pero ${noun(t)} lo esquiva.`, tone: 'neutral' };
+          return null;
+        },
         onHit: (info) => {
           if (sk.drain && info.dmg > 0) k.healPet(Math.round(info.dmg * sk.drain));
           const oh = sk.onHit;
@@ -1144,6 +1182,7 @@
   A.Skills = {
     LIB, SUMMONS, STAT_NAME,
     get, info, all, idsOf, has, listFor,
+    petDodge, petReactions, // v3.9
     statMods, damageMult, bonusDamage, immune, regenOf, lifesteal, poisonBoost,
     tailsOf, growTails, TAILS_MAX,
     dodgeHit, softenHit, reactions, tryRevive,

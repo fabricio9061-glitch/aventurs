@@ -450,13 +450,21 @@
     // v3.1: blindaje del Robot que queda en esta pelea
     const shield = c && !c.result && A.Passives && A.Passives.shieldLeft ? A.Passives.shieldLeft(c, p) : 0;
     const shieldBadge = shield > 0 ? `<span class="cb-badge is-shield" title="Blindaje: frena ${shield} de daño antes de que te toque la vida">${icon('shield', 12)}${shield}</span>` : '';
+    // v3.9: Sed de sangre (gotas y Frenesí) y Sangre lunar (forma bestial), a la vista
+    let raceBadge = '';
+    const live = c && !c.result && A.Passives;
+    const bi = live && A.Passives.bloodInfo ? A.Passives.bloodInfo(c, p) : null;
+    if (bi) raceBadge = bi.frenzy > 0 ? `<span class="cb-badge is-frenzy" title="Frenesí vampírico: pegás más fuerte y robás más vida (${bi.frenzy} turno${bi.frenzy === 1 ? '' : 's'})">Frenesí ${bi.frenzy}</span>`
+      : `<span class="cb-badge is-blood" title="Gotas de sangre: con ${bi.max}, Frenesí vampírico">${icon('heart', 12)}${bi.pending ? bi.max : bi.charges}/${bi.max}</span>`;
+    const li = live && A.Passives.lunarInfo ? A.Passives.lunarInfo(c, p) : null;
+    if (li && li.beast) raceBadge = `<span class="cb-badge is-beast" title="Forma bestial: más daño y algo de vida al empezar el turno (${li.healed}/${li.cap} en esta pelea)">${icon('moon', 12)}Bestia</span>`;
     return unitCard({
       kind: o.ally ? 'player is-ally' : 'player', key, i: o.i || 0, isActive,
       // v3.3: el que huyó (o se desconectó) ya no está en la pelea
       dead: !!(o.gone || o.fled), deadTag: o.fled ? 'Huyó' : o.gone ? 'Se fue' : '',
       ko: !o.gone && !o.fled && hp <= 0 && !!c.party,
       name: p.name, title: `${p.name} · ${race ? race.name : ''} de nivel ${p.level}${o.ally ? ' (tu compañero)' : ''}`,
-      badges: `${o.ally ? '<span class="cb-badge is-ally" title="Tu compañero">Aliado</span>' : ''}${shieldBadge}<span class="cb-badge is-gold">Nv ${p.level}</span>`,
+      badges: `${o.ally ? '<span class="cb-badge is-ally" title="Tu compañero">Aliado</span>' : ''}${shieldBadge}${raceBadge}<span class="cb-badge is-gold">Nv ${p.level}</span>`,
       sprite: A.Sprites ? A.Sprites.heroFor(p, { size: 128 }) : '',
       hp, hpMax: p.maxHp, barCls: 'bar-hp',
       sub: p.hasMagic ? { cls: 'is-mana', cur: mana, max: p.maxMana, title: `Maná ${mana}/${p.maxMana}` } : null,
@@ -804,9 +812,12 @@
       const nat = entry.roll === 20 ? 'is-nat20' : entry.roll === 1 ? 'is-nat1' : '';
       parts.push(`<span class="die-pill ${nat}">${entry.roll}</span> D20${bonus}${vs}`);
     }
-    if (entry.dmg != null && entry.dmg > 0 && (entry.result === 'hit' || entry.result === 'crit' || (entry.fx && entry.fx.kind === 'spell'))) {
+    if (entry.dmg != null && (entry.dmg > 0 || entry.rawDmg > 0) && (entry.result === 'hit' || entry.result === 'crit' || (entry.fx && entry.fx.kind === 'spell'))) {
       const dice = entry.damageDice ? `<span class="dice-pill">${esc(String(entry.damageDice).replace(/\s+/g, ''))}</span> ` : '';
-      const red = entry.targetArmor && entry.rawDmg != null ? ` (${entry.rawDmg} − ${entry.targetArmor} de armadura)` : '';
+      // v3.9: si la armadura es igual o mayor, para el golpe (un crítico hace al menos 1)
+      const blocked = entry.targetArmor && entry.rawDmg != null && entry.targetArmor >= entry.rawDmg;
+      const red = entry.targetArmor && entry.rawDmg != null
+        ? ` (${entry.rawDmg} − ${entry.targetArmor} de armadura${blocked ? (entry.dmg > 0 ? (entry.fx && entry.fx.kind === 'spell' ? ': la magia hace al menos 1' : ': mínimo 1 por crítico') : ': la armadura lo para') : ''})` : '';
       const life = entry.hpAfter != null ? ` · queda ${entry.hpAfter}/${entry.hpMax}` : '';
       parts.push(`${dice}<b>${entry.dmg}</b> de daño${red}${life}`);
     }
@@ -959,12 +970,19 @@
           <div class="cb-result-foes">${foes}</div>
           ${chips.length ? `<div class="cb-rewards">${chips.join('')}</div>` : ''}
           <button type="button" class="btn-primary cb-continue" data-combat-action="finish">Continuar</button>
-          <details class="cb-result-log">
+          <details class="cb-result-log" data-result-log>
             <summary>Leer la crónica completa</summary>
             <div class="combat-result-log">${chronicleHtml(c.log, { rolls: showRolls, combat: c })}</div>
           </details>
         </div>
       </section>`;
+    // v3.9: al abrir la crónica, arranca en la última ronda
+    const det = mainEl.querySelector('[data-result-log]');
+    if (det) det.addEventListener('toggle', () => {
+      if (!det.open) return;
+      const box = det.querySelector('.combat-result-log');
+      requestAnimationFrame(() => { if (box) box.scrollTop = box.scrollHeight; });
+    });
   }
 
   // ============================================================

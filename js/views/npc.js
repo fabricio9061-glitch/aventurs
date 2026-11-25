@@ -24,6 +24,9 @@
   };
   const RARITY = { common: 'Común', uncommon: 'Poco común', rare: 'Raro', epic: 'Épico', legendary: 'Legendario' };
 
+  // v3.9: lo que da el plato caliente de la posada
+  const INN_FOOD = 10;
+  const INN_HEAL = 0.15;
   function npcOf(id) { return A.Data.getById('npcs', id); }
   function player() { return A.State.player; }
   function kindOf(id) {
@@ -110,6 +113,9 @@
       const spdE = speedWith(p, cur, armorNow);
       if (spdC !== spdE || (cand.weight || 0) > 4) lines.push({ label: 'Velocidad', value: `${spdC}`, diff: spdC - spdE });
       if (p.hasMagic) lines.push({ label: 'Poder mágico', value: `+${spC}`, diff: dSp });
+      // v3.9: lo que deja al pegar (sangrado, veneno...)
+      const procOf = (w) => (w && w.statusEffect && w.statusEffect.type ? `${Math.round((w.statusEffect.chance || 0) * 100)}% de ${(A.Combat && A.Combat.effectLabel ? A.Combat.effectLabel(w.statusEffect.type) : w.statusEffect.type).toLowerCase()}` : '');
+      if (procOf(cand) || procOf(cur)) lines.push({ label: 'Al pegar', value: procOf(cand) || 'nada', diff: null, text: true });
       const type = B.classOf(p);
       const score = dDmg + (precC - precE) * 0.7 + dSp * (type === 'mage' ? 2 : 1) + (spdC - spdE) * 0.1;
       return { verdict: id === curId ? 'equipped' : score > 0.25 ? 'better' : score < -0.25 ? 'worse' : 'same', lines, note: fitC.note, current: cur };
@@ -131,7 +137,14 @@
     }
     if (kind === 'accessory') {
       const cur = p.equipment.accessory ? A.Data.getById('items', p.equipment.accessory) : null;
-      return { verdict: id === p.equipment.accessory ? 'equipped' : null, lines: [], current: cur, note: cur ? `Ahora llevás ${cur.name}: se lleva uno por vez.` : '' };
+      const cand = A.Data.getById('items', id);
+      // v3.9: lo que hace cada uno, uno al lado del otro (se lleva uno por vez)
+      const what = (it) => (it && A.Accessories ? A.Accessories.describe(it) : []).join(' · ');
+      const rank = { common: 1, uncommon: 2, rare: 3, epic: 4, legendary: 5 };
+      const lines = cand ? [{ label: 'Hace', value: what(cand) || '—', diff: null, text: true }] : [];
+      if (cur && cur.id !== id) lines.push({ label: 'El tuyo', value: what(cur) || '—', diff: null, text: true });
+      const dv = cur ? (rank[cand && cand.rarity] || 1) - (rank[cur.rarity] || 1) : 1;
+      return { verdict: id === p.equipment.accessory ? 'equipped' : !cur ? 'better' : dv > 0 ? 'better' : dv < 0 ? 'worse' : 'same', lines, current: cur, note: cur ? 'Se lleva uno por vez: elegí el que más te sirva.' : '' };
     }
     if (kind === 'bag') {
       const cand = bagData(id);
@@ -141,6 +154,57 @@
       return { verdict: d > 0 ? 'better' : d < 0 ? 'worse' : 'same', lines: [{ label: 'Espacios', value: `${cand.slots}`, diff: d }], current: cur };
     }
     return { verdict: null, lines: [] };
+  }
+
+  /** v3.9: en la forja, qué hace lo que sale y si es mejor que lo que tenés puesto. */
+  function craftWhat(id) {
+    const kind = kindOf(id);
+    const d = U().itemData(id);
+    if (!d) return '';
+    if (['weapon', 'armor', 'accessory'].includes(kind)) {
+      const cmp = compare(id);
+      const line = kind === 'accessory' ? (A.Accessories ? A.Accessories.describe(d).join(' · ') : '') : itemStatsLine(id);
+      return ` <span class="craft2-what">${U().esc(line)}</span> ${verdictBadge(cmp.verdict)}`;
+    }
+    const fx = A.ItemFx && (d.effect || d.healAmount || d.foodValue) ? A.ItemFx.describe(d) : [];
+    return fx.length ? ` <span class="craft2-what">${U().esc(fx[0])}</span>` : '';
+  }
+
+  /** v3.9: si la misión da un arma, armadura o accesorio, se ve qué es y si te conviene. */
+  function rewardGear(r) {
+    const gear = (r.items || []).map(([id]) => id).filter((id) => ['weapon', 'armor', 'accessory', 'bag'].includes(kindOf(id)));
+    if (!gear.length) return '';
+    return gear.map((id) => {
+      const d = U().itemData(id);
+      if (!d) return '';
+      const line = itemStatsLine(id);
+      return `
+        <div class="qc-gear">
+          <div class="qc-gear-head">${U().itemSprite(d, 32)}<b>${U().esc(d.name)}</b>${line ? `<span class="dim">${U().esc(line)}</span>` : ''}</div>
+          ${cmpBox(id, { compact: true })}
+        </div>`;
+    }).join('');
+  }
+
+  /** v3.9: la caja "Comparado con lo que tenés puesto" (tienda, ficha, misiones, forja). */
+  function cmpBox(id, opts = {}) {
+    const cmp = compare(id);
+    const esc = U().esc;
+    if (cmp.verdict === 'blocked') return `<p class="shop-hint is-bad">${esc(cmp.note || 'Tu clase no lo puede usar.')}</p>`;
+    if (!cmp.lines.length) return cmp.note ? `<p class="shop-hint">${esc(cmp.note)}</p>` : '';
+    return `
+      <div class="shop-cmp ${opts.compact ? 'is-compact' : ''}">
+        <div class="shop-cmp-head">${opts.title ? esc(opts.title) + ' · ' : ''}Comparado con ${cmp.current ? `<b>${esc(cmp.current.name)}</b>` : 'nada puesto'} ${verdictBadge(cmp.verdict)}</div>
+        ${cmp.lines.map((l) => `<div class="shop-cmp-row ${l.text ? 'is-text' : ''}"><span>${esc(l.label)}</span><span class="num">${esc(l.value)}</span>${l.diff == null ? '' : diffText(l.diff)}</div>`).join('')}
+        ${cmp.note && cmp.lines.length && cmp.verdict !== 'blocked' ? `<div class="shop-cmp-note">${esc(cmp.note)}</div>` : ''}
+      </div>`;
+  }
+
+  /** v3.9: "Para qué sirve" (recetas, misiones, domar, llaves...). */
+  function usesHtml(id, opts = {}) {
+    const list = A.ItemUses ? A.ItemUses.of(id, opts) : [];
+    if (!list.length) return '';
+    return `<ul class="effect-list item-uses">${list.map((u) => `<li>${U().icon(u.icon, 14)}<span>${U().esc(u.text)}</span></li>`).join('')}</ul>`;
   }
 
   function verdictBadge(v) {
@@ -198,6 +262,7 @@
         ${mode === 'offer' ? `<p class="qc-offer">"${U().esc(q.offer || q.text)}"</p>` : mode === 'ready' ? `<p class="qc-offer">"¿Lo conseguiste? Dejame ver..."</p>` : `<p class="qc-text">${U().esc(q.text)}</p>`}
         <ul class="qc-objs">${objectives}</ul>
         ${rewardChips.length ? `<div class="qc-reward"><span class="qc-reward-label">Recompensa</span>${U().chips(rewardChips)}</div>` : ''}
+        ${rewardGear(r)}
         ${btn ? `<div class="qc-actions">${btn}</div>` : ''}
       </article>
     `;
@@ -258,13 +323,8 @@
           const fight = A.ItemFx && A.ItemFx.combatOnly(d);
           return `<ul class="effect-list shop-effects">${lines.map((l) => `<li>${U().icon(d.subtype === 'accessory' ? 'star' : fight ? 'swords' : 'heal', 14)}<span>${U().esc(l)}</span></li>`).join('')}${fight ? `<li class="dim">${U().icon('swords', 14)}<span>Se usa en combate${d.subtype === 'scroll' ? ' (gasta tu turno)' : ''}.</span></li>` : ''}</ul>`;
         })()}
-        ${cmp.note && !cmp.lines.length ? `<p class="shop-hint">${U().esc(cmp.note)}</p>` : ''}
-        ${cmp.lines.length ? `
-          <div class="shop-cmp">
-            <div class="shop-cmp-head">Comparado con ${cmp.current ? `<b>${U().esc(cmp.current.name)}</b>` : 'nada puesto'}</div>
-            ${cmp.lines.map((l) => `<div class="shop-cmp-row"><span>${U().esc(l.label)}</span><span class="num">${U().esc(l.value)}</span>${diffText(l.diff)}</div>`).join('')}
-            ${cmp.note ? `<div class="shop-cmp-note">${U().esc(cmp.note)}</div>` : ''}
-          </div>` : ''}
+        ${cmpBox(id)}
+        ${['weapon', 'armor', 'accessory', 'bag'].includes(kindOf(id)) ? '' : usesHtml(id, { withSell: false })}
         <div class="shop-buy-row">
           <span class="shop-buy-price">${U().price(price, 18)}</span>
           <button class="btn-primary" data-buy="${U().esc(id)}" ${why ? 'disabled' : ''}>${why || 'Comprar'}</button>
@@ -285,13 +345,27 @@
     return '';
   }
 
+  // v3.9: la tienda ordenada por secciones (antes todo mezclado)
+  const SHOP_GROUPS = [
+    ['weapon', 'Armas'], ['armor', 'Armaduras'], ['accessory', 'Accesorios'], ['bag', 'Mochilas'],
+    ['potion', 'Pociones y remedios'], ['scroll', 'Pergaminos'], ['food', 'Comida'], ['tool', 'Herramientas y llaves'], ['other', 'Materiales'],
+  ];
+  function shopGroupOf(id) {
+    const k = kindOf(id);
+    if (['weapon', 'armor', 'accessory', 'bag'].includes(k)) return k;
+    const d = U().itemData(id) || {};
+    if (d.subtype === 'potion' || (d.effect && (d.effect.type === 'heal' || d.effect.type === 'mana' || d.effect.type === 'cure'))) return 'potion';
+    if (d.subtype === 'scroll' || d.teachesSpell) return 'scroll';
+    if (d.subtype === 'food' || d.subtype === 'tame' || (d.effect && d.effect.type === 'food')) return 'food';
+    if (/llave|linterna|cuerda/.test(id) || d.subtype === 'tool' || d.subtype === 'key') return 'tool';
+    return 'other';
+  }
+
   function renderBuy(npc, payload) {
-    const ids = (npc.sells || []).filter((id) => U().itemData(id));
-    const sel = payload.sel && ids.includes(payload.sel) ? payload.sel : null;
-    return `
-      <div class="shop2">
-        <div class="shop-grid">
-          ${ids.map((id) => {
+    const all = (npc.sells || []).filter((id) => U().itemData(id));
+    const sel = payload.sel && all.includes(payload.sel) ? payload.sel : null;
+    const groups = SHOP_GROUPS.map(([g, label]) => [label, all.filter((id) => shopGroupOf(id) === g).sort((a, b) => priceOf(npc, a) - priceOf(npc, b))]).filter(([, l]) => l.length);
+    const card = (id) => {
             const d = U().itemData(id);
             const price = priceOf(npc, id);
             const cmp = compare(id);
@@ -302,7 +376,15 @@
                 <span class="shop-card-price">${U().price(price, 14)}</span>
                 ${cmp.verdict && cmp.verdict !== 'same' ? `<span class="shop-card-cmp">${verdictBadge(cmp.verdict)}</span>` : dietBadge(d)}
               </button>`;
-          }).join('')}
+    };
+    return `
+      <div class="shop2">
+        <div class="shop-groups">
+          ${groups.map(([label, list]) => `
+            <div class="shop-group">
+              <div class="shop-group-label">${U().esc(label)} <span class="dim">${list.length}</span></div>
+              <div class="shop-grid">${list.map(card).join('')}</div>
+            </div>`).join('')}
         </div>
         <aside class="shop-side">${buyDetail(npc, sel)}</aside>
       </div>
@@ -384,7 +466,8 @@
     ].filter(([w]) => ws.includes(w) && (only === 'alchemy' ? w === 'alchemy' : w !== 'alchemy'));
     const inv = player().inventory || [];
     const html = groups.map(([w, label, ic, verb]) => {
-      const recipes = A.Crafting.recipesForWorkshop(w);
+      // v3.9: primero lo que ya podés hacer; después, por nivel
+      const recipes = A.Crafting.recipesForWorkshop(w).slice().sort((a, b) => (A.Crafting.canCraft(b.id).ok - A.Crafting.canCraft(a.id).ok) || ((a.tier || 1) - (b.tier || 1)));
       if (!recipes.length) return '';
       return `
         <div class="craft2-group">
@@ -396,7 +479,7 @@
               <div class="craft2-row ${ok ? 'is-ready' : ''}">
                 <span class="craft2-sprite">${U().itemSprite(res, 36)}</span>
                 <span class="craft2-info">
-                  <span class="craft2-name">${U().esc(res ? res.name : r.result)}</span>
+                  <span class="craft2-name">${U().esc(res ? res.name : r.result)}${craftWhat(r.result)}</span>
                   <span class="craft2-ings">
                     ${(r.ingredients || []).map((ing) => {
                       const d = U().itemData(ing.itemId);
@@ -420,7 +503,8 @@
   function renderInn(npc) {
     const p = player();
     const cost = npc.services.restCost;
-    const eatCost = Math.max(2, Math.floor(cost / 2));
+    // v3.9: el plato rinde: llena 10 y cura un poco, por un tercio de la cama (antes 5 de comida por la mitad)
+    const eatCost = Math.max(2, Math.ceil(cost * 0.3));
     const tired = p.hp < p.maxHp || (p.hasMagic && p.mana < p.maxMana);
     const hungry = (p.food || 0) < (p.maxFood || 20);
     const row = (ic, name, desc, price, attr, ok, label) => `
@@ -432,7 +516,7 @@
     return `
       <div class="inn2">
         ${row('tent', 'Una cama hasta mañana', 'Recuperás toda la vida y el maná, y comés algo antes de dormir.', cost, 'data-inn="sleep"', A.Currency.canPay(cost), tired ? 'Dormir' : 'Dormir igual')}
-        ${row('food', 'Un plato caliente', '+5 de comida.', eatCost, `data-inn="eat" data-cost="${eatCost}"`, A.Currency.canPay(eatCost) && hungry, hungry ? 'Comer' : 'Lleno')}
+        ${row('food', 'Un plato caliente', `+${INN_FOOD} de comida y +${Math.max(1, Math.round((p.maxHp || 1) * INN_HEAL))} de vida. No pasa el tiempo.`, eatCost, `data-inn="eat" data-cost="${eatCost}"`, A.Currency.canPay(eatCost) && (hungry || p.hp < p.maxHp), hungry || p.hp < p.maxHp ? 'Comer' : 'Lleno')}
       </div>
     `;
   }
@@ -552,7 +636,9 @@
         const cost = parseInt(b.dataset.cost, 10) || 5;
         if (!A.Currency.canPay(cost)) return;
         A.Currency.pay(cost);
-        A.State.modifyFood(5);
+        A.State.modifyFood(INN_FOOD);
+        const pl = A.State.player;
+        if (pl && pl.hp < pl.maxHp) A.State.healHp(Math.max(1, Math.round(pl.maxHp * INN_HEAL)));
         A.State.addChronicle({ type: 'rest', text: `Comiste un plato caliente en lo de ${npc.name}.` });
         reopen(cur, { tab: 'inn' });
       }
@@ -568,4 +654,6 @@
 
   A.ModalViews = A.ModalViews || {};
   A.ModalViews.npc = { render, bind };
+  // v3.9: la misma comparación sirve para la ficha del objeto, las misiones y la forja
+  A.ItemCompare = { compare, cmpBox, usesHtml, verdictBadge, itemStatsLine, kindOf };
 })(window.Aventurs);

@@ -21,7 +21,11 @@ window.Aventurs = window.Aventurs || {};
      * Devuelve el total ya sumado/restado.
      */
     rollDice(notation) {
-      const m = String(notation).match(/^(\d+)d(\d+)([+-]\d+)?$/i);
+      // v3.9: un número solo ("3") vale ese número (la miel decía +3 de vida y no curaba)
+      if (typeof notation === 'number') return Math.round(notation);
+      const plain = String(notation == null ? '' : notation).trim();
+      if (/^[+-]?\d+$/.test(plain)) return parseInt(plain, 10);
+      const m = plain.replace(/\s+/g, '').match(/^(\d+)d(\d+)([+-]\d+)?$/i);
       if (!m) return 0;
       const count = parseInt(m[1], 10);
       const sides = parseInt(m[2], 10);

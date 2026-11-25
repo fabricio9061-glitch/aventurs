@@ -327,6 +327,14 @@
 
     // --- Ataques con dado ---
     if (fx.kind === 'attack') {
+      // v3.9: la armadura paró el golpe del todo
+      if (entry.result === 'hit' && entry.dmg === 0 && !entry.absorbed && entry.rawDmg > 0) {
+        if (fx.actor === 'player') {
+          const n = enemyNoun(targetInst);
+          return { text: pick([`Tu golpe rebota en la armadura de ${n}: no le hace nada.`, `Le das a ${n}, pero su armadura para el golpe.`]), tone: 'neutral' };
+        }
+        if (fx.actor === 'pet') return { text: `${cap(petNoun(pet))} alcanza a ${enemyNoun(targetInst)}, pero no le atraviesa la armadura.`, tone: 'neutral' };
+      }
       if (fx.actor === 'player') {
         const w = playerWeapon();
         Object.assign(v, { e: enemyNoun(targetInst), E: cap(enemyNoun(targetInst)), w: w.noun });
@@ -474,5 +482,5 @@
 
   function isFem(id) { return FEM.has(id); }
 
-  A.Narrator = { say, enemyNoun, petNoun, coinsInWords, groupPhrase, contract, passiveSuffix, isFem };
+  A.Narrator = { say, enemyNoun, petNoun, coinsInWords, groupPhrase, contract, passiveSuffix, isFem, SOFT: SOFT_SUFFIX };
 })(window.Aventurs);

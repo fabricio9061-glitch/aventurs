@@ -64,8 +64,16 @@
     if (!A.Quests || !A.Quests.activeList) return set;
     for (const q of A.Quests.activeList()) {
       q.objectives.forEach((o, i) => {
-        if (o.type !== 'kill' || A.Quests.objectiveProgress(q, i).done) return;
-        for (const id of (Array.isArray(o.enemy) ? o.enemy : [o.enemy])) set.add(id);
+        if (A.Quests.objectiveProgress(q, i).done) return;
+        if (o.type === 'kill') {
+          for (const id of (Array.isArray(o.enemy) ? o.enemy : [o.enemy])) set.add(id);
+          return;
+        }
+        // v3.9: también las que tienen lo que te piden juntar (antes había que pelear 15 o 30 veces)
+        if ((o.type === 'collect' || o.type === 'have') && o.item) {
+          for (const id of (Array.isArray(o.from) ? o.from : o.from ? [o.from] : [])) set.add(id);
+          for (const e of A.Data.enemies || []) if ((e.drops || []).some((d) => d.itemId === o.item)) set.add(e.id);
+        }
       });
     }
     return set;
@@ -454,6 +462,20 @@
     // Si NO se autoequipa, inst.damage queda con el valor del seed (definido por el editor).
     // Eso es coherente: el daño "1d6" del seed manda, no se sustituye por una espada random.
 
+    // v3.9: muy de vez en cuando sale una criatura brillante (colores raros, mejor premio)
+    if (inst.category !== 'boss' && Math.random() < SHINY_CHANCE) makeShiny(inst);
+    return inst;
+  }
+
+  // ---------- v3.9: criaturas brillantes ----------
+  const SHINY_CHANCE = 1 / 200;
+  function makeShiny(inst) {
+    if (!inst || inst.shiny) return inst;
+    inst.shiny = true;
+    inst.name = `${inst.name} brillante`;
+    inst.displayName = inst.name;
+    inst.maxHp = Math.round((inst.maxHp || 1) * 1.15);
+    inst.hp = inst.maxHp;
     return inst;
   }
 
@@ -548,8 +570,9 @@
     activeNow,
     timeLabel,
     isUnderground,
-    // v3.8
+    // v3.9
     bossChances,
     BOSS_CHANCE,
+    makeShiny,
   };
 })(window.Aventurs);

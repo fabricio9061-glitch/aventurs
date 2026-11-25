@@ -288,7 +288,8 @@
   const MAGE_WEAPONS_TXT = 'bastones, varitas, cetros, orbes y tomos';
   function isMageWeapon(w) { return !!(w && w.magic); }
   /** Poder mágico que le suma un arma de mago a los hechizos del mago. */
-  function mageWeaponPower(w) { return isMageWeapon(w) ? 1 + Math.floor((w.tier || 1) / 4) : 0; }
+  // v3.9: algunas armas de mago suman poder extra (la varita rúnica)
+  function mageWeaponPower(w) { return isMageWeapon(w) ? 1 + Math.floor((w.tier || 1) / 4) + (w.spellBonus || 0) : 0; }
 
   /**
    * Cómo le queda un arma a cada clase: { type, atk, dmg, spell, note, blocked }.
@@ -391,22 +392,25 @@
     // v2.4: accesorio puesto y mejoras de pociones o pergaminos
     const acc = (k) => (A.Accessories ? A.Accessories.bonus(p, k) : 0);
     const bm = A.ItemFx ? A.ItemFx.buffMods(p) : { damage: 0, armor: 0, precision: 0, defense: 0, speed: 0 };
+    // v3.9: el vínculo con tu mascota (despierta y comida)
+    const bond = A.Tame && A.Tame.ownerBond ? A.Tame.ownerBond(p) : { precision: 0, defense: 0, armor: 0, damage: 0, speed: 0, spell: 0 };
     const weaponPrec = weapon && weapon.precision ? weapon.precision : 0;
     return {
       fit,
-      attack: (p.stats.precision || 0) + fit.atk + weaponPrec + acc('precision') + bm.precision - fx.attackPenalty + (A.Passives && A.Passives.precisionBonus ? A.Passives.precisionBonus(p) : 0),
-      defense: 8 + (p.stats.dodge || 0) + (armor && armor.dodge ? armor.dodge : 0) + acc('defense') + bm.defense - pen('dodge') - fx.defensePenalty,
+      attack: (p.stats.precision || 0) + fit.atk + weaponPrec + acc('precision') + bm.precision - fx.attackPenalty + (A.Passives && A.Passives.precisionBonus ? A.Passives.precisionBonus(p) : 0) + (bond.precision || 0),
+      defense: 8 + (p.stats.dodge || 0) + (armor && armor.dodge ? armor.dodge : 0) + acc('defense') + bm.defense - pen('dodge') - fx.defensePenalty + (bond.defense || 0),
       // v2.5: el ácido de las criaturas te baja la armadura
-      armor: Math.max(0, (p.stats.armor || 0) + (armor ? armor.defense || 0 : 0) + acc('armor') + bm.armor + (A.Passives && A.Passives.armorBonus ? A.Passives.armorBonus(p) : 0) - (fx.armorPenalty || 0)),
+      armor: Math.max(0, (p.stats.armor || 0) + (armor ? armor.defense || 0 : 0) + acc('armor') + bm.armor + (A.Passives && A.Passives.armorBonus ? A.Passives.armorBonus(p) : 0) - (fx.armorPenalty || 0) + (bond.armor || 0)),
       // v1.9.2: + Furia del orco (v3.3: con tres cuartos de la vida o menos) · v2.0: + maestría del guerrero · v2.5: - miedo
-      damageBonus: (p.stats.damage || 0) - pen('damage') + fit.dmg + acc('damage') + bm.damage + (A.Passives ? A.Passives.damageBonus(p) : 0) - (fx.damagePenalty || 0),
+      damageBonus: (p.stats.damage || 0) - pen('damage') + fit.dmg + acc('damage') + bm.damage + (A.Passives ? A.Passives.damageBonus(p) : 0) - (fx.damagePenalty || 0) + (bond.damage || 0),
       // El peso solo frena si pasa de 4 (una daga y ropa no pesan nada)
-      speed: Math.max(1, (p.stats.speed || 10) - w.penalty + acc('speed') + bm.speed - pen('speed')),
+      speed: Math.max(1, (p.stats.speed || 10) - w.penalty + acc('speed') + bm.speed - pen('speed') + (bond.speed || 0)),
       weight: w.total,
       weightPenalty: w.penalty,
       weapon,
       armorItem: armor,
-      spellPower: spellPowerOf(p, weapon),
+      spellPower: spellPowerOf(p, weapon) + (bond.spell || 0),
+      bond,
     };
   }
 

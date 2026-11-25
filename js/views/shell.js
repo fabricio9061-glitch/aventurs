@@ -42,7 +42,7 @@
           <div class="shell-brand">
             <span class="brand-icon">${A.UI ? A.UI.icon('swords', 26) : ''}</span>
             <span class="brand-name">Aventurs</span>
-            <span class="version-pill" title="Versión del juego">v3.8.0</span>
+            <span class="version-pill" title="Versión del juego">v3.9.0</span>
           </div>
           ${tabs.length > 1 ? `
             <nav class="shell-nav">
@@ -309,7 +309,7 @@
           <span class="sb-pet-sprite">${A.Sprites ? A.Sprites.petHtml(pet, { size: 36 }) : ''}</span>
           <div class="sb-pet-id">
             <div class="sb-pet-name">${escH(pet.name)} <span class="sb-pet-lvl">Nv ${lvl}</span></div>
-            <div class="sb-pet-meta">${isKO ? 'Inconsciente' : hungry ? 'Con hambre' : (diet ? `Come: ${escH(diet.eats)}` : 'Tu compañera')}</div>
+            <div class="sb-pet-meta ${hungry && !isKO ? 'is-bad' : ''}">${isKO ? 'Inconsciente' : hungry ? `Con hambre: dale ${escH(diet ? diet.eats : 'comida')}` : (diet ? `Come: ${escH(diet.eats)}` : 'Tu compañera')}</div>
           </div>
           <div class="sb-pet-actions">
             <button class="sb-pet-btn" data-pet-action="heal" title="Curarla con una poción (también la despierta)">${ic('potion', 18)}</button>
@@ -322,6 +322,14 @@
           ${hudBar('is-food is-small', 'food', 'Saciedad', food, maxFood)}
         </div>
         <div class="sb-pet-xp" title="Experiencia de tu mascota: ${xp}/${xpNeeded}"><span style="width:${pct(xp, xpNeeded)}%"></span></div>
+        ${(() => {
+          // v3.9: lo que te da tu mascota (o por qué no te lo da)
+          const b = A.Tame && A.Tame.ownerBond ? A.Tame.ownerBond(A.State.player) : null;
+          if (!b) return '';
+          if (b.off) return `<div class="sb-pet-bond is-off">${ic('paw', 14)}<span>${escH(b.off)}</span></div>`;
+          if (b.text) return `<div class="sb-pet-bond">${ic('paw', 14)}<span>${escH(b.text)}</span></div>`;
+          return pet.species === 'lobo' ? `<div class="sb-pet-bond">${ic('paw', 14)}<span>En la pelea aúlla: pegás con +1 de precisión y daño.</span></div>` : '';
+        })()}
       </section>
     `;
   }

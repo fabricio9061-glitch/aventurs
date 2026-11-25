@@ -120,7 +120,7 @@
     const enemies = A.Data.enemiesInRegion(region.id);
     const neighbors = A.Travel.neighbors();
     const isCombatRegion = region.type === 'combat';
-    const isSafeRegion = region.type === 'safe';
+    const isSafeRegion = (region.type === 'safe' || region.type === 'road');
     const night = A.Time ? A.Time.isNight() : false;
     const p = A.State.player;
     const minLvl = (region.unlockConditions && region.unlockConditions.minLevel) || 1;
@@ -145,7 +145,8 @@
           <div class="region2-art">${A.UI ? A.UI.biomeIcon(region, 72) : ''}</div>
           <div class="region2-info">
             <div class="region2-kicker">
-              <span class="region2-tag ${isSafeRegion ? 'is-safe' : 'is-danger'}">${icon(isSafeRegion ? 'shield' : 'swords', 14)}<span>${isSafeRegion ? 'Zona segura' : 'Zona de peligro'}</span></span>
+              <span class="region2-tag ${isSafeRegion ? 'is-safe' : 'is-danger'}">${icon(isSafeRegion ? 'shield' : 'swords', 14)}<span>${region.type === 'road' ? 'Sin peleas adentro' : isSafeRegion ? 'Zona segura' : 'Zona de peligro'}</span></span>
+              ${region.type === 'road' ? `<span class="region2-tag is-road" title="En el camino hacia acá hay criaturas">${icon('swords', 14)}<span>Criaturas en el camino</span></span>` : ''}
               <span class="region2-tag">Nivel ${minLvl}+</span>
               <span class="region2-tag is-soft">${esc(biomeLabel(region.biome))}</span>
             </div>
@@ -402,7 +403,8 @@
     return `
       <div class="travel-stage-content">${card}</div>
       <div class="travel-actions-v2 is-follow">
-        <p class="travel-follow-note">${icon('party', 18)}<span>${pending ? `${host} decide qué hacer con lo que apareció en el camino.` : `${host} guía el viaje. Vos lo acompañás: si aparece una criatura, pelean juntos.`}</span></p>
+        <p class="travel-follow-note">${icon('party', 18)}<span>${pending ? `${host} decide qué hacer con lo que apareció en el camino.` : `Viajan juntos: cualquiera puede avanzar. Si aparece una criatura, pelean juntos.`}</span></p>
+        ${pending || t.completed ? '' : `<button class="btn-primary btn-travel-step" data-travel-action="step">${icon('boot', 18)}<span>Avanzar</span></button>`}
       </div>`;
   }
 
@@ -688,8 +690,8 @@
   }
 
   function travelCard(n) {
-    const dangerLabel = n.type === 'safe' ? 'Seguro' : 'Combate';
-    const dangerClass = n.type === 'safe' ? 'pill-safe' : 'pill-combat';
+    const dangerLabel = (n.type === 'safe' || n.type === 'road') ? 'Seguro' : 'Combate';
+    const dangerClass = (n.type === 'safe' || n.type === 'road') ? 'pill-safe' : 'pill-combat';
     const enemiesCount = A.Data.enemiesInRegion(n.id).length;
     const dist = n.distance || 1;
     const travelCheck = A.Travel.canTravelToDetailed(n.id);

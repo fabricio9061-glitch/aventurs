@@ -1385,6 +1385,9 @@
     espectro: { plan: 'ghost', p: { b: '#6a6a8a', c: '#9a9ab8', cl: '#24243a', e: '#ff2040' }, o: { hood: true } },
     sucubo: { plan: 'humanoid', p: { sk: '#c06080', h: '#2a1020', cl: '#5a2a4a', wg: '#4a2a4a', a: '#f0d0f0', e: '#ff80ff' }, o: { size: 'medium', horns: 'curved', wings: 'bat', tail: 'demon', hair: 'long', outfit: 'dress', eyes: 'glow' } },
     elem_arcano: { plan: 'elemental', p: { b: '#6a40c0', c: '#b090ff', f: '#f0e8ff', e: '#ffffff' }, o: { kind: 'arcane' } },
+    // v3.9: el camino de la Torre del Mago
+    aprendiz_renegado: { plan: 'humanoid', p: { sk: '#e0c0a0', cl: '#2a5a8a', cl2: '#1a3a5a', a: '#e0c060', wd: '#6a4a2a', g: '#7ad8ff', e: '#7ad8ff', h: '#5a3a20' }, o: { size: 'medium', hat: 'hood', lower: 'robe', outfit: 'robe', weapon: 'staff' } },
+    chispa_arcana: { plan: 'elemental', s: 0.62, p: { b: '#2a8ad0', c: '#7ad8ff', f: '#f0fbff', e: '#ffffff' }, o: { kind: 'arcane' } },
     vampiro: { plan: 'humanoid', p: { sk: '#e0e0e8', h: '#1a1a1a', cl: '#24121a', cl2: '#7a1020', a: '#c0c0c0', e: '#ff2020' }, o: { size: 'medium', hair: 'slick', mouth: 'fangs', outfit: 'suit', cloak: true, eyes: 'glow' } },
     elem_fuego: { plan: 'elemental', p: { b: '#e04a10', c: '#ffa030', f: '#fff0a0', e: '#fff8c0' }, o: { kind: 'fire' } },
     naga: { plan: 'humanoid', p: { sk: '#3a8a8a', b: '#3a8a8a', c: '#c0e0a0', h: '#1a4a4a', m: '#c0c0a0', a: '#d0b050', wd: '#7a6a3a', cl: '#2a5a5a', e: '#ffdd00' }, o: { size: 'medium', head: 'lizard', lower: 'serpent', weapon: 'trident', outfit: 'none', loin: true } },
@@ -1392,6 +1395,7 @@
     manticora: { plan: 'beast', p: { b: '#c08040', c: '#e0b070', h: '#8a4a20', wg: '#7a3a2a', a: '#2a1a10', e: '#ff3030' }, o: { len: 18, h: 9, leg: 5.5, legW: 1.6, head: 4.4, snout: 1.6, ears: 'round', mane: 'lion', wings: 'bat', tail: 'stinger', jaw: 'open', neck: 1 } },
     serp_marina: { plan: 'serpent', p: { b: '#2a6a9a', c: '#80c0d0', a: '#a0e0f0', e: '#ffee00', r: '#ff6060' }, o: { fin: true, big: true } },
     golem: { plan: 'golem', p: { b: '#8a8a80', c: '#a0a094', g: '#60c0ff', e: '#60c0ff' } },
+    golem_tinta: { plan: 'golem', s: 0.85, p: { b: '#1e2a4a', c: '#34466e', g: '#7ad8ff', e: '#b0f0ff' } }, // v3.9
     aparicion: { plan: 'ghost', p: { b: '#4a5a4a', c: '#8aa08a', a: '#a0a090', e: '#a0ff60' }, o: { chains: true } },
     fenix: { plan: 'bird', p: { b: '#e05020', c: '#ffc040', wg: '#ff7030', a: '#ffee80', f: '#ffd040', e: '#ffffff' }, o: { wing: 'spread', crest: true, tail: 'flame' } },
     contemplador: { plan: 'eye', p: { b: '#8a3a5a', c: '#b05a7a', t: '#f0e8e0', e: '#40ff80' } },
@@ -1505,6 +1509,8 @@
     let o = base.o || {};
     if (o.tails && e.tails > 0) o = { ...o, tails: Math.min(9, e.tails) };
     if (o.tails >= 9 && !ov.a) { p.a = '#3a8aff'; p.e = '#7ad8ff'; } // con nueve colas despierta: fuego azul en las puntas y los ojos
+    // v3.9: una criatura brillante cambia de colores (gira el tono y brilla un poco más)
+    if (e.shiny) for (const k of Object.keys(p)) if (typeof p[k] === 'string' && /^#[0-9a-f]{6}$/i.test(p[k])) p[k] = shinyHex(p[k]);
     return { plan: base.plan, s: base.s || 1, dx: base.dx || 0, o, p };
   }
 
@@ -1603,6 +1609,7 @@
     let enemy = (A.Data && A.Data.getById && A.Data.getById('enemies', pet.species)) || { id: pet.species, family: pet.family, tags: pet.tags, name: pet.name };
     // v3.8: en combate, tu kitsune muestra las colas que le crecieron
     if (pet.tails > 0 && A.State && A.State.combat && !A.State.combat.result) enemy = { ...enemy, tails: pet.tails };
+    if (pet.shiny) enemy = { ...enemy, shiny: true }; // v3.9: tu mascota brillante
     return html(enemy, { flip: true, ...opts });
   }
 
@@ -1731,6 +1738,28 @@
     const url = colsToUrl(finalize(g, resolvePalette(palette || {})));
     cache.set(k, url);
     return url;
+  }
+
+  /** v3.9: el color de una criatura brillante: tono girado y un poco más vivo. */
+  function shinyHex(hex) {
+    const n = parseInt(hex.slice(1), 16);
+    let r = (n >> 16) / 255, g = ((n >> 8) & 255) / 255, b = (n & 255) / 255;
+    const mx = Math.max(r, g, b), mn = Math.min(r, g, b);
+    let h = 0, s = 0; const l = (mx + mn) / 2;
+    if (mx !== mn) {
+      const d = mx - mn;
+      s = l > 0.5 ? d / (2 - mx - mn) : d / (mx + mn);
+      h = mx === r ? (g - b) / d + (g < b ? 6 : 0) : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
+      h /= 6;
+    }
+    h = (h + 0.45) % 1;
+    s = Math.min(1, s * 1.25 + 0.08);
+    const l2 = Math.min(0.92, l * 1.08 + 0.03);
+    const q = l2 < 0.5 ? l2 * (1 + s) : l2 + s - l2 * s;
+    const pp = 2 * l2 - q;
+    const f = (t) => { t = (t + 1) % 1; return t < 1 / 6 ? pp + (q - pp) * 6 * t : t < 1 / 2 ? q : t < 2 / 3 ? pp + (q - pp) * (2 / 3 - t) * 6 : pp; };
+    const to = (x) => Math.round(Math.max(0, Math.min(1, x)) * 255).toString(16).padStart(2, '0');
+    return `#${to(f(h + 1 / 3))}${to(f(h))}${to(f(h - 1 / 3))}`;
   }
 
   A.Sprites = {

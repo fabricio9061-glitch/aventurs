@@ -96,6 +96,16 @@ node tools/equilibrio.js --guardar=antes.json   # guarda los resultados
 node tools/equilibrio.js --comparar=antes.json  # muestra cuánto cambió cada número
 ```
 
+Contra grupos (v3.9): cada raza contra 1, 3, 5 y 8 criaturas iguales en los niveles 1, 5 y 10, con
+victorias, rondas, vida que queda y cuántas veces se nota la pasiva y el hechizo de nacimiento:
+
+```powershell
+node tools/hordas.js                          # las 18 razas (unos 2 minutos)
+node tools/hordas.js --razas=vampiro,orco     # solo esas
+node tools/hordas.js --guardar=antes.json     # guarda los resultados
+node tools/hordas.js --comparar=antes.json    # muestra cuánto cambió
+```
+
 ## Contenido del juego (seed)
 
 - **18 razas** parejas, cada una con su pasiva y su arma (ver *Razas y pasivas*); las 12 que usan
@@ -240,6 +250,64 @@ Explorar siempre hace pasar algo (`js/systems/explore.js` + `js/data/seed-events
   se cuentan con ×N).
 - En el celular, una franja arriba con vida, maná, comida y dinero.
 - Sin emojis en el juego (desde la v2.2, tampoco en el editor).
+
+## Versión 3.9.0: la gran actualización
+
+Todo lo pedido del 21 al 25 de noviembre, más la auditoría del dossier de las 18 razas.
+
+### Objetos, tiendas y misiones
+
+- **Ficha de objeto ordenada**: arriba lo que hace; junto al nombre, si es MEJOR o PEOR que lo que tenés puesto; un recuadro "Comparado con lo tuyo"; abajo, en chiquito, rareza, nivel, peso y precio.
+- **"Para qué sirve"** en cada objeto: en qué receta se usa, con qué se hace y quién lo hace, qué misión lo pide, si sirve para domar o lo come tu mascota, qué escena lo pide, o si solo sirve para vender (`js/systems/itemuses.js`).
+- Las **recompensas de misión** muestran sus números y si te convienen; la **forja** también compara, y las recetas listas para hacer van primero.
+- **79 recetas nuevas**: casi todo material sirve para algo. Las **llaves abren cofres** (se gastan) y la linterna y la cuerda sirven en algunas escenas.
+- **Tiendas por secciones** (Armas, Armaduras, Accesorios, Mochilas, Pociones, Pergaminos, Comida, Herramientas, Materiales) con tarjetas más chicas. La comida se vende en las tabernas.
+- **Varita rúnica** (herreros de Piedrahonda y del Puerto): +1 de poder mágico extra, para que un mago mejore antes de la Torre.
+- **Plato caliente**: +10 de comida y 15% de vida por el 30% de lo que cuesta la cama.
+- **La miel y las comidas que curan un número fijo ahora curan** (`rollDice` no leía "3").
+- **Misiones de juntar**: mientras una misión pide algo, las criaturas que lo tienen salen más seguido, y se sumaron fuentes (rosas, perlas, colmillo de hidra). Medido con todas las misiones: las que pedían 34 a 40 peleas ahora piden 4 a 5.
+
+### Combate
+
+- **Armadura**: si tu armadura es igual o mayor que el daño de un golpe, lo para (antes siempre hacía 1). Un crítico hace al menos 1 y los hechizos siempre al menos 1. El detalle de la tirada lo explica.
+- La **crónica** abre en la última ronda; la elección de hechizos muestra su **descripción**.
+- **Dardo arcano** ya no es seguro: tira el dado como los demás hechizos. Al pegar deja una **marca** (ver Razas).
+- **Curación** además limpia veneno, sangrado, fuego, frío y maldición. **Segundo aliento** cura más cuanto más herido estás (1d6+1 y el 15% de lo que te falta), cada 3 turnos.
+- **Criaturas brillantes**: 1 de cada 200, con otros colores; dan el doble de XP, el triple de monedas y una gema. Si la domás, tu mascota es brillante.
+
+### Mascotas
+
+- **Vínculo con el dueño**: casi todas las especies dan algo mientras están despiertas y comidas (+1 de precisión, defensa, armadura, daño o velocidad, monedas, poder mágico o vida por ronda; se ve en la ficha).
+- **Hambre**: sin comida no usan activas, no dan vínculo ni ganan XP, y pierden vida al viajar.
+- **Domar** muestra la tirada de D20 contra la dificultad, con animación.
+- Las pasivas de defensa de las mascotas (caparazón, escurridizo, espinas...) funcionan y se cuentan; sus activas siempre se nombran.
+
+### Mundo, mapa y pantalla
+
+- **Torre del Mago**: adentro no se pelea, pero el camino tiene criaturas (tipo de lugar nuevo, "Camino con criaturas", también en el editor). Criaturas nuevas: aprendiz renegado, chispa arcana y gólem de tinta.
+- **Aldea de los Faroles**, al lado de la Torre: posada, comida y un buhonero.
+- **Mapa**: cada lugar dice qué **se consigue** ahí (lo que sueltan las criaturas que ya viste y lo que se encuentra explorando); lo que pide una misión, marcado.
+- La **pantalla del lugar** entra sin bajar desde 1366×657; en el celular, Explorar, Descansar y Viajar van en una fila y los habitantes de a dos.
+- **Editor de mundo**: el mapa se aleja y acerca (botones y rueda) y se arrastra.
+
+### Grupo (versión 8: los dos tienen que actualizar)
+
+- Botón **"Separarme y viajar solo"** en el mapa.
+- Todos pueden tocar **"Avanzar"** en el camino.
+- Al entrar a un grupo **seguís donde estabas**; se juntan cuando están en el mismo lugar.
+- Ventana de grupo reorganizada.
+
+### Razas (dossier del 24/11, todo medido)
+
+| Raza | Cambio | Medido |
+|---|---|---|
+| Vampiro | **Sed de sangre**: 12/14/16% de robo de vida; con 3 golpes que hacen daño, **Frenesí vampírico** 2 turnos: 20/25/30% y +1/+2/+3 | +4 a +11 puntos, dentro de las metas |
+| Licántropo | **Sangre lunar**: 2 turnos en forma bestial (+1/+1/+2 de daño, 1/2/3 de vida con tope 4/6/8 por pelea) y 1 normal, desde el primer turno | En el promedio de los guerreros |
+| Humano | El **Dardo arcano marca** al blanco: tu próximo golpe con arma le hace +1/+2/+3 (+1 de precisión desde el 9). Solo tuya | +1 a +2 |
+| Elfo oscuro | Se queda **Cazador de sombras actual** (la versión gradual del dossier lo bajaba 11 a 14 puntos) | — |
+| Goliat | +1 de precisión **desde el nivel 1** (antes desde el 5) | Del −9 al −5 en el nivel 1 |
+
+Tramos de nivel del dossier: 1-4, 5-8 y 9-10. Los números viven en `js/systems/passives.js` (TUNE). El informe con todas las mediciones y las respuestas a las 12 preguntas está en el documento "Aventurs v3.9 — Auditoría de las 18 razas".
 
 ## Versión 3.8.0: cada criatura con su personalidad
 

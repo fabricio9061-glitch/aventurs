@@ -16,7 +16,7 @@
 
   // v2.2.1: números de las pasivas que se afinan con el simulador
   const TUNE = {
-    gigante: { critMin: 18, mult: 2, prec: 1, precLevel: 5 }, // Golpe de gigante: crítico desde 18, doble daño; v3.1: +1 de precisión desde el nivel 5
+    gigante: { critMin: 18, mult: 2, prec: 1, precLevel: 1 }, // Golpe de gigante: crítico desde 18, doble daño; +1 de precisión (v3.9: desde el nivel 1; medido: quedaba 9 puntos abajo de los guerreros en el nivel 1)
     certero: { critMin: 19, prec: 3 },     // Ojo certero: críticos con 19-20 y precisión extra
     suerte: { dodge: 0.15 },               // Suerte: parte de los golpes que te iban a pegar, fallan · v3.3: 15% (era 10%)
     roca: { hits: 2 },                     // Piel de roca (enano): cuántos golpes por pelea te hacen la mitad · v3.3: 2 (era 1)
@@ -25,7 +25,9 @@
     determinacion: { keep: 0.1 },         // Determinación: con cuánta vida quedás (parte de la máxima; 0 = con 1)
     sangre: { chance: 0.33 },              // Sangre de dragón: chance de prender fuego al pegar
     // v3.0
-    colmillos: { steal: 0.12 },             // Colmillos (vampiro): parte del daño con arma vuelve como vida
+    // v3.9 (dossier de razas): Sed de sangre — Frenesí vampírico. Robo de vida por tramo de nivel
+    // (1-4 · 5-8 · 9-10); 3 golpes de arma que hacen daño = Frenesí en tus 2 turnos siguientes.
+    colmillos: { steal: [0.12, 0.14, 0.16], frenzySteal: [0.2, 0.25, 0.3], frenzyDmg: [1, 2, 3], charges: 3, turns: 2, touchHeal: 1 },
     embestida: { mult: 1.5, powerMult: 1.1 },              // Embestida (minotauro): el primer ataque de la pelea pega seguro y más fuerte
     hada: { turns: 1 },                    // Polvo de hada: al empezar, una criatura (no jefe) se duerme
     // v3.1
@@ -33,8 +35,16 @@
     ingenio: { pct: 0.2, min: 1 },         // Ingenio (gnomo): hechizos más baratos (parte del costo, con un mínimo) · v3.1: 20% (era 25%: el mago más fuerte)
     llama: { base: 1, from: 3 },                               // Llama interior (infernal): daño extra de los hechizos (base + la mitad del nivel)
     // v3.3: razas nuevas
-    lobo: { regen: [1, 1, 2], every: 4, below: 0.9 }, // v3.8: desde el 90% (las criaturas nuevas lo dejaban 9 abajo) · Sangre de lobo (licántropo): vida al empezar cada turno de pelea (1 · 2 desde nv 9) · medido: con 1/2/3 siempre ganaba 15 puntos más que los otros guerreros
-    sombras: { bonus: 3, every: 4, poison: 0.5 }, // Cazador de sombras (elfo oscuro): daño extra a lo que ya tiene un estado malo, y sus golpes a veces envenenan · medido: sin el veneno quedaba 20 puntos abajo
+    // v3.9 (dossier): Sangre lunar (licántropo): 2 turnos en forma bestial y 1 normal, y así.
+    // En forma bestial: +daño con arma y vida al empezar el turno, con un tope por pelea (no se cura toda).
+    // start: 1 = la bestia sale en tu primer turno (medido: con start 2, como decía el dossier, quedaba 10 puntos
+    // abajo en los niveles 1 y 3, porque esas peleas duran 2 o 3 rondas; con 1 queda en el promedio de los guerreros)
+    lobo: { dmg: [1, 1, 2], regen: [1, 2, 3], cap: [4, 6, 8], start: 1, beast: 2, rest: 1 },
+    // Cazador de sombras (elfo oscuro). 'actual' (50% de veneno y +3, +1 cada 4 niveles) o 'gradual' (dossier: 30/40/50% y +1/+2/+3).
+    // v3.9: medido, la gradual lo dejaba 11 a 14 puntos abajo en los niveles 1 y 3 (ya era el híbrido más flojo): se queda la actual
+    sombras: { mode: 'actual', poison: [0.3, 0.4, 0.5], bonusBand: [1, 2, 3], bonus: 3, every: 4, poisonOld: 0.5 },
+    // v3.9 (dossier): Dardo arcano (humano) marca al blanco: tu próximo golpe con arma que le acierta hace más daño
+    dardo: { bonus: [1, 2, 3], prec: [0, 0, 1], rounds: 2 },
     espinas: { dmg: 1, every: 4 },         // Corteza espinosa (dríade): el que te pega de cerca se lastima
   };
   // v3.3: los estados malos que cuenta el Cazador de sombras
@@ -88,7 +98,7 @@
         const g = TUNE.gigante;
         const when = g.critMin < 20 ? `con ${g.critMin} o más en el dado (no solo con 20)` : 'con 20 en el dado';
         const how = g.mult === 2 ? 'el doble' : g.mult === 3 ? 'el triple' : `x${String(g.mult).replace('.', ',')}`;
-        return `Tus ataques son críticos ${when} y hacen ${how} de daño.${g.prec ? ` Desde el nivel ${g.precLevel}, +${g.prec} de precisión.` : ''}`;
+        return `Tus ataques son críticos ${when} y hacen ${how} de daño.${g.prec ? (g.precLevel > 1 ? ` Desde el nivel ${g.precLevel}, +${g.prec} de precisión.` : ` Además, +${g.prec} de precisión.`) : ''}`;
       },
     },
     ingenio: {
@@ -117,9 +127,9 @@
       text: (p) => `La primera vez en cada combate que quedás con la mitad de la vida o menos, una luz te cura ${blessAmount(p)} de vida.`,
     },
     // v3.0: razas nuevas
-    colmillos: {
-      name: 'Colmillos', icon: 'bleed',
-      text: () => `Cada golpe con arma que acierta te devuelve el ${pctTxt(TUNE.colmillos.steal)} del daño como vida (si da menos de 1, la suerte decide).`,
+    colmillos: { // v3.9: Sed de sangre (el id sigue siendo "colmillos" para no tocar las partidas guardadas)
+      name: 'Sed de sangre', icon: 'heart',
+      text: (p) => { const b = band(p); const T = TUNE.colmillos; return `Cada golpe con arma que hace daño te devuelve el ${pctTxt(T.steal[b])} como vida y junta una gota de sangre. Con ${T.charges} gotas entrás en Frenesí vampírico tus ${T.turns} turnos siguientes: robás el ${pctTxt(T.frenzySteal[b])} y pegás +${T.frenzyDmg[b]}.`; },
     },
     embestida: {
       name: 'Embestida', icon: 'fist',
@@ -130,17 +140,13 @@
       text: () => 'Al empezar cada pelea, una de las criaturas (nunca un jefe) se queda dormida y pierde su primer turno.',
     },
     // v3.3: razas nuevas
-    sangre_lobo: {
-      name: 'Sangre de lobo', icon: 'heart',
-      text: (p) => {
-        const when = TUNE.lobo.below >= 1 ? 'Al empezar cada uno de tus turnos en una pelea' : `Con ${TUNE.lobo.below === 0.5 ? 'la mitad' : TUNE.lobo.below === 0.75 ? 'tres cuartos' : pctTxt(TUNE.lobo.below)} de la vida o menos, al empezar cada uno de tus turnos`;
-        const grows = TUNE.lobo.regen.slice(1).map((n, i) => (n !== TUNE.lobo.regen[i] && lvl(p) < 1 + TUNE.lobo.every * (i + 1) ? `${n} desde el nivel ${1 + TUNE.lobo.every * (i + 1)}` : '')).filter(Boolean);
-        return `${when}, recuperás ${wolfAmount(p)} de vida${grows.length ? ` (sube con el nivel: ${grows.join(', ')})` : ''}.`;
-      },
+    sangre_lobo: { // v3.9: Sangre lunar (antes Sangre de lobo)
+      name: 'Sangre lunar', icon: 'moon',
+      text: (p) => { const b = band(p); const T = TUNE.lobo; return `Desde tu ${T.start === 1 ? 'primer' : 'segundo'} turno de cada pelea te transformás: ${T.beast} turnos en forma bestial y ${T.rest} normal, y así. En forma bestial pegás +${T.dmg[b]} y recuperás ${T.regen[b]} de vida al empezar el turno (hasta ${T.cap[b]} por pelea).`; },
     },
     cazador_sombras: {
       name: 'Cazador de sombras', icon: 'eye',
-      text: (p) => `${TUNE.sombras.poison > 0 ? `Tus golpes con arma envenenan ${freqTxt(TUNE.sombras.poison)}. ` : ''}Tus golpes y hechizos hacen +${shadowAmount(p)} de daño a las criaturas que ya tienen algo malo encima: veneno, fuego, sangrado, ceguera, frío, maldición, o que están aturdidas o dormidas.`,
+      text: (p) => `Tus golpes con arma envenenan ${freqTxt(shadowPoisonChance(p))}. Tus golpes y hechizos hacen +${shadowAmount(p)} de daño a las criaturas que ya tienen algo malo encima: veneno, fuego, sangrado, ceguera, frío, maldición, o que están aturdidas o dormidas.`,
     },
     corteza_espinosa: {
       name: 'Corteza espinosa', icon: 'shield',
@@ -155,8 +161,10 @@
   function manaAmount() { return 1; }                    // fijo: con más nivel ya sobra maná
   function blessAmount(p) { return Math.max(TUNE.bendicion.min, Math.round(((p && p.maxHp) || 24) * TUNE.bendicion.pct)); } // parte de la vida máxima (con un mínimo)
   // v3.3
-  function wolfAmount(p) { const r = TUNE.lobo.regen; return r[Math.min(r.length - 1, step(p, TUNE.lobo.every))]; }
-  function shadowAmount(p) { return TUNE.sombras.bonus + step(p, TUNE.sombras.every); }
+  /** v3.9: tramos de nivel del dossier de razas: 1-4 · 5-8 · 9-10 */
+  function band(p) { const l = lvl(p); return l >= 9 ? 2 : l >= 5 ? 1 : 0; }
+  function shadowAmount(p) { return TUNE.sombras.mode === 'gradual' ? TUNE.sombras.bonusBand[band(p)] : TUNE.sombras.bonus + step(p, TUNE.sombras.every); }
+  function shadowPoisonChance(p) { return TUNE.sombras.mode === 'gradual' ? TUNE.sombras.poison[band(p)] : TUNE.sombras.poisonOld; }
   function thornsAmount(p) { return TUNE.espinas.dmg + step(p, TUNE.espinas.every); }
 
   // ---------- Consultas ----------
@@ -292,13 +300,44 @@
   }
 
   // ---------- v3.0 ----------
-  /** Colmillos: vida que recuperás de un golpe con arma. */
-  function lifestealFrom(p, dmg) {
+  /** Sed de sangre: vida que recuperás de un golpe con arma (más en Frenesí). */
+  function lifestealFrom(p, dmg, c) {
     if (!has(p, 'colmillos') || !p || p.hp <= 0 || dmg <= 0) return 0;
+    const T = TUNE.colmillos;
+    const rate = frenzyOn(c || (A.State && A.State.combat), p) ? T.frenzySteal[band(p)] : T.steal[band(p)];
     // la parte con coma se redondea a la suerte: 0,6 -> 1 el 60% de las veces
-    const x = dmg * TUNE.colmillos.steal;
+    const x = dmg * rate;
     return Math.floor(x) + (Math.random() < x - Math.floor(x) ? 1 : 0);
   }
+  // ---------- v3.9: Frenesí vampírico ----------
+  function bloodState(c, p) {
+    const u = c.passives || (c.passives = {});
+    const k = heroKey(p, 'sangre');
+    return u[k] || (u[k] = { charges: 0, frenzy: 0, pending: false, lastRound: -1 });
+  }
+  function frenzyOn(c, p) { return !!(c && has(p, 'colmillos') && bloodState(c, p).frenzy > 0); }
+  function frenzyDamage(c, p) { return frenzyOn(c, p) ? TUNE.colmillos.frenzyDmg[band(p)] : 0; }
+  /** Un golpe tuyo con arma que hizo daño junta una gota (una por ronda; en Frenesí, no). { charges, ready } o null */
+  function bloodCharge(c, p) {
+    if (!c || !has(p, 'colmillos')) return null;
+    const s = bloodState(c, p);
+    if (s.frenzy > 0 || s.pending || s.lastRound === c.round) return null;
+    s.lastRound = c.round;
+    s.charges = Math.min(TUNE.colmillos.charges, s.charges + 1);
+    if (s.charges >= TUNE.colmillos.charges) { s.charges = 0; s.pending = true; return { charges: TUNE.colmillos.charges, ready: true }; }
+    return { charges: s.charges, ready: false };
+  }
+  /** Al empezar tu turno: 'start' (empieza el Frenesí), 'end' (se terminó) o null. */
+  function bloodTurn(c, p) {
+    if (!c || !has(p, 'colmillos')) return null;
+    const s = bloodState(c, p);
+    let ev = null;
+    if (s.frenzy > 0) { s.frenzy -= 1; if (s.frenzy === 0) ev = 'end'; }
+    if (s.pending) { s.pending = false; s.frenzy = TUNE.colmillos.turns; ev = 'start'; }
+    return ev;
+  }
+  /** Para la pantalla: { charges, max, frenzy } */
+  function bloodInfo(c, p) { if (!c || !has(p, 'colmillos')) return null; const s = bloodState(c, p); return { charges: s.charges, max: TUNE.colmillos.charges, frenzy: s.frenzy, pending: s.pending }; }
   /** Embestida: ¿este es el primer ataque de la pelea? (se marca como usado) */
   function chargeReady(c, p) {
     if (!c || !has(p, 'embestida')) return false;
@@ -312,15 +351,54 @@
   function fairyDust(p) { return has(p, 'polvo_hada') ? TUNE.hada.turns : 0; }
 
   // ---------- v3.3 ----------
-  /** Sangre de lobo: vida al empezar tu turno (0 si no es tu raza). */
-  function wolfRegen(p) { return has(p, 'sangre_lobo') && p && p.hp > 0 && p.hp < p.maxHp && p.hp <= p.maxHp * TUNE.lobo.below ? wolfAmount(p) : 0; }
+  // ---------- v3.9: Sangre lunar ----------
+  function lunarState(c, p) {
+    const u = c.passives || (c.passives = {});
+    const k = heroKey(p, 'luna');
+    return u[k] || (u[k] = { turn: 0, beast: false, healed: 0 });
+  }
+  /** Al empezar tu turno: { event: 'beast'|'human'|null, heal, beast } (la vida se aplica afuera). */
+  function lunarTurn(c, p) {
+    if (!c || !has(p, 'sangre_lobo') || !p || p.hp <= 0) return null;
+    const T = TUNE.lobo;
+    const s = lunarState(c, p);
+    s.turn += 1;
+    const t = s.turn - T.start;
+    const beast = t >= 0 && (t % (T.beast + T.rest)) < T.beast;
+    const event = beast && !s.beast ? 'beast' : !beast && s.beast ? 'human' : null;
+    s.beast = beast;
+    let heal = 0;
+    if (beast) heal = Math.max(0, Math.min(T.regen[band(p)], T.cap[band(p)] - s.healed, (p.maxHp || 0) - (p.hp || 0)));
+    return { event, heal, beast };
+  }
+  function lunarHealed(c, p, n) { if (c && n > 0) lunarState(c, p).healed += n; }
+  function beastOn(c, p) { return !!(c && has(p, 'sangre_lobo') && lunarState(c, p).beast); }
+  function beastDamage(c, p) { return beastOn(c, p) ? TUNE.lobo.dmg[band(p)] : 0; }
+  function lunarInfo(c, p) { if (!c || !has(p, 'sangre_lobo')) return null; const s = lunarState(c, p); return { beast: s.beast, healed: s.healed, cap: TUNE.lobo.cap[band(p)] }; }
+  /** (v3.8; ya no se usa: Sangre de lobo curaba todos los turnos) */
+  function wolfRegen() { return 0; }
+
+  // ---------- v3.9: marca del Dardo arcano (solo el humano que la puso la aprovecha) ----------
+  function markOf(c, p, target) {
+    if (!c || !target || !target.arcaneMark || !p) return null;
+    const m = target.arcaneMark;
+    if (m.owner !== heroKey(p, 'dardo') || c.round > m.until) return null;
+    return m;
+  }
+  function placeMark(c, p, target) {
+    if (!c || !target || !p) return null;
+    const b = band(p);
+    target.arcaneMark = { owner: heroKey(p, 'dardo'), bonus: TUNE.dardo.bonus[b], prec: TUNE.dardo.prec[b], until: c.round + TUNE.dardo.rounds };
+    return target.arcaneMark;
+  }
+  function consumeMark(target) { if (target) delete target.arcaneMark; }
   /** Cazador de sombras: daño extra contra una criatura con un estado malo. */
   function shadowBonusVs(p, target) {
     if (!has(p, 'cazador_sombras') || !target) return 0;
     return (target.effects || []).some((e) => BAD_FX.includes(e.type) && (e.turns == null || e.turns > 0)) ? shadowAmount(p) : 0;
   }
-  /** v3.3: Cazador de sombras: chance de envenenar con un golpe de arma. */
-  function shadowPoison(p) { return has(p, 'cazador_sombras') ? TUNE.sombras.poison || 0 : 0; }
+  /** v3.3: Cazador de sombras: chance de envenenar con un golpe de arma (v3.9: crece con el nivel). */
+  function shadowPoison(p) { return has(p, 'cazador_sombras') ? shadowPoisonChance(p) : 0; }
   /** Corteza espinosa: daño que se lleva el que te pega de cerca. */
   function thornsOf(p) { return has(p, 'corteza_espinosa') ? thornsAmount(p) : 0; }
 
@@ -364,6 +442,11 @@
     fairyDust,
     // v3.3
     wolfRegen,
+    // v3.9 (dossier de razas)
+    band,
+    frenzyOn, frenzyDamage, bloodCharge, bloodTurn, bloodInfo,
+    lunarTurn, lunarHealed, beastOn, beastDamage, lunarInfo,
+    markOf, placeMark, consumeMark,
     shadowPoison,
     shadowBonusVs,
     thornsOf,

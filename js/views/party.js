@@ -177,7 +177,14 @@
       const room = (P.MAX_MEMBERS || 4) - list.length;
       const actions = [];
       if (guest && together) actions.push(`<button class="btn-ghost" data-party="separate" ${owned ? 'disabled title="Esperá a que termine la pelea, el viaje o la escena"' : ''}>${icon('map', 18)}<span>Separarme</span></button>`);
-      if (guest && !together) actions.push(`<button class="btn-primary" data-party="regroup">${icon('party', 18)}<span>Ir con ${esc(P.hostName())}</span></button>`);
+      // v3.9: juntarse solo si están en el mismo lugar (ya no te lleva hasta donde está)
+      const hostM = list.find((m) => m.hid === P.hostHid);
+      const myRegion = A.State.world ? A.State.world.regionId : null;
+      const sameSpot = !hostM || !hostM.regionId || hostM.regionId === myRegion;
+      const hostPlace = hostM && hostM.regionId ? (A.Data.getById('regions', hostM.regionId) || {}).name : '';
+      if (guest && !together) actions.push(sameSpot
+        ? `<button class="btn-primary" data-party="regroup">${icon('party', 18)}<span>Juntarme con ${esc(P.hostName())}</span></button>`
+        : `<button class="btn-ghost" disabled title="Tienen que estar en el mismo lugar">${icon('map', 18)}<span>Viajá a ${esc(hostPlace || 'donde está')} para juntarte</span></button>`);
       actions.push(`<button class="btn-ghost is-danger" data-party="leave">${icon('logout', 18)}<span>${guest ? 'Salir del grupo' : 'Cerrar el grupo'}</span></button>`);
       body = `
         <div class="pt-head-line">
@@ -186,7 +193,7 @@
         </div>
         <div class="pt-members">${ordered.map((m) => memberCard(m, m.hid === me)).join('')}</div>
         <p class="pt-note">${guest
-          ? (together ? `Van juntos. ${esc(P.hostName())} elige a dónde viajar; todos pueden explorar y descansar.` : `Estás por tu cuenta. Cuando quieras, "Ir con ${esc(P.hostName())}" te lleva hasta donde está.`)
+          ? (together ? `Van juntos. ${esc(P.hostName())} elige a dónde viajar; todos pueden avanzar en el camino, explorar y descansar.` : `Estás por tu cuenta. Cuando estés en el mismo lugar que ${esc(P.hostName())}, tocá "Juntarme".`)
           : (!apart.length ? 'Van juntos. Vos elegís a dónde viajar; todos pueden explorar y descansar.'
             : `${esc(apart.map((m) => m.name).join(', '))} ${apart.length > 1 ? 'andan' : 'anda'} por su cuenta. ${apart.length > 1 ? 'Pueden' : 'Puede'} volver con vos cuando quiera${apart.length > 1 ? 'n' : ''}.`)}</p>
         ${!guest && room > 0 ? `<p class="pt-note is-room">${icon('key', 14)}<span>Pueden entrar ${room === 1 ? 'uno más' : `${room} más`} con el código <b>${esc(A.Link.prettyCode(P.code))}</b>.</span></p>` : ''}

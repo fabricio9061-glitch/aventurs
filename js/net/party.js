@@ -30,7 +30,7 @@
 (function (A) {
   'use strict';
 
-  const VERSION = 7;        // si cambian los mensajes o las reglas, sube y avisa "actualicen los dos" (v3.2: 4 · v3.3: 5 · v3.4: 6 · v3.8: 7)
+  const VERSION = 8;        // si cambian los mensajes o las reglas, sube y avisa "actualicen los dos" (v3.2: 4 · v3.3: 5 · v3.4: 6 · v3.8: 7 · v3.9: 8)
   const MAX_MEMBERS = 4;     // v3.2: hasta cuatro jugadores
   const SNAP_MS = 50;       // juntar cambios antes de mandar la foto
   const HERO_MS = 150;      // juntar cambios del invitado antes de mandarlos
@@ -118,6 +118,12 @@
   }
 
   /** Ficha corta de un héroe (para el panel y la barra lateral). */
+  /** v3.9: nombre de un lugar (para los avisos de juntarse) */
+  function regionName(id) {
+    const r = id && A.Data && A.Data.getById ? A.Data.getById('regions', id) : null;
+    return r ? r.name : 'donde está';
+  }
+
   function memberOf(h, extra = {}) {
     if (!h) return null;
     const pet = h.pet ? { name: h.pet.name, species: h.pet.species, health: h.pet.health, maxHealth: h.pet.maxHealth, level: h.pet.level || 1 } : null;
@@ -295,14 +301,18 @@
     addToRegistry(hid, hero);
     P.peerOf[hid] = peerId;
     P.hidOfPeer[peerId] = hid;
-    P.members[hid] = memberOf(hero, { together: true, regionId: A.State.world ? A.State.world.regionId : null });
+    // v3.9: si el que entra está en otro lugar, entra al grupo pero separado (no aparece en el lugar del anfitrión)
+    const hostRegion = A.State.world ? A.State.world.regionId : null;
+    const guestRegion = msg.world && msg.world.regionId ? msg.world.regionId : null;
+    const sameSpot = !guestRegion || !hostRegion || guestRegion === hostRegion;
+    P.members[hid] = memberOf(hero, { together: sameSpot, regionId: sameSpot ? hostRegion : guestRegion });
     P.sent[hid] = {};
     P.outChron[hid] = [];
     P.outNotes[hid] = [];
     P.status = 'connected';
-    A.Link.send({ t: 'welcome', hid, hostHid: P.hostHid, code: P.code, members: membersList() }, peerId);
+    A.Link.send({ t: 'welcome', hid, hostHid: P.hostHid, code: P.code, members: membersList(), together: sameSpot }, peerId);
     A.State.addChronicle({ type: 'system', text: `${hero.name} se unió a tu grupo.` });
-    toast(`${hero.name} se unió a tu grupo.`, 'good');
+    toast(sameSpot ? `${hero.name} se unió a tu grupo.` : `${hero.name} se unió a tu grupo desde ${regionName(guestRegion)}: cuando llegue acá, pueden juntarse.`, 'good');
     changed();
     sendSnap(hid);
     scheduleSnap(); // v3.2: los que ya estaban también se enteran
@@ -313,6 +323,13 @@
     const m = P.members[hid];
     if (msg.on) {
       if (hostBusy()) { A.Link.send({ t: 'busy', name: A.State.me().name, regroup: true }, peerId); return; }
+      // v3.9: para juntarse tienen que estar en el mismo lugar
+      const here = A.State.world ? A.State.world.regionId : null;
+      const there = msg.regionId || m.regionId;
+      if (here && there && here !== there) {
+        A.Link.send({ t: 'rpcres', id: 'regroup', ok: false, error: `Para juntarte con ${A.State.me().name}, viajá hasta ${regionName(here)}.` }, peerId);
+        return;
+      }
       if (msg.hero) addToRegistry(hid, msg.hero);
       m.together = true;
       m.regionId = A.State.world ? A.State.world.regionId : null;
@@ -563,7 +580,19 @@
     'Inventory.drop': (o, ...a) => ORIG['Inventory.drop'](...a),
     'Tame.feed': (o, ...a) => ORIG['Tame.feed'](...a),
     'Tame.healWithPotion': (o, ...a) => ORIG['Tame.healWithPotion'](...a),
+    // v3.9: cualquiera del grupo puede avanzar en el camino
+    'Travel.step': () => {
+      const t = A.State.traveling;
+      if (!t || t.completed) return { ok: false, error: 'No hay viaje activo.' };
+      const last = t.events[t.events.length - 1];
+      if (last && last.kind === 'creature' && !last.resolved) return { ok: false, error: 'Primero hay que resolver lo que apareció en el camino.' };
+      if (A.State.combat || hostBusySceneOpen()) return { ok: false, error: 'Esperá a que termine lo que está pasando.' };
+      return ORIG['Travel.step']();
+    },
   };
+  // v3.9: lo que corre como el anfitrión (no con el héroe del invitado)
+  const RPC_AS_HOST = { 'Travel.step': true };
+  function hostBusySceneOpen() { return !!(A.State.ui && A.State.ui.openModal); }
 
   function plain(v) {
     if (v === undefined) return null;
@@ -578,7 +607,8 @@
     if (!f) return { ok: false, error: 'Eso no se puede hacer en grupo.' };
     let result = null;
     try {
-      A.State.withHero(hero, () => { result = f(...args); });
+      if (RPC_AS_HOST[fn]) result = f(...args);
+      else A.State.withHero(hero, () => { result = f(...args); });
     } catch (e) {
       console.error('[Party] rpc', fn, e);
       return { ok: false, error: 'Algo salió mal.' };
@@ -658,12 +688,16 @@
         P.hostHid = msg.hostHid;
         P.code = msg.code || P.code;
         P.status = 'connected';
-        P.together = true;
+        P.together = msg.together !== false; // v3.9: si estás en otro lugar, entrás separado
         P.members = {};
         for (const m of msg.members || []) P.members[m.hid] = m;
         setRegistry(P.localHid, A.State.me());
         A.State.addChronicle({ type: 'system', text: `Te uniste al grupo de ${hostName()}.` });
-        toast(`Te uniste al grupo de ${hostName()}.`, 'good');
+        if (P.together) toast(`Te uniste al grupo de ${hostName()}.`, 'good');
+        else {
+          const hm = P.members[P.hostHid];
+          toast(`Te uniste al grupo de ${hostName()}. Está en ${regionName(hm && hm.regionId)}: viajá hasta ahí y tocá "Juntarse".`, 'good');
+        }
         changed();
         return;
       }
@@ -937,7 +971,11 @@
   function regroup() {
     if (!isGuest() || P.status !== 'connected' || P.together) return { ok: false };
     if (A.State.combat || A.State.traveling) return { ok: false, error: 'Terminá la pelea o el viaje primero.' };
-    A.Link.send({ t: 'together', on: true, hero: A.State.me() });
+    // v3.9: solo si están en el mismo lugar
+    const hm = P.members[P.hostHid];
+    const here = A.State.world ? A.State.world.regionId : null;
+    if (hm && hm.regionId && here && hm.regionId !== here && !hm.traveling) return { ok: false, error: `Para juntarte con ${hostName()}, viajá hasta ${regionName(hm.regionId)}.` };
+    A.Link.send({ t: 'together', on: true, hero: A.State.me(), regionId: here });
     return { ok: true };
   }
 
@@ -1134,7 +1172,12 @@
     // Viajar: en grupo decide el anfitrión
     if (name.startsWith('Travel.')) {
       if (!P.together) return PASS;
-      return { ok: false, error: `En grupo, el que elige a dónde ir es ${hostName()}. Para ir por tu cuenta, tocá "Separarse" en el grupo.` };
+      // v3.9: avanzar en el camino lo puede tocar cualquiera (lo hace el anfitrión)
+      if (name === 'Travel.step' && A.State.traveling && !A.State.traveling.completed) {
+        rpc(name, [{}]);
+        return { ok: true, pending: true };
+      }
+      return { ok: false, error: `En grupo, el que elige a dónde ir es ${hostName()}. Para ir por tu cuenta, tocá "Separarse" (en el mapa o en el grupo).`, separable: true };
     }
     if (!P.together) return PASS;
 

@@ -316,6 +316,8 @@
     const fromRegion = A.Data.getById('regions', State().traveling.fromId);
     const region = target || fromRegion;
     const isCombat = target && target.type === 'combat';
+    // v3.9: pueblo sin peleas adentro, pero con criaturas en el camino (la Torre del Mago)
+    const isRoad = target && target.type === 'road';
 
     // Primero probar eventos custom de la región (treasure/find/damage/heal)
     if (target && Array.isArray(target.events) && target.events.length > 0) {
@@ -326,11 +328,11 @@
     // v1.7.1: agregamos biome_loot al mix (hallazgos específicos del bioma)
     // v1.8.0: la chance de encuentro sale de Balance.Travel. Si el destino es seguro
     // pero venís de una zona peligrosa, los encuentros salen de la zona de origen.
-    const fromCombat = fromRegion && fromRegion.type === 'combat';
+    const fromCombat = fromRegion && (fromRegion.type === 'combat' || fromRegion.type === 'road');
     const TB = (A.Balance && A.Balance.Travel && A.Balance.Travel.CREATURE_CHANCE) || { combat: 0.28, safe: 0.06 };
-    const creature = isCombat ? TB.combat : (fromCombat ? TB.combat * 0.6 : TB.safe);
+    const creature = isCombat ? TB.combat : isRoad ? TB.combat * 0.8 : (fromCombat ? TB.combat * 0.6 : TB.safe);
     const rest = 1 - creature;
-    const weights = isCombat
+    const weights = (isCombat || isRoad)
       ? { nothing: rest * 0.50, minor_loot: rest * 0.12, biome_loot: rest * 0.20, creature, narrative: rest * 0.18 }
       : { nothing: rest * 0.48, minor_loot: rest * 0.11, biome_loot: rest * 0.16, creature, narrative: rest * 0.25 };
 
@@ -586,7 +588,9 @@
     const t = State().traveling;
     const target = A.Data.getById('regions', t.toId);
     // v1.8.0: si el destino es seguro, la criatura sale de la región de origen
-    const sourceId = target && target.type === 'combat' ? t.toId : t.fromId;
+    // v3.9: un pueblo "con criaturas en el camino" pone las suyas
+    let sourceId = target && (target.type === 'combat' || target.type === 'road') ? t.toId : t.fromId;
+    if (target && target.type === 'road' && !A.Data.enemiesInRegion(t.toId).length) sourceId = t.fromId;
     let group = A.Encounter.generate(sourceId);
     if (!group || group.length === 0) return null;
     // v3.3: en grupo ya vienen las que se suman por ser más: el cartel dice exactamente cuáles son

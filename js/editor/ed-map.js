@@ -21,6 +21,28 @@
 
   function posOf(r) { return r.pos || { x: W / 2, y: H / 2 }; }
 
+  // ---------- v3.9: acercar y alejar ----------
+  const ZMIN = 0.45; // lo más cerca: casi la mitad del mapa
+  const ZMAX = 1.6;  // lo más lejos: se ve todo con margen
+  function viewOf(S) { return S.mapView || { x: 0, y: 0, w: W, h: H }; }
+  function clampView(v) {
+    const w = Math.max(W * ZMIN, Math.min(W * ZMAX, v.w));
+    const h = w * (H / W);
+    const mx = W * 0.3, my = H * 0.3;
+    const x = Math.max(-mx - (w > W ? (w - W) : 0), Math.min(W + mx - w, v.x));
+    const y = Math.max(-my - (h > H ? (h - H) : 0), Math.min(H + my - h, v.y));
+    return { x: Math.round(x), y: Math.round(y), w: Math.round(w), h: Math.round(h) };
+  }
+  function zoomView(S, f, cx, cy) {
+    const v = viewOf(S);
+    const nw = v.w * f;
+    const k = nw / v.w;
+    const px = cx != null ? cx : v.x + v.w / 2;
+    const py = cy != null ? cy : v.y + v.h / 2;
+    S.mapView = clampView({ x: px - (px - v.x) * k, y: py - (py - v.y) * k, w: nw, h: v.h * k });
+    return S.mapView;
+  }
+
   function render(S) {
     const regions = A.Data.regions;
     const byId = new Map(regions.map((r) => [r.id, r]));
@@ -68,10 +90,16 @@
       </div>
       <div class="ed-map-stage">
         <div class="ed-map-wrap">
-          <svg class="ed-map-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">
+          <div class="ed-map-zoom">
+            <button type="button" class="ed-btn is-small" data-map-zoom="in" title="Acercar">${icon('plus', 16)}</button>
+            <button type="button" class="ed-btn is-small" data-map-zoom="out" title="Alejar"><b style="font-size:20px;line-height:1">−</b></button>
+            <button type="button" class="ed-btn is-small" data-map-zoom="fit" title="Ver todo el mapa">${icon('map', 16)}</button>
+          </div>
+          <svg class="ed-map-svg" viewBox="${(() => { const v = viewOf(S); return `${v.x} ${v.y} ${v.w} ${v.h}`; })()}" preserveAspectRatio="xMidYMid meet">
             <defs>
               <radialGradient id="edParch" cx="50%" cy="45%" r="75%"><stop offset="0%" stop-color="#f4e6c4"/><stop offset="100%" stop-color="#d9c08c"/></radialGradient>
             </defs>
+            <rect x="${-W}" y="${-H}" width="${W * 3}" height="${H * 3}" fill="#cdb07a" class="ed-map-bg ed-map-outside"/>
             <rect x="0" y="0" width="${W}" height="${H}" rx="26" fill="url(#edParch)" class="ed-map-bg"/>
             <g class="ed-map-roads">${roads.join('')}</g>
             <g class="ed-map-nodes">${nodes}</g>
@@ -158,6 +186,22 @@
     const svg = root.querySelector('.ed-map-svg');
     if (!svg) return;
     let drag = null;
+    let pan = null;
+    const setVB = () => { const v = viewOf(S); svg.setAttribute('viewBox', `${v.x} ${v.y} ${v.w} ${v.h}`); };
+
+    // v3.9: acercar/alejar con los botones y con la rueda; arrastrar el fondo mueve el mapa
+    root.querySelectorAll('[data-map-zoom]').forEach((b) => b.addEventListener('click', () => {
+      const z = b.dataset.mapZoom;
+      if (z === 'fit') S.mapView = clampView({ x: -40, y: -30, w: W + 80, h: H + 60 });
+      else zoomView(S, z === 'in' ? 0.8 : 1.25);
+      setVB();
+    }));
+    svg.addEventListener('wheel', (ev) => {
+      ev.preventDefault();
+      const p = svgPoint(svg, ev);
+      zoomView(S, ev.deltaY < 0 ? 0.88 : 1.14, p.x, p.y);
+      setVB();
+    }, { passive: false });
 
     svg.addEventListener('pointerdown', (ev) => {
       const node = ev.target.closest('[data-node]');
@@ -166,7 +210,13 @@
         if (S.mapPlacing) {
           S.mapPlacing = false;
           Ed.view.newRegionAt({ x: Math.round(Math.max(30, Math.min(W - 30, p.x))), y: Math.round(Math.max(30, Math.min(H - 30, p.y))) });
+          return;
         }
+        const rect = svg.getBoundingClientRect();
+        const v = viewOf(S);
+        pan = { cx: ev.clientX, cy: ev.clientY, v: { ...v }, k: v.w / Math.max(1, rect.width), pointerId: ev.pointerId };
+        try { svg.setPointerCapture(ev.pointerId); } catch (err) { /* nada */ }
+        svg.classList.add('is-panning');
         return;
       }
       const id = node.dataset.node;
@@ -178,6 +228,11 @@
     });
 
     svg.addEventListener('pointermove', (ev) => {
+      if (pan) {
+        S.mapView = clampView({ ...pan.v, x: pan.v.x - (ev.clientX - pan.cx) * pan.k, y: pan.v.y - (ev.clientY - pan.cy) * pan.k });
+        setVB();
+        return;
+      }
       if (!drag || S.mapRoads) return;
       const p = svgPoint(svg, ev);
       const dx = p.x - drag.start.x;
@@ -213,6 +268,7 @@
     }
 
     const end = (ev) => {
+      if (pan) { try { svg.releasePointerCapture(pan.pointerId); } catch (err) { /* nada */ } pan = null; svg.classList.remove('is-panning'); return; }
       if (!drag) return;
       const d = drag;
       drag = null;
@@ -242,7 +298,7 @@
       rerender();
     };
     svg.addEventListener('pointerup', end);
-    svg.addEventListener('pointercancel', () => { drag = null; rerender(); });
+    svg.addEventListener('pointercancel', () => { drag = null; pan = null; rerender(); });
   }
 
   function undo(S) {

@@ -45,13 +45,81 @@
     },
     herbivoro: {
       label: 'herbívoro', eats: 'semillas, pan y frutas',
-      foods: ['semillas', 'baya_negra', 'pan', 'queso', 'cactus_carnoso'],
+      foods: ['semillas', 'baya_negra', 'pan', 'queso', 'cactus_carnoso', 'manzana', 'zanahoria', 'pan_elfico'], // v3.9: frutas y verduras
     },
   };
-  const DIET_BY_TAME_ITEM = { carne_cruda: 'carnivoro', pescado_fresco: 'pescado', semillas: 'herbivoro' };
+  const DIET_BY_TAME_ITEM = { carne_cruda: 'carnivoro', pescado_fresco: 'pescado', semillas: 'herbivoro', manzana: 'herbivoro' }; // v3.9
 
   function B() { return A.Balance; }
   function player() { return A.State.player; }
+
+  // ---------- v3.9: el vínculo con tu mascota ----------
+  // Cada mascota le da a su dueño un bonito chico mientras esté despierta y comida.
+  // (El lobo ya tenía el suyo: el Aullido, que es una activa.)
+  const BOND = {
+    cuervo: { precision: 1, text: 'te avisa dónde pegar' },
+    buho: { precision: 1, text: 've en la oscuridad por vos' },
+    halcon: { precision: 1, text: 'marca a la presa desde el aire' },
+    aguila: { precision: 1, text: 'marca a la presa desde el aire' },
+    gato: { precision: 1, text: 'distrae a las criaturas' },
+    serpiente: { precision: 1, text: 'les sisea y se distraen' },
+    murcielago: { defense: 1, text: 'te avisa de los golpes' },
+    zorro: { defense: 1, text: 'te avisa de los golpes' },
+    sapo_gigante: { defense: 1, text: 'se mete en el medio' },
+    polilla_onirica: { defense: 1, text: 'les tira polvo de sueño a los ojos' },
+    tortuga: { armor: 1, text: 'te cubre con su caparazón' },
+    cangrejo: { armor: 1, text: 'te cubre con sus pinzas' },
+    oso: { armor: 1, text: 'pelea pegado a vos' },
+    panda: { armor: 1, text: 'pelea pegado a vos' },
+    perro_salvaje: { damage: 1, text: 'muerde a lo que vos golpeás' },
+    jabali: { damage: 1, text: 'embiste a lo que vos golpeás' },
+    escorpion: { damage: 1, text: 'pica a lo que vos golpeás' },
+    leon: { damage: 1, text: 'ruge y pegás con más ganas' },
+    tiburon: { damage: 1, text: 'huele la sangre por vos' },
+    huargo: { damage: 1, text: 'muerde a lo que vos golpeás' },
+    rata_gigante: { speed: 1, text: 'te abre camino' },
+    rata: { coins: 0.15, text: 'encuentra monedas tiradas' },
+    loro_pirata: { coins: 0.15, text: 'te avisa dónde hay monedas' },
+    kitsune: { spell: 1, text: 'su fuego de zorro se suma a tus hechizos' },
+    salamandra: { spell: 1, text: 'su calor se suma a tus hechizos' },
+    slime: { regen: 1, text: 'te pega un poco de gelatina en las heridas' },
+    ciervo_astral: { regen: 1, text: 'su luz te cierra las heridas' },
+    unicornio: { regen: 2, text: 'su cuerno te cierra las heridas' },
+    fenix: { regen: 2, text: 'su calor te cierra las heridas' },
+    grifo: { precision: 1, damage: 1, text: 'ataca desde arriba lo que vos atacás' },
+    manticora: { precision: 1, damage: 1, text: 'clava sus púas en lo que vos atacás' },
+    quimera: { damage: 1, armor: 1, text: 'pelea a tu lado con sus tres cabezas' },
+  };
+  const BOND_WORDS = { precision: 'de precisión', defense: 'de defensa', armor: 'de armadura', damage: 'de daño', speed: 'de velocidad', spell: 'de poder mágico', regen: 'de vida por ronda si estás herido' };
+
+  /**
+   * Lo que tu mascota te da ahora: { precision, defense, armor, damage, speed, spell, regen, coins, text, off }.
+   * off: por qué no te da nada (dormida, con hambre).
+   */
+  function ownerBond(p) {
+    const out = { precision: 0, defense: 0, armor: 0, damage: 0, speed: 0, spell: 0, regen: 0, coins: 0, text: '', off: '' };
+    const pet = p && p.pet;
+    if (!pet) return out;
+    const b = BOND[pet.species];
+    if (!b) return out;
+    if (pet.health <= 0) { out.off = `${pet.name} está inconsciente: no te da su ayuda.`; return out; }
+    if (pet.food != null && pet.food <= 0) { out.off = `${pet.name} tiene hambre: no te ayuda hasta que coma.`; return out; }
+    for (const k of Object.keys(BOND_WORDS)) out[k] = b[k] || 0;
+    out.coins = b.coins || 0;
+    if (out.spell && !(p.hasMagic)) out.spell = 0;
+    const bits = Object.keys(BOND_WORDS).filter((k) => out[k]).map((k) => `+${out[k]} ${BOND_WORDS[k]}`);
+    if (out.coins) bits.push(`+${Math.round(out.coins * 100)}% de monedas`);
+    out.text = bits.length ? `${pet.name} ${b.text}: ${bits.join(', ')}.` : '';
+    return out;
+  }
+  /** El texto del vínculo de una especie (para la ficha de la criatura). */
+  function bondText(speciesId) {
+    const b = BOND[speciesId];
+    if (!b) return speciesId === 'lobo' ? 'Aúlla en la pelea: vos y tu grupo pegan con +1 de precisión y daño.' : '';
+    const bits = Object.keys(BOND_WORDS).filter((k) => b[k]).map((k) => `+${b[k]} ${BOND_WORDS[k]}`);
+    if (b.coins) bits.push(`+${Math.round(b.coins * 100)}% de monedas`);
+    return `De mascota ${b.text}: ${bits.join(', ')}.`;
+  }
 
   function requiredItem(enemy) {
     return (enemy && enemy.tameItem) || DEFAULT_TAME_ITEM;
@@ -202,32 +270,36 @@
     A.State.removeItem(itemId, 1);
 
     const chance = check.chance;
-    const need = Math.round(chance * 100);
-    const roll = 1 + Math.floor(Math.random() * 100);
-    const success = roll <= need;
-    A.Bus.emit('tame:attempt', { enemyId, success, roll, chance });
+    // v3.9: se tira un D20 (como todo en el juego): hay que sacar el número que da la probabilidad
+    const dc = Math.max(2, Math.min(20, 21 - Math.round(chance * 20)));
+    const roll = 1 + Math.floor(Math.random() * 20);
+    const success = roll >= dc;
+    const need = dc;
+    A.Bus.emit('tame:attempt', { enemyId, success, roll, chance, dc });
 
     if (!success) {
       const inst = findInstance(instanceId);
       if (inst) inst.tameFailed = true;
       A.State.addChronicle({
         type: 'note',
-        text: `Le ofreciste ${itemName} a ${enemy.name}. Tirada d100: ${roll} (necesitabas ${need} o menos). Desconfía de vos.`,
+        text: `Le ofreciste ${itemName} a ${enemy.name}. Sacaste ${roll} en el D20 (necesitabas ${need} o más). Desconfía de vos.`,
       });
       A.State.persist();
       A.Bus.emit('tame:failed', { enemyId, roll });
-      return { success: false, roll, chance, itemConsumed: itemId };
+      return { success: false, roll, dc, chance, itemConsumed: itemId };
     }
 
     const pet = createPet(enemy, Math.min(enemy.tier || 1, player().level || 1));
+    const tamedInst = findInstance(instanceId);
+    if (tamedInst && tamedInst.shiny) { pet.shiny = true; pet.name = `${pet.name} brillante`; } // v3.9
     player().pet = pet;
     A.State.persist();
     A.State.addChronicle({
       type: 'system',
-      text: `Tirada d100: ${roll} (necesitabas ${need} o menos). ¡Domaste a ${enemy.name}! Nivel ${pet.level}, ${pet.maxHealth} de vida. Come: ${dietInfo(pet).eats}.`,
+      text: `Sacaste ${roll} en el D20 (necesitabas ${need} o más). ¡Domaste a ${enemy.name}! Nivel ${pet.level}, ${pet.maxHealth} de vida. Come: ${dietInfo(pet).eats}.`,
     });
     A.Bus.emit('tame:success', { petId: pet.id, name: pet.name });
-    return { success: true, roll, chance, itemConsumed: itemId, pet };
+    return { success: true, roll, dc, chance, itemConsumed: itemId, pet };
   }
 
   function release() {
@@ -273,7 +345,11 @@
     const before = pet.food;
     pet.food = Math.max(0, pet.food - amount);
     if (before > 0 && pet.food === 0) {
-      A.State.addChronicle({ type: 'note', text: `${pet.name} tiene hambre: pega la mitad hasta que comas algo que le guste (${dietInfo(pet).eats}).` });
+      A.State.addChronicle({ type: 'note', text: `${pet.name} tiene hambre: pega la mitad, no usa sus habilidades, no te ayuda y se va debilitando hasta que coma (${dietInfo(pet).eats}).` });
+      if (A.UI && A.Bus) A.Bus.emit('toast', { text: `${pet.name} tiene hambre: dale de comer (${dietInfo(pet).eats}).`, tone: 'bad' });
+    } else if (before === 0 && pet.food === 0 && amount > 0 && pet.health > 1) {
+      // v3.9: si sigue sin comer, pierde vida (nunca menos de 1)
+      pet.health = Math.max(1, pet.health - Math.max(1, Math.round((pet.maxHealth || 10) * 0.1)));
     }
   }
 
@@ -369,6 +445,7 @@
     restPet,
     dietInfo,
     DIETS,
+    ownerBond, bondText, BOND, // v3.9
     DEFAULT_TAME_ITEM,
   };
 })(window.Aventurs);

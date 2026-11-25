@@ -260,6 +260,8 @@
     if (entry.fx && entry.fx.kind === 'save' && entry.fx.rescue) return entry.result === 'hit' ? { cls: 'hit', text: mine(entry) ? '¡Te encuentran!' : '¡Lo encuentran!' } : { cls: 'miss', text: 'Nadie viene…' };
     // v2.5: tirada para resistir una habilidad
     if (entry.fx && entry.fx.kind === 'save') return entry.result === 'hit' ? { cls: 'hit', text: '¡Resistís!' } : { cls: 'miss', text: 'No resistís' };
+    // v3.9: el dado de la doma
+    if (entry.fx && entry.fx.kind === 'tame') return entry.result === 'hit' ? { cls: 'crit', text: '¡Se deja domar!' } : { cls: 'miss', text: 'Desconfía' };
     if (entry.result === 'crit') return { cls: 'crit', text: '¡Crítico!' };
     if (entry.result === 'hit') return entry.power ? { cls: 'crit', text: '¡Golpe fuerte!' } : { cls: 'hit', text: '¡Impacto!' };
     if (entry.result === 'fumble') return { cls: 'fumble', text: '¡Pifia!' };
@@ -395,7 +397,7 @@
     }
     const fx = entry.fx;
     // v3.3: los hechizos de daño también tiran el dado
-    if (entry.roll != null && (fx.kind === 'attack' || fx.kind === 'flee' || fx.kind === 'save' || fx.kind === 'spell')) {
+    if (entry.roll != null && (fx.kind === 'attack' || fx.kind === 'flee' || fx.kind === 'save' || fx.kind === 'spell' || fx.kind === 'tame')) {
       const addMs = addMsFor(entry);
       const startAt = Math.max(t, diceFreeAt, minAt - DICE_ROLL_MS - addMs);
       entry._diceAt = startAt;
@@ -455,7 +457,7 @@
     if (fx.passive && (fx.kind === 'heal' || fx.kind === 'status')) return { id: fx.passive, on: selfKey(entry), hero: true };
     if (entry.passive && fx.target && isHeroKey(fx.target)) return { id: entry.passive, on: fx.target, hero: true };
     // v3.3: Cazador de sombras y Corteza espinosa se anuncian sobre el héroe
-    if (entry.passive === 'cazador_sombras' || entry.passive === 'corteza_espinosa') return { id: entry.passive, on: selfKey(entry), hero: true };
+    if (entry.passive === 'cazador_sombras' || entry.passive === 'corteza_espinosa' || entry.passive === 'colmillos' || entry.passive === 'sangre_lobo') return { id: entry.passive, on: selfKey(entry), hero: true };
     return null;
   }
 
@@ -603,6 +605,16 @@
       }
       case 'passive': {
         // v3.1: se anuncia con el cartel de pasiva (skillCallout)
+        break;
+      }
+      case 'tame': {
+        // v3.9: tirás el dado con la comida en la mano; si sale, corazones; si no, se eriza
+        if (entry._diceAt != null) showDice(entry, entry._diceAt);
+        playCardFx(fx.actor, 'fx-lunge-right', 380);
+        later(at - t, () => {
+          if (entry.result === 'hit') { sparkles(fx.target, 'love'); floatText(fx.target, '¡Confía en vos!', 'is-status is-status-tamed', -10, 'paw'); }
+          else { playCardFx(fx.target, 'fx-tame-no', 600); floatText(fx.target, 'Desconfía', 'is-miss', -10, 'paw'); }
+        });
         break;
       }
       case 'tamed': {

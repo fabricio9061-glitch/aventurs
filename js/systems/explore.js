@@ -933,6 +933,8 @@
     const paid = { coins: !!needs.coins, food: !!needs.food };
     const applied = sc.party ? applyGroupOutcome(outcome, { tier: sc.tier, region, title: sc.title, paid }) : { chips: applyOutcome(outcome, { tier: sc.tier, region, title: sc.title }), group: null };
     const chips = applied.chips;
+    // v3.9: lo que pide la opción como objeto (una llave) se gasta al usarlo
+    if (needs.item && needs.consume !== false && A.State.removeItem(needs.item, 1)) chips.unshift({ kind: 'used', itemId: needs.item, value: 1 });
 
     // Pelea: los enemigos de la escena, o unos nuevos de la zona
     let fight = null;
@@ -1054,7 +1056,7 @@
 
   function restKind(region) {
     if (!A.Time || !A.Time.isNight()) return 'nap';
-    return region && region.type === 'safe' ? 'town' : 'wild';
+    return region && (region.type === 'safe' || region.type === 'road') ? 'town' : 'wild';
   }
 
   /** ¿Ya descansaste y todavía no te moviste? */
@@ -1132,7 +1134,7 @@
     if (restLocked()) {
       return { kind: 'locked', text: 'Ya descansaste. Para volver a descansar tenés que moverte: explorá, peleá o viajá. Para recuperarte del todo, la posada del pueblo.', chips: [] };
     }
-    const kind = o.night != null ? (!o.night ? 'nap' : region.type === 'safe' ? 'town' : 'wild') : restKind(region);
+    const kind = o.night != null ? (!o.night ? 'nap' : (region.type === 'safe' || region.type === 'road') ? 'town' : 'wild') : restKind(region);
     const cfg = REST[kind];
     const hungry = A.Survival ? A.Survival.getStatus() : null;
     const penalty = hungry && hungry.penalties && hungry.penalties.restPenalty ? (hungry.id === 'starving' ? 0.2 : 0.5) : 1;
@@ -1174,7 +1176,7 @@
       }
       w.restLock = true;
       const got = chips.filter((c) => c.kind !== 'food');
-      const text = `Descansaste un rato${region.type === 'safe' ? '' : ' a la sombra'}. ${got.length ? got.map(chipText).join(', ') + '.' : 'No te sirvió de mucho.'}${capNote(chips)}`;
+      const text = `Descansaste un rato${(region.type === 'safe' || region.type === 'road') ? '' : ' a la sombra'}. ${got.length ? got.map(chipText).join(', ') + '.' : 'No te sirvió de mucho.'}${capNote(chips)}`;
       A.State.addChronicle({ type: 'rest', text });
       A.State.persist();
       return { kind: 'nap', text, chips };

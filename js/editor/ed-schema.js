@@ -143,7 +143,7 @@
     {
       key: 'regions', label: 'Zonas y pueblos', one: 'zona', icon: 'map', group: 'Mundo',
       hint: 'Lugares del mapa: zonas con criaturas y pueblos tranquilos.',
-      meta: (r) => `${r.type === 'combat' ? 'Zona' : 'Pueblo'} · nivel ${lvlOf(r)} · ${L.BIOME[r.biome] || r.biome || ''}`,
+      meta: (r) => `${r.type === 'combat' ? 'Zona' : r.type === 'road' ? 'Pueblo con camino peligroso' : 'Pueblo'} · nivel ${lvlOf(r)} · ${L.BIOME[r.biome] || r.biome || ''}`,
       sort: (a, b) => lvlOf(a) - lvlOf(b) || String(a.name).localeCompare(String(b.name), 'es'),
       filters: [
         { key: 'kind', label: 'Tipo', options: [{ value: 'combat', label: 'Zonas' }, { value: 'safe', label: 'Pueblos' }], test: (r, v) => (v === 'combat' ? r.type === 'combat' : r.type !== 'combat') },
@@ -156,7 +156,7 @@
       sections: [
         { title: 'Lo básico', fields: [
           F.text('name', 'Nombre'),
-          F.sel('type', 'Tipo', [{ value: 'combat', label: 'Zona con criaturas' }, { value: 'safe', label: 'Pueblo (sin peleas)' }]),
+          F.sel('type', 'Tipo', [{ value: 'combat', label: 'Zona con criaturas' }, { value: 'safe', label: 'Pueblo (sin peleas)' }, { value: 'road', label: 'Pueblo sin peleas, con criaturas en el camino' }], { help: 'El de criaturas en el camino: adentro no se pelea, pero al viajar hacia acá salen las criaturas de este lugar.' }),
           F.choice('biome', 'Paisaje', biomeOpts, { help: 'Cambia el dibujo, el fondo y el botín que se encuentra al explorar.' }),
           { kind: 'range2', path: 'tier', label: 'Nivel de las criaturas', min: 1, max: 10, help: 'Solo aparecen las criaturas de la zona con nivel dentro de este rango.' },
           F.area('description', 'Descripción', { rows: 3 }),
@@ -233,7 +233,7 @@
           { kind: 'icon', path: 'icon', label: 'Dibujo' },
           F.num('weight', 'Qué tan seguido', { min: 1, max: 5, help: '1 = rara, 5 = muy común.' }),
           F.chips('biomes', 'Dónde pasa', () => [{ value: 'any', label: 'Cualquier lugar' }, ...biomeOpts()], { exclusive: ['any'], help: 'En qué paisajes puede aparecer al explorar.' }),
-          F.refs('regions', 'Solo en estos lugares', 'regions', { filter: (r) => r.type === 'combat', add: 'Elegir lugares', help: 'Opcional. Si elegís lugares, la escena sale solo ahí (y no por paisaje).' }),
+          F.refs('regions', 'Solo en estos lugares', 'regions', { filter: (r) => (r.type === 'combat' || r.type === 'road'), add: 'Elegir lugares', help: 'Opcional. Si elegís lugares, la escena sale solo ahí (y no por paisaje).' }),
           F.sel('time', 'Cuándo sale', [{ value: '', label: 'Siempre' }, { value: 'day', label: 'Solo de día' }, { value: 'night', label: 'Solo de noche' }]),
           // v3.3: escenas para grupos o para cuando vas solo
           F.tog('party', 'Solo en grupo', { on: 'Sí: los textos van en plural', off: 'No', help: 'Las de grupo pueden pedir que tire el más hábil o que se ayuden entre todos.' }),
@@ -280,7 +280,7 @@
       meta: (e) => `Nivel ${e.tier} · ${L.CAT[e.category] || e.category}${(e.regions || []).length ? ` · ${e.regions.map(regionName).join(', ')}` : ' · sin zona'}`,
       sort: (a, b) => (a.tier - b.tier) || String(a.name).localeCompare(String(b.name), 'es'),
       filters: [
-        { key: 'zone', label: 'Zona', options: () => A.Data.regions.filter((r) => r.type === 'combat').sort((a, b) => lvlOf(a) - lvlOf(b)).map((r) => ({ value: r.id, label: r.name })).concat([{ value: '__none', label: 'Sin zona' }]), test: (e, v) => (v === '__none' ? !(e.regions || []).length : (e.regions || []).includes(v)) },
+        { key: 'zone', label: 'Zona', options: () => A.Data.regions.filter((r) => (r.type === 'combat' || r.type === 'road')).sort((a, b) => lvlOf(a) - lvlOf(b)).map((r) => ({ value: r.id, label: r.name })).concat([{ value: '__none', label: 'Sin zona' }]), test: (e, v) => (v === '__none' ? !(e.regions || []).length : (e.regions || []).includes(v)) },
         { key: 'tier', label: 'Nivel', options: () => Array.from({ length: 10 }, (_, i) => ({ value: String(i + 1), label: `Nivel ${i + 1}` })), test: (e, v) => String(e.tier) === v },
         { key: 'cat', label: 'Tipo', options: opts(L.CAT), test: (e, v) => e.category === v },
         { key: 'tame', label: 'Domar', options: [{ value: 'yes', label: 'Se pueden domar' }, { value: 'no', label: 'No se pueden domar' }], test: (e, v) => (v === 'yes' ? !!e.tameable : !e.tameable) },
@@ -295,7 +295,7 @@
           F.text('name', 'Nombre'),
           F.num('tier', 'Nivel', { min: 1, max: 10, help: 'Para qué nivel de jugador está pensada.' }),
           F.sel('category', 'Tipo', opts(L.CAT), { help: 'Las débiles salen en grupo; los jefes van solos.' }),
-          F.refs('regions', 'Dónde vive', 'regions', { filter: (r) => r.type === 'combat', add: 'Agregar zona', help: (d) => Ed.panels.homeHelp(d) }),
+          F.refs('regions', 'Dónde vive', 'regions', { filter: (r) => (r.type === 'combat' || r.type === 'road'), add: 'Agregar zona', help: (d) => Ed.panels.homeHelp(d) }),
           F.tags('family', 'Es', opts(L.FAMILY), { add: 'Agregar', help: 'Humanoides, demonios, muertos, arcanos y dragones no se pueden domar.' }),
           F.tags('tags', 'Rasgos', opts(L.TAGS), { add: 'Agregar rasgo' }),
           // v3.1: criaturas de día y de noche

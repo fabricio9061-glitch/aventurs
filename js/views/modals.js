@@ -64,6 +64,12 @@
     host.appendChild(overlay);
 
     bindOverlayEvents(overlay, id, payload);
+    // v3.9: la crónica abre en la última ronda
+    if (id === 'combat-full-log') {
+      const fl = overlay.querySelector('[data-fulllog]');
+      const sc = fl && (fl.closest('.modal-body') || fl);
+      if (sc) requestAnimationFrame(() => { sc.scrollTop = sc.scrollHeight; fl.scrollTop = fl.scrollHeight; });
+    }
   }
 
   // ---------- NPC ----------
@@ -403,9 +409,24 @@
 
     // v2.4: rareza con su color, y lo que pagan si lo vendés
     const rar = (A.Balance && A.Balance.RARITY && A.Balance.RARITY[data.rarity || 'common']) || null;
-    const rarityRow = row('Rareza', `<span class="rarity-tag rarity-${esc(data.rarity || 'common')}">${rarityLabel(data.rarity || 'common')}</span>`);
-    const sellRow = data.subtype !== 'coin' && data.value > 0 ? row('Se vende a', `<span class="num">${A.Currency.formatPrice(Math.max(1, Math.floor(data.value / 2)))}</span>`) : '';
-    const tierRow = data.tier ? row('Nivel', `<span class="num">${data.tier}</span>`) : '';
+    // v3.9: en el equipo, rareza/nivel/peso/venta van en una línea chica al final (lo importante arriba)
+    const gearKind = ['weapon', 'armor', 'accessory'].includes(kind);
+    const rarityRow = gearKind ? '' : row('Rareza', `<span class="rarity-tag rarity-${esc(data.rarity || 'common')}">${rarityLabel(data.rarity || 'common')}</span>`);
+    const sellRow = gearKind ? '' : (data.subtype !== 'coin' && data.value > 0 ? row('Se vende a', `<span class="num">${A.Currency.formatPrice(Math.max(1, Math.floor(data.value / 2)))}</span>`) : '');
+    const tierRow = gearKind ? '' : (data.tier ? row('Nivel', `<span class="num">${data.tier}</span>`) : '');
+    const metaBits = [];
+    if (gearKind) {
+      metaBits.push(`<span class="rarity-tag rarity-${esc(data.rarity || 'common')}">${rarityLabel(data.rarity || 'common')}</span>`);
+      if (data.tier) metaBits.push(`Nivel ${data.tier}`);
+      if (data.weight != null && kind !== 'accessory') { const w = data.weight || 0; metaBits.push(`Peso ${w} (${w === 0 ? 'no pesa' : w <= 2 ? 'liviana' : w <= 4 ? 'mediana' : w <= 6 ? 'pesada' : 'muy pesada'})`); }
+      if (data.value > 0) metaBits.push(`Se vende a ${A.Currency.formatPrice(Math.max(1, Math.floor(data.value / 2)))}`);
+    }
+    const metaLine = metaBits.length ? `<div class="item-meta-line">${metaBits.join('<span class="dot">·</span>')}</div>` : '';
+    // v3.9: ¿te conviene? (comparado con lo que tenés puesto) y para qué sirve
+    const IC = A.ItemCompare;
+    const verdict = IC && gearKind && !wornView ? IC.compare(itemId).verdict : null;
+    const cmpHtml = IC && gearKind && !wornView ? IC.cmpBox(itemId) : '';
+    const usesHtml = IC ? IC.usesHtml(itemId, { withSell: !gearKind }) : '';
 
     // v2.4: el peso frena (arma + armadura que pasen de 4)
     function weightRows() {
@@ -421,7 +442,7 @@
       let note;
       if (pen > 0) note = `<div class="class-note is-bad">${pxi('boot', 14)}<span>${isWorn ? 'Con lo que llevás puesto' : `Con tu ${kind === 'weapon' ? 'armadura' : 'arma'}`} pesa ${total}: perdés ${pen} de velocidad (lo que pase de ${free}).</span></div>`;
       else note = w > 0 ? `<div class="class-note is-good">${pxi('boot', 14)}<span>${isWorn ? 'Con lo que llevás puesto' : `Con tu ${kind === 'weapon' ? 'armadura' : 'arma'}`} pesa ${total}: no te frena (hasta ${free} no pasa nada).</span></div>` : '';
-      return row('Peso', `<span class="num">${w}</span> <span class="dim">(${word})</span>`) + note;
+      return note; // v3.9: el número del peso va en la línea de abajo; acá queda solo si te frena
     }
 
     let stats = '';
@@ -548,14 +569,17 @@
         <div class="item-modal-header">
           <div class="item-modal-icon ${rar ? `rarity-frame rarity-${esc(data.rarity || 'common')}` : ''}">${(A.ItemSprites ? A.ItemSprites.html(data, { size: 72 }) : '')}</div>
           <div>
-            <div class="item-modal-name">${esc(data.name)}</div>
+            <div class="item-modal-name">${esc(data.name)} ${verdict && IC ? IC.verdictBadge(verdict) : ''}</div>
             <div class="item-modal-meta dim">${kindLabel(kind)}${wornView ? ' · lo tenés puesto' : ''}${qty > 1 ? ` · ×${qty}` : ''}</div>
           </div>
         </div>
         <p class="item-modal-desc">${esc(data.description || '')}</p>
+        ${cmpHtml}
         <div class="detail-stats">
           ${stats}
         </div>
+        ${usesHtml ? `<div class="item-uses-box"><div class="item-uses-title">Para qué sirve</div>${usesHtml}</div>` : ''}
+        ${metaLine}
         ${hint}
         <div class="item-modal-actions">
           ${actions.join('')}
@@ -766,6 +790,7 @@
           </div>
         </div>
         ${creatureDiceBlock(e)}
+        ${canTame && A.Tame.bondText && A.Tame.bondText(e.id) ? `<p class="creature-bond">${A.UI ? A.UI.icon('paw', 14) : ''}<span>${A.Utils.escapeHtml(A.Tame.bondText(e.id))}</span></p>` : ''}
         ${creatureWhere(e)}
         <div class="creature-stats">
           <div class="stat-row"><span class="dim">Salud</span><span class="num">${e.health}</span></div>
@@ -883,6 +908,7 @@
             : `Para domar a ${A.Utils.escapeHtml(e.name)} necesitás ${A.Utils.escapeHtml(item ? item.name : itemId)}, y no llevás nada.`}
         </p>
         <div class="tame-info">
+          ${A.Tame.bondText && A.Tame.bondText(e.id) ? `<div class="tame-info-row"><span class="dim">Te ayuda:</span><span>${A.Utils.escapeHtml(A.Tame.bondText(e.id))}</span></div>` : ''}
           <div class="tame-info-row">
             <span class="dim">Necesitas:</span>
             <span>${item ? (A.ItemSprites ? A.ItemSprites.html(item, { size: 20 }) : '') : ''} ${A.Utils.escapeHtml(item ? item.name : itemId)} ${haveQty > 0 ? `<span class="num dim">(tenés ${haveQty})</span>` : '<span class="num danger">(no tenés)</span>'}</span>
@@ -1149,8 +1175,8 @@
   }
 
   function travelModalCard(n) {
-    const dangerLabel = n.type === 'safe' ? 'Seguro' : 'Combate';
-    const dangerClass = n.type === 'safe' ? 'pill-safe' : 'pill-combat';
+    const dangerLabel = (n.type === 'safe' || n.type === 'road') ? 'Seguro' : 'Combate';
+    const dangerClass = (n.type === 'safe' || n.type === 'road') ? 'pill-safe' : 'pill-combat';
     const enemiesCount = A.Data.enemiesInRegion(n.id).length;
     const dist = n.distance || 1;
     const travelCheck = A.Travel.canTravelToDetailed(n.id);
@@ -1218,6 +1244,19 @@
     return modalShell('Crónica del combate', `<div class="combat-fulllog-modal cb-chronicle" data-fulllog>${body}</div>`).replace('class="modal"', 'class="modal modal-fulllog"');
   }
 
+  /** v3.9: qué hace el hechizo, también en plena pelea (descripción y efecto extra) */
+  function spellDescLine(s) {
+    const esc = A.Utils.escapeHtml;
+    const bits = [];
+    if (s.description) bits.push(esc(s.description));
+    const se = s.statusEffect;
+    if (se && se.type) {
+      const label = A.Combat && A.Combat.effectLabel ? A.Combat.effectLabel(se.type) : se.type;
+      bits.push(`<b>${Math.round((se.chance != null ? se.chance : 1) * 100)}% de ${esc(label)}${se.turns ? ` (${se.turns} turnos)` : ''}</b>`);
+    }
+    return bits.length ? `<span class="combat-spell-desc">${bits.join(' ')}</span>` : '';
+  }
+
   function renderCombatSpell() {
     const spells = A.Combat.availableSpells();
     const p = A.State.player;
@@ -1244,6 +1283,7 @@
                 <span class="combat-spell-icon">${A.ItemSprites && A.ItemSprites.spellIcon ? A.ItemSprites.spellIcon(s, { size: 32 }) : ''}</span>
                 <span class="combat-spell-info">
                   <span class="combat-spell-name">${A.Utils.escapeHtml(s.name)}</span>
+                  ${spellDescLine(s)}
                   <span class="combat-spell-meta dim">${waitTxt}${s.damage ? `${s.damage} daño${s.area ? ' a todos' : ''}${s.stun ? ', sin turno' : ''}` : s.heal ? `${s.heal} cura${s.selfOnly ? ' (a vos)' : ''}` : (s.effect && A.ItemFx ? A.Utils.escapeHtml(A.ItemFx.summary({ effect: s.effect, subtype: 'scroll' })) : '')}${hitTxt ? ` · ${hitTxt}` : ''} · Maná ${cost}${cost < s.manaCost ? ` <s>${s.manaCost}</s>` : ''}${s.cooldown ? ` · cada ${s.cooldown} turnos` : ''}${pick ? ' · elegís a quién' : ''}</span>
                 </span>
               </button>

@@ -52,7 +52,7 @@
   /** Lo difícil que es que te encuentren en una región (el número a sacar). */
   function rescueDc(region) {
     if (!region) return RESCUE.min;
-    if (region.type === 'safe') return RESCUE.safeDc;
+    if ((region.type === 'safe' || region.type === 'road')) return RESCUE.safeDc;
     const tier = Array.isArray(region.tier) ? (region.tier[1] || region.tier[0] || 1) : (region.tier || 1);
     return Math.max(RESCUE.min, Math.min(RESCUE.max, RESCUE.base + tier));
   }
@@ -77,7 +77,7 @@
     let by = '';
     if (ok) {
       if (crit) by = pick(RESCUERS.crit);
-      else if (region && region.type === 'safe') by = pick(RESCUERS.safe);
+      else if (region && (region.type === 'safe' || region.type === 'road')) by = pick(RESCUERS.safe);
       else if (region && SEA.has(region.biome)) by = pick(RESCUERS.sea.concat(RESCUERS.any.slice(0, 2)));
       else by = pick(RESCUERS.any);
     }
