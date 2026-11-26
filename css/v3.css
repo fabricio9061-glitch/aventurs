@@ -1258,3 +1258,9 @@
 .map2-svg .node-crown circle { fill: #fff4d0; stroke: #b8860b; stroke-width: 1.5; }
 .map2-svg .map-mist { fill: none; stroke: rgba(240, 240, 255, 0.3); stroke-width: 18; stroke-linecap: round; stroke-dasharray: 2 26; filter: blur(5px); }
 .map2-svg .map-region-title { font-family: var(--font-display, serif); font-size: 34px; letter-spacing: 0.2em; fill: rgba(90, 60, 30, 0.35); text-transform: uppercase; pointer-events: none; }
+
+/* ============================================================
+   48. v3.11.1: mini jefe (Alafeliz)
+   ============================================================ */
+.cb-badge.is-cat-mini { color: #fff2ff; border-color: #6a3a8a; background: linear-gradient(180deg, #a873c8, #6a3a8a); }
+.pill.pill-cat-strong.is-mini, .pill-cat-mini { background: #efe0f6; color: #5a2a78; }

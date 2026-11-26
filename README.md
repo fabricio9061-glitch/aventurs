@@ -272,6 +272,13 @@ Explorar siempre hace pasar algo (`js/systems/explore.js` + `js/data/seed-events
 - En el celular, una franja arriba con vida, maná, comida y dinero.
 - Sin emojis en el juego (desde la v2.2, tampoco en el editor).
 
+## Versión 3.11.1: Alafeliz y un mapa sin nombres encimados
+
+- **Alafeliz** (antes "Brightwing"): ahora es una **mini jefa** del Sueño Esmeralda. Ya no está en el Desierto: se asoma de vez en cuando al **Bosque de los Sueños**, sola y nunca como élite. Es una dragona feérica (más chica y con colores de hada) que se vuelve humo (Ilusiones), duerme con su polvo de hada, lanza magia y se cura. Más vida (110) y daño (2d8+4), el doble de monedas, más botín (polvo de hada, esencia, escamas) y 2,5 veces la experiencia. En combate y en las fichas dice **"Mini jefe"**. Medido 1 contra 1 (orco / humano / gnomo): a su nivel se le gana 75 / 66 / 69%; con dos niveles más, 99-100%.
+- En el Desierto, en su lugar, el **Escorpión gigante** (nivel 6).
+- **Mapa**: los nombres ya no se pisan. Cada nombre (con su "Nivel N") prueba varios lados alrededor de su lugar y se queda con el que no tapa a otros nombres ni a otros lugares; las guaridas, con el nombre más cerca. Probado con todo el mapa descubierto y con una letra más ancha: ningún nombre encima de otro. El Altar de Cthulhu se movió un poco más arriba (abajo no entraba).
+- La prueba de combate del editor no cuenta a la mini jefa entre las criaturas fuertes.
+
 ## Versión 3.11.0: guaridas de jefes, altares y las Tierras Altas (hasta el nivel 20)
 
 ### Jefes

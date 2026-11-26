@@ -25,6 +25,7 @@
   let mainEl = null;
   let selectedId = null;
   let view = { x: 0, y: 0, w: W, h: H };
+  let lastLabels = {}; // v3.11.1: dónde quedó cada nombre (para poner al compañero del otro lado)
   let escHandler = null;
   let drag = null;
   let offParty = null;
@@ -152,7 +153,7 @@
   }
 
   /** Dibujitos de tinta alrededor de cada zona (árboles, montañas, olas, dunas...). */
-  function decor(region, p) {
+  function decor(region, p, boxes) {
     const rnd = seeded(hash(region.id + ':decor'));
     const out = [];
     const spots = [];
@@ -167,6 +168,7 @@
       if (p.label === 'r' && x > p.x + 20 && Math.abs(y - p.y) < 18) continue;
       if (p.label === 'l' && x < p.x - 20 && Math.abs(y - p.y) < 18) continue;
       if (x < 12 || x > W - 12 || y < 12 || y > H - 12) continue;
+      if (boxes && boxes.some((b) => x > b[0] - 12 && x < b[2] + 12 && y > b[1] - 10 && y < b[3] + 10)) continue; // v3.11.1
       spots.push([x, y]);
     }
     const b = region.biome;
@@ -211,6 +213,104 @@
     }
   }
 
+  // ============================================================
+  // v3.11.1: etiquetas que no se pisan
+  //   Cada nombre (y su "Nivel N") prueba varios lados alrededor de su zona y se queda
+  //   con el que menos tapa a otros nombres y a otras zonas. Primero las zonas grandes
+  //   (el lado que dice la región, si se puede), después las guaridas.
+  // ============================================================
+
+  let measureCtx = null;
+  const widthCache = new Map();
+  const fontsReady = () => !document.fonts || document.fonts.status === 'loaded';
+  /** Ancho del texto con la letra del mapa (Cinzel, negrita). */
+  function textWidth(txt, size) {
+    const key = `${size}|${txt}`;
+    if (widthCache.has(key)) return widthCache.get(key);
+    let w = String(txt).length * size * 0.72;
+    try {
+      if (!measureCtx) measureCtx = document.createElement('canvas').getContext('2d');
+      const fam = (getComputedStyle(document.documentElement).getPropertyValue('--font-display') || '').trim() || 'Cinzel, Georgia, serif';
+      measureCtx.font = `700 ${size}px ${fam}`;
+      w = measureCtx.measureText(String(txt)).width;
+    } catch (e) { /* sin canvas: queda el estimado */ }
+    if (fontsReady()) widthCache.set(key, w); // con la letra todavía cargando, se vuelve a medir
+    return w;
+  }
+  // cuando termina de cargar la letra, se vuelven a acomodar los nombres
+  if (typeof document !== 'undefined' && document.fonts && document.fonts.ready) {
+    document.fonts.ready.then(() => { widthCache.clear(); try { refreshSvg(); } catch (e) { /* el mapa no está abierto */ } });
+  }
+
+  const SIDE_ORDER = ['b', 't', 'r', 'l', 'br', 'tr', 'bl', 'tl'];
+  /** Dónde va el nombre según el lado: { x, y, anchor, lvlY, box }. */
+  function placeAt(p, side, lair, nameW, lvlW) {
+    const fs = lair ? 12 : 14;
+    const R = lair ? 18 : 26;
+    const g = lair ? 6 : 8; // aire entre el anillo y el texto
+    const d = R + g;
+    const asc = fs * 0.78, desc = fs * 0.24;
+    let x, y, anchor;
+    switch (side) {
+      case 't': x = p.x; y = p.y - d - desc - 2; anchor = 'middle'; break;
+      case 'r': x = p.x + d; y = p.y + fs * 0.32; anchor = 'start'; break;
+      case 'l': x = p.x - d; y = p.y + fs * 0.32; anchor = 'end'; break;
+      case 'tr': x = p.x + R * 0.72; y = p.y - R * 0.72 - 3; anchor = 'start'; break;
+      case 'tl': x = p.x - R * 0.72; y = p.y - R * 0.72 - 3; anchor = 'end'; break;
+      case 'br': x = p.x + R * 0.72; y = p.y + R * 0.72 + asc + 1; anchor = 'start'; break;
+      case 'bl': x = p.x - R * 0.72; y = p.y + R * 0.72 + asc + 1; anchor = 'end'; break;
+      default: x = p.x; y = p.y + d + asc; anchor = 'middle'; break;
+    }
+    const up = side === 't' || side === 'tr' || side === 'tl';
+    const lvlY = lvlW ? (up ? y - fs - 1 : y + 13) : null;
+    const span = (w) => (anchor === 'middle' ? [x - w / 2, x + w / 2] : anchor === 'start' ? [x, x + w] : [x - w, x]);
+    const [nx0, nx1] = span(nameW);
+    let box = [nx0 - 3, y - asc - 2, nx1 + 3, y + desc + 2];
+    if (lvlW) {
+      const [lx0, lx1] = span(lvlW);
+      box = [Math.min(box[0], lx0 - 3), Math.min(box[1], lvlY - 11 * 0.78 - 2), Math.max(box[2], lx1 + 3), Math.max(box[3], lvlY + 11 * 0.24 + 2)];
+    }
+    return { x, y, anchor, lvlY, box, side };
+  }
+  const area = (a, b) => Math.max(0, Math.min(a[2], b[2]) - Math.max(a[0], b[0])) * Math.max(0, Math.min(a[3], b[3]) - Math.max(a[1], b[1]));
+
+  /** { id: { x, y, anchor, lvlY, box, side } } para las zonas que se ven. */
+  function placeLabels(regions, pos, known, visited, here) {
+    const out = {};
+    // lo que no hay que tapar: los círculos de todas las zonas (también las que no se conocen) y tu marca
+    const discs = regions.map((r) => {
+      const p = pos[r.id]; const R = (r.type === 'lair' ? 18 : 26) + 1;
+      return { id: r.id, box: [p.x - R, p.y - R, p.x + R, p.y + R] };
+    });
+    if (pos[here]) discs.push({ id: '_you', box: [pos[here].x - 12, pos[here].y - 58, pos[here].x + 12, pos[here].y - 30] });
+    const placed = [];
+    const order = regions.filter((r) => known.has(r.id))
+      .sort((a, b) => ((a.id === here ? 0 : a.type === 'lair' ? 2 : 1) - (b.id === here ? 0 : b.type === 'lair' ? 2 : 1)));
+    for (const r of order) {
+      const p = pos[r.id];
+      const lair = r.type === 'lair';
+      const nameW = textWidth(r.name, lair ? 12 : 14);
+      const showLvl = (isLocked(r) || !visited.has(r.id)) && minLevel(r) > 1;
+      const lvlW = showLvl ? textWidth(`Nivel ${minLevel(r)}`, 11) * 0.82 : 0; // (la del nivel no es Cinzel: es más angosta)
+      const pref = p.label || 'b';
+      const sides = [pref].concat(SIDE_ORDER.filter((x) => x !== pref));
+      let best = null;
+      sides.forEach((side, rank) => {
+        const c = placeAt(p, side, lair, nameW, lvlW);
+        let score = rank * (rank < 4 ? 30 : 45);
+        for (const o of placed) score += area(c.box, o) * 4;
+        for (const dsc of discs) if (dsc.id !== r.id) score += area(c.box, dsc.box) * 3;
+        const outX = Math.max(0, 12 - c.box[0]) + Math.max(0, c.box[2] - (W - 12));
+        const outY = Math.max(0, 12 - c.box[1]) + Math.max(0, c.box[3] - (H - 12));
+        score += (outX + outY) * 60;
+        if (!best || score < best.score) best = Object.assign(c, { score });
+      });
+      out[r.id] = best;
+      placed.push(best.box);
+    }
+    return out;
+  }
+
   function svgHtml() {
     const pos = layout();
     const { visited, known } = knowledge();
@@ -218,6 +318,8 @@
     const current = A.Data.getById('regions', here);
     const near = new Set((current && current.connections) || []);
     const regions = A.Data.regions.filter((r) => pos[r.id]);
+    const labels = placeLabels(regions, pos, known, visited, here); // v3.11.1
+    lastLabels = labels;
 
     // Caminos (una sola vez cada par)
     const seen = new Set();
@@ -256,7 +358,7 @@
       ].filter(Boolean).join(' ');
       const lair = r.type === 'lair';
       const iconUrl = isFog ? '' : (A.ItemSprites && A.ItemSprites.iconUrl ? A.ItemSprites.iconUrl(`biome-${r.biome}`) || A.ItemSprites.iconUrl('map') : '');
-      const lab = labelAttrs(p);
+      const lab = labels[r.id] || labelAttrs(p);
       const lockUrl = locked && A.ItemSprites ? A.ItemSprites.iconUrl('lock') : '';
       return `
         <g class="${cls}" data-region="${U().esc(r.id)}" transform="translate(${p.x} ${p.y})" tabindex="0" role="button" aria-label="${U().esc(isFog ? 'Zona sin explorar' : r.name)}">
@@ -266,12 +368,13 @@
           ${isFog ? `<text class="node-q" y="${lair ? 6 : 8}" text-anchor="middle">?</text>` : lair && A.Sprites ? `<image href="${A.Sprites.dataUrl(r.boss)}" x="-13" y="-13" width="26" height="26" class="node-img"/>` : `<image href="${iconUrl}" x="-16" y="-16" width="32" height="32" class="node-img"/>`}
           ${lair && !isFog && A.ItemSprites ? `<g class="node-crown" transform="translate(${lockUrl ? -13 : 13} -14)"><circle r="8"/><image href="${A.ItemSprites.iconUrl('crown')}" x="-6" y="-6" width="12" height="12"/></g>` : ''}
           ${lockUrl ? `<g class="node-lock" transform="translate(${lair ? 13 : 17} ${lair ? -13 : -17})"><circle r="${lair ? 8 : 10}"/><image href="${lockUrl}" x="${lair ? -6 : -8}" y="${lair ? -6 : -8}" width="${lair ? 12 : 16}" height="${lair ? 12 : 16}"/></g>` : ''}
-          ${isFog ? '' : `<text class="node-label" x="${lab.x - p.x}" y="${lab.y - p.y}" text-anchor="${lab.anchor}">${U().esc(r.name)}</text>`}
-          ${!isFog && (locked || !visited.has(r.id)) && minLevel(r) > 1 ? `<text class="node-lvl" x="${lab.x - p.x}" y="${lab.y - p.y + (p.label === 't' ? -15 : 14)}" text-anchor="${lab.anchor}">Nivel ${minLevel(r)}</text>` : ''}
+          ${isFog ? '' : `<text class="node-label" x="${(lab.x - p.x).toFixed(1)}" y="${(lab.y - p.y).toFixed(1)}" text-anchor="${lab.anchor}">${U().esc(r.name)}</text>`}
+          ${!isFog && (locked || !visited.has(r.id)) && minLevel(r) > 1 ? `<text class="node-lvl" x="${(lab.x - p.x).toFixed(1)}" y="${((lab.lvlY != null ? lab.lvlY : lab.y + (p.label === 't' ? -15 : 14)) - p.y).toFixed(1)}" text-anchor="${lab.anchor}">Nivel ${minLevel(r)}</text>` : ''}
         </g>`;
     }).join('');
 
-    const decorHtml = regions.filter((r) => known.has(r.id)).map((r) => decor(r, pos[r.id])).join('');
+    const boxes = Object.values(labels).map((l) => l.box);
+    const decorHtml = regions.filter((r) => known.has(r.id)).map((r) => decor(r, Object.assign({}, pos[r.id], { label: (labels[r.id] && labels[r.id].side) || pos[r.id].label }), boxes)).join('');
     const hp = pos[here];
     const pinUrl = A.ItemSprites ? A.ItemSprites.iconUrl('pin') : '';
 
@@ -343,7 +446,8 @@
     return mates().map((m) => allySpot(pos, m)).filter(Boolean).map((spot) => {
       const url = A.Sprites && A.Sprites.heroUrl ? A.Sprites.heroUrl(spot.m.raceId || 'humano') : '';
       // al lado de la zona, del lado contrario a su nombre (no encima de tu marca); viajando, sobre el camino
-      const side = (!spot.moving && spot.m.regionId && pos[spot.m.regionId] && pos[spot.m.regionId].label) || 'r';
+      const rawSide = (!spot.moving && spot.m.regionId && ((lastLabels[spot.m.regionId] && lastLabels[spot.m.regionId].side) || (pos[spot.m.regionId] && pos[spot.m.regionId].label))) || 'r';
+      const side = rawSide.length > 1 ? rawSide.charAt(0) : rawSide; // 'tr' -> 't'
       const off = ({ r: [-34, -8], l: [34, -8], t: [30, 20], b: [32, -18] })[side] || [32, -14];
       // v3.2: si hay varios en el mismo lugar, uno al lado del otro
       const key = spot.moving ? `${Math.round(spot.x)},${Math.round(spot.y)}` : spot.m.regionId;

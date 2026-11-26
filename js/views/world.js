@@ -614,7 +614,7 @@
             <div class="encounter-meta-v2">
               ${isGroup ? `<span class="dim">${A.Utils.escapeHtml(ev.enemyName)}</span>` : `
                 <span class="pill pill-tier">Nivel ${ev.tier}</span>
-                <span class="pill pill-cat-${ev.category || 'normal'}">${categoryLabel(ev.category)}</span>
+                <span class="pill pill-cat-${categoryLabel(ev.category, ev) === 'Mini jefe' ? 'mini' : (ev.category || 'normal')}">${categoryLabel(ev.category, ev)}</span>
                 ${enemy && A.ItemSprites && A.ItemSprites.dcBadge ? A.ItemSprites.dcBadge(enemy.difficulty != null ? enemy.difficulty : 10, { size: 26 }) : ''}
                 ${ev.tameable ? `<span class="pill pill-tameable">${icon('paw', 14)} Domable</span>` : ''}
               `}
@@ -792,7 +792,9 @@
     return map[role] || role;
   }
 
-  function categoryLabel(c) {
+  function categoryLabel(c, e) {
+    const sid = e && (e.enemyId || e.id);
+    if (e && (e.miniBoss || (sid && (A.Data.getById('enemies', sid) || {}).miniBoss))) return 'Mini jefe'; // v3.11.1
     return ({ weak: 'Débil', normal: 'Normal', strong: 'Fuerte', boss: 'Jefe' })[c] || c;
   }
 

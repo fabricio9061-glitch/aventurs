@@ -1379,7 +1379,7 @@
     // ---------- Tier 4-10 ----------
     ettin: { plan: 'humanoid', p: { sk: '#a08060', h: '#4a3a2a', cl: '#5a4a3a', cl2: '#3a2a1a', a: '#6a5a4a', wd: '#5a3a1a', e: '#ff3030' }, o: { size: 'huge', heads: 2, outfit: 'loincloth', weapon: 'club', hair: 'messy', mouth: 'teeth' } },
     ent: { plan: 'tree', p: { b: '#5a4030', a: '#3a7a3a', c: '#6aaa4a', e: '#ffcc00' } },
-    brightwing: { plan: 'dragon', s: 0.9, p: { b: '#e0c060', c: '#fff0b0', a: '#ffffff', wg: '#f0dc90', e: '#40a0ff' } },
+    brightwing: { plan: 'dragon', s: 0.78, p: { b: '#c48ad6', c: '#f6d4ee', a: '#ffffff', wg: '#a6dcf4', e: '#2f9a5a' } }, // v3.11.1: Alafeliz, dragona feérica
     tentaculo: { plan: 'tentacle', s: 0.92, p: { b: '#8a3a6a', c: '#c06a9a', e: '#ffee00' } },
     medusa: { plan: 'humanoid', p: { sk: '#8ab07a', h: '#3a7a3a', b: '#4a8a4a', c: '#c8d088', cl: '#6a4a2a', a: '#d0c060', wd: '#6a4a2a', e: '#ffee00' }, o: { size: 'medium', hair: 'snakes', lower: 'serpent', weapon: 'bow', outfit: 'tunic', eyes: 'glow' } },
     espectro: { plan: 'ghost', p: { b: '#6a6a8a', c: '#9a9ab8', cl: '#24243a', e: '#ff2040' }, o: { hood: true } },

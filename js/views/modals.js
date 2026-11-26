@@ -706,7 +706,7 @@
             <div class="creature-modal-name">${A.Utils.escapeHtml(e.name)}</div>
             <div class="creature-modal-meta dim">
               <span class="pill pill-tier">Nivel ${e.tier}</span>
-              <span class="pill">${categoryLabel(e.category)}</span>
+              <span class="pill">${categoryLabel(e.category, e)}</span>
               ${canTame ? `<span class="pill pill-tameable">Domable</span>` : ''}
             </div>
           </div>
@@ -768,7 +768,9 @@
     return `<span class="creature-chip-mini">${A.Utils.escapeHtml(s)}</span>`;
   }
 
-  function categoryLabel(c) {
+  function categoryLabel(c, e) {
+    const sid = e && (e.enemyId || e.id);
+    if (e && (e.miniBoss || (sid && (A.Data.getById('enemies', sid) || {}).miniBoss))) return 'Mini jefe'; // v3.11.1
     return ({ weak: 'Débil', normal: 'Normal', strong: 'Fuerte', boss: 'Jefe' })[c] || c;
   }
 
@@ -793,7 +795,7 @@
               <span class="creature-list-info">
                 <span class="creature-list-name">${known ? A.Utils.escapeHtml(e.name) : '???'}</span>
                 <span class="creature-list-meta dim">
-                  Nivel ${e.tier}${known ? ` · ${categoryLabel(e.category)}${e.tameable ? ' · domable' : ''}${tl ? ` · ${tl.toLowerCase()}` : ''}` : ' · todavía no la viste'}
+                  Nivel ${e.tier}${known ? ` · ${categoryLabel(e.category, e)}${e.tameable ? ' · domable' : ''}${tl ? ` · ${tl.toLowerCase()}` : ''}` : ' · todavía no la viste'}
                 </span>
               </span>
               ${known && A.ItemSprites && A.ItemSprites.dcBadge ? A.ItemSprites.dcBadge(e.difficulty != null ? e.difficulty : 10, { size: 30 }) : ''}

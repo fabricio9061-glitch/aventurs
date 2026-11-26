@@ -562,6 +562,7 @@
     const catBadge = (e.submerged ? '<span class="cb-badge is-submerged" title="Está bajo el agua: no le podés pegar hasta cortar sus tentáculos">Bajo el agua</span>' : '')
       + (e.elite ? `<span class="cb-badge is-elite" title="Criatura de élite (nivel ${e.tier}): más vida, más daño y mejor botín">${esc(e.eliteTitle || 'Élite')}</span>`
       : cat === 'boss' ? '<span class="cb-badge is-cat-boss">Jefe</span>'
+      : e.miniBoss ? '<span class="cb-badge is-cat-mini" title="Mini jefe: más vida y mejor botín, y da más experiencia">Mini jefe</span>'
       : cat === 'strong' ? '<span class="cb-badge is-cat-strong">Fuerte</span>' : '');
     const shownName = e.elite && e.baseName ? `${e.baseName}${e.label ? ` ${e.label}` : ''}` : e.displayName;
     const skills = A.Skills ? A.Skills.listFor(e).map((sk) => sk.name).join(', ') : '';

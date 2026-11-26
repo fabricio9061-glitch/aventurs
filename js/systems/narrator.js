@@ -16,7 +16,7 @@
   const cap = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
   const fill = (tpl, v) => tpl.replace(/\{(\w+)\}/g, (_, k) => (v[k] != null ? v[k] : ''));
 
-  // ---------- Artículos (la araña, el lobo, Brightwing) ----------
+  // ---------- Artículos (la araña, el lobo, Alafeliz) ----------
   const FEM = new Set([
     'kitsune', // v3.7
     'kyubi', // v3.8
@@ -24,6 +24,7 @@
     'driade', 'salamandra', 'medusa', 'naga', 'manticora', 'serp_marina', 'aparicion', 'quimera', 'hidra', 'tarrasca',
     // v2.5: las que se sumaron después ("la bruja", no "el bruja")
     'bruja', 'hada_traviesa', 'polilla_onirica', 'noble_vampira', 'momia', 'bestia_sangre', 'pesadilla',
+    'brightwing', // v3.11.1: Alafeliz
   ]);
   const PROPER = new Set(['brightwing', 'alamuerte']);
   // v3.0: femeninas que empiezan con "a" tónica llevan "el"/"un" (el hada, un hada), pero siguen siendo "la" de pronombre

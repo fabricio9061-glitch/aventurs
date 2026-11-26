@@ -126,6 +126,42 @@
   });
 
   // ---------------------------------------------------------------
+  // 2b) v3.11.1: Alafeliz (antes "Brightwing"), la mini jefa del Sueño Esmeralda.
+  //     Ya no vive en el Desierto: se asoma al Bosque de los Sueños, sola y de vez en cuando.
+  //     Medido (1 contra 1, orco/humano/gnomo): con 43 de vida se le ganaba siempre;
+  //     con esto, a su nivel 75/66/69% y con dos niveles más, 99-100%.
+  // ---------------------------------------------------------------
+  const alafeliz = byId(S.enemies, 'brightwing');
+  if (alafeliz) {
+    Object.assign(alafeliz, {
+      name: 'Alafeliz', miniBoss: true, category: 'strong', tier: 6,
+      family: ['dragon', 'fey', 'flying'], tags: ['magic', 'flying'], biome: ['dream'],
+      regions: ['bosque_suenos'],
+      health: 110, damage: '2d8+4', attack: 6, difficulty: 15, armor: 2, speed: 15,
+      skills: ['vuelo', 'ilusion', 'polvo_sueno', 'hechizo', 'curarse'],
+      spawn: { min: 1, max: 1, weight: 0.35, groupable: false },
+      tameable: false, autoLoot: false,
+      description: 'Una dragona feérica del Sueño Esmeralda: chiquita, risueña y traviesa. Cuando la vas a tocar se vuelve humo, te duerme con su polvo de hada y se cura si la apurás. De vez en cuando se asoma al Bosque de los Sueños.',
+    });
+    // mini jefa: el doble de monedas que una criatura fuerte y mejor botín
+    const coin = B.Economy.coinDrop(alafeliz);
+    alafeliz.drops = [Object.assign({}, coin, { qtyMin: coin.qtyMin * 2, qtyMax: coin.qtyMax * 2 })]
+      .concat((alafeliz.drops || []).filter((d) => d.itemId !== 'coin_copper'));
+    drop('brightwing', 'polvo_hada', 0.8);
+    drop('brightwing', 'mat_esencia', 0.5);
+    drop('brightwing', 'mat_escama_dragon', 0.35);
+  }
+  // en el Desierto, en su lugar, el escorpión gigante
+  creature({
+    id: 'escorpion_gigante', name: 'Escorpión gigante', category: 'normal', tier: 6, prof: { hp: 1.0, dmg: 1.0 },
+    family: ['beast', 'insect'], tags: ['poison'], biome: ['desert'], speed: 10,
+    base: 'escorpion', colors: { b: '#6a4420', c: '#b07a3a', e: '#ff5030' },
+    skills: ['venenoso', 'picadura', 'agarre'], regions: ['desierto'],
+    mats: [['mat_veneno', 0.5], ['mat_caparazon', 0.3]],
+    description: 'Del tamaño de un perro grande. Se entierra en la arena y sale cuando pasás por arriba.',
+  });
+
+  // ---------------------------------------------------------------
   // 3) Los jefes de siempre: más fuertes y con mecánica propia
   // ---------------------------------------------------------------
   const kyubi = byId(S.enemies, 'kyubi');
@@ -206,7 +242,7 @@
     description: 'Una caverna de roca fundida. Las placas de metal de Alamuerte brillan en la oscuridad como brasas.' });
   lair({ id: 'remolino_kraken', name: 'Remolino del Kraken', boss: 'kraken', parents: ['abismo_marino'], biome: 'abyss', pos: { x: 1112, y: 828 }, labelAt: 'r',
     description: 'Un remolino que no para nunca. Abajo, en el ojo del agua, algo con ocho brazos espera.' });
-  lair({ id: 'altar_cthulhu', name: 'Altar de Cthulhu', boss: 'cthulhu', parents: ['abismo_marino'], biome: 'abyss', pos: { x: 975, y: 838 }, labelAt: 'l',
+  lair({ id: 'altar_cthulhu', name: 'Altar de Cthulhu', boss: 'cthulhu', parents: ['abismo_marino'], biome: 'abyss', pos: { x: 1095, y: 752 }, labelAt: 'r', // v3.11.1: más arriba (abajo no entraba el nombre)
     description: "Una piedra negra en el fondo del mar, con dibujos que duelen de mirar. Los profundos rezan acá.",
     altar: { name: 'Altar de Cthulhu', items: [['idolo_rlyeh', 1], ['mat_perla', 3]], text: "Cthulhu duerme en R'lyeh. Para llamarlo, poné el Ídolo de R'lyeh y tres perlas en el altar." } });
   lair({ id: 'monte_titan', name: 'Monte del Titán', boss: 'titan', parents: ['picos_helados'], biome: 'mountain', pos: { x: 605, y: 30 }, labelAt: 'l',

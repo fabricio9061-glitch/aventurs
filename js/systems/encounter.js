@@ -217,7 +217,7 @@
   function maybeElite(group) {
     const EL = A.Balance && A.Balance.ELITE;
     if (!EL || !Array.isArray(group) || !group.length) return group;
-    const pool = group.filter((e) => e.category !== 'boss');
+    const pool = group.filter((e) => e.category !== 'boss' && !e.miniBoss); // v3.11.1: los mini jefes ya son únicos
     if (!pool.length) return group;
     const chance = group.length > 1 ? EL.chanceGroup : EL.chanceSolo;
     if (Math.random() >= chance) return group;
@@ -437,6 +437,7 @@
       skills: (enemyData.skills || []).slice(), // v2.5: pasivas y activas de la especie
       // v3.11: el dibujo propio (las criaturas nuevas copian el de otra con otros colores; antes en combate se perdía)
       ...(enemyData.sprite && typeof enemyData.sprite === 'object' ? { sprite: { ...enemyData.sprite } } : {}),
+      ...(enemyData.miniBoss ? { miniBoss: true } : {}), // v3.11.1: mini jefe (Alafeliz)
       effects: [],
       equippedWeapon: null,
       equippedArmor: null,

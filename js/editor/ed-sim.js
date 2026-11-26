@@ -240,6 +240,7 @@
     if (calib) return calib;
     const byCat = {};
     for (const e of (A.Seed && A.Seed.enemies) || A.Data.enemies) {
+      if (e.miniBoss) continue; // v3.11.1: la mini jefa (Alafeliz) no cuenta como "fuerte" común
       const r = fight([e], Math.max(1, Math.min(A.Progression ? A.Progression.MAX_LEVEL : 20, e.tier || 1)), 120);
       const k = e.category || 'normal';
       (byCat[k] = byCat[k] || { win: [], cost: [] });

@@ -2681,7 +2681,7 @@
       ? defeated.slice().sort((a, b) => (a._copy ? 1 : 0) - (b._copy ? 1 : 0)).slice(0, c.baseCount || defeated.length)
       : defeated;
     // v2.5: la élite da más; lo invocado, la mitad de XP y nada de botín
-    const xpMult = (e) => (e.elite ? EL.xp : 1) * (e.summoned ? 0.5 : 1) * (e.shiny ? 2 : 1); // v3.9: la brillante, el doble
+    const xpMult = (e) => (e.elite ? EL.xp : 1) * (e.summoned ? 0.5 : 1) * (e.shiny ? 2 : 1) * (e.miniBoss ? 2.5 : 1); // v3.9: la brillante, el doble · v3.11.1: mini jefe ×2,5
     let totalXp = 0;
     // v3.0: la experiencia depende también de la diferencia de nivel (ver Progression.levelGapMult)
     for (const e of pool) totalXp += Math.round(A.Progression.xpForEnemy(e) * xpMult(e) * (A.Progression.levelGapMult ? A.Progression.levelGapMult(p.level, e.tier) : 1));
