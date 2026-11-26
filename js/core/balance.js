@@ -408,14 +408,32 @@
     // v3.9: el vínculo con tu mascota (despierta y comida)
     const bond = A.Tame && A.Tame.ownerBond ? A.Tame.ownerBond(p) : { precision: 0, defense: 0, armor: 0, damage: 0, speed: 0, spell: 0 };
     const weaponPrec = weapon && weapon.precision ? weapon.precision : 0;
+    // v3.20: lo que mejoró el herrero (+1 a +5) y la comida especial de la posada
+    const O = A.Oficios;
+    const fg = O ? O.gearBonus(p) : { damage: 0, precision: 0, armor: 0, defense: 0 };
+    const ml = O ? O.mealBonus(p) : { damage: 0, precision: 0, armor: 0, defense: 0 };
+    const ex = { damage: fg.damage + ml.damage, precision: fg.precision + ml.precision, armor: fg.armor + ml.armor, defense: fg.defense + ml.defense };
+    // v3.20: cuánto sube o baja cada número por algo de afuera (equipo, comida, pociones, mascota, hambre, estados, peso)
+    const accN = (k) => acc(k) + (bm[k] || 0) + (bond[k] || 0);
+    const mods = {
+      precision: (fit.atk || 0) + weaponPrec + accN('precision') + ex.precision - fx.attackPenalty,
+      damage: (fit.dmg || 0) + accN('damage') + ex.damage - pen('damage') - (fx.damagePenalty || 0),
+      defense: accN('defense') + ex.defense - pen('dodge') - fx.defensePenalty,
+      armor: accN('armor') + ex.armor - (fx.armorPenalty || 0),
+      speed: accN('speed') - w.penalty - pen('speed'),
+      spell: (fit.spell || 0) + (bond.spell || 0),
+    };
     return {
       fit,
-      attack: (p.stats.precision || 0) + fit.atk + weaponPrec + acc('precision') + bm.precision - fx.attackPenalty + (A.Passives && A.Passives.precisionBonus ? A.Passives.precisionBonus(p) : 0) + (bond.precision || 0),
-      defense: 8 + (p.stats.dodge || 0) + (armor && armor.dodge ? armor.dodge : 0) + acc('defense') + bm.defense - pen('dodge') - fx.defensePenalty + (bond.defense || 0),
+      mods,
+      forge: fg,
+      meal: ml,
+      attack: (p.stats.precision || 0) + fit.atk + weaponPrec + acc('precision') + bm.precision - fx.attackPenalty + (A.Passives && A.Passives.precisionBonus ? A.Passives.precisionBonus(p) : 0) + (bond.precision || 0) + ex.precision,
+      defense: 8 + (p.stats.dodge || 0) + (armor && armor.dodge ? armor.dodge : 0) + acc('defense') + bm.defense - pen('dodge') - fx.defensePenalty + (bond.defense || 0) + ex.defense,
       // v2.5: el ácido de las criaturas te baja la armadura
-      armor: Math.max(0, (p.stats.armor || 0) + (armor ? armor.defense || 0 : 0) + acc('armor') + bm.armor + (A.Passives && A.Passives.armorBonus ? A.Passives.armorBonus(p) : 0) - (fx.armorPenalty || 0) + (bond.armor || 0)),
+      armor: Math.max(0, (p.stats.armor || 0) + (armor ? armor.defense || 0 : 0) + acc('armor') + bm.armor + (A.Passives && A.Passives.armorBonus ? A.Passives.armorBonus(p) : 0) - (fx.armorPenalty || 0) + (bond.armor || 0) + ex.armor),
       // v1.9.2: + Furia del orco (v3.3: con tres cuartos de la vida o menos) · v2.0: + maestría del guerrero · v2.5: - miedo
-      damageBonus: (p.stats.damage || 0) - pen('damage') + fit.dmg + acc('damage') + bm.damage + (A.Passives ? A.Passives.damageBonus(p) : 0) - (fx.damagePenalty || 0) + (bond.damage || 0),
+      damageBonus: (p.stats.damage || 0) - pen('damage') + fit.dmg + acc('damage') + bm.damage + (A.Passives ? A.Passives.damageBonus(p) : 0) - (fx.damagePenalty || 0) + (bond.damage || 0) + ex.damage,
       // El peso solo frena si pasa de 4 (una daga y ropa no pesan nada)
       speed: Math.max(1, (p.stats.speed || 10) - w.penalty + acc('speed') + bm.speed - pen('speed') + (bond.speed || 0)),
       weight: w.total,

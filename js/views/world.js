@@ -146,7 +146,8 @@
     mainEl.innerHTML = `
       <section class="world2">
         ${bgFight ? `<div class="world-bgfight">${icon('swords', 18)}<span>Tus compañeros siguen peleando sin vos. Cuando terminen, cada uno sigue por su cuenta.</span><button class="btn-ghost btn-sm" data-watch-fight>Ver la pelea</button></div>` : ''}
-        <header class="region2 ${isSafeRegion ? 'is-safe' : 'is-danger'} biome-${esc(region.biome)}">
+        <header class="region2 ${isSafeRegion ? 'is-safe' : 'is-danger'} biome-${esc(region.biome)} ${night ? 'is-night' : 'is-day'}">
+          ${A.Scenes ? A.Scenes.html(region) : ''}
           ${A.UI && A.UI.voiceToggle ? `<span class="region2-voice">${A.UI.voiceToggle(20)}</span>` : ''}
           <div class="region2-art">${A.UI ? A.UI.biomeIcon(region, 72) : ''}</div>
           <div class="region2-info">
@@ -325,6 +326,7 @@
                 <span class="quest3-text">
                   <span class="quest3-title">${esc(q.title)}</span>
                   <span class="quest3-obj">${esc(obj)}</span>
+                  ${(() => { const m = /^(\d+)\/(\d+)$/.exec(count || ''); return m ? `<span class="quest3-bar"><span style="width:${Math.min(100, Math.round((+m[1] / Math.max(1, +m[2])) * 100))}%"></span></span>` : ready ? '<span class="quest3-bar is-done"><span style="width:100%"></span></span>' : ''; })()}
                 </span>
                 <span class="quest3-side">
                   ${here ? '<span class="quest3-here">Acá</span>' : ''}
@@ -775,23 +777,26 @@
 
   function npcCard(n) {
     const marker = A.Quests ? A.Quests.markerFor(n.id) : null;
+    // v3.20.1: lo que ofrece cada uno, en chapitas con dibujo
     const offers = [];
-    if ((n.sells || []).length) offers.push('Comercia');
+    if ((n.sells || []).length) offers.push(['shop', 'Comercia']);
     // v3.3: los talleres de cada uno (forja, encantamiento, alquimia)
     const ws = Array.isArray(n.crafts) ? n.crafts : (n.role === 'blacksmith' ? ['forge', 'enchant'] : []);
-    if (ws.includes('forge')) offers.push('Forja');
-    else if (ws.includes('enchant')) offers.push('Encantamientos');
-    if (ws.includes('alchemy')) offers.push('Alquimia');
-    if ((n.teaches || []).length) offers.push('Enseña magia');
-    if (n.services && n.services.restCost != null) offers.push('Posada');
-    if (A.Quests && A.Quests.list().some((q) => q.giver === n.id)) offers.push('Encargos');
+    if (ws.includes('forge')) offers.push(['anvil', 'Forja']);
+    else if (ws.includes('enchant')) offers.push(['arcane', 'Encanta']);
+    if (n.role === 'blacksmith' && A.Oficios) offers.push(['up', 'Mejora']);
+    if (ws.includes('alchemy')) offers.push(['potion', 'Alquimia']);
+    if ((n.teaches || []).length) offers.push(['book', 'Enseña magia']);
+    if (n.services && n.services.restCost != null) { offers.push(['tent', 'Posada']); if (A.Oficios) offers.push(['map', 'Carruaje']); }
+    if (A.Oficios && (n.role === 'merchant' || n.role === 'noble')) offers.push(['star', 'Lucirse']);
+    if (A.Quests && A.Quests.list().some((q) => q.giver === n.id)) offers.push(['quest', 'Encargos']);
     return `
-      <button class="npc2-card ${marker ? 'has-quest' : ''}" data-npc="${esc(n.id)}">
+      <button class="npc2-card ${marker ? 'has-quest' : ''}" data-npc="${esc(n.id)}" title="${esc(`${n.name}: ${offers.map((o) => o[1]).join(', ')}`)}">
         ${A.UI ? A.UI.portrait(n, 56, marker) : ''}
         <span class="npc2-card-info">
           <span class="npc2-card-name">${esc(n.name)}</span>
           <span class="npc2-card-role">${esc(n.roleName || roleLabel(n.role))}</span>
-          ${offers.length ? `<span class="npc2-card-offers">${esc(offers.join(' · '))}</span>` : ''}
+          ${offers.length ? `<span class="npc2-card-offers">${offers.slice(0, offers.length > 3 ? 2 : 3).map(([ic, t]) => `<span class="npc-off">${icon(ic, 13)}<span>${esc(t)}</span></span>`).join('')}${offers.length > 3 ? `<span class="npc-off is-more">+${offers.length - 2}</span>` : ''}</span>` : ''}
         </span>
       </button>
     `;

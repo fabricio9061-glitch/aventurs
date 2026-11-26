@@ -1,0 +1,142 @@
+/* ============================================================
+   Aventurs — Oficios (v3.20): herrero, comidas, carruaje y lucirse
+   ============================================================ */
+
+/* ---------- Marcos del retrato ---------- */
+.lk-bronce { --lk: #b87333; --lk2: #e8a878; }
+.lk-plata { --lk: #b8c2ca; --lk2: #ffffff; }
+.lk-esmeralda { --lk: #2f9a5a; --lk2: #8ff0b0; }
+.lk-zafiro { --lk: #2f6fc6; --lk2: #9cc8ff; }
+.lk-rubi { --lk: #c22a3a; --lk2: #ff9aa4; }
+.lk-amatista { --lk: #8a4ac0; --lk2: #e0b0ff; }
+.lk-obsidiana { --lk: #3a2a48; --lk2: #a080d0; }
+.lk-estelar { --lk: #5ab8f0; --lk2: #ffffff; }
+
+.sb-head .sb-portrait[class*="lk-"],
+.of-frame-art[class*="lk-"],
+.sb-mate-face[class*="lk-"] {
+  border-color: var(--lk);
+  box-shadow: 0 0 0 2px rgba(20, 14, 8, 0.8), 0 0 0 3px var(--lk2), 0 0 12px color-mix(in srgb, var(--lk) 60%, transparent), inset 0 -6px 12px rgba(0, 0, 0, 0.45);
+}
+.sb-mate-face[class*="lk-"] { border: 2px solid var(--lk); box-shadow: 0 0 6px color-mix(in srgb, var(--lk) 70%, transparent); }
+.sb-head .sb-portrait.lk-estelar, .of-frame-art.lk-estelar { animation: lk-star 3s ease-in-out infinite; }
+@keyframes lk-star {
+  0%, 100% { box-shadow: 0 0 0 2px rgba(20, 14, 8, 0.8), 0 0 0 3px #fff, 0 0 10px #5ab8f0; }
+  50% { box-shadow: 0 0 0 2px rgba(20, 14, 8, 0.8), 0 0 0 3px #ffe9a3, 0 0 20px #b88aff; }
+}
+
+/* El título debajo del nombre */
+.sb-cos-title {
+  margin-top: -1px;
+  font-family: var(--font-display);
+  font-size: 11.5px;
+  font-style: italic;
+  color: #f2d27a;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* El +N del herrero en el equipo */
+.sb-eq-plus {
+  position: absolute;
+  left: -4px;
+  top: -7px;
+  padding: 0 4px;
+  border-radius: 6px;
+  background: linear-gradient(180deg, #ffe9a3, #e0a63a);
+  border: 1px solid #8a5a10;
+  color: #3a2206;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1.4;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+}
+.sb-eq.is-forged { box-shadow: inset 0 1px 0 #fff, 0 2px 0 rgba(140, 105, 50, 0.25), 0 0 0 1px rgba(224, 166, 58, 0.45); }
+
+/* ---------- Pestañas nuevas del habitante ---------- */
+.of-wrap { display: flex; flex-direction: column; gap: 10px; }
+.of-intro { margin: 0; font-size: 13.5px; line-height: 1.45; color: #5a4630; }
+.of-note { margin: 0; font-size: 12.5px; color: #6b5434; }
+.of-note.is-warn { color: #9a3a1a; font-weight: 700; }
+.of-sub { margin: 6px 0 0; font-family: var(--font-display); font-size: 14px; letter-spacing: 0.06em; color: #6b4a1e; }
+.of-sub small { display: block; font-family: var(--font); font-size: 11.5px; letter-spacing: 0; color: #8a744c; font-weight: 500; }
+.of-have { font-size: 11px; font-weight: 700; color: #6b8a2a; text-transform: uppercase; letter-spacing: 0.04em; }
+.btn-mini.is-on { background: #efe1bf; }
+
+/* Herrero */
+.of-forge {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid #c9a24a;
+  background: linear-gradient(180deg, #fffaf0, #f3e4c2);
+  box-shadow: inset 0 1px 0 #fff, 0 3px 8px rgba(60, 40, 15, 0.15);
+}
+.of-forge.is-empty { display: block; border-style: dashed; background: rgba(255, 250, 240, 0.5); box-shadow: none; }
+.of-forge.is-empty p { margin: 2px 0 0; font-size: 12.5px; color: #8a744c; }
+.of-forge.is-max { border-color: #e0a63a; box-shadow: inset 0 1px 0 #fff, 0 0 14px rgba(224, 166, 58, 0.45); }
+.of-forge-art {
+  position: relative;
+  width: 64px;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 60%, #6a5032, #231910 72%);
+  border: 2px solid #c9a24a;
+}
+.of-forge-art .px-item { width: 44px; height: 44px; }
+.of-plus { position: absolute; right: -6px; bottom: -4px; padding: 0 6px; border-radius: 8px; background: linear-gradient(180deg, #ffe9a3, #e0a63a); border: 1px solid #8a5a10; color: #3a2206; font-size: 13px; line-height: 18px; }
+.of-forge-info { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.of-forge-name { font-family: var(--font-display); font-size: 16px; font-weight: 800; color: #3a2610; }
+.of-forge-name b { color: #b8761a; }
+.of-pips { display: flex; gap: 4px; }
+.of-pips i { width: 14px; height: 6px; border-radius: 3px; background: rgba(90, 60, 25, 0.18); box-shadow: inset 0 1px 2px rgba(60, 40, 15, 0.3); }
+.of-pips i.is-on { background: linear-gradient(180deg, #ffe9a3, #e0a63a); box-shadow: 0 0 5px rgba(224, 166, 58, 0.6); }
+.of-forge-now, .of-forge-next { font-size: 12.5px; color: #5a4630; }
+.of-forge-next { font-weight: 700; color: #3a6a1a; }
+.of-cost { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 13px; }
+.of-gems { display: inline-flex; align-items: center; gap: 3px; font-weight: 800; color: #6b4a1e; }
+.of-gems.is-short { color: #b0301a; }
+.of-gems .px-item { width: 18px; height: 18px; }
+.of-forge-btn { white-space: nowrap; }
+
+/* Lucirse: marcos */
+.of-frames { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 8px; }
+.of-frame {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 6px 8px;
+  border-radius: 12px;
+  border: 1px solid #d2b984;
+  background: linear-gradient(180deg, #fffdf6, #f6ead0);
+  text-align: center;
+}
+.of-frame.is-on { border-color: #c9a24a; box-shadow: 0 0 0 2px rgba(201, 162, 74, 0.4); }
+.of-frame-art {
+  width: 56px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  overflow: hidden;
+  background: radial-gradient(circle at 50% 62%, #6a5032, #231910 72%);
+  border: 2px solid #c9a24a;
+}
+.of-frame-name { font-size: 12px; font-weight: 700; color: #3a2610; }
+.of-frame .inn-buy { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.inn-row.is-on { border-color: #c9a24a; box-shadow: 0 0 0 2px rgba(201, 162, 74, 0.35); }
+
+@media (prefers-reduced-motion: reduce) {
+  .sb-head .sb-portrait.lk-estelar, .of-frame-art.lk-estelar { animation: none; }
+}
+.of-forge-wait { font-size: 12.5px; font-weight: 700; color: #9a5a1a; }

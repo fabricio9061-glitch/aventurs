@@ -66,6 +66,12 @@
     if (ws.includes('forge') || ws.includes('enchant')) tabs.push({ id: 'craft', label: ws.includes('forge') ? 'Forjar' : 'Encantar', icon: ws.includes('forge') ? 'anvil' : 'arcane' });
     if (ws.includes('alchemy')) tabs.push({ id: 'alchemy', label: 'Alquimia', icon: 'potion' });
     if (npc.services && npc.services.restCost != null) tabs.push({ id: 'inn', label: 'Posada', icon: 'tent' });
+    // v3.20: en qué gastar la plata
+    if (A.Oficios) {
+      if (npc.role === 'blacksmith') tabs.push({ id: 'upgrade', label: 'Mejorar', icon: 'up' });
+      if (npc.services && npc.services.restCost != null) tabs.push({ id: 'coach', label: 'Carruaje', icon: 'map' });
+      if (npc.role === 'merchant' || npc.role === 'noble') tabs.push({ id: 'style', label: 'Lucirse', icon: 'star' });
+    }
     return tabs;
   }
 
@@ -696,8 +702,98 @@
       <div class="inn2">
         ${row('tent', 'Una cama hasta mañana', 'Recuperás toda la vida y el maná, y comés algo antes de dormir.', cost, 'data-inn="sleep"', A.Currency.canPay(cost), tired ? 'Dormir' : 'Dormir igual')}
         ${row('food', 'Un plato caliente', `+${INN_FOOD} de comida y +${Math.max(1, Math.round((p.maxHp || 1) * INN_HEAL))} de vida. No pasa el tiempo.`, eatCost, `data-inn="eat" data-cost="${eatCost}"`, A.Currency.canPay(eatCost) && (hungry || p.hp < p.maxHp), hungry || p.hp < p.maxHp ? 'Comer' : 'Lleno')}
+        ${A.Oficios ? `
+          <h4 class="of-sub">Comidas de la casa <small>Llenan la panza y te ayudan un día entero. Una por vez.</small></h4>
+          ${(() => { const cur = A.Oficios.mealOf(p); return cur ? `<p class="of-note">Ahora tenés <b>${U().esc(cur.name)}</b> en la panza: ${A.Oficios.modsText(cur.mods)}.</p>` : ''; })()}
+          ${A.Oficios.MEALS.map((m) => { const pr = A.Oficios.mealPrice(npc, m); return row('food', U().esc(m.name), `${U().esc(m.desc)} <b>${A.Oficios.modsText(m.mods)}</b> por un día, y la comida llena.`, pr, `data-meal="${m.id}"`, A.Currency.canPay(pr), 'Pedir'); }).join('')}` : ''}
       </div>
     `;
+  }
+
+  // ============================================================
+  // v3.20: Mejorar (herrero), Carruaje (posada) y Lucirse (mercader)
+  // ============================================================
+
+  function renderUpgrade() {
+    const p = player();
+    const O = A.Oficios;
+    const card = (slot) => {
+      const u = O.nextUpgrade(p, slot);
+      if (!u.item) return `<div class="of-forge is-empty"><span class="of-forge-name">${slot === 'weapon' ? 'Arma' : 'Armadura'}</span><p>${U().esc(u.why)}</p></div>`;
+      const lvl = u.lvl || 0;
+      const pips = Array.from({ length: O.MAX }, (_, i) => `<i class="${i < lvl ? 'is-on' : ''}"></i>`).join('');
+      return `
+        <div class="of-forge ${u.max ? 'is-max' : ''}">
+          <span class="of-forge-art">${A.ItemSprites ? A.ItemSprites.html(u.item.id, { size: 48 }) : ''}${lvl ? `<b class="of-plus">+${lvl}</b>` : ''}</span>
+          <div class="of-forge-info">
+            <span class="of-forge-name">${U().esc(u.item.name)}${lvl ? ` <b>+${lvl}</b>` : ''}</span>
+            <span class="of-pips" title="${lvl} de ${O.MAX}">${pips}</span>
+            <span class="of-forge-now">${lvl ? `Hoy suma ${O.bonusText(slot, lvl)}.` : 'Sin mejorar.'}</span>
+            ${u.max ? '<span class="of-forge-next">Está al máximo.</span>' : u.capped ? `<span class="of-forge-wait">${U().esc(u.why)}</span>` : `
+              <span class="of-forge-next">En +${u.next}: ${O.bonusText(slot, u.next)}.</span>
+              <span class="of-cost">${U().price(u.coins, 14)}<span class="of-gems ${u.have < u.gems ? 'is-short' : ''}">${A.ItemSprites ? A.ItemSprites.html(O.GEM, { size: 18 }) : ''}${u.have}/${u.gems}</span></span>`}
+          </div>
+          ${u.max || u.capped ? '' : `<button class="btn-mini of-forge-btn" data-upgrade="${slot}" ${u.ok ? '' : 'disabled'} title="${U().esc(u.why || 'Mejorar')}">Mejorar a +${u.next}</button>`}
+        </div>`;
+    };
+    return `
+      <div class="of-wrap">
+        <p class="of-intro">Mejoro lo que tenés puesto, de +1 a +5 (más alto cuanto más nivel tengas: +1 desde el nivel 5, +2 desde el 9, +3 desde el 13, +4 desde el 17 y +5 desde el 21). Cada vez pido más monedas y más Gemas de temple (las vendo yo; a veces las dejan las criaturas élite y los jefes). La mejora queda en esa pieza aunque la guardes.</p>
+        ${card('weapon')}
+        ${card('armor')}
+        <p class="of-note">Tenés ${O.gemsHave(p)} ${O.gemsHave(p) === 1 ? 'Gema de temple' : 'Gemas de temple'}.</p>
+      </div>`;
+  }
+
+  function renderCoach() {
+    const O = A.Oficios;
+    const trips = O.coachTrips();
+    const blocked = O.coachBlocked();
+    if (!trips.length) return '<div class="of-wrap"><p class="of-intro">El carruaje solo va a pueblos que ya conocés. Cuando descubras otro, vas a poder venir y volver sin pelear en el camino.</p></div>';
+    return `
+      <div class="of-wrap">
+        <p class="of-intro">Te llevo a cualquier pueblo que ya conozcas, sin peleas en el camino. Pasa el tiempo, pero llegás entero.${A.Party && A.Party.combatHeroes && A.Party.combatHeroes() ? ' Pagás vos y viajan todos.' : ''}</p>
+        ${blocked ? `<p class="of-note is-warn">${U().esc(blocked)}</p>` : ''}
+        ${trips.map((t) => `
+          <div class="inn-row of-trip ${A.Currency.canPay(t.price) && !blocked ? '' : 'is-off'}">
+            <span class="inn-icon">${U().icon('map', 36)}</span>
+            <span class="inn-info"><span class="inn-name">${U().esc(t.region.name)}</span><span class="inn-desc">${t.hops === 1 ? 'Al lado' : `${t.hops} tramos de camino`} · llegás en ${t.time >= 10 ? 'medio día' : 'un rato'}</span></span>
+            <span class="inn-buy">${U().price(t.price, 14)}<button class="btn-mini" data-coach="${t.region.id}" ${A.Currency.canPay(t.price) && !blocked ? '' : 'disabled'}>Viajar</button></span>
+          </div>`).join('')}
+      </div>`;
+  }
+
+  function renderStyle() {
+    const p = player();
+    const O = A.Oficios;
+    const look = O.lookOf(p);
+    const btn = (kind, def) => {
+      const has = O.owned(p, kind, def.id);
+      const on = has && ((kind === 'frames' && look.frame && look.frame.id === def.id) || (kind === 'titles' && look.title && look.title.id === def.id));
+      const locked = !has && def.minLevel && (p.level || 1) < def.minLevel;
+      const can = has || (!locked && A.Currency.canPay(def.price));
+      const label = on ? 'Sacar' : has ? 'Ponerme' : 'Comprar';
+      return `<span class="inn-buy">${has ? '<span class="of-have">Tuyo</span>' : locked ? `<span class="of-have">Nivel ${def.minLevel}</span>` : U().price(def.price, 14)}<button class="btn-mini ${on ? 'is-on' : ''}" data-wear="${kind}:${def.id}" ${can ? '' : 'disabled'}>${label}</button></span>`;
+    };
+    return `
+      <div class="of-wrap">
+        <p class="of-intro">No te hacen más fuerte: son para que se note quién sos. Tu compañero de grupo también los ve.</p>
+        <h4 class="of-sub">Marcos para tu retrato</h4>
+        <div class="of-frames">
+          ${O.FRAMES.map((f) => `
+            <div class="of-frame ${look.frame && look.frame.id === f.id ? 'is-on' : ''}">
+              <span class="of-frame-art lk-${f.id}">${A.Sprites ? A.Sprites.heroFor(p, { size: 40 }) : ''}</span>
+              <span class="of-frame-name">${U().esc(f.name)}</span>
+              ${btn('frames', f)}
+            </div>`).join('')}
+        </div>
+        <h4 class="of-sub">Títulos <small>Van debajo de tu nombre.</small></h4>
+        ${O.TITLES.map((t) => `
+          <div class="inn-row ${look.title && look.title.id === t.id ? 'is-on' : ''}">
+            <span class="inn-info"><span class="inn-name">${U().esc(p.name)}, <i>${U().esc(t.text)}</i></span></span>
+            ${btn('titles', t)}
+          </div>`).join('')}
+      </div>`;
   }
 
   // ============================================================
@@ -737,6 +833,9 @@
     else if (tab === 'craft') body = renderCraft(npc, 'craft', payload);
     else if (tab === 'alchemy') body = renderCraft(npc, 'alchemy', payload);
     else if (tab === 'inn') body = renderInn(npc);
+    else if (tab === 'upgrade') body = renderUpgrade(npc);
+    else if (tab === 'coach') body = renderCoach(npc);
+    else if (tab === 'style') body = renderStyle(npc);
 
     const newsHtml = news.map((n) => {
       const q = A.Quests.get(n.id);
@@ -830,6 +929,25 @@
         A.State.addChronicle({ type: 'rest', text: `Comiste un plato caliente en lo de ${npc.name}.` });
         reopen(cur, { tab: 'inn' });
       }
+    }));
+    // v3.20
+    const toast = (msg, tone) => { if (A.Views.Party && A.Views.Party.toast) A.Views.Party.toast(msg, tone); };
+    overlay.querySelectorAll('[data-upgrade]').forEach((b) => b.addEventListener('click', () => {
+      const r = A.Oficios.upgrade(b.dataset.upgrade);
+      if (r.ok) { toast(`${r.item.name} quedó en +${r.level}.`, 'good'); reopen(cur, { tab: 'upgrade', justForged: b.dataset.upgrade }); } else toast(r.error, 'bad');
+    }));
+    overlay.querySelectorAll('[data-meal]').forEach((b) => b.addEventListener('click', () => {
+      const r = A.Oficios.eat(npc.id, b.dataset.meal);
+      if (r.ok) reopen(cur, { tab: 'inn' }); else toast(r.error, 'bad');
+    }));
+    overlay.querySelectorAll('[data-coach]').forEach((b) => b.addEventListener('click', () => {
+      const r = A.Oficios.takeCoach(b.dataset.coach);
+      if (r.ok) { A.State.closeModal(); toast(`Llegaste en carruaje a ${r.region.name}.`, 'good'); } else toast(r.error, 'bad');
+    }));
+    overlay.querySelectorAll('[data-wear]').forEach((b) => b.addEventListener('click', () => {
+      const [kind, id] = b.dataset.wear.split(':');
+      const r = A.Oficios.wear(kind, id);
+      if (r.ok) reopen(cur, { tab: 'style' }); else toast(r.error, 'bad');
     }));
     overlay.querySelectorAll('[data-quest-accept]').forEach((b) => b.addEventListener('click', () => {
       if (A.Quests.accept(b.dataset.questAccept)) reopen(cur, { tab: 'talk' });

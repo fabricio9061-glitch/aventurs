@@ -2,6 +2,58 @@
 
 La más nueva arriba. Cómo correr el juego y cómo está armado: [README.md](README.md).
 
+## Versión 3.20.2: cada lugar con su paisaje (`js/views/escenas.js`)
+
+- **La cabecera de cada lugar tiene una silueta al fondo** según el tipo de zona: casas con ventanas en los pueblos, pinos en el bosque, robles en el santuario, tumbas y un árbol seco en el cementerio, arcos en las catacumbas, picos nevados en la montaña, un faro y un barco en la costa, torres en la Torre del Mago, castillo en Velmora, dunas y una pirámide en el desierto, columnas rotas en las ruinas, estalactitas en las cuevas, el volcán con lava, púas y llamas en el infierno, nubes e islas en el cielo, un planeta y estrellas en el espacio...
+- Cada lugar sale un poco distinto aunque sea del mismo tipo.
+- **De noche se prenden las luces:** las ventanas, los faroles, la lava y los cristales brillan más.
+- La silueta se va apagando hacia la izquierda para que el texto se lea bien.
+
+## Versión 3.20.1: la pantalla del pueblo, más linda (`css/pueblo.css`)
+
+- **La cabecera del lugar** tiene un marco dorado finito, el dibujo en un medallón que brilla (de noche, con luz azulada) y una línea dorada debajo del nombre.
+- **Descansar, Viajar y Explorar:** el dibujo en un medallón con borde dorado y una flechita a la derecha que se mueve al pasar el mouse.
+- **Habitantes:** el retrato en un medallón redondo y lo que ofrece cada uno en chapitas con dibujo (Comercia, Forja, Mejora, Alquimia, Posada, Carruaje, Lucirse, Encargos). Si son muchas, muestra dos y "+N"; al pasar el mouse, la lista entera.
+- **Misiones:** cada una con una barrita de avance (por ejemplo 1/3) y el título entero.
+
+## Versión 3.20.0: en qué gastar la plata (`js/systems/oficios.js`, `css/oficios.css`)
+
+**Los dos tienen que actualizar:** cambió la versión del grupo (16), porque el equipo mejorado cuenta en la pelea.
+
+### Herrero: mejorar el arma y la armadura (pestaña "Mejorar")
+- Los herreros (Druss en el Puerto, Grimbold en Piedrahonda y Brunhild en el Bastión) mejoran lo que tenés puesto, de +1 a +5.
+- **Es caro a propósito:** cada nivel pide monedas (cada vez más, según lo que vale la pieza: llegar a +5 sale unas 15 veces su precio) y **Gemas de temple** (1, 2, 3, 4 y 5: quince en total).
+- **La Gema de temple** la venden los herreros (1 plata 50) y a veces la dejan las criaturas élite (12%) y los jefes (35%).
+- **Cada + da un punto:** el arma suma precisión en +1, +3 y +4 y daño en +2 y +5; la armadura, defensa y armadura igual.
+- **Según tu nivel:** +1 desde el nivel 5, +2 desde el 9, +3 desde el 13, +4 desde el 17 y +5 desde el 21. Así no se rompe el equilibrio al principio, que es cuando un punto pesa más.
+- La mejora queda en esa pieza aunque la guardes. En el equipo de la barra se ve el "+N" en la esquina.
+
+### Posada: comidas de la casa
+- Además del plato caliente, cada posada tiene cuatro comidas: **Guiso del cazador** (+1 de daño), **Sopa espesa** (+1 de armadura), **Pastel de miel** (+1 de precisión) y el **Banquete de la casa** (las tres juntas, mucho más caro).
+- Llenan la comida y duran un día entero del juego. Una por vez: la nueva reemplaza a la anterior.
+
+### Carruaje (pestaña en cada posada)
+- Te lleva a cualquier pueblo que ya conozcas, sin peleas en el camino. Pasa el tiempo pero llegás entero.
+- El precio depende de cuán lejos queda y de lo peligrosa que es la zona.
+- En grupo lo toma el anfitrión, paga él y viajan todos.
+
+### Lucirse (pestaña en los mercaderes)
+- **Marcos para tu retrato:** bronce, plata, esmeralda, zafiro, rubí, amatista, obsidiana y estelar (este último brilla, desde el nivel 15).
+- **Títulos** que van debajo de tu nombre: "de los Caminos", "Sin Miedo", "Corazón de Hierro"... hasta "Leyenda Viva" (nivel 18).
+- No te hacen más fuerte. Tu compañero de grupo ve tu marco.
+
+### Barra de la derecha
+- **Los números que suben se ven en verde y los que bajan, en rojo** (con una flechita). Al pasar el mouse dice cuánto y por qué (equipo, herrero, comida, el peso...).
+- Se fue el cartel "Arma de mago: +2 de poder mágico..." (ahora es la Magia en verde). Solo queda el aviso cuando el arma no te sirve.
+- Se fue la barrita de abajo para moverse de costado, y el título de la mochila se lee entero.
+
+### Medido (equilibrio, hordas y jefes)
+- Simulé a cada raza con el arma y la armadura en lo máximo que deja su nivel (`node tools/equilibrio.js --mejora=tope`; también `--mejora=3` o `--mejora=5`).
+- **Equilibrio:** nv1 y nv3 no cambian (todavía no se puede mejorar nada). nv6 +2 a +3 puntos, nv10 +4 a +6, nv15 a nv25 entre +2 y +7. La distancia entre clases sigue en meta (incluso bajó) y no aparece ninguna falla nueva.
+- **Hordas:** entre +5 y +15 puntos en las peleas difíciles de nivel 10 en adelante.
+- **Jefes:** es donde más se nota: con todo mejorado, los jefes de nivel 9 a 25 se ganan entre 10 y 30 puntos más seguido. Es el premio por gastar tanto.
+- Antes de poner el tope por nivel, con +3 y +5 desde el nivel 1 las rachas al nivel 1 y 3 subían 30 a 40 puntos: por eso el tope y por eso cada + da un solo punto.
+
 ## Versión 3.19.7: tu personaje, con el estilo de la mascota
 
 - **El retrato va en un medallón redondo** con el nivel abajo ("Nv 9"), igual que la mascota.

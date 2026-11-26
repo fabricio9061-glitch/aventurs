@@ -187,6 +187,15 @@
           addLog(c, 'loot', { text: 'Hubo botín pero no entró en la mochila.' });
         }
       }
+      // v3.20: Gema de temple (para el herrero): las élite y los jefes, a veces
+      const temple = enemyData.category === 'boss' ? 0.35 : inst.elite ? 0.12 : 0;
+      if (temple > 0 && Math.random() < temple && A.Data.getById('items', 'gema_temple')) {
+        if (A.State.addItem('gema_temple', 1)) {
+          const item = A.Data.getById('items', 'gema_temple');
+          if (!aggregated.gema_temple) aggregated.gema_temple = { item, qty: 0 };
+          aggregated.gema_temple.qty += 1;
+        }
+      }
     }
     // v3.9: la rata y el loro encuentran monedas de más
     const bondCoins = A.Tame && A.Tame.ownerBond ? A.Tame.ownerBond(State().player).coins : 0;

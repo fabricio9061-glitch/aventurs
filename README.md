@@ -25,7 +25,9 @@ aventurs/
 │   ├── pantalla.css        La barra de la derecha compacta, para ver la mochila sin bajar (v3.17)
 │   ├── pelea.css           La pantalla de pelea: cintas, habilidades, turnos con caritas y crónica (v3.18)
 │   ├── viaje.css           La pantalla de viaje ordenada: escenario y bitácora del mismo alto (v3.18.2)
-│   └── pelea2.css          Pelea más limpia: crónica por turnos y efectos nuevos (v3.19)
+│   ├── pelea2.css          Pelea más limpia: crónica por turnos y efectos nuevos (v3.19)
+│   ├── oficios.css         Herrero, comidas, carruaje y cosas para lucirse (v3.20)
+│   └── pueblo.css          La pantalla del lugar con el estilo de las tarjetas nuevas (v3.20.1)
 ├── js/
 │   ├── core/               utils, bus (pub/sub), balance (TODAS las fórmulas), sprites e item-sprites
 │   │                       (pixel art), data (carga los seeds + cambios del editor), accounts,
@@ -53,12 +55,13 @@ aventurs/
 │   │   ├── combat-final.js     victoria, derrota, botín, registro y la API (A.Combat)
 │   │   ├── tactics.js          cuán lista es cada criatura (a quién ataca, cuándo huye)
 │   │   ├── skills.js           habilidades de las criaturas
+│   │   ├── oficios.js          en qué gastar la plata: herrero +1 a +5, comidas, carruaje, lucirse (v3.20)
 │   │   └── ...                 encounter, travel, tame, inventory, crafting, npc, explore,
 │   │                           quests, accessories, itemfx, spellbook, schools, bestiary...
 │   ├── net/                link.js (conexión con código) y party.js (el grupo)
 │   ├── vendor/             peerjs.min.js (PeerJS 1.5.5, licencia MIT)
 │   ├── editor/             Editor del mundo
-│   ├── views/              Las pantallas (combat-fx.js: el dado y los efectos de la pelea)
+│   ├── views/              Las pantallas (combat-fx.js: el dado y los efectos de la pelea; escenas.js: la silueta de cada lugar)
 │   └── app.js              Arranque
 └── tools/
     ├── simulador.js        Simulador de balance (Node, no se carga en el juego)

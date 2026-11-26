@@ -20,6 +20,8 @@ const path = require('path');
 const vm = require('vm');
 
 const ROOT = path.join(__dirname, '..');
+const MEJORA_ARG = (process.argv.find((a) => a.startsWith('--mejora=')) || '').split('=')[1];
+const MEJORA = MEJORA_ARG === 'tope' ? 'tope' : Number(MEJORA_ARG) || 0;
 
 // Orden de carga = mismo orden que index.html (sin vistas ni DOM)
 function scriptList() {
@@ -133,6 +135,14 @@ function newCharacter(G, raceId, opts = {}) {
   if (opts.gear !== false) gearForLevel(G, p);
   if (opts.weapon !== undefined) p.equipment.weapon = opts.weapon;
   if (opts.armor !== undefined) p.equipment.armor = opts.armor;
+  // v3.20: --mejora=N simula el arma y la armadura mejoradas por el herrero (+1 a +5)
+  // --mejora=tope: lo máximo que el herrero deja con ese nivel
+  const mej = (opts.mejora != null ? opts.mejora : MEJORA) === 'tope' ? Math.max(0, Math.min(5, Math.floor(((p.level || 1) - 1) / 4))) : Number(opts.mejora != null ? opts.mejora : MEJORA) || 0;
+  if (mej > 0) {
+    p.forge = {};
+    if (p.equipment.weapon) p.forge[p.equipment.weapon] = mej;
+    if (p.equipment.armor) p.forge[p.equipment.armor] = mej;
+  }
   if (opts.noItems) {
     p.inventory = p.inventory.filter((s) => s.itemId.startsWith('coin_'));
   }

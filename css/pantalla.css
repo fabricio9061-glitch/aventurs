@@ -570,3 +570,20 @@
   .sb-head .sb-vital.is-xp .sb-vital-track > span::after, .pet-card .sb-pv.is-xp .pc-xp-track > span::after { animation: none; }
 }
 .sb-title { white-space: nowrap; }
+
+/* v3.20: números que suben en verde y que bajan en rojo; la barra sin scroll de costado */
+.sb-stat { position: relative; }
+.sb .sb-stat.is-up .sb-stat-val { color: #2f7a1a; }
+.sb .sb-stat.is-down .sb-stat-val { color: #b0301a; }
+.sb-stat.is-up { border-color: #8fbf6a; background: linear-gradient(180deg, #fbfff4, #eaf3d8); }
+.sb-stat.is-down { border-color: #d89a88; background: linear-gradient(180deg, #fffaf6, #f8e2d8); }
+.sb-stat.is-up::after, .sb-stat.is-down::after { position: absolute; top: 2px; right: 5px; font-size: 9px; line-height: 1; }
+.sb-stat.is-up::after { content: "▲"; color: #4a9a2a; }
+.sb-stat.is-down::after { content: "▼"; color: #c0402a; }
+.sb-body { overflow-x: hidden; }
+.sb-title { min-width: 0; }
+.sb-title > span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.sb-title .sb-wallet { flex: none; }
+.sb-title { letter-spacing: 0.09em; gap: 6px; }
+.sb-title::after { min-width: 0; }
+.sb-title > span:first-child { overflow: visible; text-overflow: clip; }

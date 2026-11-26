@@ -30,7 +30,7 @@
 (function (A) {
   'use strict';
 
-  const VERSION = 15;       // si cambian los mensajes o las reglas, sube y avisa "actualicen los dos" (v3.2: 4 · v3.3: 5 · v3.4: 6 · v3.8: 7 · v3.9: 8 · v3.10: 9 · v3.11: 10 · v3.11.1: 11 · v3.12: 12 · v3.13: 13 · v3.14: 14 · v3.15: 15)
+  const VERSION = 16;       // si cambian los mensajes o las reglas, sube y avisa "actualicen los dos" (v3.2: 4 · v3.3: 5 · v3.4: 6 · v3.8: 7 · v3.9: 8 · v3.10: 9 · v3.11: 10 · v3.11.1: 11 · v3.12: 12 · v3.13: 13 · v3.14: 14 · v3.15: 15 · v3.20: 16)
   const MAX_MEMBERS = 4;     // v3.2: hasta cuatro jugadores
   const SNAP_MS = 50;       // juntar cambios antes de mandar la foto
   const HERO_MS = 150;      // juntar cambios del invitado antes de mandarlos
@@ -136,6 +136,7 @@
       mana: h.mana, maxMana: h.maxMana, hasMagic: !!h.hasMagic,
       food: h.food, maxFood: h.maxFood,
       weapon: h.equipment ? h.equipment.weapon : null,
+      look: h.look ? { frame: h.look.frame || null, title: h.look.title || null } : null, // v3.20: marco y título
       pet,
       regionId: A.State.world ? A.State.world.regionId : null,
       // v3.1: para verlo en el mapa en medio de un viaje

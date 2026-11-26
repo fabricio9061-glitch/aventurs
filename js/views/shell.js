@@ -46,7 +46,7 @@
           <div class="shell-brand">
             <span class="brand-icon">${A.UI ? A.UI.icon('swords', 26) : ''}</span>
             <span class="brand-name">Aventurs</span>
-            <span class="version-pill" title="Versión del juego">v3.19.7</span>
+            <span class="version-pill" title="Versión del juego">v3.20.2</span>
           </div>
           ${tabs.length > 1 ? `
             <nav class="shell-nav">
@@ -164,8 +164,11 @@
           </div>`;
   }
 
-  function statChip(iconName, label, value, title, down) {
-    return `<div class="sb-stat ${down ? 'is-down' : ''}" title="${escH(title || label)}">${ic(iconName, 18)}<span class="sb-stat-val num">${escH(value)}</span><span class="sb-stat-label">${escH(label)}</span></div>`;
+  /** v3.20: mod > 0, el número está subido (verde); mod < 0, bajado (rojo). */
+  function statChip(iconName, label, value, title, mod, why) {
+    const n = Number(mod) || 0;
+    const tip = `${title || label}${n ? `. Ahora ${n > 0 ? 'sube' : 'baja'} ${n > 0 ? '+' : ''}${n}${why ? ` (${why})` : ''}.` : ''}`;
+    return `<div class="sb-stat ${n < 0 ? 'is-down' : n > 0 ? 'is-up' : ''}" title="${escH(tip)}">${ic(iconName, 18)}<span class="sb-stat-val num">${escH(value)}</span><span class="sb-stat-label">${escH(label)}</span></div>`;
   }
 
   /** v3.1: lo que suma cada estadística al explorar (Fuerza, Agilidad...). */
@@ -242,6 +245,7 @@
 
     // v3.19.4: en pantallas anchas la mascota y el grupo van en una columna a la izquierda
     const partyHtml = A.Views.Party && A.Views.Party.sidebar ? A.Views.Party.sidebar() : (A.Views.Party ? A.Views.Party.allyCard() : '');
+    const look = A.Oficios ? A.Oficios.lookOf(p) : { frame: null, title: null }; // v3.20: marco y título
     const leftHtml = `${partyHtml || ''}${p.pet ? renderPetSidebar(p.pet) : ''}`;
     const useLeft = !!leftHtml.trim() && leftWide();
     leftShown = useLeft;
@@ -254,9 +258,10 @@
     sidebarEl.innerHTML = `
       <div class="sb ${compact ? 'is-party' : ''}">
         <header class="sb-head sb-type-${type}">
-          <div class="sb-portrait">${A.Sprites ? A.Sprites.heroFor(p, { size: 52 }) : ''}<span class="sb-level" title="Nivel ${p.level}"><small>Nv</small>${p.level}</span></div>
+          <div class="sb-portrait ${look.frame ? `lk-${look.frame.id}` : ''}" ${look.frame ? `title="${escH(look.frame.name)}"` : ''}>${A.Sprites ? A.Sprites.heroFor(p, { size: 52 }) : ''}<span class="sb-level" title="Nivel ${p.level}"><small>Nv</small>${p.level}</span></div>
           <div class="sb-id">
             <div class="sb-name">${escH(p.name)}</div>
+            ${look.title ? `<div class="sb-cos-title">${escH(look.title.text)}</div>` : ''}
             <div class="sb-sub">${escH(race ? race.name : '')} · ${TYPE_NAME[type] || ''}</div>
             ${passiveLine(p)}
           </div>
@@ -283,12 +288,12 @@
           <section class="sb-sec">
             <h3 class="sb-title"><span>Tus números</span><button class="sb-title-link" data-action="rules" title="Qué es cada número">${ic('question', 12)}<span>¿Qué es cada uno?</span></button></h3>
             <div class="sb-stats">
-              ${st ? statChip('target', 'Precisión', `${st.attack >= 0 ? '+' : ''}${st.attack}`, 'Precisión: se suma al dado de 20 cuando atacás') : ''}
-              ${statChip('swords', 'Daño', formatDamageDisplay(weapon, p.stats.damage), 'Daño: la vida que le sacás al enemigo cuando acertás (tu arma más tus bonus)')}
-              ${st ? statChip('d20', 'Defensa', st.defense, 'Defensa: lo que un enemigo tiene que sacar (dado de 20 más su precisión) para pegarte') : ''}
-              ${statChip('shield', 'Armadura', st ? st.armor : (p.stats.armor || 0), 'Armadura: se resta a cada golpe que recibís')}
-              ${statChip('boot', 'Velocidad', st ? st.speed : p.stats.speed, speedTitle(p, st), st && st.weightPenalty > 0)}
-              ${p.hasMagic && st ? statChip('arcane', 'Magia', `+${st.spellPower || 0}`, 'Magia: se suma al daño de tus hechizos') : ''}
+              ${st ? statChip('target', 'Precisión', `${st.attack >= 0 ? '+' : ''}${st.attack}`, 'Precisión: se suma al dado de 20 cuando atacás', st.mods && st.mods.precision, modWhy(st, 'precision')) : ''}
+              ${statChip('swords', 'Daño', formatDamageDisplay(weapon, p.stats.damage), 'Daño: la vida que le sacás al enemigo cuando acertás (tu arma más tus bonus)', st && st.mods && st.mods.damage, st && modWhy(st, 'damage'))}
+              ${st ? statChip('d20', 'Defensa', st.defense, 'Defensa: lo que un enemigo tiene que sacar (dado de 20 más su precisión) para pegarte', st.mods && st.mods.defense, modWhy(st, 'defense')) : ''}
+              ${statChip('shield', 'Armadura', st ? st.armor : (p.stats.armor || 0), 'Armadura: se resta a cada golpe que recibís', st && st.mods && st.mods.armor, st && modWhy(st, 'armor'))}
+              ${statChip('boot', 'Velocidad', st ? st.speed : p.stats.speed, speedTitle(p, st), st && st.mods ? st.mods.speed : 0, st && modWhy(st, 'speed'))}
+              ${p.hasMagic && st ? statChip('arcane', 'Magia', `+${st.spellPower || 0}`, 'Magia: se suma al daño de tus hechizos', st.mods && st.mods.spell, modWhy(st, 'spell')) : ''}
             </div>
           </section>
           ${classNote(p, weapon)}
@@ -386,9 +391,12 @@
       const extra = A.ItemFx.weaponSpecialLines ? A.ItemFx.weaponSpecialLines(equipped) : [];
       if (extra.length) tip = `${tip || stat}. ${extra.join('. ')}`;
     }
+    // v3.20: lo que mejoró el herrero
+    const forged = A.Oficios && (slotName === 'weapon' || slotName === 'armor') ? A.Oficios.levelOf(A.State.player, equipped.id) : 0;
+    if (forged) tip = `${tip ? tip + '. ' : ''}Mejorada a +${forged}: ${A.Oficios.bonusText(slotName, forged)}`;
     return `
-      <button class="sb-eq ${RARITY_CLS[equipped.rarity] || ''}" ${dataAttr} title="${escH(label)}: ${escH(equipped.name)}${tip ? ` (${escH(tip)})` : ''}">
-        <span class="sb-eq-sprite">${A.ItemSprites ? A.ItemSprites.html(equipped, { size: 28 }) : ''}</span>
+      <button class="sb-eq ${RARITY_CLS[equipped.rarity] || ''} ${forged ? 'is-forged' : ''}" ${dataAttr} title="${escH(label)}: ${escH(equipped.name)}${forged ? ` +${forged}` : ''}${tip ? ` (${escH(tip)})` : ''}">
+        <span class="sb-eq-sprite">${A.ItemSprites ? A.ItemSprites.html(equipped, { size: 28 }) : ''}${forged ? `<b class="sb-eq-plus">+${forged}</b>` : ''}</span>
         <span class="sb-eq-name">${escH(equipped.name)}</span>
         ${stat ? `<span class="sb-eq-stat num">${escH(stat)}</span>` : ''}
       </button>
@@ -543,11 +551,23 @@
   }
 
   /** Cómo le queda el arma a tu clase (maestría del guerrero, penalidad del mago). */
+  /** v3.20: de dónde sale lo que sube o baja un número (va en la ayuda al pasar el mouse). */
+  function modWhy(st, k) {
+    const bits = [];
+    const fit = st.fit || {};
+    if ((k === 'precision' && fit.atk) || (k === 'damage' && fit.dmg) || (k === 'spell' && fit.spell)) bits.push(fit.note.replace(/\.$/, ''));
+    if (st.forge && st.forge[k === 'spell' ? 'x' : k]) bits.push('mejorado por el herrero');
+    if (st.meal && st.meal[k === 'spell' ? 'x' : k]) bits.push('lo que comiste en la posada');
+    if (k === 'speed' && st.weightPenalty > 0) bits.push(`el peso de tu equipo: -${st.weightPenalty}`);
+    return bits.join('; ');
+  }
+
+  /** v3.20: solo avisa cuando el arma no te sirve (lo bueno ya se ve en verde en los números). */
   function classNote(p, weapon) {
     if (!A.Balance || !A.Balance.weaponFit) return '';
     const fit = A.Balance.weaponFit(p, weapon);
-    if (!fit.note) return '';
     const bad = fit.atk < 0 || fit.blocked;
+    if (!fit.note || !bad) return '';
     return `<div class="class-note ${bad ? 'is-bad' : 'is-good'}">${A.UI ? A.UI.icon(bad ? 'arrow-down' : 'arrow-up', 14) : ''}<span>${A.Utils.escapeHtml(fit.note)}</span></div>`;
   }
 

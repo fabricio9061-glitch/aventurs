@@ -312,7 +312,7 @@
     const hpP = pct(m.hp, m.maxHp);
     return `
       <button class="sb-mate ${near ? 'is-near' : 'is-apart'} ${down ? 'is-down' : ''} ${hpP < 30 && !down ? 'is-low' : ''}" data-action="party" title="${esc(`${m.name}, nivel ${m.level || 1}. Vida ${m.hp}/${m.maxHp}${m.hasMagic ? `, maná ${m.mana}/${m.maxMana}` : ''}${pet ? `. ${pet.name}: ${pet.health}/${pet.maxHealth}` : ''}. ${where}.`)}">
-        <span class="sb-mate-face">${heroSprite(m, 26)}<i class="sb-mate-lvl">${m.level || 1}</i></span>
+        <span class="sb-mate-face ${m.look && m.look.frame ? `lk-${esc(m.look.frame)}` : ''}">${heroSprite(m, 26)}<i class="sb-mate-lvl">${m.level || 1}</i></span>
         <b class="sb-mate-name">${esc(m.name)}</b>
         <span class="sb-mate-bars">
           <span class="sb-mate-bar is-hp"><span style="width:${hpP}%"></span><em class="num">${down ? 'Caído' : `${m.hp}/${m.maxHp}`}</em></span>
