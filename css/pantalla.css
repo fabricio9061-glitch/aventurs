@@ -197,3 +197,35 @@
 .sb-mate .sb-mate-pet.is-none { background: none; }
 .sb-mate .sb-mate-where { margin-left: 0; }
 .sb-mate .sb-mate-where.is-near { opacity: 1; }
+
+/* ============================================================
+   v3.19.3: mascota y grupo en una columna a la izquierda
+   [mascota · grupo]  [lo de siempre]  [tu personaje · equipo · mochila]
+   Solo en pantallas anchas (desde 1280): si no, van a la derecha como antes.
+   ============================================================ */
+.shell-leftbar { grid-area: left; min-width: 0; }
+.shell-leftbar:empty { display: none; }
+@media (min-width: 1280px) {
+  .shell-body.has-left:not(.is-combat):not(.is-map) {
+    grid-template-columns: 270px minmax(0, 1fr) var(--sidebar-w);
+    grid-template-areas: "left main sidebar";
+    max-width: min(calc(var(--container-max, 1280px) + 290px), calc(100vw - 24px));
+  }
+  .shell-leftbar { position: sticky; top: 12px; align-self: start; }
+  .shell-leftbar .sb-left { border-radius: 14px; overflow: hidden; }
+  .shell-leftbar .sb-left > .sb-body { padding-top: 8px; padding-bottom: 8px; gap: 8px; }
+  /* la mascota, angosta: los botones abajo de las barras */
+  .shell-leftbar .sb-pet { grid-template-columns: 42px minmax(0, 1fr); grid-template-rows: auto auto auto; }
+  .shell-leftbar .sb-pet .sb-pet-sprite { grid-row: 1 / span 2; }
+  .shell-leftbar .sb-pet .sb-pet-top { flex-wrap: wrap; row-gap: 3px; }
+  .shell-leftbar .sb-pet .sb-pet-vitals { grid-column: 2; grid-template-columns: minmax(0, 1fr); gap: 3px; }
+  .shell-leftbar .sb-pet .sb-pet-actions { grid-column: 1 / -1; grid-row: 3; justify-content: flex-end; }
+  /* los compañeros: la fila entera */
+  .shell-leftbar .sb-mate { grid-template-columns: 28px minmax(0, 1fr) minmax(0, 1.2fr) 24px 14px; }
+}
+/* en la pelea y en el mapa no va */
+.shell-body.is-combat .shell-leftbar,
+.shell-body.is-map .shell-leftbar { display: none; }
+@media (max-width: 1279px) {
+  .shell-leftbar { display: none; }
+}

@@ -16,6 +16,10 @@
   let rootEl = null;
   let mainEl = null;
   let sidebarEl = null;
+  let leftEl = null;
+  let leftShown = false;
+  let lastWide = null;
+  let wideHandler = null;
   let chroniclesEl = null;
   let mobStatusEl = null;
   let unsubscribers = [];
@@ -42,7 +46,7 @@
           <div class="shell-brand">
             <span class="brand-icon">${A.UI ? A.UI.icon('swords', 26) : ''}</span>
             <span class="brand-name">Aventurs</span>
-            <span class="version-pill" title="Versión del juego">v3.19.2</span>
+            <span class="version-pill" title="Versión del juego">v3.19.3</span>
           </div>
           ${tabs.length > 1 ? `
             <nav class="shell-nav">
@@ -62,6 +66,7 @@
         </header>
 
         <div class="shell-body">
+          <aside class="shell-leftbar" id="shell-leftbar"></aside>
           <main class="shell-main" id="shell-main">
             <button class="mob-status" id="mob-status" data-action="to-sidebar" aria-label="Ver tu personaje"></button>
             <aside class="shell-chronicles" id="shell-chronicles"></aside>
@@ -76,9 +81,13 @@
     mainEl = rootEl.querySelector('#shell-main-content');
     mobStatusEl = rootEl.querySelector('#mob-status');
     sidebarEl = rootEl.querySelector('#shell-sidebar');
+    leftEl = rootEl.querySelector('#shell-leftbar');
     chroniclesEl = rootEl.querySelector('#shell-chronicles');
 
     bindEvents();
+    // v3.19.3: al cruzar el ancho de la columna izquierda, se vuelve a armar la barra
+    lastWide = leftWide();
+    if (!wideHandler) { wideHandler = () => { const w = leftWide(); if (w !== lastWide) { lastWide = w; renderSidebar(); } }; window.addEventListener('resize', wideHandler); }
     renderSidebar();
     renderChroniclesPanel();
     renderActiveView();
@@ -231,6 +240,17 @@
     const foodLabel = `Comida${hunger ? ` (${hunger.label})` : ''}.${A.Survival && A.Survival.describeDiet ? ` ${A.Survival.describeDiet(p)}` : ''}`;
     const hungryTag = hunger && ['hungry', 'weak', 'starving'].includes(hunger.id);
 
+    // v3.19.3: en pantallas anchas la mascota y el grupo van en una columna a la izquierda
+    const partyHtml = A.Views.Party && A.Views.Party.sidebar ? A.Views.Party.sidebar() : (A.Views.Party ? A.Views.Party.allyCard() : '');
+    const leftHtml = `${partyHtml || ''}${p.pet ? renderPetSidebar(p.pet) : ''}`;
+    const useLeft = !!leftHtml.trim() && leftWide();
+    leftShown = useLeft;
+    if (leftEl) {
+      leftEl.innerHTML = useLeft ? `<div class="sb sb-left ${compact ? 'is-party' : ''}"><div class="sb-body">${leftHtml}</div></div>` : '';
+      const body = leftEl.parentElement;
+      if (body) body.classList.toggle('has-left', useLeft);
+    }
+
     sidebarEl.innerHTML = `
       <div class="sb ${compact ? 'is-party' : ''}">
         <header class="sb-head sb-type-${type}">
@@ -258,9 +278,7 @@
         </header>
 
         <div class="sb-body">
-          ${A.Views.Party && A.Views.Party.sidebar ? A.Views.Party.sidebar() : (A.Views.Party ? A.Views.Party.allyCard() : '')}
-
-          ${p.pet ? renderPetSidebar(p.pet) : ''}
+          ${useLeft ? '' : leftHtml}
 
           <section class="sb-sec">
             <h3 class="sb-title"><span>Tus números</span><button class="sb-title-link" data-action="rules" title="Qué es cada número">${ic('question', 12)}<span>¿Qué es cada uno?</span></button></h3>
@@ -563,7 +581,13 @@
     `;
   }
 
+  /** v3.19.3: la columna de la izquierda solo cuando hay lugar (si no, la mascota y el grupo van a la derecha, como antes). */
+  function leftWide() { return window.innerWidth >= 1280; }
   function bindSidebarEvents() {
+    bindSideIn(sidebarEl);
+    if (leftEl && leftEl.firstElementChild) bindSideIn(leftEl);
+  }
+  function bindSideIn(sidebarEl) {
     sidebarEl.querySelectorAll('[data-action]').forEach((btn) => {
       btn.addEventListener('click', () => handleAction(btn.dataset.action));
     });

@@ -2,6 +2,12 @@
 
 La más nueva arriba. Cómo correr el juego y cómo está armado: [README.md](README.md).
 
+## Versión 3.19.3: mascota y grupo a la izquierda (`css/pantalla.css`)
+
+- En pantallas anchas (desde 1280 de ancho), **la mascota y tu grupo van en una columna a la izquierda**. En el centro queda lo de siempre y a la derecha tu personaje, tus números, el equipo y la mochila, que ahora tiene más lugar.
+- Si no tenés mascota ni grupo, la columna no aparece.
+- En la pelea y en el mapa la columna no se muestra. En pantallas angostas todo sigue a la derecha como antes.
+
 ## Versión 3.19.2: la crónica se esconde a la derecha
 
 - En la pelea, **la crónica arranca escondida** y la arena y los botones usan todo el ancho (las criaturas se ven más grandes).
