@@ -30,7 +30,7 @@
 (function (A) {
   'use strict';
 
-  const VERSION = 10;       // si cambian los mensajes o las reglas, sube y avisa "actualicen los dos" (v3.2: 4 · v3.3: 5 · v3.4: 6 · v3.8: 7 · v3.9: 8 · v3.10: 9 · v3.11: 10)
+  const VERSION = 11;       // si cambian los mensajes o las reglas, sube y avisa "actualicen los dos" (v3.2: 4 · v3.3: 5 · v3.4: 6 · v3.8: 7 · v3.9: 8 · v3.10: 9 · v3.11: 10 · v3.11.1: 11)
   const MAX_MEMBERS = 4;     // v3.2: hasta cuatro jugadores
   const SNAP_MS = 50;       // juntar cambios antes de mandar la foto
   const HERO_MS = 150;      // juntar cambios del invitado antes de mandarlos
@@ -581,6 +581,8 @@
     'Inventory.drop': (o, ...a) => ORIG['Inventory.drop'](...a),
     'Tame.feed': (o, ...a) => ORIG['Tame.feed'](...a),
     'Tame.healWithPotion': (o, ...a) => ORIG['Tame.healWithPotion'](...a),
+    // v3.11.1: votar qué hacer con lo que apareció en el camino (con el héroe del invitado)
+    'Travel.decide': (o, choice, opts) => ORIG['Travel.decide'](choice, opts || {}),
     // v3.9: cualquiera del grupo puede avanzar en el camino
     'Travel.step': () => {
       const t = A.State.traveling;
@@ -1178,6 +1180,14 @@
         rpc(name, [{}]);
         return { ok: true, pending: true };
       }
+      // v3.11.1: lo que aparece en el camino lo votan todos (el voto lo cuenta el anfitrión)
+      if (name === 'Travel.decide' && A.State.traveling && !A.State.traveling.completed) {
+        rpc(name, [{}].concat(args), (res) => {
+          const r = res && res.result;
+          if (res && res.ok !== false && r && r.ok === false && r.error) toast(r.error, 'bad'); // (si falló el pedido, ya avisa rpcres)
+        });
+        return { ok: true, pending: true };
+      }
       return { ok: false, error: `En grupo, el que elige a dónde ir es ${hostName()}. Para ir por tu cuenta, tocá "Separarse" (en el mapa o en el grupo).`, separable: true };
     }
     if (!P.together) return PASS;
@@ -1237,7 +1247,7 @@
   function installWrappers() {
     ['playerAttack', 'playerPowerAttack', 'playerTechnique', 'playerSpell', 'playerUseItem', 'playerTame', 'playerFlee', 'setTarget', 'finish', 'start'].forEach((f) => wrap(A.Combat, 'Combat', f));
     ['explore', 'choose', 'proceed', 'rest'].forEach((f) => wrap(A.Explore, 'Explore', f));
-    ['start', 'step', 'cancel'].forEach((f) => wrap(A.Travel, 'Travel', f));
+    ['start', 'step', 'cancel', 'decide'].forEach((f) => wrap(A.Travel, 'Travel', f)); // v3.11.1: decide (votar en el camino)
     ['equip', 'unequip', 'use', 'drop'].forEach((f) => wrap(A.Inventory, 'Inventory', f));
     ['feed', 'healWithPotion'].forEach((f) => wrap(A.Tame, 'Tame', f));
     // El anfitrión: lo que corre con el héroe del invitado lo marca para mandárselo

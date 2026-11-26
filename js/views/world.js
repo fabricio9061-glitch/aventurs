@@ -73,6 +73,7 @@
 
   // ---------- v2.0: el resultado de la última acción (descansar) ----------
   let lastNote = null;
+  let roadForceTimer = null; // v3.11.1
   let spokenRegion = null; // v3.3: el último lugar que contó el narrador
 
   /** v3.3: el narrador lee los avisos (lo que pasó al descansar, por ejemplo). */
@@ -441,9 +442,10 @@
     scheduleAutoStep();
   }
 
-  /** v3.0: el invitado ve el viaje, pero lo maneja el anfitrión. */
+  /** v3.0: el invitado ve el viaje, pero lo maneja el anfitrión. v3.11.1: lo que aparece lo deciden todos. */
   function renderFollowStage(t, lastEvent, pending) {
     const host = esc(A.Party.hostName());
+    if (pending && lastEvent && lastEvent.kind === 'creature') return renderEncounter(lastEvent);
     const card = lastEvent ? renderStageEvent(lastEvent) : `
         <div class="travel-stage-empty">
           <div class="travel-stage-icon">${icon('compass', 48)}</div>
@@ -453,7 +455,7 @@
     return `
       <div class="travel-stage-content">${card}</div>
       <div class="travel-actions-v2 is-follow">
-        <p class="travel-follow-note">${icon('party', 18)}<span>${pending ? `${host} decide qué hacer con lo que apareció en el camino.` : `Viajan juntos: cualquiera puede avanzar. Si aparece una criatura, pelean juntos.`}</span></p>
+        <p class="travel-follow-note">${icon('party', 18)}<span>${pending ? 'Esperando a que se resuelva lo que apareció en el camino.' : `Viajan juntos: cualquiera puede avanzar. Si aparece una criatura, deciden entre todos qué hacer.`}</span></p>
         ${pending || t.completed ? '' : `<button class="btn-primary btn-travel-step" data-travel-action="step">${icon('boot', 18)}<span>Avanzar</span></button>`}
       </div>`;
   }
@@ -626,27 +628,72 @@
           : (enemy && enemy.tameable
             ? 'Te observa con curiosidad. Quizás puedas acercarte sin pelear.'
             : 'No parece dispuesto a parlamentar.')}</p>
+        ${roadVoteBar(ev)}
         <div class="encounter-actions-v2">
-          <button class="btn-primary encounter-btn-fight" data-travel-action="fight" data-enemy-id="${A.Utils.escapeHtml(ev.enemyId)}">
+          <button class="btn-primary encounter-btn-fight ${myRoadVote(ev) === 'fight' ? 'is-voted' : ''}" data-travel-action="fight" data-enemy-id="${A.Utils.escapeHtml(ev.enemyId)}">
             <span class="btn-icon">${icon('swords', 20)}</span>
-            <span>Pelear</span>
+            <span>Pelear</span>${roadVoteTags(ev, 'fight')}
           </button>
-          ${!isGroup && enemy && enemy.tameable && !A.State.player.pet && A.Tame && ['ok', 'missing-item'].includes(A.Tame.canTame(enemy.id).ok ? 'ok' : A.Tame.canTame(enemy.id).reason) ? `
-            <button class="btn-secondary encounter-btn-tame" data-travel-action="tame" data-enemy-id="${A.Utils.escapeHtml(ev.enemyId)}">
+          ${roadOpts(ev).includes('tame') ? `
+            <button class="btn-secondary encounter-btn-tame ${myRoadVote(ev) === 'tame' ? 'is-voted' : ''}" data-travel-action="tame" data-enemy-id="${A.Utils.escapeHtml(ev.enemyId)}">
               <span class="btn-icon">${icon('paw', 20)}</span>
-              <span>Intentar domar</span>
+              <span>${roadGroup() ? 'Domar' : 'Intentar domar'}</span>${roadVoteTags(ev, 'tame')}
             </button>
           ` : ''}
           ${(() => {
             const odds = calculateAvoidOdds(ev);
-            return `<button class="btn-ghost encounter-btn-avoid" data-travel-action="avoid" title="D20+${odds.speedBonus} contra dificultad ${odds.dc}">
+            return `<button class="btn-ghost encounter-btn-avoid ${myRoadVote(ev) === 'avoid' ? 'is-voted' : ''}" data-travel-action="avoid" title="D20+${odds.speedBonus} contra dificultad ${odds.dc}">
               <span class="btn-icon">${icon('run', 20)}</span>
-              <span>Evitar (${odds.chancePct}%)</span>
+              <span>Evitar (${odds.chancePct}%)</span>${roadVoteTags(ev, 'avoid')}
             </button>`;
           })()}
         </div>
       </div>
     `;
+  }
+
+  // ---------- v3.11.1: en grupo, lo que aparece en el camino se vota ----------
+  function roadGroup() {
+    if (guestFollows()) return true;
+    const g = A.Party && A.Party.combatHeroes ? A.Party.combatHeroes() : null;
+    return !!(g && g.length > 1);
+  }
+  function roadOpts(ev) {
+    if (A.Travel && A.Travel.roadOptions) return A.Travel.roadOptions(ev, roadGroup());
+    return ['fight', 'avoid'];
+  }
+  function myHidRoad() { return A.State.me && A.State.hidOf ? A.State.hidOf(A.State.me()) : 'me'; }
+  function myRoadVote(ev) { return roadGroup() && ev && ev.votes ? ev.votes[myHidRoad()] || null : null; }
+  function hidName(hid) {
+    const h = A.State.heroById ? A.State.heroById(hid) : null;
+    if (h && h.name) return h.name;
+    const m = A.Party && A.Party.member ? A.Party.member(hid) : null;
+    return (m && m.name) || 'Tu compañero';
+  }
+  function namesYRoad(list) { return list.length <= 1 ? list.join('') : `${list.slice(0, -1).join(', ')} y ${list[list.length - 1]}`; }
+  function roadVoteTags(ev, choice) {
+    if (!roadGroup() || !ev || !ev.votes) return '';
+    const who = Object.keys(ev.votes).filter((h) => ev.votes[h] === choice);
+    if (!who.length) return '';
+    return `<span class="scene-votes road-votes">${who.map((h) => `<span class="scene-vote ${h === myHidRoad() ? 'is-mine' : ''}">${icon('check', 12)}${esc(h === myHidRoad() ? 'Tu voto' : hidName(h))}</span>`).join('')}</span>`;
+  }
+  function roadVoteBar(ev) {
+    if (!roadGroup()) return '';
+    const me = myHidRoad();
+    const voters = Array.isArray(ev.voters) && ev.voters.length ? ev.voters
+      : (A.Party && A.Party.combatHeroes ? (A.Party.combatHeroes() || []).map((h) => A.State.hidOf(h)) : []);
+    const votes = ev.votes || {};
+    const mine = !!votes[me];
+    const waiting = voters.filter((h) => h !== me && !votes[h]);
+    const others = Object.keys(votes).filter((h) => h !== me);
+    let text = 'Decidan entre todos: cada uno vota. Si votan distinto, gana lo más votado, y si empatan decide un dado.';
+    if (mine && waiting.length) text = `Votaste ${({ fight: 'pelear', avoid: 'evitar', tame: 'domar' })[votes[me]] || ''}. Esperando a ${namesYRoad(waiting.map(hidName))}… (podés cambiar tu voto)`;
+    else if (!mine && others.length) text = `${namesYRoad(others.map(hidName))} ya ${others.length > 1 ? 'votaron' : 'votó'}. Te toca elegir.`;
+    return `
+      <div class="scene-party is-vote road-vote">
+        ${icon('party', 16)}<span>${esc(text)}</span>
+        ${mine && waiting.length ? `<button class="btn-mini scene-force is-hidden" data-travel-action="force" title="Si alguien no está, se decide con los votos que hay">Decidir sin esperar</button>` : ''}
+      </div>`;
   }
 
   /**
@@ -657,6 +704,7 @@
    *   - chancePct: probabilidad estimada de éxito
    */
   function calculateAvoidOdds(event) {
+    if (A.Travel && A.Travel.avoidOdds) return A.Travel.avoidOdds(event); // v3.11.1
     const p = A.State.player;
     if (!p) return { dc: 10, bonus: 0, chancePct: 50 };
 
@@ -837,6 +885,14 @@
       });
     });
 
+    // v3.11.1: si alguien no vota, a los 20 segundos de tu voto se puede decidir sin esperar
+    clearTimeout(roadForceTimer);
+    const forceBtn = mainEl.querySelector('[data-travel-action="force"].is-hidden');
+    if (forceBtn) {
+      const ev = A.Travel && A.Travel.pendingCreature ? A.Travel.pendingCreature() : null;
+      const at = (ev && ev.votedAt && ev.votedAt[myHidRoad()]) || Date.now();
+      roadForceTimer = setTimeout(() => forceBtn.classList.remove('is-hidden'), Math.max(0, 20000 - (Date.now() - at)));
+    }
     mainEl.querySelectorAll('[data-travel-action]').forEach((btn) => {
       btn.addEventListener('click', () => {
         // v1.7.0: cualquier acción manual cancela el timer de auto
@@ -851,6 +907,16 @@
         } else if (action === 'turn') {
           A.Travel.turnBack(); // v3.10: dar la vuelta (o seguir) a mitad de camino (re-dibuja por travel:step)
           setTimeout(scheduleAutoStep, 100);
+        } else if ((action === 'avoid' || action === 'fight' || action === 'tame' || action === 'force') && A.Travel && A.Travel.decide) {
+          // v3.11.1: lo decide Travel (en grupo se vota; solo, se hace enseguida)
+          const ev = A.Travel.pendingCreature ? A.Travel.pendingCreature() : null;
+          const choice = action === 'force' ? (ev && ev.votes && ev.votes[myHidRoad()]) : action;
+          if (!choice) return;
+          const res = A.Travel.decide(choice, action === 'force' ? { force: true } : {});
+          if (res && res.ok === false && res.error) {
+            if (A.Views && A.Views.Party && A.Views.Party.toast) A.Views.Party.toast(res.error, 'bad');
+            else { lastNote = { icon: 'warning', text: res.error }; render(); }
+          }
         } else if (action === 'avoid') {
           // v1.6.4: Evitar requiere tirada D20+speedBonus vs DC del encuentro
           const t = A.State.traveling;

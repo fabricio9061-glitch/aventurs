@@ -272,6 +272,15 @@ Explorar siempre hace pasar algo (`js/systems/explore.js` + `js/data/seed-events
 - En el celular, una franja arriba con vida, maná, comida y dinero.
 - Sin emojis en el juego (desde la v2.2, tampoco en el editor).
 
+## Versión 3.11.2: en grupo, lo que aparece en el camino lo deciden todos
+
+- Cuando aparece una criatura en el camino, **todos ven los botones** (Pelear, Evitar y Domar si pueden) y **votan**, como en las escenas: si votan lo mismo, se hace; si no, gana lo más votado, y si empatan cada uno tira un D20 y gana el más alto. Antes decidía solo el que armó el grupo.
+- Se ve quién votó qué ("Juan ya votó. Te toca elegir", "Esperando a Fabri…") y se puede cambiar el voto. Si alguien no está, a los 20 segundos aparece **"Decidir sin esperar"**.
+- **Evitar** lo intenta el que tiene más chance de los que lo votaron; si sale bien, pasan todos sin pelear. **Domar** lo intenta el que tiene más chance (en grupo solo aparece si tenés lo que pide).
+- La bitácora del viaje cuenta cómo se decidió ("Votaron distinto: Fabri sacó 9 y Juan 2. Ganó pelear").
+- Solo, todo sigue igual. La lógica vive en `js/systems/travel.js` (`Travel.decide`).
+- Versión de grupo **11**: los dos tienen que actualizar.
+
 ## Versión 3.11.1: Alafeliz y un mapa sin nombres encimados
 
 - **Alafeliz** (antes "Brightwing"): ahora es una **mini jefa** del Sueño Esmeralda. Ya no está en el Desierto: se asoma de vez en cuando al **Bosque de los Sueños**, sola y nunca como élite. Es una dragona feérica (más chica y con colores de hada) que se vuelve humo (Ilusiones), duerme con su polvo de hada, lanza magia y se cura. Más vida (110) y daño (2d8+4), el doble de monedas, más botín (polvo de hada, esencia, escamas) y 2,5 veces la experiencia. En combate y en las fichas dice **"Mini jefe"**. Medido 1 contra 1 (orco / humano / gnomo): a su nivel se le gana 75 / 66 / 69%; con dos niveles más, 99-100%.

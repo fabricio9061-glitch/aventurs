@@ -951,6 +951,198 @@
     return travelers();
   }
 
+  // ============================================================
+  // v3.11.1: lo que aparece en el camino, en grupo lo deciden todos (como las escenas).
+  //   Cada uno vota Pelear, Evitar o Domar (si puede). Si votan lo mismo, se hace; si no,
+  //   gana lo más votado, y si empatan cada uno de los empatados tira un D20 (gana el más alto).
+  //   Evitar lo intenta el que tiene más chance de los que lo votaron; domar, igual.
+  //   Solo (o el que viaja sin el grupo): como siempre, se hace enseguida.
+  // ============================================================
+
+  const ROAD_LABEL = { fight: 'pelear', avoid: 'evitar', tame: 'domar' };
+
+  /** Lo que apareció en el camino y todavía no se resolvió (o null). */
+  function pendingCreature() {
+    const t = State().traveling;
+    if (!t || t.completed || !Array.isArray(t.events)) return null;
+    const last = t.events[t.events.length - 1];
+    return last && last.kind === 'creature' && !last.resolved ? last : null;
+  }
+
+  /**
+   * v1.6.4 (antes en la vista): dificultad de evitar un encuentro para el héroe del turno.
+   * { dc, speedBonus, chancePct }: D20 + velocidad/4 contra 8-18 según el peligro.
+   */
+  function avoidOdds(event) {
+    const p = State().player;
+    if (!p) return { dc: 10, speedBonus: 0, chancePct: 50 };
+    const enemies = (event && Array.isArray(event.enemies) && event.enemies.length > 0)
+      ? event.enemies
+      : (event && event.enemyId ? [{ tier: (A.Data.getById('enemies', event.enemyId) || {}).tier || 1 }] : []);
+    const maxTier = enemies.reduce((acc, e) => Math.max(acc, e.tier || 1), 1);
+    let dc = 8 + Math.min(10, maxTier - 1);
+    if (enemies.length > 1) dc += (enemies.length - 1) * 2; // más enemigos, más difícil
+    if (A.Survival) {
+      const status = A.Survival.getStatus();
+      if (status.id === 'weak') dc += 1;
+      if (status.id === 'starving') dc += 2;
+    }
+    if (A.Time && A.Time.isNight()) dc += 1;
+    // v2.4: la velocidad real (el peso del equipo frena)
+    const speed = (A.Balance && A.Balance.playerCombatStats ? A.Balance.playerCombatStats(p).speed : (p.stats && p.stats.speed)) || 10;
+    const speedBonus = Math.floor(speed / 4);
+    const need = Math.max(1, dc - speedBonus);
+    const chancePct = Math.round((Math.max(0, Math.min(20, 21 - need)) / 20) * 100);
+    return { dc, speedBonus, chancePct };
+  }
+  function rollAvoid(event) {
+    const odds = avoidOdds(event);
+    const roll = 1 + Math.floor(Math.random() * 20);
+    const total = roll + odds.speedBonus;
+    return { roll, speedBonus: odds.speedBonus, total, dc: odds.dc, success: total >= odds.dc };
+  }
+
+  /**
+   * Lo que puede elegir el héroe del turno: pelear y evitar siempre; domar si es una sola
+   * criatura domable y no tiene mascota (en grupo, además, tiene que tener lo que se pide).
+   */
+  function roadOptions(ev, group = inGroup()) {
+    const out = ['fight', 'avoid'];
+    if (!ev || (ev.enemies || []).length > 1 || !A.Tame) return out;
+    const enemy = A.Data.getById('enemies', ev.enemyId);
+    if (!enemy || !enemy.tameable || State().player.pet) return out;
+    const c = A.Tame.canTame(enemy.id);
+    if (c.ok || (!group && c.reason === 'missing-item')) out.push('tame');
+    return out;
+  }
+
+  function heroName(hid) { const h = State().heroById ? State().heroById(hid) : null; return (h && h.name) || 'Tu compañero'; }
+  function namesY(list) { return list.length <= 1 ? list.join('') : `${list.slice(0, -1).join(', ')} y ${list[list.length - 1]}`; }
+
+  /** Elegir qué hacer con lo que apareció (en grupo: votar). opts.force: decidir con los votos que hay. */
+  function decide(choice, opts = {}) {
+    const ev = pendingCreature();
+    if (!ev) return { ok: false, error: 'No hay nada que decidir.' };
+    if (A.State.combat && !A.State.combat.result) return { ok: false, error: 'Primero terminen la pelea.' };
+    const heroes = travelers();
+    const group = heroes.length > 1;
+    if (!ROAD_LABEL[choice] || !roadOptions(ev, group).includes(choice)) return { ok: false, error: 'Eso no se puede ahora.' };
+    if (!group) return doRoad(ev, choice, State().player, '');
+    const hid = State().hidOf(State().player);
+    ev.voters = heroes.map((h) => State().hidOf(h));
+    ev.votes = Object.assign({}, ev.votes || {}, { [hid]: choice });
+    ev.votedAt = Object.assign({}, ev.votedAt || {}, { [hid]: Date.now() });
+    const all = ev.voters.every((h) => ev.votes[h]);
+    if (!all && !opts.force) {
+      State().persist();
+      A.Bus.emit('travel:step', { voted: true });
+      return { ok: true, voted: true };
+    }
+    return resolveRoad(ev, heroes);
+  }
+
+  /** Cuenta los votos y hace lo que ganó. */
+  function resolveRoad(ev, heroes) {
+    const S = State();
+    const ids = heroes.map((h) => S.hidOf(h)).filter((h) => ev.votes && ev.votes[h]);
+    if (!ids.length) return { ok: false };
+    const picks = ids.map((h) => ev.votes[h]);
+    const agreed = picks.every((x) => x === picks[0]);
+    const count = {};
+    for (const x of picks) count[x] = (count[x] || 0) + 1;
+    const top = Math.max(...Object.values(count));
+    const best = Object.keys(count).filter((k) => count[k] === top);
+    let choice = best[0];
+    let rolls = null;
+    if (best.length > 1) {
+      // empate: un D20 cada uno de los que votaron las empatadas (si empatan arriba, se vuelve a tirar)
+      const rollers = ids.filter((h) => best.includes(ev.votes[h]));
+      const d = {};
+      for (let k = 0; k < 6; k++) {
+        for (const h of rollers) d[h] = 1 + Math.floor(Math.random() * 20);
+        const hi = Math.max(...rollers.map((h) => d[h]));
+        if (rollers.filter((h) => d[h] === hi).length === 1) break;
+      }
+      const winner = rollers.slice().sort((a, b) => d[b] - d[a])[0];
+      choice = ev.votes[winner];
+      rolls = rollers.map((h) => ({ hid: h, name: heroName(h), d: d[h], choice: ev.votes[h] }));
+    }
+    // lo hace el que tiene más chance de los que lo votaron
+    const backers = ids.filter((h) => ev.votes[h] === choice).map((h) => S.heroById(h)).filter(Boolean);
+    const chanceOf = (h) => S.withHero(h, () => {
+      if (choice === 'avoid') return avoidOdds(ev).chancePct;
+      if (choice === 'tame') { const c = A.Tame.canTame(ev.enemyId); return c.ok ? c.chance : -1; }
+      return 0;
+    });
+    let actor = backers[0] || S.me();
+    for (const h of backers) if (chanceOf(h) > chanceOf(actor)) actor = h;
+    ev.vote = {
+      agreed, majority: !agreed && best.length === 1, choice, label: ROAD_LABEL[choice],
+      by: S.hidOf(actor), byName: actor.name,
+      votes: ids.map((h) => ({ hid: h, name: heroName(h), choice: ev.votes[h], label: ROAD_LABEL[ev.votes[h]] })),
+      rolls,
+    };
+    let summary;
+    if (agreed) summary = `${heroes.length === 2 ? 'Los dos' : 'Todos'} votaron ${ROAD_LABEL[choice]}.`;
+    else if (!rolls) summary = `Ganó ${ROAD_LABEL[choice]} (${count[choice]} votos contra ${ids.length - count[choice]}).`;
+    else summary = `Votaron distinto: ${namesY(rolls.map((r) => `${r.name} sacó ${r.d}`))}. Ganó ${ROAD_LABEL[choice]}.`;
+    ev.voteText = summary;
+    return doRoad(ev, choice, actor, summary);
+  }
+
+  /** Lo que se decidió: pelear, evitar o domar (actor: el que lo intenta). */
+  function doRoad(ev, choice, actor, summary) {
+    const S = State();
+    const group = inGroup();
+    const pre = summary ? `${summary} ` : '';
+    const name = ev.enemyName || 'la criatura';
+    const toAll = (text) => { for (const h of travelers()) S.withHero(h, () => S.addChronicle({ type: 'travel', text })); };
+    const fight = (ambush) => S.withHero(S.me(), () => {
+      const o = { fromTravel: true };
+      if (ambush) o.ambush = true;
+      if (Array.isArray(ev.enemies) && ev.enemies.length > 0) o.enemies = ev.enemies; else o.enemyId = ev.enemyId;
+      A.Combat.start(o);
+      return { ok: true, fight: true };
+    });
+    if (choice === 'fight') {
+      ev.resolved = true;
+      ev.text = group ? `${pre}Pelearon contra ${name}.` : `Peleaste contra ${name}.`;
+      S.persist();
+      return fight(false);
+    }
+    if (choice === 'avoid') {
+      const r = S.withHero(actor, () => rollAvoid(ev));
+      const dice = `dado ${r.roll}+${r.speedBonus} contra ${r.dc}`;
+      ev.resolved = true;
+      if (r.success) {
+        ev.text = group ? `${pre}${actor.name} los guio y pasaron sin que los vieran.` : `Esquivaste a ${name}.`;
+        if (group) toAll(`${pre}${actor.name} los guio y esquivaron a ${name} sin que los vieran (${dice}).`);
+        else S.addChronicle({ type: 'travel', text: `Esquivaste a ${name} sin que te vieran (${dice}).` });
+        S.persist();
+        S.withHero(S.me(), () => step());
+        return { ok: true, avoided: true, roll: r };
+      }
+      ev.text = group ? `${pre}Los vieron al intentar esquivar a ${name}.` : `Te detectaron al intentar evitar a ${name}.`;
+      if (group) toAll(`${pre}Quisieron esquivar a ${name} detrás de ${actor.name}, pero los vieron (${dice}). Atacan primero.`);
+      else S.addChronicle({ type: 'travel', text: `Quisiste esquivar a ${name}, pero te vieron (${dice}). Te atacan primero.` });
+      S.persist();
+      return Object.assign(fight(true), { avoided: false, roll: r });
+    }
+    if (choice === 'tame') {
+      // solo: la pantalla de domar (con su tirada); en grupo lo intenta el que tiene más chance
+      if (!group) { S.openModal('tame', { enemyId: ev.enemyId, fromTravel: true }); return { ok: true, modal: true }; }
+      const res = S.withHero(actor, () => A.Tame.attempt(ev.enemyId));
+      ev.resolved = true;
+      ev.text = res && res.success
+        ? `${pre}${actor.name} domó a ${name}: ahora es su mascota.`
+        : `${pre}${name} no se dejó domar por ${actor.name} y se fue.`;
+      S.persist();
+      S.withHero(S.me(), () => step());
+      return { ok: true, tame: res };
+    }
+    return { ok: false };
+  }
+
   /**
    * Compatibilidad con código que llamaba a Travel.travel(targetId)
    * ahora viaja con un solo step instantáneo (legacy).
@@ -975,6 +1167,8 @@
     resolveEvent,
     calculateTravelSteps,
     travel, // legacy alias
+    // v3.11.1: lo que aparece en el camino (en grupo se vota)
+    pendingCreature, roadOptions, decide, avoidOdds, rollAvoid,
     _test: { executeRegionEvent, resolveLoot, resolveBiomeLoot }, // v3.2: para las pruebas
   };
 })(window.Aventurs);
