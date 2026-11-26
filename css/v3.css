@@ -1183,7 +1183,7 @@
 .gains-list li.is-bad { color: #8d2818; }
 .craft3 .shop-side .shop-detail { max-height: none; }
 /* la ventana del objeto baja sola si es más alta que la pantalla (el botón siempre se alcanza) */
-.shop2 > .shop-side { max-height: calc(100vh - 300px); overflow-y: auto; overscroll-behavior: contain; }
+.shop2 > .shop-side { max-height: calc(100vh - 360px); overflow-y: auto; overscroll-behavior: contain; }
 @media (max-width: 900px) { .shop2 > .shop-side { position: static; max-height: none; overflow: visible; } }
 
 /* 43. v3.10: ficha de objeto ordenada (sin repetir) */
@@ -1471,3 +1471,8 @@
     radial-gradient(circle at 80% 22%, #c8c0b0 0 6%, transparent 6.5%),
     linear-gradient(180deg, #0c0a1e 0%, #1c1638 55%, #3a3644 62%, #24222c 100%);
 }
+
+/* 52. v3.14: en la alquimia, la forja y las demás pestañas con ficha al costado, la ficha
+   también baja sola si es más alta que la pantalla (antes se cortaba la parte de abajo) */
+.shop-side { max-height: calc(100vh - 360px); overflow-y: auto; overscroll-behavior: contain; }
+@media (max-width: 900px) { .shop-side { position: static; max-height: none; overflow: visible; } }

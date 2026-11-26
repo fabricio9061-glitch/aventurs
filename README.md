@@ -295,6 +295,7 @@ Los maestros del humano y del ángel se mudaron del Pueblo Inicial a la **Torre 
 ### Calamar, tentáculos, mapa y fondos
 - El "Tentáculo" del mar abierto ahora se llama **Calamar** (y ya no suelta madera ni raíces, sino tinta). Los **Tentáculos del Kraken** tienen dibujo propio: un brazo que sale del agua y se enrosca.
 - El mapa llena **todo el alto** de la pantalla (antes era una franja): arranca centrado donde estás y se arrastra para los costados.
+- En las tiendas (alquimia, forja y las demás), la ficha del costado ya no se corta abajo: si es más alta que la pantalla, baja sola y el botón siempre se ve.
 - **Fondos de pelea** según el lugar: bosque, bosque oscuro o de sangre, campo, cueva, cripta, noche, pantano, costa, abismo, montaña, desierto, ruinas, torre arcana, volcán, infierno, sueño, cielo y espacio.
 
 ### Jefes contra mascotas
