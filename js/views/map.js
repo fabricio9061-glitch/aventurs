@@ -39,7 +39,30 @@
     ASP = containerAsp();
     const h = H;
     const w = Math.min(W, h / ASP);
+    // v3.19.1: si todo lo que conocés entra, se centra en eso (no en el borde del mapa)
+    const box = knownBox();
+    if (box && box.w + 160 <= w) cx = box.cx;
     return { x: Math.max(0, Math.min(W - w, (cx == null ? W / 2 : cx) - w / 2)), y: 0, w, h };
+  }
+  /** v3.19.1: el rectángulo de las zonas que conocés. */
+  function knownBox() {
+    const pos = layout();
+    const { known } = knowledge();
+    let x0 = Infinity; let x1 = -Infinity;
+    for (const id of known) { const p = pos[id]; if (p) { x0 = Math.min(x0, p.x); x1 = Math.max(x1, p.x); } }
+    return x1 >= x0 ? { cx: (x0 + x1) / 2, w: x1 - x0 } : null;
+  }
+  let userMoved = false; // v3.19.1: si acercaste o arrastraste, al cambiar el tamaño se respeta lo tuyo
+  /** v3.19.1: la vista siempre con la misma forma que el recuadro (sin franjas oscuras arriba y abajo). */
+  function syncAspect() {
+    const svg = mainEl && mainEl.querySelector('.map2-svg');
+    if (!svg) return;
+    if (!userMoved) { const here = selectedId ? layout()[selectedId] : null; setView(tallView(here ? here.x : null)); return; }
+    const cx = view.x + view.w / 2;
+    const cy = view.y + view.h / 2;
+    ASP = containerAsp();
+    const w = view.w;
+    setView({ x: cx - w / 2, y: cy - (w * ASP) / 2, w });
   }
   let lastLabels = {}; // v3.11.1: dónde quedó cada nombre (para poner al compañero del otro lado)
   let escHandler = null;
@@ -480,15 +503,10 @@
         <path class="map-sea" d="M 0 690 C 120 660, 260 700, 380 730 S 600 660, 720 690 S 900 700, 1000 720 S 1180 700, 1280 735 S 1500 760, 1620 745 S ${W} 760, ${W} 770 L ${W} ${H} L 0 ${H} Z" fill="url(#mp-sea)"/>
         <path class="map-mist" d="M ${OLD_W + 10} 20 C ${OLD_W + 40} 200, ${OLD_W - 10} 420, ${OLD_W + 30} 640 S ${OLD_W + 20} 800, ${OLD_W + 30} ${H - 20}"/>
         <text class="map-region-title" x="${OLD_W + 270}" y="${H - 40}" text-anchor="middle">Tierras Altas</text>
+        <text class="map-region-title is-low" x="560" y="${H - 28}" text-anchor="middle">Tierras Bajas</text>
         ${realmsHtml()}
         <rect width="${W}" height="${H}" filter="url(#mp-grain)" opacity="0.9"/>
         <rect class="map-frame" x="8" y="8" width="${W - 16}" height="${H - 16}" rx="6"/>
-        <g class="map-compass" transform="translate(${HIGH_W - 65} 805)">
-          <circle r="30"/>
-          <path d="M 0 -26 L 6 0 L 0 26 L -6 0 Z" class="cp-a"/>
-          <path d="M -26 0 L 0 6 L 26 0 L 0 -6 Z" class="cp-b"/>
-          <text y="-34" text-anchor="middle">N</text>
-        </g>
         <g class="map-decor">${decorHtml}</g>
         <g class="map-roads">${roads.join('')}</g>
         <g class="map-nodes">${nodes}</g>
@@ -755,7 +773,7 @@
             <div class="map2-zoom">
               <button data-map-zoom="in" aria-label="Acercar">+</button>
               <button data-map-zoom="out" aria-label="Alejar">−</button>
-              <button data-map-zoom="fit" aria-label="Ver todo">${U().icon('compass', 18)}</button>
+              <button data-map-zoom="fit" aria-label="Ver todo" title="Ver todo">${U().icon('map', 18)}</button>
             </div>
           </div>
           <aside class="map2-info map3-side">${cardHtml()}</aside>
@@ -808,6 +826,7 @@
   }
 
   function zoomAt(factor, cx, cy) {
+    userMoved = true;
     const nw = view.w * factor;
     const nh = view.h * factor;
     setView({ x: cx - (cx - view.x) * factor, y: cy - (cy - view.y) * factor, w: nw, h: nh });
@@ -865,7 +884,7 @@
       mainEl.querySelector('[data-map-back]').addEventListener('click', closeMap);
       mainEl.querySelectorAll('[data-map-zoom]').forEach((b) => b.addEventListener('click', () => {
         const z = b.dataset.mapZoom;
-        if (z === 'fit') { const here = selectedId ? layout()[selectedId] : null; setView(tallView(here ? here.x : null)); return; }
+        if (z === 'fit') { userMoved = false; const here = selectedId ? layout()[selectedId] : null; setView(tallView(here ? here.x : null)); return; }
         zoomAt(z === 'in' ? 0.8 : 1.25, view.x + view.w / 2, view.y + view.h / 2);
       }));
     }
@@ -896,7 +915,7 @@
         const dy = e.clientY - drag.y;
         // 12px de tolerancia: un clic con la mano temblorosa sigue siendo un clic
         if (!drag.moved && Math.hypot(dx, dy) < 12) return;
-        if (!drag.moved) { drag.moved = true; try { svg.setPointerCapture(e.pointerId); } catch (err) {} }
+        if (!drag.moved) { drag.moved = true; userMoved = true; try { svg.setPointerCapture(e.pointerId); } catch (err) {} }
         const pt = svgPoint(svg, e.clientX, e.clientY);
         setView({ x: drag.vx - dx * pt.scale, y: drag.vy - dy * pt.scale, w: view.w, h: view.h });
       });
@@ -919,12 +938,14 @@
       selectedId = A.State.world ? A.State.world.regionId : null;
       // En pantallas chicas arranca acercado a donde estás
       view = { x: 0, y: 0, w: W, h: H };
+      userMoved = false;
       const narrow = (container.clientWidth || window.innerWidth) < 640;
       const here = narrow && selectedId ? layout()[selectedId] : null;
       if (here) {
         const w = 1820 * 0.62; // v3.12: el mismo acercamiento de antes (el mapa ahora es más ancho)
         const h = w * (H / W);
         view = { x: Math.max(0, Math.min(W - w, here.x - w / 2)), y: Math.max(0, Math.min(H - h, here.y - h / 2)), w, h };
+        userMoved = true;
       }
       render();
       if (!here) { // v3.14: arranca llenando el alto, centrado en donde estás
@@ -937,7 +958,10 @@
       }
       // v3.1: el compañero se mueve en el mapa; la pantalla cambia de tamaño
       if (!offParty && A.Bus) offParty = A.Bus.on('party:changed', () => { refreshSvg(); refreshCard(); });
-      if (!resizeHandler) { resizeHandler = () => fitHeight(); window.addEventListener('resize', resizeHandler); }
+      if (!resizeHandler) { resizeHandler = () => { fitHeight(); syncAspect(); }; window.addEventListener('resize', resizeHandler); }
+      // v3.19.1: cuando termina de acomodarse la pantalla, la vista toma la forma justa
+      requestAnimationFrame(() => syncAspect());
+      setTimeout(() => syncAspect(), 350);
     },
     unmount() {
       if (escHandler) { document.removeEventListener('keydown', escHandler); escHandler = null; }

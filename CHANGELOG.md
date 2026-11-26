@@ -2,6 +2,14 @@
 
 La más nueva arriba. Cómo correr el juego y cómo está armado: [README.md](README.md).
 
+## Versión 3.19.1: el mapa, centrado y a todo lo alto
+
+- El mapa **siempre llena el recuadro**: se acabaron las franjas oscuras arriba y abajo, también al agrandar o achicar la ventana (o con el zoom del navegador).
+- Arranca **centrado en lo que conocés**. Si ya conocés más de lo que entra, se centra en donde estás.
+- Si acercaste o moviste el mapa, al cambiar el tamaño de la ventana se respeta lo tuyo. El botón de abajo (el del mapita) vuelve a la vista entera.
+- La primera región tiene nombre: **Tierras Bajas** (abajo, junto al mar).
+- Se fue la brújula dibujada del rincón.
+
 ## Versión 3.19.0: la pelea más limpia, con más efectos y la crónica por turnos (`css/pelea2.css`)
 
 ### Limpieza
