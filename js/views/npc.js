@@ -21,6 +21,7 @@
     merchant: 'Mercader', shopkeeper: 'Comerciante', vendor: 'Vendedor', blacksmith: 'Herrero',
     innkeeper: 'Posadero', tavernkeeper: 'Tabernera', healer: 'Curandero', priest: 'Sacerdote',
     sage: 'Sabio', wizard: 'Mago', mage: 'Mago', quest: 'Tiene un encargo', guard: 'Guardia', captain: 'Capitana del puerto',
+    master: 'Maestro de escuela', // v3.13
   };
   const RARITY = { common: 'Común', uncommon: 'Poco común', rare: 'Raro', epic: 'Épico', legendary: 'Legendario' };
 
@@ -55,6 +56,11 @@
       tabs.push({ id: 'sell', label: 'Vender', icon: 'coins' });
     }
     if ((npc.teaches || []).length && p && p.hasMagic) tabs.push({ id: 'learn', label: 'Aprender', icon: 'book' });
+    // v3.13: los maestros de escuela (cada uno, de su raza)
+    if (A.Schools && A.Schools.isMaster(npc) && p && npc.school === p.raceId) {
+      const sc = A.Schools.of(npc.school);
+      tabs.push({ id: 'school', label: sc.kind === 'discipline' ? 'Entrenar' : 'Escuela', icon: sc.kind === 'discipline' ? 'swords' : 'book' });
+    }
     // v3.3: cada uno con su taller (los herreros, forja y encantamiento; algunos, alquimia)
     const ws = workshopsOf(npc);
     if (ws.includes('forge') || ws.includes('enchant')) tabs.push({ id: 'craft', label: ws.includes('forge') ? 'Forjar' : 'Encantar', icon: ws.includes('forge') ? 'anvil' : 'arcane' });
@@ -398,7 +404,8 @@
     const price = priceOf(npc, id);
     const canPay = A.Currency.canPay(price);
     const hasRoom = A.State.inventoryHasSpaceFor ? A.State.inventoryHasSpaceFor(id) : A.State.inventoryHasSpace();
-    const why = !canPay ? 'No te alcanza' : !hasRoom ? 'Mochila llena' : '';
+    const atCap = A.State.itemAtCap ? A.State.itemAtCap(id) : false; // v3.13: tope por objeto
+    const why = atCap ? 'Llevás el máximo' : !canPay ? 'No te alcanza' : !hasRoom ? 'Mochila llena' : '';
     return `
       <div class="shop-detail">
         ${itemPanel(id)}
@@ -407,6 +414,7 @@
           <button class="btn-primary" data-buy="${U().esc(id)}" ${why ? 'disabled' : ''}>${why || 'Comprar'}</button>
         </div>
         ${p && (p.food || 0) <= 3 && d.subtype === 'food' ? '<p class="shop-hint">Tenés hambre: la comida te viene bien.</p>' : ''}
+        ${(() => { const cap = A.State.itemCap ? A.State.itemCap(id) : 1; if (!(cap > 1)) return ''; const sl = p && p.inventory.find((s) => s.itemId === id); return `<p class="shop-hint">Podés llevar hasta ${cap}${sl ? ` (tenés ${sl.qty})` : ''}.</p>`; })()}
       </div>
     `;
   }
@@ -529,6 +537,58 @@
                 <span class="cmp-badge is-worse" title="Solo los magos pueden aprenderlo (Curación y los grandes hechizos de área)">${U().icon('lock', 12)}<span>Solo magos</span></span>` : hybridOnly ? `
                 <span class="cmp-badge is-worse" title="Solo los híbridos pueden aprenderlo">${U().icon('lock', 12)}<span>Solo híbridos</span></span>` : `
                 <span class="learn2-buy">${U().price(price, 14)}<button class="btn-mini" data-learn="${U().esc(s.id)}" ${canPay ? '' : 'disabled'}>${canPay ? 'Aprender' : 'Sin dinero'}</button></span>`}
+            </div>`;
+        }).join('')}
+      </div>
+    `;
+  }
+
+  // v3.13: la escuela de tu raza con su maestro: los tres poderes y qué te falta para cada uno
+  function renderSchool(npc) {
+    const p = player();
+    const sc = A.Schools ? A.Schools.of(npc.school) : null;
+    if (!sc || sc.race !== p.raceId) return `<p class="muted">Enseña a otra raza.</p>`;
+    const rows = A.Schools.powers(p);
+    const ic = (r) => (r.kind === 'spell' && A.ItemSprites ? A.ItemSprites.spellIcon(r.data, { size: 36 }) : U().icon(r.data.icon || 'swords', 36));
+    const trial = A.Quests ? A.Quests.get(sc.trial) : null;
+    const objTxt = trial && trial.objectives && trial.objectives[0] ? (trial.objectives[0].text || '') : '';
+    return `
+      <div class="learn2 school2">
+        <div class="school2-head">
+          <span class="school2-kind">${U().icon(sc.kind === 'discipline' ? 'swords' : 'book', 18)}<span>${sc.kind === 'discipline' ? 'Disciplina' : 'Escuela'}</span></span>
+          <b class="school2-name">${U().esc(sc.name)}</b>
+          <p class="school2-about">${U().esc(sc.about)}</p>
+        </div>
+        ${rows.map((r) => {
+          const rankTxt = r.rank === 1 ? 'De nacimiento' : `Nivel ${r.rank}`;
+          let meta = '';
+          if (r.kind === 'spell') {
+            const cost = A.Passives && A.Passives.spellCost ? A.Passives.spellCost(p, r.data) : r.data.manaCost;
+            const dice = r.data.damage ? `${A.Schools.diceOf(r.data, p)} de daño${r.data.area ? ' a todos' : ''} · ` : '';
+            meta = `${dice}${cost} de maná${r.data.cooldown ? ` · cada ${r.data.cooldown} turnos` : ''}`;
+          } else if (r.kind === 'tech') meta = `Sin maná · ocupa tu ataque · espera ${r.data.cd} turnos`;
+          else meta = 'Sin maná · una vez por pelea';
+          let action = '';
+          if (r.state === 'known') action = `<span class="cmp-badge is-eq">${U().icon('check', 12)}<span>${r.rank === 1 ? 'Lo tenés' : 'Aprendido'}</span></span>`;
+          else if (r.state === 'learn') {
+            const canPay = A.Currency.canPay(r.price);
+            action = `<span class="learn2-buy">${U().price(r.price, 14)}<button class="btn-mini" data-school-learn="${U().esc(r.id)}" ${canPay ? '' : 'disabled'}>${canPay ? 'Aprender' : 'Sin dinero'}</button></span>`;
+          } else if (r.state === 'level') action = `<span class="cmp-badge is-worse">${U().icon('lock', 12)}<span>Nivel ${r.rank}</span></span>`;
+          else if (r.state === 'trial') action = `<button class="btn-mini" data-npc2-tab="talk">Pedir la prueba</button>`;
+          else if (r.state === 'doing') action = `<span class="cmp-badge">${U().icon('hourglass', 12)}<span>Prueba en curso</span></span>`;
+          else if (r.state === 'ready') action = `<button class="btn-mini" data-npc2-tab="talk">Entregar la prueba</button>`;
+          const note = r.state === 'trial' ? `Para aprenderlo, ${npc.name} te pone una prueba: ${objTxt.toLowerCase()}.`
+            : r.state === 'doing' ? `Prueba: ${objTxt}. Después volvé acá.` : r.state === 'ready' ? '¡Cumpliste la prueba! Entregala y te lo enseña.' : '';
+          return `
+            <div class="learn2-row school2-row ${r.state === 'known' ? 'is-known' : ''} is-${r.state}">
+              <span class="learn2-icon">${ic(r)}</span>
+              <span class="learn2-info">
+                <span class="learn2-name">${U().esc(r.name)} <span class="school2-rank">${rankTxt}</span></span>
+                <span class="learn2-meta">${U().esc(meta)}</span>
+                <span class="learn2-desc">${U().esc(r.text)}</span>
+                ${note ? `<span class="school2-note">${U().esc(note)}</span>` : ''}
+              </span>
+              ${action}
             </div>`;
         }).join('')}
       </div>
@@ -660,6 +720,8 @@
     // Si tiene una misión lista o para ofrecer, se abre en Hablar
     const marker = A.Quests ? A.Quests.markerFor(npc.id) : null;
     if (!payload.tab && (marker === 'offer' || marker === 'ready')) tab = 'talk';
+    // v3.13: con tu maestro se abre en su escuela (ahí está todo, también la prueba), salvo para entregarla
+    if (!payload.tab && tabs.find((t) => t.id === 'school') && marker !== 'ready') tab = 'school';
 
     if (payload.lineIdx == null) payload.lineIdx = Math.floor(Math.random() * Math.max(1, (npc.dialog || []).length));
     const line = (npc.dialog && npc.dialog.length) ? npc.dialog[payload.lineIdx % npc.dialog.length] : '...';
@@ -669,6 +731,7 @@
     else if (tab === 'buy') body = renderBuy(npc, payload);
     else if (tab === 'sell') body = renderSell(npc);
     else if (tab === 'learn') body = renderLearn(npc);
+    else if (tab === 'school') body = renderSchool(npc);
     else if (tab === 'craft') body = renderCraft(npc, 'craft', payload);
     else if (tab === 'alchemy') body = renderCraft(npc, 'alchemy', payload);
     else if (tab === 'inn') body = renderInn(npc);
@@ -737,6 +800,11 @@
     overlay.querySelectorAll('[data-learn]').forEach((b) => b.addEventListener('click', () => {
       const r = A.NPC.learnSpell(npc.id, b.dataset.learn);
       if (r.ok) reopen(cur, { tab: 'learn' });
+    }));
+    overlay.querySelectorAll('[data-school-learn]').forEach((b) => b.addEventListener('click', () => {
+      const r = A.Schools.learnAt(npc.id, b.dataset.schoolLearn);
+      if (r.ok) reopen(cur, { tab: 'school' });
+      else if (r.error && A.Views.Party && A.Views.Party.toast) A.Views.Party.toast(r.error, 'bad');
     }));
     overlay.querySelectorAll('[data-craft-sel]').forEach((b) => b.addEventListener('click', () => reopen(cur, { tab: b.dataset.craftTab || 'craft', sel: b.dataset.craftSel })));
     overlay.querySelectorAll('[data-craft2]').forEach((b) => b.addEventListener('click', () => {

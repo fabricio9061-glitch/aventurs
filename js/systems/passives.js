@@ -396,8 +396,18 @@
     const s = bloodState(c, p);
     let ev = null;
     if (s.frenzy > 0) { s.frenzy -= 1; if (s.frenzy === 0) ev = 'end'; }
-    if (s.pending) { s.pending = false; s.frenzy = TUNE.colmillos.turns; ev = 'start'; }
+    if (s.pending) { s.pending = false; s.frenzy = TUNE.colmillos.turns + (s.extra || 0); s.extra = 0; ev = 'start'; } // v3.13: el Pacto carmesí lo alarga
     return ev;
+  }
+  /** v3.13: Pacto carmesí (escuela del vampiro): el Frenesí empieza en tu próximo turno, sin juntar las gotas. */
+  function startFrenzy(c, p, extra) {
+    if (!c || !has(p, 'colmillos')) return false;
+    const s = bloodState(c, p);
+    if (s.frenzy > 0 || s.pending) return false;
+    s.charges = 0;
+    s.pending = true;
+    s.extra = extra || 0;
+    return true;
   }
   /** Para la pantalla: { charges, max, frenzy } */
   function bloodInfo(c, p) { if (!c || !has(p, 'colmillos')) return null; const s = bloodState(c, p); return { charges: s.charges, max: TUNE.colmillos.charges, frenzy: s.frenzy, pending: s.pending }; }
@@ -655,7 +665,7 @@
     wolfRegen,
     // v3.9 (dossier de razas)
     band,
-    frenzyOn, frenzyDamage, bloodCharge, bloodTurn, bloodInfo,
+    frenzyOn, frenzyDamage, bloodCharge, bloodTurn, bloodInfo, startFrenzy,
     lunarTurn, lunarHealed, beastOn, beastDamage, lunarInfo,
     markOf, placeMark, consumeMark,
     shadowPoison, shadowPoisonDmg, shadowAlways,

@@ -43,6 +43,10 @@
     if (!A.Currency.canPay(price)) {
       return { ok: false, error: `No te alcanza. Cuesta ${price} cobre.` };
     }
+    // v3.13: cada objeto tiene un tope
+    if (A.State.itemAtCap && A.State.itemAtCap(itemId)) {
+      return { ok: false, error: `Ya llevás el máximo (${A.State.itemCap(itemId)}).` };
+    }
     if (!A.State.inventoryHasSpace()) {
       // Excepción: si es stackeable y ya hay slot, sí cabe
       const item = A.Data.getById('items', itemId);
@@ -69,8 +73,7 @@
     const slot = p.inventory.find((s) => s.itemId === itemId);
     if (!slot) return { ok: false, error: 'No tenés ese item.' };
     const actualQty = Math.min(qty, slot.qty);
-    const baseValue = data.value || 0;
-    const sellPriceEach = Math.max(1, Math.floor(baseValue / 2));
+    const sellPriceEach = A.State.sellValueOf ? A.State.sellValueOf(data) : Math.max(1, Math.floor((data.value || 0) / 2));
     const totalPrice = sellPriceEach * actualQty;
     A.State.removeItem(itemId, actualQty);
     A.Currency.add(totalPrice);

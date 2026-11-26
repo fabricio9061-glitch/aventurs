@@ -160,7 +160,9 @@
      * Devuelve NPCs que viven en una región.
      */
     npcsInRegion(regionId) {
-      return Data.npcs.filter((n) => n.region === regionId);
+      // v3.13: los maestros de escuela solo se le muestran a su raza
+      const p = A.State && A.State.player;
+      return Data.npcs.filter((n) => n.region === regionId && (!n.school || !p || n.school === p.raceId));
     },
 
     /** La versión del juego (sin cambios del editor) de una entidad. */

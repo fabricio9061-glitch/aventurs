@@ -541,6 +541,9 @@
   }
   const Economy = {
     priceCurve,
+    /** v3.13: cuánto multiplica el precio cada rareza (equipo y accesorios). */
+    RARITY_PRICE: { common: 1, uncommon: 1.4, rare: 2, epic: 3.2, legendary: 5.5 },
+    RARITY_PRICE_OLD: { common: 1, uncommon: 1.3, rare: 1.7, epic: 2.5, legendary: 4 },
     /** Cobre promedio que suelta un enemigo normal de tier t. */
     coinBase(t) { return 2.5 * priceCurve(t); },
 
@@ -573,7 +576,7 @@
 
     /** Precio de armas y armaduras por tier y rareza (en cobre). */
     gearPrice(t, rarity = 'common', kind = 'weapon') {
-      const RAR = { common: 1, uncommon: 1.3, rare: 1.7, epic: 2.5, legendary: 4 };
+      const RAR = Economy.RARITY_PRICE; // v3.13: la rareza vale más (antes 1 · 1,3 · 1,7 · 2,5 · 4)
       const base = 25 * priceCurve(t) * (RAR[rarity] || 1);
       return Math.round(base * (kind === 'armor' ? 1.2 : 1));
     },

@@ -1294,3 +1294,37 @@
 /* v3.12: en grupo, el invitado también puede dar la vuelta: la nota arriba, los botones abajo */
 .travel-actions-v2.is-follow { flex-wrap: wrap; gap: 10px 14px; }
 .travel-actions-v2.is-follow .travel-follow-note { flex: 1 1 100%; justify-content: center; text-align: center; }
+
+/* ============================================================
+   50. v3.13: escuelas de raza (maestros, "Tu escuela", técnicas)
+   ============================================================ */
+/* la pestaña del maestro */
+.school2-head { display: flex; flex-direction: column; gap: 3px; padding: 10px 12px; border-radius: 12px; background: linear-gradient(180deg, #fbf1d6, #f6e8c6); border: 1px solid #d9bf82; }
+.school2-kind { display: inline-flex; align-items: center; gap: 6px; font-family: var(--font-display); font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--gold-text); }
+.school2-name { font-size: 17px; color: #2b2014; }
+.school2-about { margin: 0; font-size: 13px; color: #5a4628; }
+.school2-rank { display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 999px; font-size: 11px; font-weight: 700; background: rgba(200, 160, 60, 0.2); color: #6a4a08; vertical-align: 1px; }
+.school2-note { margin-top: 3px; font-size: 12.5px; font-weight: 600; color: #7a4a10; }
+.school2-row.is-learn, .school2-row.is-ready { border-color: #9cbb68; background: #f4f9e8; }
+.school2-row.is-level { opacity: 0.8; }
+.school2-row .btn-mini { white-space: nowrap; }
+/* "Tu escuela" en la ventana de hechizos (y de técnicas) */
+.book-school { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; border-radius: 10px; background: rgba(200, 160, 60, 0.1); border: 1px solid rgba(200, 160, 60, 0.4); }
+.book-school-head { display: flex; align-items: center; gap: 6px; color: #4a3410; }
+.book-school-head b { font-size: 14.5px; }
+.book-school-about { margin: 0; font-size: 12.5px; }
+.book-school-steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.book-step { display: flex; flex-direction: column; gap: 2px; padding: 6px 8px; border-radius: 8px; background: var(--surface); border: 1px solid var(--border); min-width: 0; }
+.book-step-rank { font-size: 10.5px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-dim); }
+.book-step-name { font-size: 13px; line-height: 1.2; }
+.book-step-st { display: inline-flex; align-items: center; gap: 3px; font-size: 11.5px; color: var(--text-dim); }
+.book-step.is-known { border-color: rgba(70, 140, 80, 0.45); }
+.book-step.is-known .book-step-st { color: #2a5a30; font-weight: 700; }
+.book-step.is-learn, .book-step.is-trial, .book-step.is-ready { border-color: rgba(200, 140, 40, 0.6); background: #fff6e0; }
+.book-step.is-learn .book-step-st, .book-step.is-trial .book-step-st, .book-step.is-ready .book-step-st { color: #7a4a10; font-weight: 700; }
+.book-step.is-level { opacity: 0.7; }
+.book-school-where { margin: 0; font-size: 12px; }
+@media (max-width: 520px) { .book-school-steps { grid-template-columns: 1fr; } }
+/* la escuela en la creación del personaje */
+.cc-passive.cc-school { margin-top: 8px; }
+.combat-spell-quick { color: #2a6a30; }

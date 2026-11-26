@@ -697,11 +697,19 @@
       const existing = State.player.inventory.find((s) => s.itemId === itemId);
       const stackable = item.stack && item.stack > 1;
 
+      // v3.13: cada objeto tiene un tope (su pila). Lo que sobra no se pierde: se vende solo.
       if (existing && stackable) {
-        existing.qty = Math.min(existing.qty + qty, item.stack);
+        const room = item.quest ? qty : Math.max(0, item.stack - existing.qty);
+        const put = Math.min(qty, room);
+        existing.qty += put;
+        if (qty > put) State.sellOverflow(item, qty - put);
         A.Bus.emit('inventory:changed');
         State.persist();
         return true;
+      }
+      if (stackable && !item.quest && qty > item.stack) {
+        State.sellOverflow(item, qty - item.stack);
+        qty = item.stack;
       }
 
       // v3.0: los objetos de misión entran siempre (no pesan y no se pueden perder por la mochila llena)
@@ -714,6 +722,34 @@
       A.Bus.emit('inventory:changed');
       State.persist();
       return true;
+    },
+
+    /** v3.13: cuántos de un objeto podés llevar (el tope de su pila; 1 si no se apila). */
+    itemCap(itemId) {
+      const item = A.Data.getById('items', itemId) || A.Data.getById('weapons', itemId) || A.Data.getById('armors', itemId);
+      if (!item) return 0;
+      return item.stack && item.stack > 1 ? item.stack : 1;
+    },
+    /** v3.13: ¿ya llevás el máximo de ese objeto? (solo para los que se apilan) */
+    itemAtCap(itemId) {
+      const item = A.Data.getById('items', itemId);
+      if (!item || !(item.stack > 1) || item.quest || item.subtype === 'coin' || !State.player) return false;
+      const slot = State.player.inventory.find((s) => s.itemId === itemId);
+      return !!(slot && slot.qty >= item.stack);
+    },
+    /** v3.13: a cuánto se vende un objeto (la mitad de su valor, mínimo 1). */
+    sellValueOf(item) {
+      return Math.max(1, Math.floor(((item && item.value) || 0) / 2));
+    },
+    /** v3.13: lo que no entra por el tope se vende solo (no se pierde). */
+    sellOverflow(item, n) {
+      if (!item || n <= 0) return 0;
+      const coins = State.sellValueOf(item) * n;
+      if (coins > 0) A.Currency.add(coins);
+      const price = A.Currency.formatPrice ? A.Currency.formatPrice(coins) : `${coins}c`;
+      State.addChronicle({ type: 'loot', text: `Ya llevás el máximo de ${item.name} (${item.stack}): ${n === 1 ? 'el que sobraba se vendió' : `los ${n} que sobraban se vendieron`} por ${price}.` });
+      A.Bus.emit('inventory:capped', { itemId: item.id, extra: n, coins, cap: item.stack, name: item.name });
+      return coins;
     },
 
     removeItem(itemId, qty = 1) {

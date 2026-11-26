@@ -56,6 +56,7 @@
       case 'combat-full-log': html = renderCombatFullLog(); break;
       case 'equipped-bag': html = renderEquippedBag(payload); break;
       case 'combat-spell': html = payload.pick ? renderCombatTarget('spell', payload.pick) : renderCombatSpell(); break;
+      case 'combat-tech': html = renderCombatTech(); break; // v3.13: las técnicas del guerrero
       case 'combat-item': html = payload.pick ? renderCombatTarget('item', payload.pick) : renderCombatItem(); break;
       default: html = `<div class="modal"><div class="modal-body">Modal "${id}" desconocido.</div></div>`;
     }
@@ -433,7 +434,7 @@
     if (data.tier) chips.push(`Nivel ${data.tier}`);
     if (statsLine) chips.push(esc(statsLine));
     if (wornView) chips.push('<b>Lo tenés puesto</b>');
-    else if (qty > 1) chips.push(`Tenés ${qty}`);
+    else if (qty > 1 || (qty >= 1 && data.stack > 1 && data.subtype !== 'coin')) chips.push(data.stack > 1 && data.subtype !== 'coin' && !data.quest ? `Tenés ${qty} de ${data.stack}` : `Tenés ${qty}`); // v3.13: el tope
     const foot = [];
     if (data.subtype !== 'coin' && data.value > 0) foot.push(`Se vende a ${A.Currency.formatPrice(Math.max(1, Math.floor(data.value / 2)))}`);
     if (!gearKind && data.weight) foot.push(`Pesa ${data.weight}`);
@@ -583,7 +584,8 @@
 
   // ---------- v3.3: tus hechizos (estaba roto: faltaba esta función) ----------
   function renderMagic() {
-    return modalShell('Tus hechizos', A.Views.Magic ? A.Views.Magic.renderHtml() : '');
+    const pl = A.State.player; // v3.13: los guerreros ven sus técnicas
+    return modalShell(pl && !pl.hasMagic ? 'Tus técnicas' : 'Tus hechizos', A.Views.Magic ? A.Views.Magic.renderHtml() : '');
   }
 
   // ---------- v3.3: tus números al explorar (salieron de la barra del costado) ----------
@@ -1201,14 +1203,14 @@
             const can = p.mana >= cost && info.ready;
             const pick = needsAllyPick('spell', s);
             const hitTxt = s.damage ? (info.sure ? 'no falla' : `acierta ${Math.round(info.hit * 100)}%`) : '';
-            const waitTxt = !info.ready ? `<b class="combat-spell-wait">Listo en ${info.wait} ${info.wait === 1 ? 'turno' : 'turnos'}</b> · ` : '';
+            const waitTxt = !info.ready ? (info.quickUsed ? '<b class="combat-spell-wait">Ya usaste uno rápido en este turno</b> · ' : `<b class="combat-spell-wait">Listo en ${info.wait} ${info.wait === 1 ? 'turno' : 'turnos'}</b> · `) : (s.quick ? '<b class="combat-spell-quick">Rápido: no gasta el turno</b> · ' : '');
             return `
               <button class="combat-spell-row ${can ? '' : 'is-disabled'}" data-cast-spell="${A.Utils.escapeHtml(s.id)}" ${can ? '' : 'disabled'}>
                 <span class="combat-spell-icon">${A.ItemSprites && A.ItemSprites.spellIcon ? A.ItemSprites.spellIcon(s, { size: 32 }) : ''}</span>
                 <span class="combat-spell-info">
                   <span class="combat-spell-name">${A.Utils.escapeHtml(s.name)}</span>
                   ${spellDescLine(s)}
-                  <span class="combat-spell-meta dim">${waitTxt}${s.damage ? `${s.damage} daño${s.area ? ' a todos' : ''}${s.stun ? ', sin turno' : ''}` : s.heal ? `${s.heal} cura${s.selfOnly ? ' (a vos)' : ''}` : (s.effect && A.ItemFx ? A.Utils.escapeHtml(A.ItemFx.summary({ effect: s.effect, subtype: 'scroll' })) : '')}${hitTxt ? ` · ${hitTxt}` : ''} · Maná ${cost}${cost < s.manaCost ? ` <s>${s.manaCost}</s>` : ''}${s.cooldown ? ` · cada ${s.cooldown} turnos` : ''}${pick ? ' · elegís a quién' : ''}</span>
+                  <span class="combat-spell-meta dim">${waitTxt}${s.damage ? `${A.Schools ? A.Schools.diceOf(s, p) : s.damage} daño${s.area ? ' a todos' : ''}${s.stun ? ', sin turno' : ''}` : s.heal ? `${s.heal} cura${s.selfOnly ? ' (a vos)' : ''}` : (s.effect && A.ItemFx ? A.Utils.escapeHtml(A.ItemFx.summary({ effect: s.effect, subtype: 'scroll' })) : schoolMetaTxt(s))}${hitTxt ? ` · ${hitTxt}` : ''} · Maná ${cost}${cost < s.manaCost ? ` <s>${s.manaCost}</s>` : ''}${s.cooldown ? ` · cada ${s.cooldown} turnos` : ''}${pick ? ' · elegís a quién' : ''}</span>
                 </span>
               </button>
             `;
@@ -1217,6 +1219,45 @@
       </div>
     `;
     return modalShell('Lanzar hechizo', body);
+  }
+
+  /** v3.13: lo que hace en pocas palabras un hechizo de escuela que no es de daño. */
+  function schoolMetaTxt(s) {
+    if (!s || !s.schoolRank) return '';
+    if (s.partyBuff) return 'a todo tu grupo';
+    if (s.partyHeal) return 'cura a todo tu grupo';
+    if (s.pact) return 'Frenesí en tu próximo turno (cuesta vida)';
+    if (s.sleep) return 'duerme a los enemigos';
+    if (s.hex) return 'maldice a tu blanco';
+    if (s.echo) return `${s.echo.turns} turnos de eco en tu arma`;
+    if (s.buff) return `a vos, ${s.buff.turns} turnos`;
+    return '';
+  }
+
+  // ---------- v3.13: Combat: las técnicas del guerrero (nacimiento + disciplina) ----------
+  function renderCombatTech() {
+    const esc = A.Utils.escapeHtml;
+    const ic = (n, size) => (A.ItemSprites ? A.ItemSprites.icon(n, { size: size || 32 }) : '');
+    const birth = A.Combat.techniqueInfo ? A.Combat.techniqueInfo() : null;
+    const disc = A.Combat.disciplineInfo ? A.Combat.disciplineInfo() : [];
+    const row = (id, iconName, name, text, can, meta) => `
+      <button class="combat-spell-row ${can ? '' : 'is-disabled'}" data-use-tech="${esc(id)}" ${can ? '' : 'disabled'}>
+        <span class="combat-spell-icon">${ic(iconName, 32)}</span>
+        <span class="combat-spell-info">
+          <span class="combat-spell-name">${esc(name)}</span>
+          <span class="combat-spell-desc">${esc(text)}</span>
+          <span class="combat-spell-meta dim">${meta}</span>
+        </span>
+      </button>`;
+    const body = `
+      <div class="combat-spell-modal">
+        <p class="combat-item-rule">No gastan maná. Cada una ocupa tu ataque del turno (salvo las que dicen que pegás igual) y después hay que esperar.</p>
+        <div class="combat-spell-list">
+          ${birth ? row(birth.id, birth.icon, birth.name, birth.text, !birth.used, birth.used ? '<b class="combat-spell-wait">Ya la usaste en esta pelea</b>' : `De nacimiento · una vez por pelea${birth.free ? ' · y pegás igual' : ''}`) : ''}
+          ${disc.map((t) => row(t.id, t.icon, t.name, t.text, t.ready, t.ready ? `Nivel ${t.rank} · espera ${t.cd} turnos después de usarla` : `<b class="combat-spell-wait">Lista en ${t.wait} ${t.wait === 1 ? 'turno' : 'turnos'}</b>`)).join('')}
+        </div>
+      </div>`;
+    return modalShell('Técnicas', body);
   }
 
   // ---------- Combat: elegir item ----------
@@ -1601,6 +1642,16 @@
           if (needsAllyPick('spell', A.Data.getById('spells', b.dataset.castSpell))) { A.State.openModal('combat-spell', { pick: b.dataset.castSpell }); return; }
           A.State.closeModal();
           A.Combat.playerSpell(b.dataset.castSpell);
+        });
+      });
+    }
+
+    if (id === 'combat-tech') { // v3.13
+      overlay.querySelectorAll('[data-use-tech]').forEach((b) => {
+        if (b.disabled) return;
+        b.addEventListener('click', () => {
+          A.State.closeModal();
+          A.Combat.playerTechnique(b.dataset.useTech);
         });
       });
     }

@@ -17,7 +17,14 @@
 
   /** Qué hace, en pocas palabras. */
   function whatItDoes(s) {
-    if (s.damage) return `${s.damage} de daño${s.area ? ' a todos' : ''}${s.stun ? ' y lo deja sin turno' : ''}${s.drain ? ' (la mitad vuelve como vida)' : ''}`;
+    const p = A.State.player;
+    if (s.damage) return `${A.Schools ? A.Schools.diceOf(s, p) : s.damage} de daño${s.area ? ' a todos' : ''}${s.stun ? ' y lo deja sin turno' : ''}${s.drain ? ' (la mitad vuelve como vida)' : ''}`;
+    if (s.partyBuff) return 'A todo tu grupo';
+    if (s.partyHeal) return 'Cura a todo tu grupo';
+    if (s.pact) return 'Frenesí ya';
+    if (s.sleep) return 'Duerme a los enemigos';
+    if (s.hex) return 'Maldice a tu blanco';
+    if (s.echo || s.buff) return 'Una mejora para vos';
     if (s.heal) return `Cura ${s.heal}`;
     if (s.effect && A.ItemFx && A.ItemFx.summary) return A.ItemFx.summary({ effect: s.effect, subtype: 'scroll' }) || 'Efecto';
     return 'Efecto';
@@ -30,7 +37,9 @@
     if (s.cooldown) out.push(`<span class="book-tag is-cd" title="Después de usarlo, lo podés volver a usar ${s.cooldown} turnos después">${icon('hourglass', 12)}Cada ${s.cooldown} turnos</span>`);
     if (s.damage) out.push(s.sure ? '<span class="book-tag is-sure" title="No tira el dado: siempre pega">No falla</span>' : `<span class="book-tag" title="Tira el dado como un arma, con +${(A.Balance && A.Balance.SPELL_HIT) || 2} a tu precisión: puede fallar y, con 20, es crítico (doble daño)">Puede fallar</span>`);
     if (s.area) out.push('<span class="book-tag">A todos</span>');
-    if (s.racial) out.push('<span class="book-tag is-race">De tu raza</span>');
+    if (s.schoolRank) out.push(`<span class="book-tag is-race">Escuela · nivel ${s.schoolRank}</span>`); // v3.13
+    if (s.quick) out.push('<span class="book-tag is-sure" title="No gasta tu turno: después atacás o lanzás otro hechizo (uno rápido por turno)">Rápido</span>');
+    else if (s.racial) out.push('<span class="book-tag is-race">De tu raza</span>');
     if (s.hybridOnly) out.push('<span class="book-tag">Solo híbridos</span>');
     if (s.selfOnly) out.push('<span class="book-tag" title="No se le puede tirar a otro">Solo a vos</span>');
     return out.join('');
@@ -52,10 +61,66 @@
       </div>`;
   }
 
+  // ---------- v3.13: tu escuela o tu disciplina ----------
+  const stateTxt = (st, fem) => {
+    const who = fem ? 'tu maestra' : 'tu maestro';
+    return ({ known: 'Lo tenés', learn: `Aprendelo con ${who}`, trial: `Pedile la prueba a ${who}`, doing: 'Prueba en curso', ready: `Volvé con ${who}: cumpliste la prueba` })[st] || '';
+  };
+  function regionName(id) { const r = id ? A.Data.getById('regions', id) : null; return r ? r.name : ''; }
+  function schoolHtml(p) {
+    const sc = A.Schools ? A.Schools.forPlayer(p) : null;
+    if (!sc) return '';
+    const rows = A.Schools.powers(p);
+    const master = A.Schools.masterOf(p.raceId);
+    const fem = !!(master && /^Maestra/.test(master.roleName || ''));
+    return `
+      <div class="book-school">
+        <div class="book-school-head">${icon(sc.kind === 'discipline' ? 'swords' : 'book', 18)}<b>${sc.kind === 'discipline' ? 'Tu disciplina' : 'Tu escuela'}: ${esc(sc.name)}</b></div>
+        <p class="book-school-about dim">${esc(sc.about)}</p>
+        <div class="book-school-steps">
+          ${rows.map((r) => `
+            <div class="book-step is-${r.state}">
+              <span class="book-step-rank">${r.rank === 1 ? 'Nacimiento' : `Nivel ${r.rank}`}</span>
+              <b class="book-step-name">${esc(r.name)}</b>
+              <span class="book-step-st">${r.state === 'known' ? icon('check', 12) : r.state === 'level' ? icon('lock', 12) : ''}${esc(r.state === 'level' ? `Se abre en el nivel ${r.rank}` : stateTxt(r.state, fem))}</span>
+            </div>`).join('')}
+        </div>
+        ${master ? `<p class="book-school-where dim">${fem ? 'Tu maestra' : 'Tu maestro'}: ${esc(master.name)}, en ${esc(regionName(master.region))}.</p>` : ''}
+      </div>`;
+  }
+  /** Las técnicas del guerrero (la de nacimiento y las de su disciplina que ya sabe). */
+  function techRows(p) {
+    const T = A.Techniques;
+    if (!T) return '';
+    const b = T.band(p);
+    const list = [];
+    const birth = T.of(p);
+    if (birth) list.push({ t: birth, text: birth.text(b), tags: ['De nacimiento', 'Una vez por pelea'].concat(birth.free ? ['Pegás igual'] : []) });
+    for (const t of T.known(p)) list.push({ t, text: t.text(b), tags: [`Escuela · nivel ${t.rank}`, `Espera ${t.cd} turnos`] });
+    return list.map(({ t, text, tags }) => `
+      <div class="book-row">
+        <span class="book-ic">${icon(t.icon || 'swords', 36)}</span>
+        <div class="book-main">
+          <div class="book-top"><b>${esc(t.name)}</b><span class="book-what num">Sin maná</span></div>
+          <div class="book-tags">${tags.map((x) => `<span class="book-tag ${/Escuela|nacimiento/.test(x) ? 'is-race' : ''}">${esc(x)}</span>`).join('')}</div>
+          <p class="book-desc">${esc(text)}</p>
+        </div>
+      </div>`).join('');
+  }
+
   function renderHtml() {
     const p = A.State.player;
     if (!p) return '';
     if (!p.hasMagic) {
+      // v3.13: los guerreros ven sus técnicas y su disciplina
+      if (A.Techniques && A.Techniques.of(p)) {
+        return `
+          <div class="book">
+            ${schoolHtml(p)}
+            <div class="book-list">${techRows(p)}</div>
+            <p class="book-more dim">Las técnicas no gastan maná. En la pelea, el botón Técnicas (o el de tu técnica de nacimiento) las muestra con su espera.</p>
+          </div>`;
+      }
       return `
         <div class="empty-card">
           <div class="empty-icon">${icon('lock', 40)}</div>
@@ -81,6 +146,7 @@
           <span class="book-mana-hint dim">${esc(regenTxt)}</span>
         </div>
         ${cast.ok ? '' : `<div class="class-note is-bad">${icon('lock', 14)}<span>${esc(cast.why)} Ponete uno desde la mochila.</span></div>`}
+        ${schoolHtml(p)}
         ${known.length ? `<div class="book-list">${known.map((s) => spellRow(p, s)).join('')}</div>` : `
           <div class="empty-card">
             <div class="empty-icon">${icon('book', 40)}</div>

@@ -767,6 +767,18 @@
           ${(() => {
             // v3.10: la técnica de nacimiento del guerrero (una vez por pelea)
             const tq = A.Combat.techniqueInfo ? A.Combat.techniqueInfo() : null;
+            // v3.13: con técnicas de disciplina, un botón "Técnicas" que abre la lista
+            const disc = A.Combat.disciplineInfo ? A.Combat.disciplineInfo() : [];
+            if (disc.length) {
+              const nReady = disc.filter((t) => t.ready).length + (tq && !tq.used ? 1 : 0);
+              return btn('techs', icon('swords', 32), 'Técnicas', {
+                cls: nReady ? 'is-power' : '',
+                disabled: off || !nReady,
+                title: nReady ? 'Tus técnicas de guerrero: no gastan maná' : 'Todas en espera',
+                hint: nReady ? `${nReady} ${nReady === 1 ? 'lista' : 'listas'}` : 'En espera',
+                hint2: 'Sin maná',
+              });
+            }
             if (!tq) return '';
             return btn('technique', icon(tq.icon, 32), tq.name, {
               cls: tq.used ? '' : 'is-power',
@@ -1102,6 +1114,9 @@
     } else if (action === 'technique') {
       const ready = c && !c.result && isPlayerTurnLocal(c) && revealedLog(c).length === (c.log || []).length;
       if (ready && A.Combat.playerTechnique) A.Combat.playerTechnique();
+    } else if (action === 'techs') {
+      const ready = c && !c.result && isPlayerTurnLocal(c) && revealedLog(c).length === (c.log || []).length;
+      if (ready) A.State.openModal('combat-tech'); // v3.13
     } else if (action === 'flee') A.Combat.playerFlee();
     else if (action === 'spell') A.State.openModal('combat-spell');
     else if (action === 'item') A.State.openModal('combat-item');

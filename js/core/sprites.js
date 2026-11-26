@@ -1679,6 +1679,8 @@
   };
 
   function npcSpec(npc) {
+    // v3.13: los maestros de escuela se dibujan como un héroe de su raza
+    if (npc && npc.heroRace && HEROES[npc.heroRace]) return heroSpec(npc.heroRace, npc.heroWeapon);
     const look = (npc && npc.look && NPC_LOOKS[npc.look]) || NPC_LOOKS[NPC_ROLE_LOOK[(npc && npc.role) || ''] || 'villager'];
     return { plan: 'humanoid', s: 1, o: { ...look.o, weaponSide: 'right' }, p: look.p };
   }

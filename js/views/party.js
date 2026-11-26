@@ -392,4 +392,6 @@
     A.Bus.on('party:changed', rerender);
     A.Bus.on('party:status', (e) => { if (e && e.text) toast(e.text); });
   }
+  // v3.13: lo que no entra por el tope se vende solo: un aviso
+  if (A.Bus) A.Bus.on('inventory:capped', (ev) => { if (ev && typeof toast === 'function') toast(`Llevás el máximo de ${ev.name} (${ev.cap}): lo que sobraba se vendió.`, 'good', 'coins'); });
 })(window.Aventurs);

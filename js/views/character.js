@@ -241,6 +241,22 @@
           </div>`;
   }
 
+  /** v3.13: la escuela (o disciplina) de la raza: qué aprende en los niveles 5 y 9. */
+  function schoolBox(race) {
+    const sc = A.Schools ? A.Schools.of(race.id) : null;
+    if (!sc) return '';
+    const name = (id) => { const pw = A.Schools.powerOf(id, race.id); return pw ? pw.data.name : id; };
+    return `
+      <div class="cc-passive cc-school">
+        <span class="cc-passive-icon">${icon(sc.kind === 'discipline' ? 'swords' : 'book', 32)}</span>
+        <span class="cc-passive-body">
+          <span class="cc-passive-label">${sc.kind === 'discipline' ? 'Disciplina' : 'Escuela'}</span>
+          <span class="cc-passive-name">${esc(sc.name)}</span>
+          <span class="cc-passive-text">${esc(sc.about)} Nivel 5: ${esc(name(sc.r5))}. Nivel 9: ${esc(name(sc.r9))}.</span>
+        </span>
+      </div>`;
+  }
+
   function detailHtml(race) {
     const st = A.Seed.statsForRace(race.id);
     const magic = A.Seed.raceHasMagic ? A.Seed.raceHasMagic(race.id) : race.combatType !== 'warrior';
@@ -284,6 +300,7 @@
             </div>` : ''}
           ${magic ? magicBox(race) : classBox}
           ${magic ? `<p class="cc-kit is-class">${esc(kitText(type, race))}</p>` : ''}
+          ${schoolBox(race)}
         </div>
         <div class="cc-col">
           <div class="cc-bars">

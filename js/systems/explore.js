@@ -393,6 +393,7 @@
       case 'xp': return `+${c.value} XP`;
       case 'level': return `¡nivel ${c.value}!`;
       case 'time': return 'pasó el tiempo';
+      case 'learn': return `aprendiste ${c.name || ''}`; // v3.13: lo que te enseña una prueba de escuela
       default: return '';
     }
   }

@@ -83,6 +83,11 @@ function setLevel(G, p, level) {
       p.spells.push(s.id);
     }
   }
+  // v3.13: lo de su escuela (con el maestro en el 5 y la prueba en el 9). SIN_ESCUELAS=1 para medir sin.
+  if (A.Schools && process.env.SIN_ESCUELAS !== '1') {
+    const sc = A.Schools.forPlayer(p);
+    if (sc) for (const rank of A.Schools.RANKS) if (level >= rank) A.Schools.teach(p, sc[`r${rank}`], 'sim');
+  }
 }
 
 /** Equipo "comprado" acorde al nivel: el mejor arma/armadura común o poco común de tier <= nivel. */
@@ -169,6 +174,8 @@ function playerAI(G) {
     const area = T && T.area; // el barrido sirve también contra uno solo
     if (!area || alive.length >= 2) { A.Combat.playerTechnique(); return; }
   }
+  // v3.13: las técnicas de disciplina (guerreros) y los hechizos de escuela que no son de daño
+  if (schoolAI(G, p, c, alive)) return;
   // Cura con poción si queda poca vida
   if (p.hp < p.maxHp * 0.35) {
     const pot = (p.inventory || []).find((s) => {
@@ -185,7 +192,7 @@ function playerAI(G) {
   // v3.3: los hechizos con espera no siempre están listos
   const ready = (s) => !A.Combat.spellInfo || A.Combat.spellInfo(s.id).ready;
   if (canCast && (p.hp < p.maxHp * 0.45 || danger)) {
-    const heal = A.Combat.availableSpells().find((s) => s.heal && p.mana >= cost(s) && ready(s));
+    const heal = A.Combat.availableSpells().find((s) => (s.heal || s.partyHeal) && p.mana >= cost(s) && ready(s));
     if (heal) { A.Combat.playerSpell(heal.id); return; }
   }
   // Apuntar al enemigo con menos vida
@@ -209,12 +216,15 @@ function playerAI(G) {
     const reserve = healSpell ? cost(healSpell) : 0;
     for (const s of A.Combat.availableSpells()) {
       if (!s.damage || p.mana < cost(s) || !ready(s)) continue;
-      const each = Math.max(1, avg(s.damage) + power + (P && P.spellBonus ? P.spellBonus(p, s) : 0) - Math.floor(arm / 2));
+      // v3.13: los de escuela tiran el dado de su tramo (y los de cadena, uno más chico a los demás)
+      const dice = A.Schools ? A.Schools.diceOf(s, p) : s.damage;
+      const each = Math.max(1, avg(dice) + power + (P && P.spellBonus ? P.spellBonus(p, s) : 0) - Math.floor(arm / 2));
+      const others = s.chain && A.Schools ? Math.max(1, avg(A.Schools.chainOf(s, p)) + power - Math.floor(arm / 2)) : each;
       const finishes = weakest && each >= weakest.hp && alive.length === 1;
       if (p.mana - cost(s) < reserve && !finishes && !(s.area && alive.length > 1)) continue;
       // v3.3: los hechizos de daño pueden fallar (y con 20 hacen el doble)
       const sHit = s.sure ? 1 : (A.Combat.spellInfo ? A.Combat.spellInfo(s.id).hit : 1);
-      const ev = each * (s.area ? alive.length : 1) * (s.sure ? 1 : sHit + 0.05);
+      const ev = (s.area ? each + others * (alive.length - 1) : each) * (s.sure ? 1 : sHit + 0.05);
       if (!best || ev > best.ev) best = { s, ev };
     }
   }
@@ -223,6 +233,68 @@ function playerAI(G) {
   const pw = A.Combat.powerInfo ? A.Combat.powerInfo() : null;
   if (pw && pw.ready) { A.Combat.playerPowerAttack(); return; }
   A.Combat.playerAttack();
+}
+
+/**
+ * v3.13: cómo usaría una persona lo de su escuela.
+ *  - Guerreros: la técnica de disciplina lista (las de área con 2 o más enemigos); si el Golpe fuerte
+ *    está listo y hay uno solo, primero el Golpe fuerte.
+ *  - Magos e híbridos: las mejoras y el pacto al empezar una pelea que va para largo (varios enemigos
+ *    o uno fuerte); dormir con 2 o más que no son jefes; el sello del duelo contra uno fuerte.
+ */
+function schoolAI(G, p, c, alive) {
+  const { A } = G;
+  if (process.env.SIN_ESCUELAS === '1' || !alive.length) return false;
+  const big = alive.length >= 2 || alive.some((e) => e.category === 'strong' || e.category === 'boss');
+  // Guerreros
+  const disc = A.Combat.disciplineInfo ? A.Combat.disciplineInfo() : [];
+  const readyT = disc.filter((t) => t.ready);
+  if (readyT.length) {
+    // cuánto vale cada una (en golpes normales): el Golpe fuerte vale 2; lo que deja (mejora, estado, marca), un poco más
+    const n = alive.length;
+    const value = (T) => {
+      let v = 0;
+      if (T.strike) v += T.strike.mult || 1;
+      if (T.cleave && n > 1) v += T.cleave.mult;
+      if (T.splash) v += (n - 1) * (T.splash.mult || 0.5);
+      if (T.double) v += (T.double.n || 2) * (T.double.mult || 1);
+      if (T.sweep) v += n * (T.sweep.mult || 1);
+      if (T.random) v += (T.random.hits || 2) * (T.random.mult || 1);
+      if (T.buff || T.foes || T.bleed || T.mark || (T.sweep && T.sweep.status) || (T.random && T.random.status) || (T.strike && T.strike.status)) v += 0.4;
+      return v;
+    };
+    const pw = A.Combat.powerInfo ? A.Combat.powerInfo() : null;
+    const best = readyT.map((t) => ({ t, v: value(A.Techniques.get(t.id)) })).sort((a, b) => b.v - a.v)[0];
+    if (best && best.v > 1 && !(pw && pw.ready && best.v < 2)) { A.Combat.playerTechnique(best.t.id); return true; }
+  }
+  if (!p.hasMagic) return false;
+  const canCast = !(p.effects || []).some((e) => e.type === 'silence') && (!A.Balance.canCast || A.Balance.canCast(p).ok);
+  if (!canCast) return false;
+  const cost = (s) => (A.Passives ? A.Passives.spellCost(p, s, c) : s.manaCost);
+  const ready = (s) => !A.Combat.spellInfo || A.Combat.spellInfo(s.id).ready;
+  const has = (id) => (p.effects || []).some((e) => e.type === 'buff' && e.source === id);
+  const healSpell = A.Combat.availableSpells().find((s) => s.heal);
+  const reserve = healSpell ? cost(healSpell) : 0;
+  const target = A.Combat.getTarget();
+  // los que no recuperan maná solos (híbridos) cuidan más el maná: les tiene que sobrar para curarse dos veces
+  const regen = A.Balance.manaRegenOf ? A.Balance.manaRegenOf(p).turn : 0;
+  const keep = regen > 0 ? reserve : Math.max(reserve * 2, Math.round(p.maxMana * 0.25));
+  for (const s of A.Combat.availableSpells()) {
+    if (!s.schoolRank || !ready(s) || p.mana - cost(s) < keep) continue;
+    const tryKey = `${c.round}:${c.currentActorIdx}:${s.id}`; // si no se pudo, no lo intenta dos veces en el mismo turno
+    if (c._aiTry === tryKey) continue;
+    c._aiTry = tryKey;
+    // las mejoras: un mago (que necesita el maná para pegar) solo si le sobra más de la mitad
+    if ((s.buff || s.echo || s.partyBuff) && big && !has(s.id) && (regen <= 0 || p.mana - cost(s) >= p.maxMana * 0.5)) { A.Combat.playerSpell(s.id); return true; }
+    if (s.pact && big && p.hp > p.maxHp * 0.6) {
+      const bi = A.Passives.bloodInfo ? A.Passives.bloodInfo(c, p) : null;
+      if (bi && !bi.frenzy && !bi.pending && bi.charges < 2) { A.Combat.playerSpell(s.id); return true; }
+    }
+    if (s.sleep && alive.filter((e) => e.category !== 'boss').length >= 2) { A.Combat.playerSpell(s.id); return true; }
+    if (s.hex && big && target && !(target.effects || []).some((e) => e.type === 'curse')) { A.Combat.playerSpell(s.id); return true; }
+    if (s.seal && target && (target.category === 'strong' || target.category === 'boss') && !(target.pmarks && Object.keys(target.pmarks).length)) { A.Combat.playerSpell(s.id); return true; }
+  }
+  return false;
 }
 
 /**

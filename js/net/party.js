@@ -30,7 +30,7 @@
 (function (A) {
   'use strict';
 
-  const VERSION = 12;       // si cambian los mensajes o las reglas, sube y avisa "actualicen los dos" (v3.2: 4 · v3.3: 5 · v3.4: 6 · v3.8: 7 · v3.9: 8 · v3.10: 9 · v3.11: 10 · v3.11.1: 11 · v3.12: 12)
+  const VERSION = 13;       // si cambian los mensajes o las reglas, sube y avisa "actualicen los dos" (v3.2: 4 · v3.3: 5 · v3.4: 6 · v3.8: 7 · v3.9: 8 · v3.10: 9 · v3.11: 10 · v3.11.1: 11 · v3.12: 12 · v3.13: 13)
   const MAX_MEMBERS = 4;     // v3.2: hasta cuatro jugadores
   const SNAP_MS = 50;       // juntar cambios antes de mandar la foto
   const HERO_MS = 150;      // juntar cambios del invitado antes de mandarlos
@@ -565,7 +565,7 @@
   const RPC = {
     'Combat.playerAttack': (o) => { if (o && o.target) ORIG['Combat.setTarget'](o.target); return ORIG['Combat.playerAttack'](); },
     'Combat.playerPowerAttack': (o) => { if (o && o.target) ORIG['Combat.setTarget'](o.target); return ORIG['Combat.playerPowerAttack'](); },
-    'Combat.playerTechnique': (o) => { if (o && o.target) ORIG['Combat.setTarget'](o.target); return ORIG['Combat.playerTechnique'](); },
+    'Combat.playerTechnique': (o, techId) => { if (o && o.target) ORIG['Combat.setTarget'](o.target); return ORIG['Combat.playerTechnique'](techId); }, // v3.13: techId (disciplinas)
     'Combat.playerSpell': (o, spellId, on) => { if (o && o.target) ORIG['Combat.setTarget'](o.target); return ORIG['Combat.playerSpell'](spellId, on); },
     'Combat.playerUseItem': (o, itemId, on) => { if (o && o.target) ORIG['Combat.setTarget'](o.target); return ORIG['Combat.playerUseItem'](itemId, on); },
     'Combat.playerTame': (o, instanceId) => ORIG['Combat.playerTame'](instanceId),
@@ -872,7 +872,7 @@
     else if (t) A.Bus.emitView('travel:step', {});
   }
 
-  const MIRROR_FIELDS_OPTIONAL = ['passives', 'itemUsed', 'itemSurvivor', 'powerCd', 'targetInstanceId', 'result', 'goneHids', 'fleeAttempts', 'fledHids', 'rescue'];
+  const MIRROR_FIELDS_OPTIONAL = ['passives', 'itemUsed', 'itemSurvivor', 'powerCd', 'targetInstanceId', 'result', 'goneHids', 'fleeAttempts', 'fledHids', 'rescue', 'spellCd', 'techCd']; // v3.13: spellCd y techCd
 
   function applyCombat(cs) {
     const cur = A.State.combat;

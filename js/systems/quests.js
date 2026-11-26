@@ -190,6 +190,8 @@
     if (isDone(id)) return 'done';
     if (isActive(id)) return allObjectivesDone(q) && q.turnIn ? 'ready' : 'active';
     if (passedChapter(q)) return 'hidden';
+    // v3.13: las pruebas de escuela son solo para su raza
+    if (q.race && (!player() || player().raceId !== q.race)) return 'hidden';
     if (q.requires && !isDone(q.requires)) return 'hidden';
     if (q.auto) return 'hidden';
     const lvl = (player() && player().level) || 1;
@@ -288,6 +290,12 @@
     delete state().active[id];
     state().done.push(id);
     const chips = grantReward(q);
+    // v3.13: las pruebas de escuela te enseñan su poder al entregarlas
+    const learn = q.reward && q.reward.learn;
+    if (learn && A.Schools && A.Schools.teach(player(), learn, 'quest')) {
+      const pw = A.Schools.powerOf(learn, player().raceId);
+      chips.push({ kind: 'learn', id: learn, name: pw ? pw.data.name : learn });
+    }
     const line = chips.map((c) => (A.Rewards ? A.Rewards.chipText(c) : '')).filter(Boolean).join(', ');
     A.State.addChronicle({ type: 'quest', text: `Misión cumplida: ${q.title}. ${q.done || ''}${line ? ` (${line})` : ''}`.trim() });
     A.Bus.emit('quest:completed', { id, chips });

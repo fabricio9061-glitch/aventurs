@@ -45,6 +45,11 @@
     if (who(spell) === 'mage' && classOf(p) !== 'mage') return { ok: false, why: 'Solo los magos pueden aprenderlo.', mageOnly: true };
     // v3.3: los hechizos de los pergaminos piden su nivel
     if (spell.fromScroll && (p.level || 1) < (spell.tier || 1)) return { ok: false, why: `Necesitás nivel ${spell.tier} para aprenderlo.`, level: spell.tier };
+    // v3.13: los de escuela los enseña tu maestro (nivel 5) o su prueba (nivel 9)
+    if (spell.schoolRank) {
+      if ((p.level || 1) < spell.schoolRank) return { ok: false, why: `Necesitás nivel ${spell.schoolRank} para aprenderlo.`, level: spell.schoolRank };
+      return { ok: false, why: 'Lo enseña el maestro de tu escuela.', school: true };
+    }
     return { ok: true, why: '' };
   }
 

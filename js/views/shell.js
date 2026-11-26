@@ -42,7 +42,7 @@
           <div class="shell-brand">
             <span class="brand-icon">${A.UI ? A.UI.icon('swords', 26) : ''}</span>
             <span class="brand-name">Aventurs</span>
-            <span class="version-pill" title="Versión del juego">v3.12.0</span>
+            <span class="version-pill" title="Versión del juego">v3.13.0</span>
           </div>
           ${tabs.length > 1 ? `
             <nav class="shell-nav">
@@ -241,7 +241,7 @@
             ${passiveLine(p)}
           </div>
           <div class="sb-head-btns">
-            ${p.hasMagic ? `<button class="sb-magic" data-action="open-magic" title="Tus hechizos">${ic('spell', 20)}</button>` : ''}
+            ${p.hasMagic ? `<button class="sb-magic" data-action="open-magic" title="Tus hechizos">${ic('spell', 20)}</button>` : (A.Techniques && A.Techniques.of(p) ? `<button class="sb-magic" data-action="open-magic" title="Tus técnicas">${ic('swords', 20)}</button>` : '')}
             <button class="sb-xbtn" data-action="open-explore" title="Tus números al explorar (Fuerza, Agilidad, Ingenio...)">${ic('d20', 18)}</button>
           </div>
           <!-- v3.3: solo o en grupo, las barras van finitas arriba y la experiencia, debajo de todas -->

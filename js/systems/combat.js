@@ -66,7 +66,7 @@
   /** Lo que es de cada héroe dentro de la pelea (se intercambia al cambiar de contexto). */
   // v3.3: cada uno tiene sus dos intentos de huir
   // v3.3: también las esperas de los hechizos y los objetos usados en el turno
-  const HERO_FIELDS = ['passives', 'itemUsed', 'itemSurvivor', 'powerCd', 'targetInstanceId', 'fleeAttempts', 'spellCd', 'itemsTurn'];
+  const HERO_FIELDS = ['passives', 'itemUsed', 'itemSurvivor', 'powerCd', 'targetInstanceId', 'fleeAttempts', 'spellCd', 'itemsTurn', 'techCd', 'quickTurn']; // v3.13: techCd (técnicas de disciplina) y quickTurn (hechizo rápido del turno)
 
   // v3.3: en tu turno podés usar hasta 3 pociones, comidas o hierbas sin perderlo
   const FREE_ITEMS = 3;
@@ -618,6 +618,8 @@
    */
   function attackRoll(attack, defense, opts = {}) {
     let roll = A.Utils.dice(20);
+    // v3.13: Destino favorable (mediano): tirás dos dados y te quedás con el mejor
+    if (opts.adv) roll = Math.max(roll, A.Utils.dice(20));
     let lucky = false;
     if (roll === 1 && opts.reroll1) { lucky = true; roll = A.Utils.dice(20); }
     const total = roll + attack;
@@ -635,6 +637,7 @@
     // v2.4: Anillo del golpe certero: críticos desde más abajo
     const extra = A.Accessories ? A.Accessories.bonus(p, 'crit') : 0;
     if (extra > 0) base.critMin = Math.max(2, (base.critMin || 20) - extra);
+    if (A.ItemFx && A.ItemFx.buffMods(p).advantage > 0) base.adv = true; // v3.13
     return base;
   }
 
@@ -1033,6 +1036,13 @@
               if (c.spellCd[k] <= 0) delete c.spellCd[k];
             }
           }
+          // v3.13: las técnicas de disciplina también se recargan un turno por vez
+          if (c.techCd) {
+            for (const k of Object.keys(c.techCd)) {
+              c.techCd[k] -= 1;
+              if (c.techCd[k] <= 0) delete c.techCd[k];
+            }
+          }
           c.itemsTurn = 0;
           playerTurnPassives(c, entity);
         } else if (cur.kind !== 'ally') {
@@ -1367,10 +1377,13 @@
     if (!t) return null;
     return { ...t, used: A.Techniques.used(c, p) };
   }
-  function playerTechnique() {
+  function playerTechnique(techId) {
     const c = State().combat;
     if (!c || c.result || !isPlayerTurn(c)) return;
     const p = State().player;
+    // v3.13: las técnicas de disciplina (niveles 5 y 9) van por otro lado
+    const D = techId && A.Techniques && A.Techniques.get ? A.Techniques.get(techId) : null;
+    if (D) { playerDiscipline(c, p, D); return; }
     const T = A.Techniques ? A.Techniques.of(p) : null;
     if (!T || A.Techniques.used(c, p)) return;
     A.Techniques.markUsed(c, p);
@@ -1425,6 +1438,106 @@
     if (!c.result) afterPlayerAction();
   }
 
+  // ---------- v3.13: disciplinas de los guerreros (dossier, sección 9) ----------
+  /** Las técnicas de disciplina que sabés, con su espera (para la pantalla y la IA). */
+  function disciplineInfo() {
+    const c = State().combat;
+    const p = State().player;
+    if (!A.Techniques || !A.Techniques.known || !p) return [];
+    return A.Techniques.known(p).map((t) => A.Techniques.discInfo(c, p, t));
+  }
+  /** No gastan maná: ocupan tu ataque del turno y quedan en espera (nunca se suman al Golpe fuerte). */
+  function playerDiscipline(c, p, T) {
+    if (!(p.techniques || []).includes(T.id) || T.race !== p.raceId) return;
+    const wait = A.Techniques.waitOf(c, T.id);
+    if (wait > 0) {
+      addLog(c, 'system', { text: `${T.name} todavía no: ${wait === 1 ? 'lista en tu próximo turno' : `lista en ${wait} turnos`}.`, fx: { kind: 'note' } });
+      return;
+    }
+    A.Techniques.setWait(c, T);
+    const b = A.Techniques.band(p);
+    addLog(c, 'player', { text: `${T.name}.`, fx: { kind: 'buff', target: 'player', label: T.name, icon: T.icon }, say: { text: T.say, tone: 'crit' } });
+    const target = getTarget();
+    const statusOn = (e, st) => { if (st && e.hp > 0 && Math.random() < (st.chance || 1)) inflict(c, e, st.type, { turns: st.turns || 1, value: st.value || 1, source: T.id }); };
+    if (T.strike && target) {
+      let mult = T.strike.mult || 1;
+      const vs = T.strike.vsStatus;
+      if (vs && (target.effects || []).some((e) => vs.types.includes(e.type))) mult = vs.mult;
+      const r = playerStrike(c, p, target, { mult, prec: T.strike.prec || 0 });
+      const hit = !!(r && r.hit);
+      if (hit && target.hp > 0 && T.bleed) inflict(c, target, 'bleed', { turns: T.bleed.turns || 3, value: T.bleed.value(b), source: T.id });
+      if (hit && target.hp > 0 && T.mark) {
+        placePersonalMark(c, p, target, { prec: T.mark.prec, turns: T.mark.turns, label: 'presa' });
+        addLog(c, 'system', { text: `${target.displayName} es tu presa: le pegás con +${T.mark.prec} de precisión (${T.mark.turns} rondas).`, fx: { kind: 'status', target: fxKey(target), effect: 'bleed' } });
+      }
+      if (T.cleave) {
+        const other = hittableEnemies().find((e) => e !== target && e.hp > 0);
+        if (other) playerStrike(c, p, other, { mult: T.cleave.mult });
+      }
+      if (T.splash) { // a los demás (no a tu blanco)
+        for (const e of hittableEnemies()) {
+          if (e === target || e.hp <= 0) continue;
+          const r2 = playerStrike(c, p, e, { mult: T.splash.mult || 0.5 });
+          if (r2 && r2.hit) statusOn(e, T.splash.status);
+        }
+      }
+      if (hit && target.hp > 0 && T.strike.status) statusOn(target, T.strike.status);
+      if (T.chase && target.hp <= 0) {
+        const foes = hittableEnemies();
+        if (foes.length) {
+          const next = pickOne(foes);
+          addLog(c, 'system', { text: `Saltás sobre ${next.displayName}.`, fx: { kind: 'note' }, say: { text: `Tu presa cae y ya estás saltando sobre ${A.Skills ? A.Skills.noun(next) : next.displayName}.`, tone: 'crit' } });
+          const r2 = playerStrike(c, p, next, { mult: T.chase.mult });
+          if (r2 && r2.hit && next.hp > 0 && T.bleed) inflict(c, next, 'bleed', { turns: T.bleed.turns || 3, value: T.bleed.value(b), source: T.id });
+        }
+      }
+    }
+    if (T.double) {
+      for (let i = 0; i < (T.double.n || 2) && !c.result; i++) {
+        const t = getTarget();
+        if (!t) break;
+        playerStrike(c, p, t, { mult: T.double.mult || 1 });
+      }
+    }
+    if (T.sweep) {
+      for (const e of hittableEnemies()) {
+        if (e.hp <= 0) continue;
+        const r = playerStrike(c, p, e, { mult: T.sweep.mult || 1 });
+        if (r && r.hit) statusOn(e, T.sweep.status);
+      }
+    }
+    if (T.random) {
+      for (let i = 0; i < (T.random.hits || 2) && !c.result; i++) {
+        const foes = hittableEnemies();
+        if (!foes.length) break;
+        const e = pickOne(foes);
+        const r = playerStrike(c, p, e, { mult: T.random.mult || 1 });
+        if (r && r.hit) statusOn(e, T.random.status);
+      }
+    }
+    if (T.foes) {
+      const v = T.foes.value(b);
+      const hit = hittableEnemies().filter((e) => e.hp > 0 && applyStatus(e, T.foes.status, { turns: T.foes.turns || 2, value: v, source: T.id }));
+      if (hit.length) addLog(c, 'system', { text: `${hit.length === 1 ? hit[0].displayName : 'Tus enemigos'} ${hit.length === 1 ? 'queda' : 'quedan'} desequilibrado${hit.length === 1 ? '' : 's'} (−${v} de precisión en su próximo ataque).`, fx: { kind: 'note' } });
+    }
+    if (T.buff && p.hp > 0) {
+      const mods = T.buff.mods(b);
+      p.effects = (p.effects || []).filter((e) => !(e.type === 'buff' && e.source === T.id));
+      const buff = { type: 'buff', source: T.id, name: T.name, stat: Object.keys(mods)[0] || (T.buff.touch ? 'reflect' : 'armor'), mods, turns: T.buff.turns || 2, value: 1, fresh: true, school: true };
+      if (T.buff.touch) buff.touch = { status: T.buff.touch.status, chance: T.buff.touch.chance || 0, turns: T.buff.touch.turns || 2, value: 1, zap: T.buff.touch.zap ? T.buff.touch.zap(b) : 0 };
+      p.effects.push(buff);
+      if (T.buff.allies && c.party) {
+        for (const h of heroesOf(c)) {
+          if (h === p || h.hp <= 0) continue;
+          h.effects = (h.effects || []).filter((e) => !(e.type === 'buff' && e.source === `${T.id}:aliado`));
+          h.effects.push({ type: 'buff', source: `${T.id}:aliado`, name: T.name, stat: Object.keys(T.buff.allies)[0], mods: { ...T.buff.allies }, turns: T.buff.turns || 2, value: 1, fresh: true });
+        }
+      }
+    }
+    checkEnd();
+    if (!c.result) afterPlayerAction();
+  }
+
   function playerPowerAttack() {
     const info = powerInfo();
     if (!info || !info.ready) return;
@@ -1464,7 +1577,9 @@
     const mark = P() && P().markOf ? P().markOf(c, p, target) : null;
     // v3.11: Embestida arrolladora: el primer ataque a cada criatura apunta mejor
     const rushP = P() && P().rushPrec ? P().rushPrec(c, p, target) : 0;
-    const r = attackRoll(st.attack + (mark ? mark.prec : 0) + (opts.prec || 0) + rushP, es.defense, playerRollOpts(p));
+    // v3.13: los sellos y marcas de escuela que son tuyos (Sello de duelo, Rastro de presa)
+    const pmark = personalMark(c, p, target);
+    const r = attackRoll(st.attack + (mark ? mark.prec : 0) + (opts.prec || 0) + rushP + (pmark ? pmark.prec : 0), es.defense, playerRollOpts(p));
     const weaponName = st.weapon ? st.weapon.name : 'puños';
     if (r.lucky) addLog(c, 'system', { text: 'Suerte: sacaste un 1 y el dado se vuelve a tirar.', fx: { kind: 'passive', passive: 'suerte' } });
     // v2.5: Escurridizo (el primero) y Etéreo (1 de cada 4) hacen fallar un golpe que pegaba.
@@ -1516,7 +1631,9 @@
     // v3.12: armas legendarias que pegan más contra ciertas criaturas (Crematoria contra no muertos y demonios)
     const wbane = weaponBane(st.weapon, target);
     if (wbane) extras.push({ label: st.weapon.bane.label || 'arma', n: wbane });
-    rawDmg += frenzy + beast + markDmg + giant + (instinct ? instinct.n : 0) + rush + (core ? core.main : 0) + wbane;
+    const sealDmg = pmark ? pmark.dmg || 0 : 0; // v3.13
+    if (sealDmg) extras.push({ label: pmark.label || 'sello', n: sealDmg });
+    rawDmg += frenzy + beast + markDmg + giant + (instinct ? instinct.n : 0) + rush + (core ? core.main : 0) + wbane + sealDmg;
     let finalDmg = mitigate(rawDmg, es.armor, r.crit);
     // v2.5: Caparazón / Gelatinoso: el primer golpe hace la mitad (el golpe fuerte lo rompe)
     const soft = A.Skills && !pw ? A.Skills.softenHit(target, finalDmg) : { dmg: finalDmg, skill: null };
@@ -1602,6 +1719,7 @@
     }
     if (target.hp > 0 && finalDmg > 0) maybeInflictStatusOnHit(st.weapon, target, c); // v3.9: si la armadura lo paró, no
     if (finalDmg > 0) weaponSpecials(c, p, st.weapon, target, finalDmg); // v3.12: armas legendarias
+    if (target.hp > 0) arcaneEcho(c, p, target); // v3.13: Resonancia arcana (humano)
     // Sangre de dragón: a veces el golpe prende fuego
     if (target.hp > 0 && P() && Math.random() < P().burnChance(p)) {
       if (applyStatus(target, 'fire', { turns: 2, value: P().burnValue(p), source: 'sangre_dragon' })) {
@@ -1673,7 +1791,10 @@
     const c = State().combat;
     const spell = A.Data.getById('spells', spellId);
     if (!spell) return null;
-    const wait = spellWait(c, spell);
+    let wait = spellWait(c, spell);
+    // v3.13: un hechizo rápido por turno
+    const quickUsed = !!(spell.quick && c && c.quickTurn && c.quickTurn === c.turnStartedFor);
+    if (quickUsed && !wait) return { wait: 0, ready: false, hit: 1, sure: true, quickUsed: true };
     let hit = 1;
     if (spell.damage && !spell.sure) {
       const t = getTarget();
@@ -1713,6 +1834,11 @@
     }
     if ((p.effects || []).some((e) => e.type === 'silence')) {
       addLog(c, 'system', { text: 'Estás silenciado: no podés lanzar hechizos.', fx: { kind: 'note' } });
+      return;
+    }
+    // v3.13: los hechizos rápidos de escuela no gastan el turno, pero uno solo por turno
+    if (spell.quick && c.quickTurn && c.quickTurn === c.turnStartedFor) {
+      addLog(c, 'system', { text: 'Ya usaste un hechizo rápido en este turno: ahora atacá o lanzá otro hechizo.', fx: { kind: 'note' } });
       return;
     }
     // v3.3: los hechizos con espera
@@ -1765,7 +1891,12 @@
         addLog(c, 'player', { text: `Lanzaste ${spell.name} y recuperaste ${p.hp - before} de salud.`, fx: { kind: 'heal', actor: 'player', target: 'player', amount: p.hp - before, icon: '' }, ...(cleanTxt ? { say: { text: `Lanzás ${spell.name.toLowerCase()}: recuperás ${p.hp - before} de vida${cleanTxt.replace(' y le saca', ' y te saca')}.`, tone: 'good' } } : {}) });
       }
     } else if (spell.damage) {
-      const targets = spell.area ? hittableEnemies() : [getTarget()].filter(Boolean);
+      let targets = spell.area ? hittableEnemies() : [getTarget()].filter(Boolean);
+      // v3.13: los de cadena (Tormenta conductora) empiezan por tu blanco
+      if (spell.area && spell.chain) { const mt = getTarget(); if (mt) targets = [mt].concat(targets.filter((e) => e !== mt)); }
+      const dice = SC() ? SC().diceOf(spell, p) : spell.damage; // v3.13: los de escuela crecen por tramo de nivel
+      const chainDice = SC() && spell.chain ? SC().chainOf(spell, p) : null;
+      let refunded = false;
       // v3.3: los hechizos de daño tiran el dado como un arma (con +2): pueden fallar y,
       // con 20, son críticos. Los de área tiran una vez: se compara con la defensa de cada una.
       // v3.9: todos los hechizos de daño tiran el dado (también el Dardo arcano, que antes no fallaba)
@@ -1796,12 +1927,19 @@
           return;
         }
         landed += 1;
-        let rawDmg = A.Utils.rollDice(spell.damage) + power;
+        // v3.13: lo que tenía antes del golpe (para hacer explotar la quemadura o devolver maná)
+        const hadDet = !!(spell.detonate && (t.effects || []).some((e) => e.type === spell.detonate.status));
+        const hadRefund = !!(spell.refund && (t.effects || []).some((e) => e.type === spell.refund.status));
+        const tDice = chainDice && i > 0 ? chainDice : dice;
+        let rawDmg = A.Utils.rollDice(tDice) + power;
         // v3.3: Cazador de sombras también con hechizos
         const shadowS = P() && P().shadowBonusVs ? P().shadowBonusVs(p, t) : 0;
         rawDmg += shadowS;
         if (tcrit) rawDmg *= 2;
         rawDmg += flame; // v3.11: Llama interior, después del crítico
+        // v3.13: Sello de cenizas: si ya se quemaba, la quemadura explota (daño de más) y se apaga
+        const det = hadDet ? A.Utils.rollDice(SC().val(spell.detonate.dice, SC().band(p))) : 0;
+        rawDmg += det;
         const armor = Math.floor((t.armor || 0) / 2);
         // v3.9: la magia siempre hace al menos 1 (la armadura para golpes, no hechizos)
         let finalDmg = mitigate(rawDmg, armor, true);
@@ -1814,22 +1952,33 @@
           ...(shield.skill ? { softened: shield.skill } : {}),
           actor: p.name, target: t.displayName, actorIcon: '',
           rawDmg, targetArmor: armor, dmg: finalDmg, hpAfter: t.hp, hpMax: t.maxHp,
-          damageDice: power ? `${spell.damage}+${power}` : spell.damage,
-          extras: flame ? [{ label: 'llama', n: flame }] : undefined,
+          damageDice: power ? `${tDice}+${power}` : tDice,
+          extras: flame || det ? [flame ? { label: 'llama', n: flame } : null, det ? { label: 'explosión', n: det } : null].filter(Boolean) : undefined,
           spell: spell.name, ...roll, result: tcrit ? 'crit' : 'hit',
           fx: { kind: 'spell', actor: 'player', target: fxKey(t), element: spellElement(spell), icon: '', crit: tcrit, chain: i > 0 },
           spellId: spell.id,
           ...(shadowS ? { passive: 'cazador_sombras' } : {}),
           ...(tcrit ? { say: { text: `¡${spell.name} le da de lleno a ${noun}: el doble de daño, ${finalDmg}!`, tone: 'crit' } } : {}),
         });
-        if (t.hp > 0 && finalDmg > 0) maybeInflictStatusOnHit(spell, t, c);
+        if (det) {
+          removeStatus(t, spell.detonate.status);
+          addLog(c, 'system', { text: `${spell.name}: la quemadura explota (+${det}).`, fx: { kind: 'note' }, say: { text: `La quemadura de ${noun} explota con la ceniza: ${det} de daño de más, y se apaga.`, tone: 'good' } });
+        }
+        if (t.hp > 0 && finalDmg > 0 && !det) maybeInflictStatusOnHit(spell, t, c);
+        if (t.hp > 0) schoolOnHit(c, p, spell, t);
+        if (hadRefund && !refunded && p.mana < p.maxMana) {
+          refunded = true;
+          const before = p.mana;
+          A.State.setMana(Math.min(p.maxMana, p.mana + spell.refund.mana));
+          if (p.mana > before) addLog(c, 'system', { text: `${spell.name}: recuperás ${p.mana - before} de maná.`, fx: { kind: 'heal', actor: 'player', target: 'player', amount: 0, mana: p.mana - before }, say: { text: `El circuito se cierra sobre ${noun}, que ya estaba electrizado: te vuelven ${p.mana - before} de maná.`, tone: 'good' } });
+        }
         // v3.9: el Dardo arcano del humano marca al blanco (su próximo golpe con arma le hace más daño)
         if (t.hp > 0 && spell.id === 'dardo_arcano' && P() && P().has(p, 'determinacion') && P().placeMark) {
           const mk = P().placeMark(c, p, t);
           addLog(c, 'system', { text: `${t.displayName} queda marcado (+${mk.bonus} a tu próximo golpe con arma).`, fx: { kind: 'note' }, say: { text: `El dardo deja una marca arcana en ${noun}: tu próximo golpe con arma le hace +${mk.bonus}${mk.prec ? ' y apuntás mejor' : ''}.`, tone: 'good' } });
         }
         if (t.hp > 0 && spell.stun) stunTarget(c, t, spell.stun, spell); // v3.3: Congelar, Trueno
-        else if (t.hp > 0 && spell.stunChance && Math.random() < spell.stunChance) stunTarget(c, t, 1, spell); // v3.3: Enredadera
+        else if (t.hp > 0 && spell.stunChance && !(spell.noBoss && t.category === 'boss') && Math.random() < spell.stunChance) stunTarget(c, t, 1, spell); // v3.3: Enredadera · v3.13: noBoss
         drained += finalDmg;
         if (t.hp <= 0) enemyDown(c, t, 'spell');
       });
@@ -1847,6 +1996,12 @@
       }
       // v3.11 (dossier): Apoyo orbital: la nave nodriza bombardea con tu hechizo de daño (si está lista)
       if (P() && P().orbitalFire && hittableEnemies().length) orbitalStrike(c, p, mainT);
+      // v3.13: Niebla de sangre: una parte de todo el daño vuelve como vida (solo a vos)
+      if (spell.drainPct && drained > 0 && p.hp < p.maxHp) {
+        const before = p.hp;
+        A.State.healHp(Math.max(1, Math.floor(drained * spell.drainPct)));
+        if (p.hp > before) addLog(c, 'system', { text: `${spell.name}: +${p.hp - before} de vida.`, fx: { kind: 'heal', actor: 'player', target: 'player', amount: p.hp - before }, say: { text: `La niebla vuelve a vos cargada de sangre: recuperás ${p.hp - before} de vida.`, tone: 'good' } });
+      }
       // v3.3: Drenar vida: la mitad del daño vuelve como vida
       if (spell.drain && drained > 0 && p.hp < p.maxHp) {
         const before = p.hp;
@@ -1873,10 +2028,218 @@
         State().persist();
         return;
       }
+    } else if (isSchoolCast(spell)) {
+      // v3.13: los de escuela que no son de daño (mejoras, grupo, pacto, sueño)
+      const res = schoolCast(c, p, spell);
+      if (!res.ok) {
+        A.State.setMana(Math.min(p.maxMana, p.mana + cost));
+        if (c.spellCd) delete c.spellCd[spell.id];
+        if (res.why) addLog(c, 'system', { text: res.why, fx: { kind: 'note' } });
+        State().persist();
+        return;
+      }
+      // v3.13: rápido: seguís en tu turno (después atacás o lanzás otro hechizo)
+      if (spell.quick) {
+        c.quickTurn = c.turnStartedFor;
+        State().persist();
+        if (checkEnd()) return;
+        A.Bus.emit('combat:action', { actor: 'player' });
+        A.Bus.emit('combat:turn', { actor: 'player', round: c.round, keep: true });
+        return;
+      }
     } else {
       addLog(c, 'player', { text: `Lanzaste ${spell.name}.`, fx: { kind: 'cast', actor: 'player', icon: '' } });
     }
     afterPlayerAction();
+  }
+
+  // ============================================================
+  // v3.13: escuelas de raza (dossier, secciones 7 a 9)
+  // ============================================================
+  function SC() { return A.Schools; }
+  function ownerKey(c, p) { return c && c.party ? hidOf(p) : 'solo'; }
+  /** Tu sello o tu marca sobre esa criatura (solo la tuya: ni tu mascota ni tus compañeros la usan). */
+  function personalMark(c, p, t) {
+    if (!c || !t || !t.pmarks || !p) return null;
+    const k = ownerKey(c, p);
+    const m = t.pmarks[k];
+    if (!m) return null;
+    if (c.round > m.until) { delete t.pmarks[k]; return null; }
+    return m;
+  }
+  function placePersonalMark(c, p, t, m) {
+    t.pmarks = Object.assign({}, t.pmarks || {}, { [ownerKey(c, p)]: { prec: m.prec || 0, dmg: m.dmg || 0, label: m.label || 'marca', until: c.round + (m.turns || 3) } });
+  }
+  /** Resonancia arcana (humano): cada golpe con arma que acierta suelta un eco mágico. */
+  function arcaneEcho(c, p, t) {
+    const b = (p.effects || []).find((e) => e.type === 'buff' && e.echo);
+    if (!b || !t || t.hp <= 0) return;
+    const power = Math.floor((playerStats().spellPower || 0) / 2);
+    const raw = A.Utils.rollDice(b.echo) + power;
+    const dmg = Math.max(1, raw - Math.floor((t.armor || 0) / 2));
+    t.hp = Math.max(0, t.hp - dmg);
+    const noun = A.Skills ? A.Skills.noun(t) : t.displayName;
+    // (si lo tumba, lo cuenta el golpe que lo trajo)
+    addLog(c, 'player', {
+      text: `Eco arcano: ${t.displayName} recibe ${dmg} de daño.`, target: t.displayName, dmg, rawDmg: raw, targetArmor: Math.floor((t.armor || 0) / 2), hpAfter: t.hp, hpMax: t.maxHp, result: 'hit',
+      damageDice: power ? `${b.echo}+${power}` : b.echo, spell: b.name,
+      fx: { kind: 'spell', actor: 'player', target: fxKey(t), element: 'arcane', chain: true },
+      say: { text: `Tu arma resuena y un eco arcano golpea a ${noun}: ${dmg} de daño.`, tone: 'good' },
+    });
+  }
+  /** Fortaleza ancestral (enano): el daño que recibís baja (como mucho, a la mitad... y un poco más). */
+  function sturdyCut(p, dmg, crit) {
+    const cut = A.ItemFx ? (A.ItemFx.buffMods(p).dmgTaken || 0) : 0;
+    if (cut <= 0 || dmg <= 0) return dmg;
+    const out = Math.round(dmg * (1 - Math.min(0.6, cut)));
+    return crit ? Math.max(1, out) : out;
+  }
+  /** Escamas ardientes / Campo electromagnético: el que te pega de cerca se quema o se electriza. */
+  function touchReactions(c, p, enemy, capE) {
+    for (const b of (p.effects || [])) {
+      if (b.type !== 'buff' || !b.touch || enemy.hp <= 0 || c.result) continue;
+      const T = b.touch;
+      if (T.zap > 0) {
+        enemy.hp = Math.max(0, enemy.hp - T.zap);
+        addLog(c, 'system', { text: `${b.name}: ${enemy.displayName} recibe ${T.zap} de daño.`, fx: { kind: 'tick', target: fxKey(enemy), amount: T.zap, effect: 'shock' }, say: { text: `${capE} toca tu campo y se lleva una descarga: ${T.zap} de daño.`, tone: 'good' } });
+        if (enemy.hp <= 0) { enemyDown(c, enemy, 'thorns'); continue; }
+      }
+      if (T.status && Math.random() < (T.chance || 0)) inflict(c, enemy, T.status, { turns: T.turns || 2, value: T.value || 1, source: b.source });
+    }
+  }
+  /** Lo que deja un hechizo de escuela en cada criatura que alcanza (expuesto, maldición, mareo, sello). */
+  function schoolOnHit(c, p, spell, t) {
+    const b = SC() ? SC().band(p) : 0;
+    const noun = A.Skills ? A.Skills.noun(t) : t.displayName;
+    if (spell.expose && applyStatus(t, 'exposed', { turns: spell.expose.turns || 2, value: spell.expose.value || 2, source: spell.id })) {
+      addLog(c, 'system', { text: `${t.displayName} queda expuesto (−${spell.expose.value} de defensa).`, fx: { kind: 'status', target: fxKey(t), effect: 'exposed' } });
+    }
+    if (spell.curse) {
+      t.effects = t.effects || [];
+      const old = t.effects.find((e) => e.type === 'curse');
+      if (old) { old.turns = Math.max(old.turns, spell.curse.turns || 2); old.value = Math.max(old.value || 1, spell.curse.amount || 1); }
+      else t.effects.push({ type: 'curse', turns: spell.curse.turns || 2, value: spell.curse.amount || 1, source: spell.id });
+      addLog(c, 'system', { text: `${t.displayName} queda maldito (−${spell.curse.amount} de precisión y defensa).`, fx: { kind: 'status', target: fxKey(t), effect: 'curse' }, say: { text: `Una sombra se le pega a ${noun}: pega peor y le pegás más fácil.`, tone: 'good' } });
+    }
+    if (spell.stagger) {
+      const v = SC().val(spell.stagger.value, b);
+      if (applyStatus(t, 'stagger', { turns: 2, value: v, source: spell.id })) addLog(c, 'system', { text: `${t.displayName} queda mareado (−${v} de precisión en su próximo ataque).`, fx: { kind: 'status', target: fxKey(t), effect: 'stagger' } });
+    }
+    if (spell.seal) {
+      const dmg = SC().val(spell.seal.dmg, b);
+      placePersonalMark(c, p, t, { prec: spell.seal.prec, dmg, turns: spell.seal.turns, label: 'sello' });
+      addLog(c, 'system', { text: `${t.displayName} queda sellado: tus golpes con arma le pegan con +${spell.seal.prec} de precisión y +${dmg} de daño (${spell.seal.turns} turnos).`, fx: { kind: 'status', target: fxKey(t), effect: 'curse' }, say: { text: `El sello arcano se le clava a ${noun}: este duelo es tuyo.`, tone: 'good' } });
+    }
+  }
+  function isSchoolCast(spell) { return !!(spell && (spell.echo || spell.buff || spell.partyBuff || spell.partyHeal || spell.pact || spell.sleep || spell.hex)); }
+  /** Una mejora de escuela sobre un héroe. Si ya tenía la misma (de otro ángel), no se suma: vale la más fuerte. */
+  function schoolBuff(h, spell, cfg, b) {
+    const mods = {};
+    for (const k of Object.keys(cfg.mods || {})) mods[k] = SC().val(cfg.mods[k], b);
+    if (cfg.resist) mods.resist = cfg.resist.slice();
+    h.effects = h.effects || [];
+    const turns = cfg.turns || 3;
+    const old = h.effects.find((e) => e.type === 'buff' && e.source === spell.id);
+    if (old) {
+      for (const k of Object.keys(mods)) old.mods[k] = typeof mods[k] === 'number' ? Math.max(old.mods[k] || 0, mods[k]) : mods[k];
+      old.turns = Math.max(old.turns, turns);
+      old.fresh = true;
+      return old;
+    }
+    const buff = { type: 'buff', source: spell.id, name: spell.name, stat: cfg.stat || Object.keys(mods)[0] || 'damage', mods, turns, value: 1, fresh: true, school: true };
+    if (cfg.touch) buff.touch = { status: cfg.touch.status, chance: cfg.touch.chance || 0, turns: cfg.touch.turns || 2, value: SC().val(cfg.touch.value || 1, b), zap: cfg.touch.zap ? SC().val(cfg.touch.zap, b) : 0 };
+    if (cfg.echo) buff.echo = cfg.echo;
+    h.effects.push(buff);
+    return buff;
+  }
+  /** Los hechizos de escuela que no son de daño. Devuelve { ok, why }. */
+  function schoolCast(c, p, spell) {
+    const b = SC().band(p);
+    const power = playerStats().spellPower || 0;
+    if (spell.echo) {
+      schoolBuff(p, spell, { turns: spell.echo.turns || 4, stat: 'damage', echo: SC().val(spell.echo.dice, b) }, b);
+      addLog(c, 'player', { text: `Lanzaste ${spell.name}: tus golpes con arma sueltan un eco arcano (${SC().val(spell.echo.dice, b)}) por ${spell.echo.turns || 4} turnos.`, fx: { kind: 'buff', actor: 'player', target: 'player', label: spell.name, icon: 'spark' }, say: { text: 'Le cargás magia a tu arma: cada golpe que acierte va a resonar.', tone: 'good' } });
+      return { ok: true };
+    }
+    if (spell.buff) {
+      const bf = schoolBuff(p, spell, spell.buff, b);
+      if (spell.buff.resist) for (const t of spell.buff.resist) removeStatus(p, t);
+      const parts = [];
+      if (bf.mods.armor) parts.push(`+${bf.mods.armor} de armadura`);
+      if (bf.mods.defense) parts.push(`+${bf.mods.defense} de defensa`);
+      if (bf.mods.precision) parts.push(`+${bf.mods.precision} de precisión`);
+      if (bf.mods.reflect) parts.push(`el que te pega recibe el ${Math.round(bf.mods.reflect * 100)}% del golpe`);
+      if (bf.mods.dodgeNext) parts.push('el próximo golpe que te apunten falla');
+      if (bf.mods.advantage) parts.push('tirás dos dados y te quedás con el mejor');
+      if (bf.touch) parts.push('el que te toca se puede prender fuego');
+      if (spell.buff.resist) parts.push('el fuego no te toca');
+      const txt = parts.length ? `${parts.join(', ')} (${bf.turns} turnos)` : `${bf.turns} turnos`;
+      addLog(c, 'player', { text: `Lanzaste ${spell.name}: ${txt}.`, fx: { kind: 'buff', actor: 'player', target: 'player', label: spell.name, icon: spell.iconName || 'star' }, say: { text: `${spell.name}: ${txt}.`, tone: 'good' } });
+      return { ok: true };
+    }
+    if (spell.partyBuff) {
+      const who = heroesOf(c).filter((h) => h.hp > 0);
+      for (const h of who) schoolBuff(h, spell, spell.partyBuff, b);
+      const amt = SC().val(spell.partyBuff.mods.armor, b);
+      addLog(c, 'player', { text: `Lanzaste ${spell.name}: +${amt} de armadura ${who.length > 1 ? 'para todo el grupo' : ''} (${spell.partyBuff.turns || 3} turnos).`.replace('  ', ' '), fx: { kind: 'buff', actor: 'player', target: 'player', label: spell.name, icon: 'shield' }, say: { text: who.length > 1 ? `Un voto de luz cubre a todo tu grupo: +${amt} de armadura.` : `Un voto de luz te cubre: +${amt} de armadura.`, tone: 'good' } });
+      return { ok: true };
+    }
+    if (spell.partyHeal) {
+      const cfg = spell.partyHeal;
+      const regen = SC().val(cfg.regen, b);
+      const healed = [];
+      for (const h of heroesOf(c)) {
+        if (h.hp <= 0) continue;
+        const n = A.Utils.rollDice(cfg.dice) + Math.floor(power / 2);
+        const r = healAlly({ kind: 'hero', ref: h }, n);
+        if (r.hp > 0) healed.push(`${h === p ? 'vos' : h.name} +${r.hp}`);
+        schoolBuff(h, spell, { turns: cfg.turns || 3, stat: 'regen', mods: { regen } }, b);
+      }
+      addLog(c, 'player', { text: `Lanzaste ${spell.name}${healed.length ? `: ${healed.join(', ')}` : ''}; y +${regen} de vida por turno (${cfg.turns || 3} turnos).`, fx: { kind: 'heal', actor: 'player', target: 'player', amount: 0 }, say: { text: `Un círculo de luz se abre bajo tus pies${heroesOf(c).length > 1 ? ' y los de tu grupo' : ''}: las heridas se cierran despacio.`, tone: 'good' } });
+      return { ok: true };
+    }
+    if (spell.pact) {
+      if (!P() || !P().startFrenzy) return { ok: false, why: 'Tu sangre no responde.' };
+      const info = P().bloodInfo ? P().bloodInfo(c, p) : null;
+      if (info && (info.frenzy > 0 || info.pending)) return { ok: false, why: 'Ya estás en Frenesí (o empieza en tu próximo turno).' };
+      const cost = Math.max(1, Math.round(p.maxHp * (spell.pact.hpPct || 0.1)));
+      if (p.hp <= cost) return { ok: false, why: `${spell.name}: te falta vida para pagar el pacto.` };
+      A.State.damagePlayer(cost);
+      P().startFrenzy(c, p, spell.pact.extra || 0);
+      const turnsF = ((P().TUNE.colmillos || {}).turns || 2) + (spell.pact.extra || 0);
+      addLog(c, 'player', { text: `Lanzaste ${spell.name}: perdés ${cost} de vida y el Frenesí empieza en tu próximo turno (${turnsF} turnos).`, dmg: cost, fx: { kind: 'buff', actor: 'player', target: 'player', label: spell.name, icon: 'bleed' }, say: { text: `Te abrís una herida y tu sangre responde: en tu próximo turno, el Frenesí (${turnsF} turnos).`, tone: 'crit' } });
+      return { ok: true };
+    }
+    if (spell.hex) { // Maldición de penumbra (elfo oscuro): maldice a tu blanco sin gastar el turno
+      const t = getTarget();
+      if (!t) return { ok: false, why: 'No hay a quién maldecir.' };
+      const amt = SC().val(spell.hex.amount, b);
+      t.effects = t.effects || [];
+      const old = t.effects.find((e) => e.type === 'curse');
+      if (old) { old.turns = Math.max(old.turns, spell.hex.turns || 3); old.value = Math.max(old.value || 1, amt); }
+      else t.effects.push({ type: 'curse', turns: spell.hex.turns || 3, value: amt, source: spell.id });
+      const noun = A.Skills ? A.Skills.noun(t) : t.displayName;
+      addLog(c, 'player', { text: `Lanzaste ${spell.name}: ${t.displayName} queda maldito (−${amt} de precisión y defensa, ${spell.hex.turns || 3} turnos).`, fx: { kind: 'status', target: fxKey(t), effect: 'curse' }, say: { text: `Una sombra se le pega a ${noun}: pega peor y le pegás más fácil.`, tone: 'good' } });
+      return { ok: true };
+    }
+    if (spell.sleep) {
+      const foes = hittableEnemies();
+      if (!foes.length) return { ok: false, why: 'No hay a quién dormir.' };
+      let slept = 0;
+      addLog(c, 'player', { text: `Lanzaste ${spell.name}.`, fx: { kind: 'cast', actor: 'player', icon: '' }, say: { text: 'Un sueño suave se desparrama sobre tus enemigos.', tone: 'good' } });
+      for (const e of foes) {
+        if (e.category === 'boss') {
+          applyStatus(e, 'stagger', { turns: 2, value: spell.sleep.bossStagger || 3, source: spell.id });
+          addLog(c, 'system', { text: `${e.displayName} no se duerme, pero queda mareado (−${spell.sleep.bossStagger || 3} de precisión).`, fx: { kind: 'status', target: fxKey(e), effect: 'stagger' } });
+        } else if (Math.random() < (spell.sleep.chance || 0.5) && !(A.Skills && A.Skills.immune(e, 'stun'))) {
+          slept += 1;
+          stunTarget(c, e, 1, spell);
+        }
+      }
+      if (!slept && !foes.some((e) => e.category === 'boss')) addLog(c, 'system', { text: 'Nadie se durmió.', fx: { kind: 'note' } });
+      return { ok: true };
+    }
+    return { ok: false, why: '' };
   }
 
   /**
@@ -2444,6 +2807,12 @@
       r.crit = false;
       unseen = true;
     }
+    // v3.13: Paso afortunado (mediano): el primer golpe que te iba a dar pasa de largo
+    let fortune = false;
+    if (r.hit && !targetPet && !unseen && mods.dodgeNext > 0) {
+      const fb = (p.effects || []).find((e) => e.type === 'buff' && e.mods && e.mods.dodgeNext > 0);
+      if (fb) { fb.mods = { ...fb.mods, dodgeNext: 0 }; r.hit = false; r.crit = false; fortune = true; }
+    }
     const enemyIcon = '';
     const damageNotation = enemy.damage;
     const E = A.Narrator && A.Narrator.enemyNoun ? A.Narrator.enemyNoun(enemy) : enemy.displayName;
@@ -2454,7 +2823,7 @@
       const missEntry = {
         passive: lucky ? 'suerte' : null,
         skill: opts.skill || null,
-        text: r.fumble ? `${enemy.displayName} ataca a ${targetName} pero falla por completo` : lucky ? `¡Suerte! El golpe de ${enemy.displayName} pasa de largo` : unseen ? `${enemy.displayName} no te encuentra` : `${enemy.displayName} ataca pero ${targetName} esquiva`,
+        text: r.fumble ? `${enemy.displayName} ataca a ${targetName} pero falla por completo` : fortune ? `Paso afortunado: el golpe de ${enemy.displayName} pasa de largo` : lucky ? `¡Suerte! El golpe de ${enemy.displayName} pasa de largo` : unseen ? `${enemy.displayName} no te encuentra` : `${enemy.displayName} ataca pero ${targetName} esquiva`,
         actor: enemy.displayName, target: targetName, actorIcon: enemyIcon,
         roll: r.roll, bonus: atk, total: r.total, vs: defense, vsLabel: 'defensa',
         result: r.fumble ? 'fumble' : 'evaded',
@@ -2463,6 +2832,7 @@
       if (opts.label) missEntry.text += ` (${opts.label})`;
       if (petDodge) { missEntry.say = { text: petDodge.say, tone: 'good' }; missEntry.dodgeSkill = petDodge.skill; missEntry.result = 'evaded'; }
       else if (unseen && !r.fumble) missEntry.say = { text: `${capE} te busca, pero no te ve: el golpe pasa de largo.`, tone: 'good' };
+      else if (fortune && !r.fumble) missEntry.say = { text: `Das un paso al costado justo a tiempo: el golpe de ${E} pasa de largo.`, tone: 'good' };
       else if (sayFn && !r.fumble && !lucky) { const s = sayFn('miss', { toPet: targetPet }); if (s) missEntry.say = s; }
       addLog(c, 'enemy', missEntry);
       // v2.4: Brazalete de contraataque: cuando te fallan, a veces devolvés el golpe
@@ -2486,6 +2856,7 @@
       if (A.Skills && finalDmg > 0) { const sf = A.Skills.softenHit(pet, finalDmg); if (sf.skill) petSoft = sf.skill; finalDmg = sf.dmg; }
       pet.health = Math.max(0, pet.health - finalDmg);
     } else {
+      finalDmg = sturdyCut(p, finalDmg, r.crit); // v3.13: Fortaleza ancestral
       const ab = shieldPlayer(c, p, finalDmg);
       finalDmg = ab.dmg;
       passive = ab.passive;
@@ -2538,6 +2909,8 @@
       });
       if (enemy.hp <= 0) enemyDown(c, enemy, 'thorns');
     }
+    // v3.13: Escamas ardientes y Campo electromagnético: el que te pega de cerca se quema o se electriza
+    if (!targetPet && !opts.ranged && enemy.hp > 0 && !c.result) touchReactions(c, p, enemy, capE);
     // v2.4: Anillo de espinas y Pergamino de espinas/reflejar: el que te pega se lastima
     if (!targetPet && finalDmg > 0 && enemy.hp > 0) {
       const frac = (A.Accessories ? A.Accessories.bonus(p, 'thorns') : 0) + (mods.reflect || 0);
@@ -2647,7 +3020,7 @@
   /** Daño sin tirada de ataque (alientos, hechizos, temblores). Devuelve lo que te sacó. */
   function hurtPlayer(c, enemy, dmg, opts = {}) {
     const p = State().player;
-    const ab = shieldPlayer(c, p, Math.max(0, dmg));
+    const ab = shieldPlayer(c, p, sturdyCut(p, Math.max(0, dmg), false)); // v3.13: Fortaleza ancestral
     A.State.damagePlayer(ab.dmg);
     let say = opts.say ? A.Skills.fill(opts.say, enemy, { d: ab.dmg }) : '';
     if (say && A.Narrator && A.Narrator.guardSuffix) say += A.Narrator.guardSuffix(ab);
@@ -3108,6 +3481,7 @@
     playerAttack,
     playerPowerAttack,
     playerTechnique, techniqueInfo, // v3.10
+    disciplineInfo, // v3.13
     powerInfo,
     playerSpell,
     playerUseItem,
@@ -3146,5 +3520,6 @@
     hittableEnemies,
     _checkEnd: checkEnd, // para las pruebas
     _enemyDown: enemyDown, // v3.12: para las pruebas (estallido, dividirse)
+    _enemyStrikeForTest: enemyStrike, _hurtPlayerForTest: hurtPlayer, // v3.13: para las pruebas (escuelas)
   };
 })(window.Aventurs);

@@ -45,6 +45,8 @@
                    A.Data.getById('armors', recipe.result);
     const exists = p.inventory.find((s) => s.itemId === recipe.result);
     const stackable = result && result.stack && result.stack > 1 && exists;
+    // v3.13: no se fabrica más de lo que podés llevar
+    if (A.State.itemAtCap && A.State.itemAtCap(recipe.result)) return { ok: false, error: `Ya llevás el máximo de ${result.name} (${result.stack}).` };
     if (!stackable) projectedUsed += 1;
 
     if (projectedUsed > A.State.inventoryCapacity()) {

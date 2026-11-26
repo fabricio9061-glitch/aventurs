@@ -135,14 +135,14 @@ node tools/grupo.js --heroes=orco,humano,gnomo,angel --criaturas=lobo_bruma*3 --
 
 ## Contenido del juego (seed)
 
-- **18 razas** parejas, cada una con su pasiva y su arma (ver *Razas y pasivas*); las 12 que usan
-  magia nacen con su propio hechizo
-- **81 lugares** ordenados por nivel (1 a 25): 45 de combate, 9 pueblos (6 con criaturas en el camino)
-  y **27 guaridas de jefe** (v3.11; v3.12: el Cielo, el Espacio, el Infierno profundo, el Sueño Esmeralda y la Cumbre de la Tormenta)
-- **211 criaturas** (27 jefes, 34 domables), cada una con su zona propia
-- **140 armas**, **68 armaduras**, **298 objetos**; todo con rareza (común a legendario)
-- **55 hechizos**, **137 recetas**, **18 habitantes**
-- **47 misiones** (18 de la historia principal) y **86 escenas** para explorar (12 solo para grupos)
+- **18 razas** parejas, cada una con su pasiva, su arma y **su escuela** (v3.13: 12 de magia y 6 disciplinas
+  de guerrero, con poderes en los niveles 1, 5 y 9)
+- **83 lugares** ordenados por nivel (1 a 25): 47 de combate, 9 pueblos (6 con criaturas en el camino)
+  y **27 guaridas de jefe**, cada una saliendo de una zona de su nivel (v3.13)
+- **219 criaturas** (27 jefes, 34 domables), cada una con su zona propia
+- **140 armas**, **68 armaduras**, **298 objetos**; todo con rareza (común a legendario) y con tope de cantidad
+- **79 hechizos** (24 de escuela), **12 técnicas de disciplina**, **137 recetas**, **36 habitantes** (18 maestros)
+- **65 misiones** (18 de la historia principal y 18 pruebas de escuela) y **86 escenas** para explorar (12 solo para grupos)
 
 ## Reglas (v1.8.0)
 
@@ -277,6 +277,113 @@ Explorar siempre hace pasar algo (`js/systems/explore.js` + `js/data/seed-events
   se cuentan con ×N).
 - En el celular, una franja arriba con vida, maná, comida y dinero.
 - Sin emojis en el juego (desde la v2.2, tampoco en el editor).
+
+## Versión 3.13.0: las escuelas de raza, un mundo con sentido y topes en la mochila
+
+### Escuelas de raza (lo que faltaba del dossier, secciones 7 a 9)
+
+Cada raza tiene su escuela con tres poderes: el de **nacimiento** (el que ya tenía), uno de **nivel 5** y
+uno de **nivel 9**. Los magos y los híbridos aprenden hechizos (12 escuelas de magia); los guerreros,
+técnicas que no gastan maná (6 disciplinas).
+
+- **Nivel 5:** lo enseña el **maestro de tu raza** (se paga como un hechizo de nivel 5).
+- **Nivel 9:** el maestro te pone **una prueba** (una misión); cuando la entregás, te lo enseña.
+- Cada jugador ve **solo a su maestro** (en grupo, cada uno ve al suyo). Los maestros viven en pueblos a los
+  que se llega antes del nivel 5 y se dibujan como un héroe de su raza.
+- En *Tus hechizos* (o *Tus técnicas*, para los guerreros) aparece **Tu escuela**: los tres poderes, cuáles
+  tenés y dónde está tu maestro. Al llegar al nivel 5 y al 9 sale un aviso.
+- Los personajes que ya existían no pierden nada: les sale un aviso (una sola vez) de que su maestro los espera.
+- Los hechizos de escuela **crecen con vos** (el dado sube a los niveles 13 y 17), solo los aprende su raza y
+  ningún pergamino ni otro maestro los enseña. Ninguno cuesta 0 de maná.
+- **Hechizos rápidos:** las mejoras de escuela no gastan tu turno (después atacás o lanzás otro); uno por turno.
+- **Técnicas de guerrero:** ocupan tu ataque del turno, no gastan maná y quedan en espera unos turnos. Nunca se
+  suman al Golpe fuerte. En la pelea, el botón **Técnicas** las muestra todas con su espera.
+
+| Raza | Escuela | Nivel 5 | Nivel 9 | Maestro (pueblo) |
+|---|---|---|---|---|
+| Humano | Arcanismo adaptable | Sello de duelo | Resonancia arcana | Aldric el Duelista (Pueblo Inicial) |
+| Elfo | Magia lunar | Velo de luna | Lluvia lunar | Ilyana Velo de Plata (Torre del Mago) |
+| Mediano | Magia de fortuna | Paso afortunado | Destino favorable | Tía Pippa Buenaventura (Aldea de los Faroles) |
+| Dracónido | Magia dracónica | Escamas ardientes | Furia de dragón | Vharax Escamabrasa (Piedrahonda) |
+| Vampiro | Hemomancia | Pacto carmesí | Niebla de sangre | Lady Morwen (Aldea de los Faroles) |
+| Elfo oscuro | Magia sombría | Maldición de penumbra | Eclipse arcano | Szarith Sombra Quieta (Puerto Calavera) |
+| Gnomo | Tecnomancia eléctrica | Circuito arcano | Tormenta conductora | Fizzi Tuercaloca (Puerto) |
+| Alienígena | Psiónica y plasma | Campo gravitatorio | Señal orbital mayor | Xo'ren el Observador (Torre del Mago) |
+| Infernal | Magia infernal | Sello de cenizas | Lluvia de azufre | Ceniza (Puerto Calavera) |
+| Ángel | Magia celestial | Voto protector | Santuario luminoso | Sor Celestine (Pueblo Inicial) |
+| Hada | Magia feérica | Bruma encantada | Sueño compartido | Brizna (Santuario del Roble) |
+| Dríade | Magia natural | Raíces protectoras | Bosque despierto | Madre Sauce (Santuario del Roble) |
+| Enano | Bastión pétreo | Muralla de piedra | Fortaleza ancestral | Borin Escudohondo (Piedrahonda) |
+| Orco | Furia de guerra | Clamor salvaje | Horda imparable | Grumak Colmillo Roto (Puerto) |
+| Robot | Tecnología de combate | Campo electromagnético | Protocolo de asalto | Unidad K-7 (Puerto) |
+| Goliat | Fuerza titánica | Onda de impacto | Ruptura de terreno | Kaya Rompemontes (Piedrahonda) |
+| Minotauro | Embestidas | Rompelíneas | Tormenta de cuernos | Varg el Toro (Puerto Calavera) |
+| Licántropo | Artes de manada | Rastro de presa | Cacería lunar | Fenrik Pelo Gris (Santuario del Roble) |
+
+Reglas que pedía el dossier: las marcas del humano y del licántropo son **personales** (ni la mascota ni los
+compañeros las usan); la señal del alienígena es cooperativa (todo el grupo pega más fácil); dos ángeles **no
+suman** su Voto ni su Santuario (vale el más fuerte); los jefes **no se duermen** ni pierden el turno con las
+brumas y raíces; la Niebla de sangre solo cura al vampiro; las quemaduras se renuevan, no se suman.
+
+### Un mundo con sentido: cada guarida sale de una zona de su nivel
+
+Había jefes de nivel 14 a 20 colgando de zonas de nivel 3 a 10. Ahora ninguna guarida sale de una zona
+más de 3 niveles abajo de su jefe:
+
+- **Ysera (19):** zona nueva, el **Linde del Sueño** (17-19), en las Tierras Altas (sale de las Ruinas
+  Celestes y del Desierto de Cristal). Ya no está pegada al Bosque de los Sueños (5-6). Criaturas nuevas:
+  Pesadilla esmeralda, Durmiente, Hada de la pesadilla, Árbol soñador y Dragón esmeralda.
+- **Aurelion Sol (19) y Alamuerte (20):** zona nueva, los **Picos del Dragón** (17-20), arriba del Nido de
+  Dragones (sale del Bosque Petrificado). Criaturas: Guiverno ancestral, Dracónido de élite, Gran sacerdote
+  del dragón y los dragones viejos.
+- **La Hidra (14)** vive ahora en la **Ciénaga Primordial** (13-15), no en el Pantano (3-4).
+- **El Titán (19)** se sentó junto a la **Cumbre del Mundo** (18-20), no en los Picos Helados (5-8).
+- **Volibear (18)** se alcanza desde el **Abismo de las Sombras** (16-18).
+- **La Tarrasca (10)** también desde el **Volcán** (8-9).
+- **El Demonio mayor baja a nivel 11**: su círculo está en el Fondo del Volcán (7-10) y lo que suelta es de
+  nivel 9 y 10. El demonio común de nivel 17 se llama ahora *Engendro de las sombras*.
+
+### Topes en la mochila
+
+Cada objeto tiene un máximo (antes casi todo llegaba a 99). Lo que sobra **no se pierde: se vende solo**
+(a la mitad de su valor) y sale un aviso. La tienda no te vende más si ya llevás el máximo, la forja no
+fabrica de más y la ficha de cada objeto dice "Tenés X de N". Lo que ya tenías por encima del tope se queda.
+
+| Qué | Tope |
+|---|---|
+| Pociones de curar y maná | menores 10 · normales 8 · mayores 5 · supremas y divinas 3 |
+| Elixires | de vida 2 · eterno 1 · hierba de la vida 3 |
+| Pociones de mejora | según su rareza: 8 (poco comunes) o 5 (raras) |
+| Pergaminos de combate | comunes 5 · poco comunes 4 · raros 3 · épicos 2 · legendarios 1 (de escape: 3) |
+| Pergaminos que enseñan un hechizo | 2 (los raros, 1) |
+| Comida | comunes 20 · poco comunes 12 · raras 8 |
+| Materiales | comunes 40 · poco comunes 25 · raros 15 · épicos 8 · legendarios 4 (siempre alcanzan para dos veces la receta que más pide) |
+| Llaves y cebos | llaves 5 (las raras 3, la dorada 2) · cebos 10 |
+
+### Economía: que el valor de cada cosa tenga sentido
+
+- **La rareza vale más.** Una poco común vale 1,4 veces una común de su nivel; una rara, 2; una épica, 3,2; y una
+  legendaria, 5,5 (antes 1,3 · 1,7 · 2,5 · 4). Se nota al comprar y al vender equipo de cualquier nivel:
+  una legendaria de nivel 10 pasó de unos 3.000 a unos 4.000 de cobre.
+- **Las pociones valen según el nivel para el que sirven** (unas 5 peleas de ese nivel): la de curación normal
+  pasó de 31 a 38, la mayor de 62 a 168, el elixir de vida de 190 a 567. Las menores siguen igual.
+
+### Equilibrio (`node tools/equilibrio.js --rapido`, % de rachas ganadas: guerrero / híbrido / mago)
+
+| | nv10 | nv15 | nv20 | nv25 |
+|---|---|---|---|---|
+| Antes (v3.12) | 75 / 85 / 80 | 75 / 80 / 80 | 64 / 73 / 76 | 73 / 77 / 81 |
+| Con las escuelas | 85 / 84 / 82 | 82 / 83 / 82 | 79 / 83 / 82 | 80 / 84 / 81 |
+
+La distancia entre clases bajó (en el nivel 20 era de 13 puntos; ahora es de 4). El simulador usa las escuelas
+como lo haría una persona (las mejoras al empezar una pelea larga, las técnicas cuando conviene más que un
+golpe); con `SIN_ESCUELAS=1` se mide sin ellas. Para medir: `node tools/equilibrio.js --rapido`.
+
+### Pruebas
+
+`v313_test.js` (146 pruebas): las 18 escuelas y sus maestros, aprender en el 5 y con la prueba en el 9, cada
+hechizo y cada técnica en la pelea, los rápidos, peleas enteras de cada raza en los niveles 9 y 20, el aviso
+para personajes viejos, las guaridas, los topes y la economía.
 
 ## Versión 3.12.0: el Cielo, el Espacio y el Infierno profundo (hasta el nivel 25)
 
