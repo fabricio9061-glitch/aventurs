@@ -2,6 +2,26 @@
 
 La más nueva arriba. Cómo correr el juego y cómo está armado: [README.md](README.md).
 
+## Versión 3.18.0: la pantalla de pelea, más clara (también en grupos de 4)
+
+### Criaturas (`css/pelea.css`)
+- **Jefe**, **mini jefe** y **fuerte** van como una cinta arriba de la tarjeta (dorada, violeta o roja), y los jefes brillan. Así el nombre entra entero ("Gárgola B" ya no se corta).
+- Debajo de sus números se ven **sus habilidades** como íconos: rojos los que usan, azules las pasivas. Lo que hace cada una aparece al pasar el mouse. Con mucha gente en la pelea no entran en la tarjeta y se ven al pasar el mouse por la criatura.
+
+### Turnos
+- La fila de turnos de arriba muestra **la carita de cada uno**: borde rojo las criaturas, azul los compañeros, verde las mascotas y dorado vos. Con más de 6, solo las caritas, y el que juega muestra su nombre.
+
+### Crónica
+- Cada línea tiene **el color de su bando** en el borde (dorado vos, azul tus compañeros, verde las mascotas, rojo las criaturas).
+- Al final de cada frase hay una **etiqueta con lo que pasó**: −6, −12 crítico, +5, esquiva, pifia, sin daño (la armadura lo paró), cae o huye.
+- Las líneas de reglas que aparecen con "Ver tiradas" ("Te emboscaron", el orden por velocidad) van chicas y apagadas, ya no en letra grande.
+
+### Pantalla
+- **Con pocos en la pelea**, la arena usa todo el alto y los dibujos son más grandes (en pantallas de 740 de alto o más). Ya no queda el espacio vacío abajo de los botones.
+- **Con mucha gente** (grupos de 3 o 4 con mascotas), los botones van de a dos y la crónica queda al lado, abajo de la arena. Así se ve todo sin bajar (medido con 4 héroes, 3 mascotas y 7 criaturas en 1536×760).
+
+Las reglas de la pelea no cambian, así que el equilibrio es el mismo.
+
 ## Versión 3.17.1: la mascota y el grupo, más claros
 
 ### Mascota (barra de la derecha)

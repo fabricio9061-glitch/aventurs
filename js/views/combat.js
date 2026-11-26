@@ -293,9 +293,26 @@
       const isActive = !frozen && idx === c.currentActorIdx;
       const ally = c.party && a.kind !== 'enemy' && a.hid !== localHid();
       const kindCls = (a.kind === 'enemy' ? 'is-enemy' : a.kind === 'pet' ? 'is-pet' : a.kind === 'ally' ? 'is-pet is-summon' : 'is-player') + (ally ? ' is-ally' : '');
-      return `<span class="turn-queue-item ${kindCls} ${isActive ? 'is-active' : ''} ${isActorDead(c, a, snap) ? 'is-dead' : ''}">${esc(a.name)}</span>`;
+      // v3.18: cada uno con su carita (con muchos en la pelea, solo la carita; el nombre al pasar el mouse)
+      const mine = a.kind === 'player' && (!c.party || a.hid === localHid());
+      return `<span class="turn-queue-item ${kindCls} ${mine ? 'is-mine' : ''} ${isActive ? 'is-active' : ''} ${isActorDead(c, a, snap) ? 'is-dead' : ''}" title="${esc(a.name)}${isActive ? ': le toca' : ''}">${queueFace(c, a)}<span class="tq-name">${esc(a.name)}</span></span>`;
     }).join('<span class="turn-queue-arrow">›</span>');
-    return `<div class="combat-turn-queue">${items}</div>`;
+    const many = c.initiative.length > 6;
+    return `<div class="combat-turn-queue ${many ? 'is-many' : ''}">${items}</div>`;
+  }
+
+  /** v3.18: la carita de cada uno en la cola de turnos. */
+  function queueFace(c, a) {
+    if (!A.Sprites) return '';
+    const S = A.Sprites;
+    try {
+      if (a.kind === 'enemy') { const inst = c.enemies.find((e) => e.instanceId === a.id); return inst ? `<span class="tq-face">${S.html(inst, { size: 22 })}</span>` : ''; }
+      if (a.kind === 'ally') { const al = (c.allies || []).find((x) => x.aid === a.aid); return `<span class="tq-face">${S.html((al && al.species) || 'lobo', { size: 22, flip: true })}</span>`; }
+      const h = c.party && a.hid ? heroOf(a.hid) : A.State.player;
+      if (!h) return '';
+      if (a.kind === 'pet') return h.pet ? `<span class="tq-face">${S.petHtml(h.pet, { size: 22 })}</span>` : '';
+      return `<span class="tq-face">${S.heroFor(h, { size: 22 })}</span>`;
+    } catch (e) { return ''; }
   }
 
   /** Con la foto de vida (snap) no se adelanta una muerte que el dado todavía no mostró. */
@@ -464,6 +481,7 @@
         </div>
         <div class="cb-plate">
           ${u.elite ? `<span class="cb-elite-mark" aria-hidden="true">${icon('elite', 40)}</span>` : ''}
+          ${u.ribbon ? `<span class="cb-ribbon ${u.ribbon.cls}" title="${esc(u.ribbon.title)}">${esc(u.ribbon.text)}</span>` : ''}
           <div class="cb-plate-head">
             <span class="cb-name">${esc(u.name)}</span>
             <span class="cb-badges">${u.badges || ''}</span>
@@ -474,6 +492,7 @@
           </div>
           ${sub}
           <div class="cb-stats">${u.stats.join('')}</div>
+          ${u.traits || ''}
         </div>
         ${u.dead ? `<div class="cb-dead-tag ${u.deadTag ? 'is-left' : ''}">${esc(u.deadTag || 'Caído')}</div>` : ''}
       </${tag}>`;
@@ -596,9 +615,12 @@
     // (para que entre el nombre, la élite muestra su título en vez del nivel: "Lobo [ALFA]")
     const catBadge = (e.submerged ? '<span class="cb-badge is-submerged" title="Está bajo el agua: no le podés pegar hasta cortar sus tentáculos">Bajo el agua</span>' : '')
       + (e.elite ? `<span class="cb-badge is-elite" title="Criatura de élite (nivel ${e.tier}): más vida, más daño y mejor botín">${esc(e.eliteTitle || 'Élite')}</span>`
-      : cat === 'boss' ? '<span class="cb-badge is-cat-boss">Jefe</span>'
-      : e.miniBoss ? '<span class="cb-badge is-cat-mini" title="Mini jefe: más vida y mejor botín, y da más experiencia">Mini jefe</span>'
-      : cat === 'strong' ? '<span class="cb-badge is-cat-strong">Fuerte</span>' : '');
+      : '');
+    // v3.18: jefe, mini jefe y fuerte van como una cinta arriba de la tarjeta (así entra el nombre)
+    const ribbon = e.elite ? '' : cat === 'boss' ? { cls: 'is-boss', text: 'Jefe', title: 'Jefe' }
+      : e.miniBoss ? { cls: 'is-mini', text: 'Mini jefe', title: 'Mini jefe: más vida y mejor botín, y da más experiencia' }
+      : cat === 'strong' ? { cls: 'is-strong', text: 'Fuerte', title: 'Criatura fuerte: más vida y pega más' } : null;
+    const skillList = A.Skills ? A.Skills.listFor(e) : [];
     const shownName = e.elite && e.baseName ? `${e.baseName}${e.label ? ` ${e.label}` : ''}` : e.displayName;
     const skills = A.Skills ? A.Skills.listFor(e).map((sk) => sk.name).join(', ') : '';
     const tails = A.Skills && A.Skills.tailsOf ? A.Skills.tailsOf(e) : 0;
@@ -611,6 +633,9 @@
       name: shownName,
       title: dead ? `${e.displayName} (caído)` : `${e.displayName}: tocá para apuntarle${skills ? `\nHabilidades: ${skills}` : ''}`,
       badges: `${e.elite ? '' : `<span class="cb-badge" title="Nivel de peligro">Nv ${e.tier}</span>`}${catBadge}`,
+      ribbon,
+      // v3.18: sus habilidades, como íconos chiquitos (qué hace cada una, al pasar el mouse)
+      traits: dead ? '' : skillTraits(skillList),
       sprite: A.Sprites ? A.Sprites.html(e, { size: 128 }) : '',
       hp, hpMax: e.maxHp, barCls: 'bar-enemy-hp',
       // v3.8: las colas del kitsune (le crece una por turno)
@@ -625,6 +650,21 @@
         stat('VEL', e.speed || 10, 'Velocidad: el más rápido actúa primero'),
       ],
     });
+  }
+
+  /** v3.18: las habilidades de una criatura, en íconos (las pasivas con borde azul). */
+  const TRAIT_ICON = { strike: 'swords', heal: 'heal', healAlly: 'heal', summon: 'skulls', rally: 'arrow-up', debuff: 'warning', breath: 'breath', aoe: 'fireball' };
+  function skillTraits(list) {
+    if (!list || !list.length) return '';
+    const max = 4;
+    const chips = list.slice(0, max).map((sk) => {
+      const passive = sk.kind === 'passive';
+      const ic = sk.icon || TRAIT_ICON[sk.act] || (passive ? 'star' : 'spark');
+      const what = sk.desc || sk.text || sk.description || '';
+      return `<span class="cb-trait ${passive ? 'is-passive' : ''}" title="${esc(sk.name)}${passive ? ' (pasiva)' : ''}${what ? `: ${esc(what)}` : ''}">${icon(ic, 12, 'px-soft')}</span>`;
+    }).join('');
+    const more = list.length > max ? `<span class="cb-trait is-more" title="${esc(list.slice(max).map((x) => x.name).join(', '))}">+${list.length - max}</span>` : '';
+    return `<div class="cb-traits">${chips}${more}</div>`;
   }
 
   /** Lo que tenés que sacar en el D20 para pegarle (con tu ataque). */
@@ -913,6 +953,36 @@
     return '';
   }
 
+  /** v3.18: de qué lado es la línea (el color del borde): mine, ally, pet, enemy o system. */
+  function lineSide(entry) {
+    const fx = entry.fx || {};
+    const key = String(whoKey(fx) || '');
+    const mineHid = !entry.hid || entry.hid === localHid();
+    if (fx.kind === 'reward' || fx.kind === 'start' || !key) return 'system';
+    if (key.startsWith('enemy')) return ['death', 'tick', 'status', 'stun'].includes(fx.kind) ? 'enemy-fx' : 'enemy';
+    if (key === 'pet' || key.startsWith('pet:') || key.startsWith('ally:')) return 'pet';
+    if (key.startsWith('hero:')) return key.slice(5) === localHid() ? 'mine' : 'ally';
+    return mineHid ? 'mine' : 'ally';
+  }
+
+  /** v3.18: lo que pasó, en una etiqueta al final de la frase (−6, +5, esquiva, crítico, cae). */
+  function resultTag(entry) {
+    const fx = entry.fx || {};
+    const tag = (cls, txt) => ` <span class="cb-res ${cls}">${esc(txt)}</span>`;
+    if (fx.kind === 'attack' || fx.kind === 'spell') {
+      if (fx.miss || entry.result === 'evaded') return tag('is-miss', 'esquiva');
+      if (entry.result === 'fumble') return tag('is-miss', 'pifia');
+      if (entry.result === 'crit' || fx.crit) return entry.dmg != null ? tag('is-crit', `−${entry.dmg} crítico`) : '';
+      if (entry.dmg === 0 && entry.result === 'hit') return tag('is-miss', 'sin daño');
+      if (entry.dmg != null && (entry.result === 'hit' || fx.kind === 'spell')) return tag('is-dmg', `−${entry.dmg}`);
+      return '';
+    }
+    if (fx.kind === 'heal' && fx.amount > 0) return tag('is-heal', `+${fx.amount}`);
+    if (fx.kind === 'tick' && fx.amount > 0) return tag('is-dmg', `−${fx.amount}`);
+    if (fx.kind === 'death') return tag('is-death', entry.fled ? 'huye' : 'cae');
+    return '';
+  }
+
   function rollsHtml(entry) {
     const parts = [];
     if (entry.roll != null) {
@@ -950,11 +1020,12 @@
         continue;
       }
       const told = sayFor(e) || { text: say.text, who: null };
+      const side = lineSide(e);
       out.push(`
-        <div class="cb-line tone-${say.tone} ${e.hid && e.hid !== localHid() ? 'is-ally' : ''}">
+        <div class="cb-line tone-${say.tone} side-${side} ${e.hid && e.hid !== localHid() ? 'is-ally' : ''}">
           <span class="cb-line-who">${lineAvatar(e, c)}</span>
           <span class="cb-line-body">
-            <span class="cb-line-text">${whoTag(told.who)}${esc(told.text)}</span>
+            <span class="cb-line-text">${whoTag(told.who)}${esc(told.text)}${resultTag(e)}</span>
             ${opts.rolls ? rollsHtml(e) : ''}
           </span>
         </div>`);

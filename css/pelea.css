@@ -1,0 +1,160 @@
+/* ============================================================
+   Aventurs — Pantalla de pelea (v3.18)
+   Tarjetas de criatura con su cinta (jefe, fuerte) y sus habilidades,
+   cola de turnos con caritas, crónica con el color de cada bando y el
+   resultado en una etiqueta, y con mucha gente (grupos de hasta 4) los
+   botones y la crónica lado a lado abajo de la arena.
+   (Va al final: pisa medidas de theme.css, v2.css y v3.css.)
+   ============================================================ */
+
+/* ---------- Cinta de categoría arriba de la tarjeta ---------- */
+.cb-ribbon {
+  position: absolute;
+  top: -9px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2;
+  padding: 1px 9px;
+  border-radius: 4px;
+  font-family: var(--font-display);
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  line-height: 14px;
+  white-space: nowrap;
+  color: #fff4e0;
+  background: linear-gradient(180deg, #c0502a, #8a2a14);
+  border: 1px solid #5a1a08;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.35);
+  cursor: help;
+}
+.cb-ribbon.is-mini { background: linear-gradient(180deg, #9a5ad0, #5a2a8a); border-color: #3a1a5a; }
+.cb-ribbon.is-boss { background: linear-gradient(180deg, #f2d27a, #b8862a); border-color: #6a4a10; color: #2a1a06; font-size: 10.5px; padding: 1px 12px; }
+.cb-unit.cat-strong .cb-plate { box-shadow: inset 0 3px 0 #c0502a, 0 3px 8px rgba(0, 0, 0, 0.25); }
+.cb-unit.cat-boss .cb-plate { box-shadow: inset 0 3px 0 #d8a23a, 0 0 0 2px rgba(216, 162, 58, 0.55), 0 4px 14px rgba(0, 0, 0, 0.35); }
+.cb-unit.cat-boss:not(.is-dead) .cb-sprite > .px-sprite { filter: drop-shadow(0 0 10px rgba(255, 120, 60, 0.45)); }
+
+/* ---------- Habilidades de la criatura ---------- */
+.cb-traits { display: flex; gap: 3px; justify-content: center; margin-top: 5px; flex-wrap: nowrap; }
+.cb-trait {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 18px;
+  padding: 0 3px;
+  border-radius: 5px;
+  background: rgba(184, 67, 42, 0.1);
+  border: 1px solid rgba(184, 67, 42, 0.45);
+  cursor: help;
+}
+.cb-trait.is-passive { background: rgba(58, 103, 166, 0.1); border-color: rgba(58, 103, 166, 0.45); }
+.cb-trait.is-more { font-size: 10px; font-weight: 700; color: #6b5434; border-color: #cdb68a; background: none; }
+.cb-trait .px-sprite { display: block; }
+.cb-unit.is-dead .cb-traits { display: none; }
+
+/* ---------- Cola de turnos con caritas ---------- */
+.combat-turn-queue { align-items: center; }
+.turn-queue-item { display: inline-flex; align-items: center; gap: 4px; padding-left: 3px; }
+.tq-face {
+  display: inline-flex;
+  align-items: flex-end;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.35);
+  overflow: hidden;
+  flex: none;
+}
+.tq-face .px-sprite { display: block; }
+.turn-queue-item.is-enemy .tq-face { box-shadow: 0 0 0 1.5px rgba(220, 90, 60, 0.8); }
+.turn-queue-item.is-pet .tq-face { box-shadow: 0 0 0 1.5px rgba(120, 180, 80, 0.8); }
+.turn-queue-item.is-player .tq-face { box-shadow: 0 0 0 1.5px rgba(120, 160, 230, 0.8); }
+.turn-queue-item.is-mine .tq-face { box-shadow: 0 0 0 2px #f2d27a; }
+.turn-queue-item.is-active .tq-face { transform: scale(1.15); }
+/* Muchos en la pelea: solo las caritas (el nombre del que le toca, sí) */
+.combat-turn-queue.is-many { gap: 2px; flex-wrap: nowrap; overflow: hidden; }
+.combat-turn-queue.is-many .turn-queue-item { padding: 2px; border-radius: 999px; }
+.combat-turn-queue.is-many .turn-queue-item:not(.is-active) .tq-name { display: none; }
+.combat-turn-queue.is-many .turn-queue-item.is-active { padding-right: 9px; }
+.combat-turn-queue.is-many .turn-queue-arrow { margin: 0 -1px; opacity: 0.5; }
+
+/* ---------- Crónica: el color de cada bando y el resultado ---------- */
+.cb-line.side-mine { border-left-color: #c9a24a; }
+.cb-line.side-ally { border-left-color: #5a8ad0; }
+.cb-line.side-pet { border-left-color: #7f9a55; }
+.cb-line.side-enemy { border-left-color: #b8432a; }
+.cb-line.side-enemy-fx { border-left-color: #a8936c; }
+.cb-line.side-system { border-left-color: transparent; }
+.cb-line.tone-crit { background: rgba(201, 162, 74, 0.14); }
+.cb-who { color: #2f528a; }
+.cb-res {
+  display: inline-block;
+  margin-left: 4px;
+  padding: 0 6px;
+  border-radius: 6px;
+  font-family: var(--font);
+  font-style: normal;
+  font-size: 0.72em;
+  font-weight: 800;
+  line-height: 1.5;
+  vertical-align: 0.12em;
+  white-space: nowrap;
+}
+.cb-res.is-dmg { background: #f8ddd4; color: #9a2a14; }
+.cb-res.is-crit { background: #f6e3a8; color: #6a3e00; border: 1px solid #c9a24a; }
+.cb-res.is-heal { background: #e3efd2; color: #2f5a1e; }
+.cb-res.is-miss { background: #ebe4d4; color: #6b5434; }
+.cb-res.is-death { background: #3a2c1c; color: #f2d27a; }
+/* Las líneas de reglas ("Te emboscaron...", con Ver tiradas): chicas y apagadas */
+.combat-view.cb.is-arena > .cb-log .cb-line.is-tech .cb-line-text,
+.cb-line.is-tech .cb-line-text { font-family: var(--font); font-size: 12px; line-height: 1.35; color: var(--text-dim); font-style: normal; }
+.cb-line.is-tech { border-left-color: transparent; }
+
+/* ---------- Con mucha gente: botones y crónica lado a lado ---------- */
+@media (min-width: 1100px) and (min-height: 560px) {
+  .combat-view.cb.is-arena.is-crowded {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-rows: auto auto minmax(0, 1fr);
+    grid-template-areas: "head head" "stage stage" "actions log";
+    column-gap: 12px;
+    row-gap: 8px;
+  }
+  .combat-view.cb.is-arena.is-crowded > .cb-header { grid-area: head; }
+  .combat-view.cb.is-arena.is-crowded > .cb-stage { grid-area: stage; }
+  .combat-view.cb.is-arena.is-crowded > .cb-actions { grid-area: actions; align-self: start; }
+  .combat-view.cb.is-arena.is-crowded > .cb-log { grid-area: log; min-height: 0; }
+  .combat-view.cb.is-arena.is-crowded .cb-action-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+  .combat-view.cb.is-arena.is-crowded .cb-btn { min-height: 50px; padding: 5px 10px; }
+  .combat-view.cb.is-arena.is-crowded .cb-turn-line { font-size: 12.5px; }
+  .combat-view.cb.is-arena.is-crowded > .cb-log .cb-line-text { font-size: 14.5px; line-height: 1.3; }
+  .combat-view.cb.is-arena.is-crowded > .cb-log .cb-line { padding-top: 3px; padding-bottom: 3px; }
+  .combat-view.cb.is-arena.is-crowded > .cb-log .cb-line-who { width: 26px; height: 26px; }
+  .combat-view.cb.is-arena.is-crowded > .cb-log .cb-line-who .px-sprite { transform: scale(0.8); }
+}
+
+/* Con muchos en la pelea: las habilidades no entran en la tarjeta (se ven al pasar el mouse
+   por la criatura) y el nivel tampoco (así entra el nombre) */
+.cb-arena.is-packed .cb-traits { display: none; }
+.cb-arena.is-packed .cb-unit.is-enemy:not(.is-elite) .cb-badges .cb-badge:not(.is-elite):not(.is-submerged) { display: none; }
+.cb-arena.is-packed .cb-ribbon { top: -8px; font-size: 8.5px; padding: 0 7px; line-height: 13px; }
+@media (min-width: 1100px) and (min-height: 560px) {
+  .combat-view.cb.is-arena.is-crowded .cb-btn { min-height: 44px; padding: 4px 10px; }
+  .combat-view.cb.is-arena.is-crowded .cb-btn-hint.is-2 { display: none; }
+  .combat-view.cb.is-arena.is-crowded .cb-narrator { min-height: 50px; padding-top: 6px; padding-bottom: 6px; }
+}
+
+/* ---------- Pocos en la pelea: la arena usa todo el alto y los dibujos crecen ---------- */
+@media (min-width: 1200px) and (min-height: 560px) {
+  .combat-view.cb.is-arena:not(.is-crowded) { grid-template-rows: auto minmax(0, 1fr) auto; grid-template-areas: "head head" "stage log" "actions log"; }
+  .combat-view.cb.is-arena:not(.is-crowded) > .cb-stage { display: flex; flex-direction: column; min-height: 0; }
+  .combat-view.cb.is-arena:not(.is-crowded) > .cb-stage > .cb-arena { flex: 1 1 auto; }
+}
+@media (min-width: 1200px) and (min-height: 740px) {
+  .combat-view.cb.is-arena:not(.is-crowded) .cb-sprite { height: 172px; }
+  .combat-view.cb.is-arena:not(.is-crowded) .cb-sprite > .px-sprite { --px-size: 164px !important; }
+  .combat-view.cb.is-arena:not(.is-crowded) .cb-vs { margin-bottom: 150px; }
+}
