@@ -2,6 +2,19 @@
 
 La más nueva arriba. Cómo correr el juego y cómo está armado: [README.md](README.md).
 
+## Versión 3.17.1: la mascota y el grupo, más claros
+
+### Mascota (barra de la derecha)
+- Tarjeta más baja: el dibujo con su nivel en la esquina, el nombre y al lado **lo que te da** en corto ("+1 magia", "+1 precisión"...). El texto entero aparece al pasar el mouse.
+- Si no te ayuda, en vez de eso aparece en rojo **Inconsciente** o **Tiene hambre**, y el botón de comida titila.
+- Vida y comida van en dos barras finitas, y la experiencia es una rayita dorada abajo de la tarjeta. Lo que come aparece al pasar el mouse por la comida.
+- Liberarla queda como una cruz chiquita y apagada, para no tocarla sin querer.
+
+### Grupo (barra de la derecha)
+- Una fila finita por compañero: cara con su nivel, nombre, vida con el número adentro, maná abajo, el dibujo de su mascota con su vida y un ícono que dice si está con vos o por su cuenta.
+- Si a un compañero le queda poca vida, su barra titila.
+- Con 3 compañeros y mascota, la mochila sigue entrando sin bajar (medido en 1536×760).
+
 ## Versión 3.17.0: todo a la vista y comprar con la mochila llena
 
 ### La barra de la derecha entra sin bajar (`css/pantalla.css`)

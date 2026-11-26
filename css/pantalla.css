@@ -52,3 +52,148 @@
   .sb-pet-bond { -webkit-line-clamp: 1; line-clamp: 1; }
   .sb .class-note { padding: 2px 8px; font-size: 11px; }
 }
+
+/* ============================================================
+   Mascota (v3.17): una tarjeta baja con todo a la vista
+   [dibujo+nivel] [nombre · lo que te da]        [botones]
+                  [vida ········] [comida ······]
+   ============================================================ */
+.sb-pet {
+  position: relative;
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr) auto;
+  grid-template-rows: auto auto;
+  column-gap: 9px;
+  row-gap: 5px;
+  align-items: center;
+  padding: 6px 9px 8px 6px;
+  overflow: hidden;
+  background: linear-gradient(180deg, #fffaf0, #f3e7c9);
+}
+.sb-pet.is-hungry { border-color: #cf8f78; }
+.sb-pet .sb-pet-sprite {
+  grid-row: 1 / span 2;
+  position: relative;
+  width: 42px;
+  height: 42px;
+  align-items: center;
+  overflow: visible;
+  background: radial-gradient(circle at 50% 70%, #4a3826, #1b140d 75%);
+}
+.sb-pet .sb-pet-sprite { display: flex; justify-content: center; }
+.sb-pet-sprite > .px-sprite { width: 36px; height: 36px; margin: auto; }
+.sb-pet-lv {
+  position: absolute;
+  right: -5px;
+  bottom: -5px;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 3px;
+  border-radius: 9px;
+  background: #c9a24a;
+  border: 1.5px solid #2a1d12;
+  color: #2a1a06;
+  font-style: normal;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 14px;
+  text-align: center;
+}
+.sb-pet-top { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.sb-pet .sb-pet-name { flex: none; font-size: 13px; font-weight: 700; white-space: nowrap; }
+.sb-pet .sb-pet-name small { font-size: 10.5px; font-weight: 600; color: #8a744c; }
+.sb-pet-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  min-width: 0;
+  padding: 1px 7px 1px 4px;
+  border-radius: 999px;
+  background: #e3efd2;
+  border: 1px solid #a8c98a;
+  color: #2f5a1e;
+  font-size: 10.5px;
+  font-weight: 700;
+  line-height: 1.35;
+  cursor: help;
+}
+.sb-pet-chip > span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sb-pet-chip .px-sprite, .sb-pet-chip .px-icon, .sb-pet-chip svg { flex: none; width: 12px; height: 12px; }
+.sb-pet-chip.is-off { background: #f8e2d8; border-color: #dba08a; color: #8a2a14; }
+.sb-pet .sb-pet-actions { grid-column: 3; grid-row: 1; gap: 3px; }
+.sb-pet .sb-pet-btn { width: 26px; height: 26px; border-radius: 7px; }
+.sb-pet .sb-pet-btn.is-alert { border-color: #c0502a; box-shadow: 0 0 0 2px rgba(192, 80, 42, 0.25); animation: fx-ending 1s ease-in-out infinite; }
+.sb-pet .sb-pet-btn.is-release { width: 20px; opacity: 0.55; background: none; border-color: transparent; }
+.sb-pet .sb-pet-btn.is-release:hover { opacity: 1; border-color: #a8894f; }
+.sb-pet-vitals { grid-column: 2 / span 2; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; }
+.sb-pv { display: grid; grid-template-columns: 12px minmax(0, 1fr) auto; align-items: center; gap: 5px; }
+.sb-pv-ic { display: flex; }
+.sb-pv-ic .px-sprite, .sb-pv-ic .px-icon, .sb-pv-ic svg { width: 12px; height: 12px; }
+.sb-pv-track { height: 6px; border-radius: 3px; background: rgba(80, 60, 30, 0.2); overflow: hidden; }
+.sb-pv-track > span { display: block; height: 100%; border-radius: 3px; transition: width 300ms ease; }
+.sb-pv.is-hp .sb-pv-track > span { background: linear-gradient(90deg, #b8432a, #e0664a); }
+.sb-pv.is-food .sb-pv-track > span { background: linear-gradient(90deg, #a8721a, #e0b04a); }
+.sb-pv-text { font-size: 10.5px; font-weight: 700; color: #4a3a22; white-space: nowrap; }
+.sb-pv-text i { font-style: normal; font-weight: 500; color: #8a744c; }
+.sb-pet .sb-pet-xp {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 3px;
+  border-radius: 0;
+  background: rgba(80, 60, 30, 0.12);
+}
+.sb-pet .sb-pet-xp > span { display: block; height: 100%; background: linear-gradient(90deg, #c9a24a, #f2d27a); }
+
+/* ============================================================
+   Grupo (v3.17): una fila finita por compañero
+   [cara+nivel] nombre [vida 40/70 / maná] [mascota] [dónde]
+   ============================================================ */
+.sb-party { gap: 4px; }
+.sb-mates { gap: 3px; }
+.sb-mate {
+  grid-template-columns: 28px minmax(0, 0.9fr) minmax(0, 1.3fr) 24px 14px;
+  gap: 7px;
+  padding: 3px 7px 3px 3px;
+  min-height: 34px;
+}
+.sb-mate-face { width: 28px; height: 28px; overflow: visible; }
+.sb-mate-face .px-sprite, .sb-mate-face canvas, .sb-mate-face img, .sb-mate-face svg { max-width: 26px; max-height: 26px; }
+.sb-mate-lvl { right: -4px; bottom: -4px; border: 1px solid #2a1d12; border-radius: 7px; }
+.sb-mate .sb-mate-name { font-size: 12.5px; }
+.sb-mate-bars { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.sb-mate-bar.is-hp { height: 13px; border-radius: 4px; background: rgba(80, 60, 30, 0.22); }
+.sb-mate-bar.is-hp > span { border-radius: 4px; }
+.sb-mate-bar.is-hp em {
+  position: absolute;
+  inset: 0;
+  font-style: normal;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 13px;
+  text-align: center;
+  color: #fff;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.7);
+}
+.sb-mate-bar.is-mana { height: 3px; }
+.sb-mate.is-low .sb-mate-bar.is-hp > span { animation: fx-ending 1s ease-in-out infinite; }
+.sb-mate.is-down .sb-mate-bar.is-hp em { color: #ffd0c0; }
+.sb-mate .sb-mate-pet {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  max-width: none;
+  border-radius: 6px;
+  background: rgba(80, 60, 30, 0.12);
+  overflow: hidden;
+}
+.sb-mate .sb-mate-pet .px-sprite { width: 20px; height: 20px; }
+.sb-mate .sb-mate-pet > i { position: absolute; left: 0; bottom: 0; height: 2px; background: #d8604a; }
+.sb-mate .sb-mate-pet.is-down { filter: grayscale(1); opacity: 0.6; text-decoration: none; }
+.sb-mate .sb-mate-pet.is-none { background: none; }
+.sb-mate .sb-mate-where { margin-left: 0; }
+.sb-mate .sb-mate-where.is-near { opacity: 1; }

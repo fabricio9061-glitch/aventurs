@@ -301,6 +301,7 @@
   function hasMates() {
     return !!(A.Party && A.Party.role && A.Party.status === 'connected' && (A.Party.allies ? A.Party.allies().length : A.Party.ally()));
   }
+  // v3.17: una fila finita por compañero: cara con nivel, nombre, vida (y maná), su mascota y dónde está
   function mateRow(m0) {
     const m = liveOf(m0);
     const near = withMe(m0);
@@ -308,21 +309,17 @@
     const pet = m.pet;
     const petDown = pet && pet.health <= 0;
     const where = near ? 'Con vos' : whereLine(m0);
+    const hpP = pct(m.hp, m.maxHp);
     return `
-      <button class="sb-mate ${near ? 'is-near' : 'is-apart'} ${down ? 'is-down' : ''}" data-action="party" title="${esc(`${m.name}, nivel ${m.level || 1}. Vida ${m.hp}/${m.maxHp}${m.hasMagic ? `, maná ${m.mana}/${m.maxMana}` : ''}${pet ? `. ${pet.name}: ${pet.health}/${pet.maxHealth}` : ''}. ${where}.`)}">
-        <span class="sb-mate-face">${heroSprite(m, 30)}<i class="sb-mate-lvl">${m.level || 1}</i></span>
-        <span class="sb-mate-main">
-          <span class="sb-mate-top">
-            <b class="sb-mate-name">${esc(m.name)}</b>
-            ${pet ? `<span class="sb-mate-pet ${petDown ? 'is-down' : ''}">${icon('paw', 11)}${esc(pet.name)}</span>` : ''}
-            <span class="sb-mate-where" title="${esc(where)}">${icon(near ? 'party' : 'map', 11)}</span>
-          </span>
-          <span class="sb-mate-bars">
-            <span class="sb-mate-bar is-hp"><span style="width:${pct(m.hp, m.maxHp)}%"></span></span>
-            ${m.hasMagic ? `<span class="sb-mate-bar is-mana"><span style="width:${pct(m.mana, m.maxMana)}%"></span></span>` : ''}
-          </span>
+      <button class="sb-mate ${near ? 'is-near' : 'is-apart'} ${down ? 'is-down' : ''} ${hpP < 30 && !down ? 'is-low' : ''}" data-action="party" title="${esc(`${m.name}, nivel ${m.level || 1}. Vida ${m.hp}/${m.maxHp}${m.hasMagic ? `, maná ${m.mana}/${m.maxMana}` : ''}${pet ? `. ${pet.name}: ${pet.health}/${pet.maxHealth}` : ''}. ${where}.`)}">
+        <span class="sb-mate-face">${heroSprite(m, 26)}<i class="sb-mate-lvl">${m.level || 1}</i></span>
+        <b class="sb-mate-name">${esc(m.name)}</b>
+        <span class="sb-mate-bars">
+          <span class="sb-mate-bar is-hp"><span style="width:${hpP}%"></span><em class="num">${down ? 'Caído' : `${m.hp}/${m.maxHp}`}</em></span>
+          ${m.hasMagic ? `<span class="sb-mate-bar is-mana"><span style="width:${pct(m.mana, m.maxMana)}%"></span></span>` : ''}
         </span>
-        <span class="sb-mate-num num">${down ? 'Caído' : `${m.hp}/${m.maxHp}`}</span>
+        ${pet ? `<span class="sb-mate-pet ${petDown ? 'is-down' : ''}" title="${esc(`${pet.name}: ${pet.health}/${pet.maxHealth}`)}">${A.Sprites && A.Sprites.petHtml ? A.Sprites.petHtml(pet, { size: 20 }) : icon('paw', 12)}<i style="width:${pct(pet.health, pet.maxHealth)}%"></i></span>` : '<span class="sb-mate-pet is-none"></span>'}
+        <span class="sb-mate-where ${near ? 'is-near' : ''}" title="${esc(where)}">${icon(near ? 'party' : 'map', 12)}</span>
       </button>`;
   }
   /** La sección del grupo arriba de todo en la barra lateral. */

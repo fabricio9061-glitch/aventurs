@@ -42,7 +42,7 @@
           <div class="shell-brand">
             <span class="brand-icon">${A.UI ? A.UI.icon('swords', 26) : ''}</span>
             <span class="brand-name">Aventurs</span>
-            <span class="version-pill" title="Versión del juego">v3.17.0</span>
+            <span class="version-pill" title="Versión del juego">v3.17.1</span>
           </div>
           ${tabs.length > 1 ? `
             <nav class="shell-nav">
@@ -293,7 +293,24 @@
     bindSidebarEvents();
   }
 
-  /** Mascota: retrato, barras y sus dos botones. */
+  // v3.17: lo que te da tu mascota, en palabras cortas (el texto largo va al pasar el mouse)
+  const BOND_SHORT = { precision: 'precisión', defense: 'defensa', armor: 'armadura', damage: 'daño', speed: 'velocidad', spell: 'magia', regen: 'vida por ronda' };
+  function petBondChip(p, pet) {
+    const b = A.Tame && A.Tame.ownerBond ? A.Tame.ownerBond(p) : null;
+    if (!b) return '';
+    if (b.off) return `<span class="sb-pet-chip is-off" title="${escH(b.off)}">${ic('warning', 12)}<span>${pet.health <= 0 ? 'Inconsciente' : 'Tiene hambre'}</span></span>`;
+    const bits = Object.keys(BOND_SHORT).filter((k) => b[k]).map((k) => `+${b[k]} ${BOND_SHORT[k]}`);
+    if (b.coins) bits.push(`+${Math.round(b.coins * 100)}% monedas`);
+    if (bits.length) return `<span class="sb-pet-chip" title="${escH(b.text)}">${ic('paw', 12)}<span>${escH(bits.join(' · '))}</span></span>`;
+    if (pet.species === 'lobo') return `<span class="sb-pet-chip" title="En la pelea aúlla: vos y tu grupo pegan con +1 de precisión y daño.">${ic('paw', 12)}<span>Aúlla: +1 precisión y daño</span></span>`;
+    return '';
+  }
+
+  function petBar(cls, iconName, label, cur, max) {
+    return `<div class="sb-pv ${cls}" title="${escH(label)} ${cur}/${max}"><span class="sb-pv-ic">${ic(iconName, 12)}</span><span class="sb-pv-track"><span style="width:${pct(cur, max)}%"></span></span><span class="sb-pv-text num">${cur}<i>/${max}</i></span></div>`;
+  }
+
+  /** Mascota (v3.17: más compacta): dibujo con su nivel, nombre, lo que te da, barras y botones. */
   function renderPetSidebar(pet) {
     const lvl = pet.level || 1;
     const xp = pet.xp || 0;
@@ -303,33 +320,25 @@
     const maxFood = pet.maxFood || 10;
     const diet = A.Tame && A.Tame.dietInfo ? A.Tame.dietInfo(pet) : null;
     const hungry = food <= 0;
+    const species = A.Data.getById('enemies', pet.species);
+    const speciesName = species && species.name !== pet.name ? species.name : '';
     return `
-      <section class="sb-pet ${isKO ? 'is-ko' : ''}">
-        <div class="sb-pet-head">
-          <span class="sb-pet-sprite">${A.Sprites ? A.Sprites.petHtml(pet, { size: 36 }) : ''}</span>
-          <div class="sb-pet-id">
-            <div class="sb-pet-name">${escH(pet.name)} <span class="sb-pet-lvl">Nv ${lvl}</span></div>
-            <div class="sb-pet-meta ${hungry && !isKO ? 'is-bad' : ''}">${isKO ? 'Inconsciente' : hungry ? `Con hambre: dale ${escH(diet ? diet.eats : 'comida')}` : (diet ? `Come: ${escH(diet.eats)}` : 'Tu compañera')}</div>
-          </div>
-          <div class="sb-pet-actions">
-            <button class="sb-pet-btn" data-pet-action="heal" title="${isKO ? 'Despertarla con una poción o una hierba de la vida' : 'Curarla con una poción'}">${ic('potion', 18)}</button>
-            <button class="sb-pet-btn" data-pet-action="feed" title="Darle comida de su dieta" ${isKO ? 'disabled' : ''}>${ic('food', 18)}</button>
-            <button class="sb-pet-btn is-release" data-pet-action="release" title="Liberarla (para poder domar otra)">${ic('run', 18)}</button>
-          </div>
+      <section class="sb-pet ${isKO ? 'is-ko' : ''} ${hungry && !isKO ? 'is-hungry' : ''}">
+        <span class="sb-pet-sprite" title="${escH(pet.name)}, nivel ${lvl}. Experiencia ${xp}/${xpNeeded}">${A.Sprites ? A.Sprites.petHtml(pet, { size: 36 }) : ''}<i class="sb-pet-lv">${lvl}</i></span>
+        <div class="sb-pet-top">
+          <span class="sb-pet-name">${escH(pet.name)}${speciesName ? ` <small>${escH(speciesName)}</small>` : ''}</span>
+          ${petBondChip(A.State.player, pet)}
         </div>
-        <div class="sb-pet-bars">
-          ${hudBar('is-hp is-small', 'heart', 'Vida de tu mascota', pet.health, pet.maxHealth)}
-          ${hudBar('is-food is-small', 'food', 'Saciedad', food, maxFood)}
+        <div class="sb-pet-actions">
+          <button class="sb-pet-btn" data-pet-action="heal" title="${isKO ? 'Despertarla con una poción o una hierba de la vida' : 'Curarla con una poción'}">${ic('potion', 16)}</button>
+          <button class="sb-pet-btn ${hungry && !isKO ? 'is-alert' : ''}" data-pet-action="feed" title="Darle de comer${diet ? ` (come ${escH(diet.eats)})` : ''}" ${isKO ? 'disabled' : ''}>${ic('food', 16)}</button>
+          <button class="sb-pet-btn is-release" data-pet-action="release" title="Liberarla (para poder domar otra)">${ic('close', 12)}</button>
         </div>
-        <div class="sb-pet-xp" title="Experiencia de tu mascota: ${xp}/${xpNeeded}"><span style="width:${pct(xp, xpNeeded)}%"></span></div>
-        ${(() => {
-          // v3.9: lo que te da tu mascota (o por qué no te lo da)
-          const b = A.Tame && A.Tame.ownerBond ? A.Tame.ownerBond(A.State.player) : null;
-          if (!b) return '';
-          if (b.off) return `<div class="sb-pet-bond is-off" title="${escH(b.off)}">${ic('paw', 14)}<span>${escH(b.off)}</span></div>`;
-          if (b.text) return `<div class="sb-pet-bond" title="${escH(b.text)}">${ic('paw', 14)}<span>${escH(b.text)}</span></div>`;
-          return pet.species === 'lobo' ? `<div class="sb-pet-bond">${ic('paw', 14)}<span>En la pelea aúlla: pegás con +1 de precisión y daño.</span></div>` : '';
-        })()}
+        <div class="sb-pet-vitals">
+          ${petBar('is-hp', 'heart', isKO ? 'Inconsciente. Vida' : 'Vida', pet.health, pet.maxHealth)}
+          ${petBar('is-food', 'food', `Comida${diet ? ` (come ${diet.eats})` : ''}`, food, maxFood)}
+        </div>
+        <span class="sb-pet-xp" title="Experiencia de tu mascota: ${xp}/${xpNeeded}"><span style="width:${pct(xp, xpNeeded)}%"></span></span>
       </section>
     `;
   }
