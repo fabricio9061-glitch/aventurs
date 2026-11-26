@@ -203,11 +203,31 @@
     // Si igual los botones quedan fuera de la pantalla, abajo hasta que termine esta pelea.
     const view = mainEl.querySelector('.combat-view.cb.is-arena');
     if (view) {
-      const crowded = unitCount(c) > 3 || crowdedFor === c.id;
+      // v3.18.1: la crónica va al costado hasta 6 en la pelea (antes, hasta 3); si igual no entra, abajo
+      const crowded = unitCount(c) > 6 || crowdedFor === c.id;
       view.classList.toggle('is-crowded', crowded);
       // v3.2: grupos de 3 o 4 (hasta 15 en la arena): tarjetas más bajas
       view.classList.toggle('is-packed', unitCount(c) >= 10);
+      // v3.18.1: con la crónica al costado, las tarjetas se achican para entrar en una sola fila;
+      // si quedarían muy angostas, la crónica va abajo
       if (!crowded && window.innerWidth >= 1200) {
+        const arenaEl = view.querySelector('.cb-arena');
+        const n = unitCount(c);
+        if (arenaEl) {
+          const fit = Math.floor((arenaEl.clientWidth - 44 - 70 - (n - 1) * 10) / n);
+          if (fit < 136) { crowdedFor = c.id; view.classList.add('is-crowded'); view.style.removeProperty('--card-fit'); }
+          else {
+            const cardW = Math.min(200, fit);
+            view.style.setProperty('--card-fit', `${cardW}px`);
+            // el dibujo, lo más grande que entre (a lo ancho de la tarjeta y a lo alto de la arena), en múltiplos de 32 para que el pixel art quede nítido
+            const plate = arenaEl.querySelector('.cb-plate');
+            const room = arenaEl.clientHeight - (plate ? plate.offsetHeight : 110) - 64;
+            const sp = Math.max(96, Math.floor(Math.min(cardW + 10, room, 224) / 32) * 32);
+            view.style.setProperty('--sprite-fit', `${sp}px`);
+          }
+        }
+      }
+      if (!view.classList.contains('is-crowded') && window.innerWidth >= 1200) {
         requestAnimationFrame(() => {
           const act = view.querySelector('.cb-actions');
           if (act && act.getBoundingClientRect().bottom > window.innerHeight + 2) {
@@ -476,6 +496,7 @@
           ${effectsHtml(u.effects)}
           ${u.dc != null && A.ItemSprites && A.ItemSprites.dcBadge ? A.ItemSprites.dcBadge(u.dc, { size: 34, cls: 'cb-dc', title: u.dcTitle }) : ''}
           ${u.sprite}
+          ${u.traits || ''}
           <span class="cb-shadow"></span>
           ${u.isTarget && !u.dead ? '<span class="cb-target-mark" aria-label="objetivo">▼</span>' : ''}
         </div>
@@ -492,7 +513,6 @@
           </div>
           ${sub}
           <div class="cb-stats">${u.stats.join('')}</div>
-          ${u.traits || ''}
         </div>
         ${u.dead ? `<div class="cb-dead-tag ${u.deadTag ? 'is-left' : ''}">${esc(u.deadTag || 'Caído')}</div>` : ''}
       </${tag}>`;

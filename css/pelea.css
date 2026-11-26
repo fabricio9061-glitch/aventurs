@@ -35,24 +35,35 @@
 .cb-unit.cat-boss .cb-plate { box-shadow: inset 0 3px 0 #d8a23a, 0 0 0 2px rgba(216, 162, 58, 0.55), 0 4px 14px rgba(0, 0, 0, 0.35); }
 .cb-unit.cat-boss:not(.is-dead) .cb-sprite > .px-sprite { filter: drop-shadow(0 0 10px rgba(255, 120, 60, 0.45)); }
 
-/* ---------- Habilidades de la criatura ---------- */
-.cb-traits { display: flex; gap: 3px; justify-content: center; margin-top: 5px; flex-wrap: nowrap; }
+/* ---------- Habilidades de la criatura ----------
+   En una columnita al costado del dibujo, abajo a la izquierda (así todas las
+   tarjetas miden lo mismo y quedan alineadas) */
+.cb-sprite .cb-traits {
+  position: absolute;
+  left: 2px;
+  bottom: 12px;
+  z-index: 2;
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 2px;
+}
 .cb-trait {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 20px;
+  width: 20px;
   height: 18px;
-  padding: 0 3px;
   border-radius: 5px;
-  background: rgba(184, 67, 42, 0.1);
-  border: 1px solid rgba(184, 67, 42, 0.45);
+  background: rgba(255, 246, 228, 0.92);
+  border: 1px solid rgba(184, 67, 42, 0.6);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
   cursor: help;
 }
-.cb-trait.is-passive { background: rgba(58, 103, 166, 0.1); border-color: rgba(58, 103, 166, 0.45); }
-.cb-trait.is-more { font-size: 10px; font-weight: 700; color: #6b5434; border-color: #cdb68a; background: none; }
+.cb-trait.is-passive { border-color: rgba(58, 103, 166, 0.7); }
+.cb-trait.is-more { font-size: 10px; font-weight: 700; color: #6b5434; }
 .cb-trait .px-sprite { display: block; }
 .cb-unit.is-dead .cb-traits { display: none; }
+/* la cinta va dentro de la tarjeta (no se cruza con el dibujo) */
 
 /* ---------- Cola de turnos con caritas ---------- */
 .combat-turn-queue { align-items: center; }
@@ -153,8 +164,14 @@
   .combat-view.cb.is-arena:not(.is-crowded) > .cb-stage { display: flex; flex-direction: column; min-height: 0; }
   .combat-view.cb.is-arena:not(.is-crowded) > .cb-stage > .cb-arena { flex: 1 1 auto; }
 }
-@media (min-width: 1200px) and (min-height: 740px) {
-  .combat-view.cb.is-arena:not(.is-crowded) .cb-sprite { height: 172px; }
-  .combat-view.cb.is-arena:not(.is-crowded) .cb-sprite > .px-sprite { --px-size: 164px !important; }
-  .combat-view.cb.is-arena:not(.is-crowded) .cb-vs { margin-bottom: 150px; }
+/* el tamaño del dibujo lo calcula la vista (--sprite-fit), según el lugar que hay */
+@media (min-width: 1200px) and (min-height: 560px) {
+  .shell-body.is-combat { max-width: min(1720px, calc(100vw - 32px)); }
+  .combat-view.cb.is-arena:not(.is-crowded) .cb-sprite { height: calc(var(--sprite-fit, 128px) + 8px); }
+  .combat-view.cb.is-arena:not(.is-crowded) .cb-sprite > .px-sprite { --px-size: var(--sprite-fit, 128px) !important; }
+  .combat-view.cb.is-arena:not(.is-crowded) .cb-vs { margin-bottom: calc(var(--sprite-fit, 128px) - 10px); }
 }
+
+/* v3.18.1: con la crónica al costado, el ancho de las tarjetas lo calcula la vista (todas en una fila) */
+.combat-view.cb.is-arena:not(.is-crowded) .cb-arena { --card-w: var(--card-fit, 184px); }
+.combat-view.cb.is-arena:not(.is-crowded) .cb-arena .cb-side { flex-wrap: nowrap; }

@@ -2,6 +2,13 @@
 
 La más nueva arriba. Cómo correr el juego y cómo está armado: [README.md](README.md).
 
+## Versión 3.18.1: la pelea, ordenada
+
+- **Todas las tarjetas miden lo mismo** y quedan alineadas: las habilidades de la criatura ahora van en una columnita al costado del dibujo, no debajo de los números.
+- Hasta 6 en la pelea (por ejemplo vos, tu mascota y 3 criaturas) va **todo en una fila**, con la crónica al costado. El ancho de las tarjetas se calcula según la pantalla para que nunca se partan en dos filas.
+- Los dibujos crecen según el lugar que hay en la arena (más grandes en pantallas grandes) y la pelea usa más ancho en monitores anchos.
+- Con más de 6 (grupos) sigue el modo apretado: botones y crónica lado a lado abajo.
+
 ## Versión 3.18.0: la pantalla de pelea, más clara (también en grupos de 4)
 
 ### Criaturas (`css/pelea.css`)
