@@ -21,7 +21,8 @@ aventurs/
 │   ├── theme.css           Tema "Mezcla"
 │   ├── v2.css / v3.css     Escenas, tienda, diario, mapa, grupo, cuentas y creación
 │   ├── editor2.css         Editor del mundo
-│   └── efectos.css         Efectos de la pelea: golpes, hechizos, respiración, estados y botín (v3.16)
+│   ├── efectos.css         Efectos de la pelea: golpes, hechizos, respiración, estados y botín (v3.16)
+│   └── pantalla.css        La barra de la derecha compacta, para ver la mochila sin bajar (v3.17)
 ├── js/
 │   ├── core/               utils, bus (pub/sub), balance (TODAS las fórmulas), sprites e item-sprites
 │   │                       (pixel art), data (carga los seeds + cambios del editor), accounts,

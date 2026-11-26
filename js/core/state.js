@@ -659,6 +659,20 @@
       return State.inventoryUsedSlots() + need <= State.inventoryCapacity();
     },
 
+    /**
+     * v3.17: ¿entra uno más de este objeto? Si ya lo tenés y su pila no está llena,
+     * se apila y no ocupa lugar nuevo (aunque la mochila esté llena).
+     */
+    canAddItem(itemId) {
+      if (!State.player) return false;
+      const item = A.Data.getById('items', itemId) || A.Data.getById('weapons', itemId) || A.Data.getById('armors', itemId);
+      if (!item) return false;
+      if (item.subtype === 'coin' || item.quest) return true;
+      const slot = item.stack > 1 ? State.player.inventory.find((s) => s.itemId === itemId) : null;
+      if (slot) return slot.qty < item.stack;
+      return State.inventoryHasSpaceFor(itemId);
+    },
+
     inventoryHasSpace() {
       return State.inventoryUsedSlots() < State.inventoryCapacity();
     },

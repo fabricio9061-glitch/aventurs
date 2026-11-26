@@ -403,7 +403,7 @@
     if (!d) return `<div class="shop-detail is-empty">${U().icon('shop', 40)}<p>Tocá un objeto para ver qué hace y si te conviene.</p></div>`;
     const price = priceOf(npc, id);
     const canPay = A.Currency.canPay(price);
-    const hasRoom = A.State.inventoryHasSpaceFor ? A.State.inventoryHasSpaceFor(id) : A.State.inventoryHasSpace();
+    const hasRoom = A.State.canAddItem(id); // v3.17: si ya lo tenés, se apila aunque la mochila esté llena
     const atCap = A.State.itemAtCap ? A.State.itemAtCap(id) : false; // v3.13: tope por objeto
     const why = atCap ? 'Llevás el máximo' : !canPay ? 'No te alcanza' : !hasRoom ? 'Mochila llena' : '';
     return `

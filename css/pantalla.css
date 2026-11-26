@@ -1,0 +1,54 @@
+/* ============================================================
+   Aventurs — Barra de la derecha más compacta (v3.17)
+   Para que la mochila entre entera sin bajar, también en pantallas
+   bajas o con el navegador agrandado (125%).
+   (Va al final: pisa medidas de v2.css y v3.css.)
+   ============================================================ */
+
+/* Vida, maná, comida y experiencia de a dos por fila */
+.sb-head .sb-vitals { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 14px; row-gap: 5px; }
+.sb-head .sb-vital { gap: 5px; }
+.sb-head .sb-vital-text { min-width: 0; font-size: 10.5px; }
+.sb-head .sb-vital.is-xp { margin-top: 0; padding-top: 0; border-top: 0; }
+.sb-head .sb-vitals > .sb-vital.is-xp:nth-child(odd) { grid-column: 1 / -1; }
+
+/* Los números en una sola fila (lo que es cada uno, al pasar el mouse) */
+.sb-stats { grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 4px; }
+.sb-stat {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  justify-items: center;
+  padding: 3px 2px 2px;
+  text-align: center;
+}
+.sb-stat > .px-icon, .sb-stat > .px-sprite, .sb-stat > svg { display: none; }
+.sb-stat-val { font-size: 13px; max-width: 100%; }
+.sb-stat-label { font-size: 8px; letter-spacing: 0; max-width: 100%; }
+
+/* Menos aire entre secciones */
+.sb-body { gap: 7px; padding-top: 8px; }
+.sb-sec { gap: 4px; }
+.sb-equip { padding-top: 2px; }
+
+/* Mascota más baja: lo que hace, en dos líneas como mucho */
+.sb-pet { gap: 3px; padding: 5px 8px; }
+.sb-pet-sprite { width: 34px; height: 34px; }
+.sb-pet-bond {
+  margin-top: 2px;
+  font-size: 11.5px;
+  line-height: 1.25;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+/* Pantallas bajas: un poco más apretado */
+@media (max-height: 780px) and (min-width: 901px) {
+  .sb-head { padding-top: 8px; padding-bottom: 8px; }
+  .sb-bag { gap: 3px; }
+  .sb-body { gap: 5px; padding-bottom: 8px; }
+  .sb-pet-bond { -webkit-line-clamp: 1; line-clamp: 1; }
+  .sb .class-note { padding: 2px 8px; font-size: 11px; }
+}

@@ -2,6 +2,19 @@
 
 La más nueva arriba. Cómo correr el juego y cómo está armado: [README.md](README.md).
 
+## Versión 3.17.0: todo a la vista y comprar con la mochila llena
+
+### La barra de la derecha entra sin bajar (`css/pantalla.css`)
+- Vida, maná, comida y experiencia van de a dos por fila.
+- Tus números (precisión, daño, defensa, armadura, velocidad y magia) van en una sola fila. Lo que es cada uno se ve al pasar el mouse.
+- La mascota ocupa menos: lo que hace va en dos líneas como mucho (entero al pasar el mouse).
+- Medido con la mochila más grande (32 lugares) y una mascota: la mochila entra entera sin bajar en pantallas de 1920×950, 1536×760 (una de 1920 con el navegador al 125%) y 1366×680. Antes había que bajar 70 a 150 píxeles.
+
+### Arreglo
+- **Comprar con la mochila llena**: si ya tenés ese objeto y su pila no está llena, ahora lo podés comprar (se apila y no ocupa lugar nuevo). Antes el botón decía "Mochila llena". Un objeto que no tenés sigue sin entrar si la mochila está llena (`State.canAddItem`).
+
+Las peleas no cambian (no se tocó nada de las reglas), así que el equilibrio es el mismo de la v3.16.
+
 ## Versión 3.16.0: la pelea se ve mejor y el código está ordenado
 
 ### Efectos de la pelea (`css/efectos.css` y `js/views/combat-fx.js`)

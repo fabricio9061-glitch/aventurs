@@ -42,7 +42,7 @@
           <div class="shell-brand">
             <span class="brand-icon">${A.UI ? A.UI.icon('swords', 26) : ''}</span>
             <span class="brand-name">Aventurs</span>
-            <span class="version-pill" title="Versión del juego">v3.16.0</span>
+            <span class="version-pill" title="Versión del juego">v3.17.0</span>
           </div>
           ${tabs.length > 1 ? `
             <nav class="shell-nav">
@@ -268,7 +268,7 @@
               ${st ? statChip('target', 'Precisión', `${st.attack >= 0 ? '+' : ''}${st.attack}`, 'Precisión: se suma al dado de 20 cuando atacás') : ''}
               ${statChip('swords', 'Daño', formatDamageDisplay(weapon, p.stats.damage), 'Daño: la vida que le sacás al enemigo cuando acertás (tu arma más tus bonus)')}
               ${st ? statChip('d20', 'Defensa', st.defense, 'Defensa: lo que un enemigo tiene que sacar (dado de 20 más su precisión) para pegarte') : ''}
-              ${statChip('shield', 'Armadura', st ? st.armor : (p.stats.armor || 0), 'Armadura: se resta a cada golpe que recibís')}
+              ${statChip('shield', 'Armad.', st ? st.armor : (p.stats.armor || 0), 'Armadura: se resta a cada golpe que recibís')}
               ${statChip('boot', 'Velocidad', st ? st.speed : p.stats.speed, speedTitle(p, st), st && st.weightPenalty > 0)}
               ${p.hasMagic && st ? statChip('arcane', 'Magia', `+${st.spellPower || 0}`, 'Magia: se suma al daño de tus hechizos') : ''}
             </div>
@@ -326,8 +326,8 @@
           // v3.9: lo que te da tu mascota (o por qué no te lo da)
           const b = A.Tame && A.Tame.ownerBond ? A.Tame.ownerBond(A.State.player) : null;
           if (!b) return '';
-          if (b.off) return `<div class="sb-pet-bond is-off">${ic('paw', 14)}<span>${escH(b.off)}</span></div>`;
-          if (b.text) return `<div class="sb-pet-bond">${ic('paw', 14)}<span>${escH(b.text)}</span></div>`;
+          if (b.off) return `<div class="sb-pet-bond is-off" title="${escH(b.off)}">${ic('paw', 14)}<span>${escH(b.off)}</span></div>`;
+          if (b.text) return `<div class="sb-pet-bond" title="${escH(b.text)}">${ic('paw', 14)}<span>${escH(b.text)}</span></div>`;
           return pet.species === 'lobo' ? `<div class="sb-pet-bond">${ic('paw', 14)}<span>En la pelea aúlla: pegás con +1 de precisión y daño.</span></div>` : '';
         })()}
       </section>

@@ -49,13 +49,8 @@
     if (A.State.itemAtCap && A.State.itemAtCap(itemId)) {
       return { ok: false, error: `Ya llevás el máximo (${A.State.itemCap(itemId)}).` };
     }
-    if (!A.State.inventoryHasSpace()) {
-      // Excepción: si es stackeable y ya hay slot, sí cabe
-      const item = A.Data.getById('items', itemId);
-      const exists = A.State.player.inventory.find((s) => s.itemId === itemId);
-      const stackable = item && item.stack && item.stack > 1 && exists;
-      if (!stackable) return { ok: false, error: 'Mochila llena.' };
-    }
+    // v3.17: si ya lo tenés, se apila aunque la mochila esté llena
+    if (!A.State.canAddItem(itemId)) return { ok: false, error: 'Mochila llena.' };
     A.Currency.pay(price);
     A.State.addItem(itemId, 1);
     A.State.addChronicle({
