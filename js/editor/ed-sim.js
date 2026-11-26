@@ -9,6 +9,11 @@
    El aventurero de prueba es un Humano del nivel que elijas, con el
    mejor equipo común que podría tener a ese nivel, sin pociones ni
    hechizos. Sirve para comparar, no para predecir al milímetro.
+
+   v3.11: las criaturas usan sus pasivas con las cuentas del juego
+   (skills.js) y los jefes, sus trucos (invocar, tentáculos, cabezas,
+   curarse, furia). Lo medido con el motor completo está en
+   js/data/seed-jefes-medidos.js (node tools/jefes.js --datos).
    ============================================================ */
 
 (function (A) {
@@ -23,7 +28,9 @@
 
   function gearFor(p) {
     const lvl = p.level || 1;
-    const ok = (x) => (x.tier || 1) <= lvl && ['common', 'uncommon', 'rare'].includes(x.rarity || 'common');
+    const ok = (x) => (x.tier || 1) <= lvl && (['common', 'uncommon', 'rare'].includes(x.rarity || 'common')
+      // v3.11: en las Tierras Altas, el equipo astral (se vende) y el del alba (se forja) es épico
+      || (x.rarity === 'epic' && (x.tier || 1) >= 13 && x.alto));
     const avg = (w) => (A.Balance ? A.Balance.avgOf(w.damage) : 1);
     const score = (w) => {
       const fit = A.Balance.weaponFit ? A.Balance.weaponFit(p, w) : { atk: 0, dmg: 0 };
@@ -67,21 +74,70 @@
 
   // ---------- una pelea ----------
 
+  // v3.11: lo que hacen los jefes también cuenta en la prueba (invocar, los tentáculos del Kraken, las tres cabezas)
+  function bossTricks(es) {
+    const add = [];
+    for (const e of es) {
+      const ids = A.Skills && A.Skills.idsOf ? A.Skills.idsOf(e) : [];
+      if (ids.includes('ocho_tentaculos')) {
+        for (let i = 0; i < 8; i++) { const t = instanceOf(A.Data.getById('enemies', 'tentaculo_kraken') || {}); if (t && t.maxHp) { t.hp = t.maxHp; t.guard = e; add.push(t); } }
+        e.hidden = true;
+      }
+      if (ids.includes('tres_cabezas')) e.heads = 3;
+      // v3.11: lo que más pesa de los jefes en una pelea larga (como en el juego: skills.js y combat.js)
+      if (ids.includes('curarse')) e.selfHeal = { amount: 0.25, uses: 2, cd: 0 };
+      if (ids.includes('venenoso')) e.venom = true;
+      if (e.category === 'boss' || ids.includes('enfurecer')) e.canRage = true;
+      const sk = ids.find((id) => /^invocar|^llamar_manada/.test(id));
+      const data = A.Data.getById('enemies', e.id) || {};
+      const raw = (A.Skills && A.Skills.SUMMONS && A.Skills.SUMMONS[e.id]) || data.summons;
+      if (sk && raw) {
+        const spec = typeof raw === 'string' ? { id: raw, count: 1 } : { ...raw };
+        const lib = A.Skills.get ? A.Skills.get(sk) : null;
+        if (lib && lib.count) spec.count = lib.count;
+        e.summon = spec;
+      }
+    }
+    return add;
+  }
+  function summonNow(e) {
+    const out = [];
+    const d = A.Data.getById('enemies', e.summon.id);
+    for (let i = 0; d && i < (e.summon.count || 1); i++) { const s = instanceOf(d); s.maxHp = Math.max(1, Math.round(s.maxHp * (e.summon.hp || (e.summon.weak ? 0.6 : 1)))); s.hp = s.maxHp; out.push(s); }
+    e.summon = null;
+    return out;
+  }
+
+  // v3.11: las pasivas de las criaturas, con las mismas cuentas del juego (skills.js): colas del kitsune, ilusiones,
+  // piel gruesa, caparazón, regeneración, renacer, espinas, cuerpo de fuego, manada, líder...
+  const SK = () => A.Skills || {};
+  const NO_MODS = { attack: 0, defense: 0, armor: 0 };
+  function modsOf(e, es) { try { return SK().statMods ? SK().statMods(e, { enemies: es }) : NO_MODS; } catch (err) { return NO_MODS; } }
+
   function oneFight(hero, foes, power) {
     const { p, st, weapon } = hero;
     const dmgExpr = weapon ? weapon.damage : '1d2';
     let hp = p.maxHp;
     const es = foes.map((f) => ({ ...f, hp: f.maxHp }));
+    es.push(...bossTricks(es));
     const actors = [{ k: 'p', speed: st.speed, tie: Math.random() }]
       .concat(es.map((e, i) => ({ k: 'e', i, speed: e.speed || 10, tie: Math.random() })))
       .sort((a, b) => (b.speed - a.speed) || (b.tie - a.tie));
     let powerCd = 0;
+    let poison = 0, burn = 0; // v3.11: turnos de veneno (1 por turno) y de fuego (2 por turno) que le quedan al aventurero
+    const headMult = ((SK().get && SK().get('tres_cabezas')) || {}).mult || 0.6;
     for (let round = 1; round <= 40; round++) {
+      // el jefe llama a los suyos en su segunda ronda (y pelean desde la siguiente)
+      if (round === 2) for (const e of es.slice()) if (e.summon && e.hp > 0) { for (const s of summonNow(e)) { es.push(s); actors.push({ k: 'e', i: es.length - 1, speed: s.speed || 10, tie: 0 }); } }
+      for (const e of es) if (e.hidden && !es.some((g) => g.guard === e && g.hp > 0)) e.hidden = false;
       for (const a of actors) {
         if (hp <= 0) return { win: false, rounds: round, hp: 0 };
         if (a.k === 'p') {
           if (powerCd > 0) powerCd -= 1;
-          const alive = es.filter((e) => e.hp > 0);
+          if (poison > 0) { poison -= 1; hp -= 1; }
+          if (burn > 0) { burn -= 1; hp -= 2; }
+          if (hp <= 0) return { win: false, rounds: round, hp: 0 };
+          const alive = es.filter((e) => e.hp > 0 && !e.hidden);
           if (!alive.length) break;
           const t = alive.sort((x, y) => x.hp - y.hp)[0];
           const usePower = power && powerCd === 0;
@@ -89,22 +145,45 @@
           const r = d20();
           if (r === 1) continue;
           const crit = r === 20;
-          if (!crit && r + st.attack < t.difficulty) continue;
+          const tm = modsOf(t, es);
+          if (!crit && r + st.attack < (t.difficulty || 10) + tm.defense) continue;
+          if (SK().dodgeHit && SK().dodgeHit(t, { hit: true, crit })) continue; // ilusión, escurridizo, etéreo
           let raw = Math.max(0, roll(dmgExpr) + (st.damageBonus || 0));
           if (usePower) raw *= power.mult;
           if (crit) raw *= 2;
-          t.hp -= Math.max(1, raw - (t.armor || 0));
+          let dmg = Math.max(1, Math.round(raw) - (t.armor || 0) - (tm.armor || 0));
+          if (SK().softenHit) dmg = SK().softenHit(t, dmg).dmg; // caparazón, piel gruesa
+          t.hp -= dmg;
+          if (t.hp <= 0 && SK().tryRevive) SK().tryRevive(t); // renacer, aguante
+          const re = SK().reactions ? SK().reactions(t) : null; // espinas, cuerpo de fuego
+          if (re && re.thorns) hp -= re.thorns;
+          if (re && re.burn && Math.random() < re.burn) burn = Math.max(burn, 2);
         } else {
           const e = es[a.i];
-          if (e.hp <= 0) continue;
-          const r = d20();
-          if (r === 1) continue;
-          const crit = r === 20;
-          if (!crit && r + (e.attack || 0) < st.defense) continue;
-          let raw = roll(e.damage || 1);
-          if (crit) raw *= 2;
-          hp -= Math.max(1, raw - (st.armor || 0));
+          if (e.hp <= 0 || e.hidden) continue;
+          if (SK().growTails) SK().growTails(e); // kitsune: una cola por turno (con nueve se cura)
+          // regeneración (como en el juego: 1,5% por turno en los jefes, 3% en las demás, hasta un cuarto por pelea)
+          const g = SK().regenOf ? SK().regenOf(e) : 0;
+          if (g > 0) { const got = Math.min(g, e.maxHp - e.hp); e.hp += got; e._regenUsed = (e._regenUsed || 0) + g; }
+          // los jefes se enfurecen con la mitad de la vida
+          if (e.canRage && !e.raged && e.hp <= e.maxHp / 2) { e.raged = true; e.dmgMult = (e.dmgMult || 1) * ((A.Balance.BOSS && A.Balance.BOSS.rage) || 1.2); }
+          // curarse: con la mitad de la vida o menos, a veces se cura un cuarto (dos veces por pelea)
+          if (e.selfHeal) { if (e.selfHeal.cd > 0) e.selfHeal.cd -= 1; else if (e.selfHeal.uses > 0 && e.hp <= e.maxHp / 2 && Math.random() < 0.45) { e.hp = Math.min(e.maxHp, e.hp + Math.round(e.maxHp * e.selfHeal.amount)); e.selfHeal.uses -= 1; e.selfHeal.cd = 4; continue; } }
+          const em = modsOf(e, es);
+          for (let h = 0; h < (e.heads || 1); h++) {
+            const r = d20();
+            if (r === 1) continue;
+            const crit = r === 20;
+            if (!crit && r + (e.attack || 0) + (em.attack || 0) < st.defense) continue;
+            const bonus = SK().bonusDamage ? SK().bonusDamage(e).mult : 1; // colas del kitsune, emboscada
+            const fury = SK().damageMult ? SK().damageMult(e) : 1; // Furia (criaturas)
+            let raw = roll(e.damage || 1) * (e.heads ? headMult : 1) * (e.dmgMult || 1) * bonus * fury;
+            if (crit) raw *= 2;
+            hp -= Math.max(1, Math.round(raw) - (st.armor || 0));
+            if (e.venom && Math.random() < 0.35) poison = Math.max(poison, 3);
+          }
         }
+        for (const g of es) if (g.hidden && !es.some((x) => x.guard === g && x.hp > 0)) g.hidden = false;
       }
       if (es.every((e) => e.hp <= 0)) return { win: true, rounds: round, hp };
     }
@@ -161,7 +240,7 @@
     if (calib) return calib;
     const byCat = {};
     for (const e of (A.Seed && A.Seed.enemies) || A.Data.enemies) {
-      const r = fight([e], Math.max(1, Math.min(10, e.tier || 1)), 120);
+      const r = fight([e], Math.max(1, Math.min(A.Progression ? A.Progression.MAX_LEVEL : 20, e.tier || 1)), 120);
       const k = e.category || 'normal';
       (byCat[k] = byCat[k] || { win: [], cost: [] });
       byCat[k].win.push(r.win);
@@ -205,7 +284,7 @@
    * mismo que las del juego de su mismo tipo.
    */
   function suggest(d, styleId) {
-    const tier = Math.max(1, Math.min(10, d.tier || 1));
+    const tier = Math.max(1, Math.min(A.Progression ? A.Progression.MAX_LEVEL : 20, d.tier || 1));
     const category = d.category || 'normal';
     const st = STYLES[styleId] || STYLES.pareja;
     const c = A.Balance.enemyStats(tier, category);

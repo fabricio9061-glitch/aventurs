@@ -380,6 +380,7 @@
       log: [],
       result: null,
       fromTravel: !!opts.fromTravel,
+      lair: opts.lair || null, // v3.11: pelea en la guarida de un jefe
       ambush: !!opts.ambush && !opts.surprise,
       surprise: !!opts.surprise,
     };
@@ -429,7 +430,17 @@
       const turns = P() && P().fairyDust ? P().fairyDust(h) : 0;
       if (!turns) continue;
       const pool = instances.filter((e) => e.hp > 0 && e.category !== 'boss' && !(e.effects || []).some((ef) => ef.type === 'stun'));
-      if (!pool.length) continue;
+      if (!pool.length) {
+        // v3.11 (dossier): si son todos jefes, el polvo no los duerme pero los marea en su primer ataque
+        const boss = instances.find((e) => e.hp > 0);
+        if (boss) {
+          A.State.withHero(h, () => {
+            applyStatus(boss, 'stagger', { turns: 2, value: 1, source: 'polvo_hada' });
+            addLog(combat, 'system', { text: `Polvo de hada: ${boss.displayName} queda mareado (−1 de precisión).`, fx: { kind: 'status', target: fxKey(boss), effect: 'stagger', passive: 'polvo_hada' }, say: { text: `Soplás tu polvo de hada: ${A.Skills ? A.Skills.noun(boss) : boss.displayName} es demasiado fuerte para dormirse, pero queda mareado en su primer ataque.`, tone: 'good' } });
+          });
+        }
+        continue;
+      }
       const e = pool[Math.floor(Math.random() * pool.length)];
       A.State.withHero(h, () => {
         e.effects = e.effects || [];
@@ -439,6 +450,7 @@
         addLog(combat, 'system', { text: `Polvo de hada: ${e.displayName} se duerme.`, fx: { kind: 'status', target: fxKey(e), effect: 'stun', passive: 'polvo_hada' }, say: { text: `Soplás tu polvo de hada: ${n} se queda ${fem ? 'dormida' : 'dormido'} y pierde su primer turno.`, tone: 'good' } });
       });
     }
+    bossOpening(combat); // v3.11: el Kraken y sus tentáculos
     addTurnHeader(combat, 1);
     // v3.9: ¡una brillante!
     for (const e of instances.filter((x) => x.shiny)) {
@@ -610,8 +622,10 @@
     if (roll === 1 && opts.reroll1) { lucky = true; roll = A.Utils.dice(20); }
     const total = roll + attack;
     const fumble = roll === 1;
-    const crit = roll >= (opts.critMin || 20);
-    const hit = crit || (!fumble && total >= defense);
+    // v3.11 (dossier): el 20 pega siempre; un 18 o 19 (Goliat, Elfo, Anillo del golpe certero) es crítico
+    // solo si el golpe llega a la defensa (antes acertaba siempre)
+    const hit = roll === 20 || (!fumble && total >= defense);
+    const crit = hit && roll >= (opts.critMin || 20);
     return { roll, total, fumble, crit, hit, lucky };
   }
 
@@ -632,7 +646,8 @@
   function shieldPlayer(c, p, dmg, opts = {}) {
     const ab = P() ? P().absorbHit(c, p, dmg, opts) : { dmg, passive: null };
     const gd = A.ItemFx ? A.ItemFx.guard(c, p, ab.dmg) : { dmg: ab.dmg, tag: null };
-    return { dmg: gd.dmg, passive: ab.passive, guard: gd.tag, absorbed: ab.absorbed || 0 };
+    // v3.11: cuánto sacó la Piel de roca y cuánto frenó la Bendición divina (para contarlo)
+    return { dmg: gd.dmg, passive: ab.passive, guard: gd.tag, absorbed: ab.absorbed || 0, roca: ab.roca || 0, blessed: ab.blessed || 0, blessBy: ab.blessBy || null };
   }
 
   /** Cuenta lo que hizo un objeto que te salvó (después del golpe). */
@@ -739,6 +754,8 @@
       // v2.5
       prone: 'derribado', fear: 'miedo', grab: 'atrapado', corrode: 'ácido',
       rally: 'envalentonado', guard: 'en guardia',
+      // v3.11
+      stagger: 'desequilibrado', exposed: 'expuesto',
     })[type] || type;
   }
 
@@ -873,6 +890,7 @@
 
   function addTurnHeader(c, n) {
     addLog(c, 'turn-header', { text: `── Turno ${n} ──`, turnNumber: n });
+    blessingRound(c);
     // v3.9: el vínculo con la mascota (unicornio, fénix, slime...): un poco de vida por ronda si estás herido
     if (n > 1 && A.Tame && A.Tame.ownerBond) {
       for (const h of (c.party && c.heroIds ? c.heroIds.map((id) => A.State.heroById ? A.State.heroById(id) : null).filter(Boolean) : [State().player])) {
@@ -884,6 +902,23 @@
         const PN = A.Narrator && A.Narrator.petNoun ? A.Narrator.petNoun(h.pet) : h.pet.name;
         addLog(c, 'system', { text: `${h.pet.name} te cura ${heal}.`, fx: { kind: 'heal', target: 'player', amount: heal, passive: 'vinculo' }, say: { text: `${PN.charAt(0).toUpperCase()}${PN.slice(1)} te cierra un poco las heridas: +${heal} de vida.`, tone: 'good' } });
       }
+    }
+  }
+
+  /** v3.11 (dossier): Bendición divina: al empezar cada ronda, cada ángel protege al más herido del grupo. */
+  function blessingRound(c) {
+    if (!P() || !P().blessRound) return;
+    const heroes = c.party ? heroesOf(c) : [State().player];
+    const given = P().blessRound(c, heroes);
+    for (const g of given) {
+      if (!g.fresh) continue; // si sigue con el mismo, no se repite la frase
+      const self = g.target === g.angel;
+      A.State.withHero(g.angel, () => addLog(c, 'system', {
+        text: `Bendición divina: ${self ? 'te protege' : `protege a ${g.target.name}`} (frena ${g.amount} del próximo golpe).`,
+        passive: 'bendicion',
+        fx: { kind: 'buff', target: c.party ? `hero:${hidOf(g.target)}` : 'player', label: `Bendición ${g.amount}`, icon: 'sun' },
+        say: { text: self ? `Una luz suave te rodea: el próximo golpe que recibas pega ${g.amount} menos.` : `Una luz suave rodea a ${g.target.name}: el próximo golpe que reciba pega ${g.amount} menos.`, tone: 'good' },
+      }));
     }
   }
 
@@ -936,6 +971,11 @@
       owner = heroOfEntry(c, cur);
       entity = owner ? owner.pet : null;
       if (!entity || entity.health <= 0) { c.currentActorIdx += 1; return advanceIfNotPlayer(); }
+    } else if (cur.kind === 'ally') {
+      // v3.11: un aliado invocado (el lobo del Aullido): no actúa la ronda en que llega
+      owner = heroOfEntry(c, cur);
+      entity = (c.allies || []).find((a) => a.aid === cur.aid) || null;
+      if (!owner || !entity || entity.hp <= 0 || entity.attacksLeft <= 0 || entity.born === c.round) { c.currentActorIdx += 1; return advanceIfNotPlayer(); }
     } else {
       owner = heroOfEntry(c, cur);
       entity = owner;
@@ -959,7 +999,7 @@
           }
           c.itemsTurn = 0;
           playerTurnPassives(c, entity);
-        } else {
+        } else if (cur.kind !== 'ally') {
           creatureTurnPassives(c, cur.kind, entity); // v2.5: Regeneración
         }
         return startOfTurn(c, cur.kind, entity);
@@ -979,6 +1019,7 @@
     // Pausas pensadas para que se vea el dado y el golpe de cada uno
     if (cur.kind === 'enemy') later(c, () => A.State.withHero(pickTargetHero(c), () => executeEnemyAction(entity)), ENEMY_DELAY);
     else if (cur.kind === 'pet') later(c, () => A.State.withHero(owner || State().player, () => executePetAction()), PET_DELAY);
+    else if (cur.kind === 'ally') later(c, () => A.State.withHero(owner || State().player, () => executeAllyAction(entity)), PET_DELAY);
     // Jugador: espera input (en grupo, el del compañero llega por la red)
   }
 
@@ -1012,6 +1053,9 @@
         }
       }
     }
+    // v3.11: Instinto salvaje (orco) y la nave nodriza (alienígena) al empezar tu turno
+    if (P() && P().instinctTurn) P().instinctTurn(c, p);
+    if (P() && P().orbitalTurn) P().orbitalTurn(c, p);
     // v3.9: Frenesí vampírico (empieza el turno siguiente a la tercera gota y dura dos turnos tuyos)
     const blood = P() && P().bloodTurn ? P().bloodTurn(c, p) : null;
     if (blood === 'start') addLog(c, 'system', { text: '¡Frenesí vampírico!', fx: { kind: 'passive', passive: 'colmillos', actor: 'player', target: 'player' }, passive: 'colmillos', say: { text: '¡Frenesí vampírico! La sangre te nubla los ojos: estos dos turnos pegás más fuerte y robás más vida.', tone: 'crit' } });
@@ -1112,7 +1156,52 @@
     const text = how === 'pet' ? `${t.displayName} cayó por la mascota.` : how === 'tick' ? `${t.displayName} cayó por los efectos.` : `${t.displayName} cayó.`;
     addLog(c, 'system', { text, killed: t.displayName, fx: { kind: 'death', target: fxKey(t) } });
     if (how === 'player' || how === 'item') maybeDropEquippedWeapon(c, t);
+    if (t.guardOf) surfaceIfFree(c, t.guardOf);
     return true;
+  }
+
+  // ============================================================
+  // v3.11: jefes con mecánica propia
+  //   Kraken: arranca bajo el agua con 8 tentáculos (2 más por cada héroe extra);
+  //   no se le puede pegar hasta cortarlos todos. Mientras tanto, no ataca: lo hacen ellos.
+  // ============================================================
+
+  const TENTACLES = { base: 8, perHero: 2, id: 'tentaculo_kraken' };
+  function bossOpening(c) {
+    for (const boss of c.enemies.slice()) {
+      if (boss.hp <= 0 || !(A.Skills && A.Skills.has(boss, 'ocho_tentaculos'))) continue;
+      const heroes = c.party ? heroesOf(c).length : 1;
+      const n = TENTACLES.base + TENTACLES.perHero * Math.max(0, heroes - 1);
+      let made = 0;
+      for (let i = 0; i < n; i++) {
+        const t = summonEnemy(c, boss, TENTACLES.id, {});
+        if (!t) break;
+        t.guardOf = boss.instanceId;
+        made += 1;
+      }
+      if (!made) continue;
+      boss.submerged = true;
+      addLog(c, 'system', {
+        text: `${boss.displayName} se hunde: salen ${made} tentáculos del agua.`,
+        fx: { kind: 'summon', actor: fxKey(boss) },
+        say: { text: `El agua hierve y ${made} tentáculos gigantes se levantan alrededor tuyo. ${boss.displayName} se queda abajo, en lo hondo: no vas a poder pegarle hasta cortarlos a todos.`, tone: 'bad' },
+      });
+    }
+  }
+  function surfaceIfFree(c, bossId) {
+    const boss = c.enemies.find((e) => e.instanceId === bossId);
+    if (!boss || !boss.submerged || boss.hp <= 0) return;
+    if (c.enemies.some((e) => e.guardOf === bossId && e.hp > 0)) return;
+    boss.submerged = false;
+    addLog(c, 'system', {
+      text: `¡${boss.displayName} sale a la superficie!`,
+      fx: { kind: 'note', actor: fxKey(boss) },
+      say: { text: `Sin sus tentáculos, ${A.Skills ? A.Skills.noun(boss) : boss.displayName} sale a la superficie, furioso. ¡Ahora sí le podés pegar!`, tone: 'crit' },
+    });
+    if (!getTarget() || c.targetInstanceId !== boss.instanceId) {
+      const tt = c.enemies.find((e) => e.instanceId === c.targetInstanceId && e.hp > 0);
+      if (!tt) c.targetInstanceId = boss.instanceId;
+    }
   }
 
   function nextActor() {
@@ -1148,6 +1237,13 @@
     const c = State().combat;
     if (!c) return;
     const t = c.enemies.find((e) => e.instanceId === instanceId && e.hp > 0);
+    // v3.11: el Kraken bajo el agua no se puede elegir
+    if (t && t.submerged) {
+      addLog(c, 'system', { text: `${t.displayName} está bajo el agua: primero hay que cortar sus tentáculos.`, fx: { kind: 'note' }, say: { text: `No llegás a ${A.Skills ? A.Skills.noun(t) : t.displayName}: está bajo el agua. Primero tenés que cortar sus tentáculos.`, tone: 'neutral' } });
+      State().persist();
+      A.Bus.emit('combat:target-changed', { instanceId: c.targetInstanceId });
+      return;
+    }
     if (t) {
       c.targetInstanceId = instanceId;
       State().persist();
@@ -1158,9 +1254,9 @@
   function getTarget() {
     const c = State().combat;
     if (!c) return null;
-    let t = c.enemies.find((e) => e.instanceId === c.targetInstanceId && e.hp > 0);
+    let t = c.enemies.find((e) => e.instanceId === c.targetInstanceId && e.hp > 0 && !e.submerged);
     if (!t) {
-      t = c.enemies.find((e) => e.hp > 0);
+      t = c.enemies.find((e) => e.hp > 0 && !e.submerged);
       if (t) c.targetInstanceId = t.instanceId;
     }
     return t || null;
@@ -1171,6 +1267,8 @@
     if (!c) return [];
     return c.enemies.filter((e) => e.hp > 0);
   }
+  /** v3.11: las que se pueden atacar (el Kraken bajo el agua, no). */
+  function hittableEnemies() { return aliveEnemies().filter((e) => !e.submerged); }
 
   // ============================================================
   // Acciones del jugador
@@ -1216,6 +1314,13 @@
           h.effects.push({ type: 'buff', source: `${T.id}:aliado`, name: T.name, mods: { ...T.allies }, turns: T.turns || 2, value: 1, fresh: true });
         }
       }
+      // v3.11 (dossier): el Aullido de manada además llama a un lobo que pelea a tu lado unas rondas
+      if (T.wolf) {
+        const W = T.wolf;
+        const lv = Math.max(1, p.level || 1);
+        const wolf = summonAlly(c, p, { kind: 'wolf', species: 'lobo', name: 'Lobo de la manada', hp: W.hp[b], damage: W.dmg[b], attack: W.prec + Math.floor(lv / 3), defense: W.def + Math.floor(lv / 2), attacks: W.attacks[b], speed: 12 });
+        addLog(c, 'system', { text: `La manada responde: llega un lobo (${wolf.hp} de vida, ${wolf.damage}, ${wolf.attacksLeft} ataques).`, fx: { kind: 'summon', actor: allyKey(wolf) }, say: { text: `La manada responde al aullido: un lobo sale de entre las sombras y se pone a tu lado. Va a atacar ${wolf.attacksLeft} veces, desde la próxima ronda.`, tone: 'good' } });
+      }
       // no gasta el ataque: el guerrero pega igual en este turno
       if (T.free) {
         const target = getTarget();
@@ -1223,7 +1328,7 @@
       }
     } else if (T.area) {
       const dice = T.area.dice(b);
-      for (const e of aliveEnemies()) {
+      for (const e of hittableEnemies()) {
         const dmg = Math.max(1, A.Utils.rollDice(dice));
         e.hp = Math.max(0, e.hp - dmg);
         addLog(c, 'player', { text: `${T.name}: ${e.displayName} recibe ${dmg} de daño.`, target: e.displayName, dmg, hpAfter: e.hp, hpMax: e.maxHp, result: 'hit', fx: { kind: 'spell', actor: 'player', target: fxKey(e), element: 'shock' }, say: { text: `La descarga sacude a ${A.Skills ? A.Skills.noun(e) : e.displayName}: ${dmg} de daño.`, tone: 'good' } });
@@ -1231,7 +1336,7 @@
         else if (T.area.status) inflict(c, e, T.area.status, { turns: T.area.turns || 2, source: T.id });
       }
     } else if (T.sweep) {
-      const foes = aliveEnemies();
+      const foes = hittableEnemies();
       const m = foes.length >= 2 ? T.sweep : (T.sweepSolo || 1);
       for (const e of foes) if (e.hp > 0) playerStrike(c, p, e, { mult: m });
     } else if (T.gore) {
@@ -1283,16 +1388,16 @@
     const es = enemyStats(target);
     // v3.9: la marca de tu Dardo arcano (solo la tuya) afina la puntería desde el nivel 9
     const mark = P() && P().markOf ? P().markOf(c, p, target) : null;
-    const r = attackRoll(st.attack + (mark ? mark.prec : 0) + (opts.prec || 0), es.defense, playerRollOpts(p));
+    // v3.11: Embestida arrolladora: el primer ataque a cada criatura apunta mejor
+    const rushP = P() && P().rushPrec ? P().rushPrec(c, p, target) : 0;
+    const r = attackRoll(st.attack + (mark ? mark.prec : 0) + (opts.prec || 0) + rushP, es.defense, playerRollOpts(p));
     const weaponName = st.weapon ? st.weapon.name : 'puños';
     if (r.lucky) addLog(c, 'system', { text: 'Suerte: sacaste un 1 y el dado se vuelve a tirar.', fx: { kind: 'passive', passive: 'suerte' } });
     // v2.5: Escurridizo (el primero) y Etéreo (1 de cada 4) hacen fallar un golpe que pegaba.
     // El golpe fuerte del guerrero no se esquiva con esos trucos (ni lo frena un caparazón).
-    // v3.0: Embestida (minotauro): el primer ataque de la pelea no falla y pega más fuerte
-    const charge = !opts.counter && !opts.noCharge && P() && P().chargeReady ? P().chargeReady(c, p) : false;
-    const dodge = A.Skills && !pw && !charge ? A.Skills.dodgeHit(target, r) : null;
+    // (v3.11: la Embestida del minotauro ya no hace que el primer ataque no falle: ver rushBonus)
+    const dodge = A.Skills && !pw ? A.Skills.dodgeHit(target, r) : null;
     if (dodge) { r.hit = false; r.crit = false; }
-    if (charge && !r.hit) { r.hit = true; r.fumble = false; }
 
     if (!r.hit) {
       const miss = {
@@ -1314,14 +1419,27 @@
     const shadow = P() && P().shadowBonusVs ? P().shadowBonusVs(p, target) : 0;
     rawDmg += shadow;
     if (pw) rawDmg *= pw.mult;
-    if (opts.mult) rawDmg *= opts.mult; // v3.10: técnicas (barrido, cornada)
-    if (charge) rawDmg = Math.round(rawDmg * P().chargeMult(!!pw)); // con Golpe fuerte, un poco menos
+    if (opts.mult) rawDmg = Math.max(1, Math.round(rawDmg * opts.mult)); // v3.10: técnicas (barrido, cornada)
     if (r.crit) rawDmg = Math.round(rawDmg * (P() ? P().critMult(p) : 2));
     // v3.9: después del crítico (no se duplican): Frenesí vampírico, forma bestial y la marca del Dardo arcano
     const frenzy = P() && P().frenzyDamage ? P().frenzyDamage(c, p) : 0;
     const beast = P() && P().beastDamage ? P().beastDamage(c, p) : 0;
     const markDmg = mark ? mark.bonus : 0;
-    rawDmg += frenzy + beast + markDmg;
+    // v3.11 (dossier): también después del crítico: Golpe de gigante (nv 9), Instinto salvaje (uno por turno),
+    // Embestida arrolladora (el primero a cada criatura) y la descarga del Núcleo de sobrecarga (cada 2 aciertos)
+    const giant = r.crit && P() && P().afterCrit ? P().afterCrit(p) : 0;
+    const instinct = !opts.counter && P() && P().instinctBonus ? P().instinctBonus(c, p) : null;
+    const rush = P() && P().rushBonus ? P().rushBonus(c, p, target) : 0;
+    const core = P() && P().coreHit ? P().coreHit(c, p) : null;
+    const extras = [];
+    if (frenzy) extras.push({ label: 'Frenesí', n: frenzy });
+    if (beast) extras.push({ label: 'bestia', n: beast });
+    if (markDmg) extras.push({ label: 'marca', n: markDmg });
+    if (giant) extras.push({ label: 'gigante', n: giant });
+    if (instinct) extras.push({ label: 'instinto', n: instinct.n });
+    if (rush) extras.push({ label: 'embestida', n: rush });
+    if (core) extras.push({ label: 'descarga', n: core.main });
+    rawDmg += frenzy + beast + markDmg + giant + (instinct ? instinct.n : 0) + rush + (core ? core.main : 0);
     let finalDmg = mitigate(rawDmg, es.armor, r.crit);
     // v2.5: Caparazón / Gelatinoso: el primer golpe hace la mitad (el golpe fuerte lo rompe)
     const soft = A.Skills && !pw ? A.Skills.softenHit(target, finalDmg) : { dmg: finalDmg, skill: null };
@@ -1331,12 +1449,15 @@
     let passive = null;
     if (r.crit && P() && P().has(p, 'golpe_gigante')) passive = 'golpe_gigante';
     else if (r.crit && r.roll < 20 && P() && P().has(p, 'ojo_certero')) passive = 'ojo_certero';
-    else if (charge) passive = 'embestida';
+    else if (core) passive = 'cuerpo_metal';
+    else if (rush) passive = 'embestida';
+    else if (instinct && instinct.angry) passive = 'furia';
     else if (shadow) passive = 'cazador_sombras';
     else if (frenzy) passive = 'colmillos';
     else if (beast) passive = 'sangre_lobo';
     addLog(c, 'player', {
       passive,
+      extras: extras.length ? extras : undefined,
       power: !!pw,
       counter: !!opts.counter,
       text: r.crit ? `¡Golpe crítico${pw ? ' y fuerte' : ''} a ${target.displayName}!` : (pw ? `¡Golpe fuerte a ${target.displayName}!` : `Atacaste a ${target.displayName}`),
@@ -1367,6 +1488,27 @@
       A.State.healHp(Math.max(1, Math.round(finalDmg * ls)));
       if (p.hp > before) addLog(c, 'system', { text: `Robo de vida: +${p.hp - before}.`, fx: { kind: 'heal', actor: 'player', target: 'player', amount: p.hp - before }, say: { text: `Tu amuleto bebe de la herida: recuperás ${p.hp - before} de vida.`, tone: 'good' } });
     }
+    // v3.11: la descarga del Núcleo de sobrecarga salta a otra criatura (desde el nivel 5)
+    if (core) {
+      const others = hittableEnemies().filter((e) => e !== target);
+      const arcTo = core.arc > 0 && others.length ? others[Math.floor(Math.random() * others.length)] : null;
+      addLog(c, 'system', {
+        text: `¡Sobrecarga! +${core.main} de daño${arcTo ? ` y ${core.arc} a ${arcTo.displayName}` : ''}.`,
+        passive: 'cuerpo_metal',
+        fx: { kind: 'buff', target: 'player', label: `¡Sobrecarga! +${core.main}`, icon: 'spark' },
+        say: { text: `Tu núcleo se sobrecarga y el golpe suelta una descarga: +${core.main} de daño${arcTo ? `, y un arco eléctrico le salta a ${A.Skills ? A.Skills.noun(arcTo) : arcTo.displayName} (${core.arc})` : ''}.`, tone: 'good' },
+      });
+      if (arcTo) {
+        arcTo.hp = Math.max(0, arcTo.hp - core.arc);
+        addLog(c, 'player', { text: `La descarga alcanza a ${arcTo.displayName}: ${core.arc} de daño.`, target: arcTo.displayName, dmg: core.arc, hpAfter: arcTo.hp, hpMax: arcTo.maxHp, result: 'hit', fx: { kind: 'spell', actor: 'player', target: fxKey(arcTo), element: 'shock', chain: true }, say: { text: '', tone: 'good' } });
+        if (arcTo.hp <= 0) enemyDown(c, arcTo, 'player');
+      }
+    }
+    // v3.11: Embestida arrolladora: el golpe desequilibra (menos precisión en su próximo ataque; no se suma)
+    const stagger = target.hp > 0 && finalDmg >= 0 && P() && P().rushStagger ? P().rushStagger(p) : 0;
+    if (stagger > 0) applyStatus(target, 'stagger', { turns: 2, value: stagger, source: 'embestida' });
+    if (rush) addLog(c, 'system', { text: `¡Embestida! +${rush} de daño.`, passive: 'embestida', fx: { kind: 'buff', target: 'player', label: `¡Embestida! +${rush}`, icon: 'fist' }, say: { text: `Entrás con los cuernos por delante: la primera embestida contra ${A.Skills ? A.Skills.noun(target) : target.displayName} pega +${rush}${target.hp > 0 ? ' y la deja desequilibrada' : ''}.`, tone: 'good' } });
+    if (instinct && instinct.angry) addLog(c, 'system', { text: `Instinto salvaje: +${instinct.n} de daño.`, passive: 'furia', fx: { kind: 'buff', target: 'player', label: `Instinto +${instinct.n}`, icon: 'fist' }, say: { text: `Te hirieron y el instinto salvaje te enciende: ese golpe pega +${instinct.n}.`, tone: 'good' } });
     // v3.9: la marca del Dardo arcano se gasta con este golpe
     if (markDmg > 0) addLog(c, 'system', { text: `Marca arcana: +${markDmg} de daño.`, fx: { kind: 'buff', target: 'player', label: `Marca +${markDmg}`, icon: 'arcane' }, say: { text: `La marca arcana que dejó tu dardo estalla con el golpe: +${markDmg} de daño.`, tone: 'good' } });
     // v3.0 / v3.9: Sed de sangre (vampiro): parte del daño vuelve como vida (más en Frenesí)
@@ -1390,7 +1532,7 @@
     }
     // v3.3: Cazador de sombras (elfo oscuro): a veces el golpe envenena (y después pega más fuerte)
     if (target.hp > 0 && P() && P().shadowPoison && Math.random() < P().shadowPoison(p)) {
-      if (applyStatus(target, 'poison', { turns: 3, value: 1, source: 'cazador_sombras' })) {
+      if (applyStatus(target, 'poison', { turns: 3, value: P().shadowPoisonDmg ? P().shadowPoisonDmg(p) : 1, source: 'cazador_sombras' })) {
         addLog(c, 'system', { text: `El veneno de tu hoja entra en ${target.displayName}.`, fx: { kind: 'status', target: fxKey(target), effect: 'poison', passive: 'cazador_sombras' } });
       }
     }
@@ -1501,14 +1643,18 @@
       addLog(c, 'system', { text: `${spell.name} todavía no: ${wait === 1 ? 'listo en tu próximo turno' : `listo en ${wait} turnos`}.`, fx: { kind: 'note' } });
       return;
     }
-    const cost = P() ? P().spellCost(p, spell) : spell.manaCost;
+    const cost = P() ? P().spellCost(p, spell, c) : spell.manaCost;
     if (p.mana < cost) {
       addLog(c, 'system', { text: `No te alcanza el maná para ${spell.name}.`, fx: { kind: 'note' } });
       return;
     }
     A.State.setMana(p.mana - cost);
+    // v3.11: Ingenio (gnomo): el descuento extra de los primeros hechizos caros de la pelea
+    if (P() && P().ingenioUse && P().ingenioUse(c, p, spell)) addLog(c, 'system', { text: `Ingenio: ${spell.name} te costó ${cost} de maná.`, passive: 'ingenio', fx: { kind: 'note' }, say: { text: `Tu ingenio encuentra un atajo: ${spell.name.toLowerCase()} te cuesta ${cost} de maná.`, tone: 'good' } });
     if (spell.cooldown > 0) { if (!c.spellCd) c.spellCd = {}; c.spellCd[spell.id] = spell.cooldown; }
-    const power = playerStats().spellPower + (spell.damage && P() ? P().spellBonus(p) : 0);
+    // v3.11: la Llama interior ya no va en el poder (se suma después del crítico, por blanco)
+    const power = playerStats().spellPower;
+    const flame = spell.damage && P() && P().spellBonus ? P().spellBonus(p, spell) : 0;
 
     if (spell.heal) {
       // v2.1: la curación suma solo la mitad del poder mágico (si no, con maná que vuelve solo sería vida infinita)
@@ -1541,7 +1687,7 @@
         addLog(c, 'player', { text: `Lanzaste ${spell.name} y recuperaste ${p.hp - before} de salud.`, fx: { kind: 'heal', actor: 'player', target: 'player', amount: p.hp - before, icon: '' }, ...(cleanTxt ? { say: { text: `Lanzás ${spell.name.toLowerCase()}: recuperás ${p.hp - before} de vida${cleanTxt.replace(' y le saca', ' y te saca')}.`, tone: 'good' } } : {}) });
       }
     } else if (spell.damage) {
-      const targets = spell.area ? aliveEnemies() : [getTarget()].filter(Boolean);
+      const targets = spell.area ? hittableEnemies() : [getTarget()].filter(Boolean);
       // v3.3: los hechizos de daño tiran el dado como un arma (con +2): pueden fallar y,
       // con 20, son críticos. Los de área tiran una vez: se compara con la defensa de cada una.
       // v3.9: todos los hechizos de daño tiran el dado (también el Dardo arcano, que antes no fallaba)
@@ -1552,7 +1698,9 @@
       let drained = 0;
       targets.forEach((t, i) => {
         const def = enemyStats(t).defense;
-        const hit = !r || r.crit || (!r.fumble && r.total >= def);
+        // v3.11: el 20 llega siempre; el crítico de 19 (elfo, anillo) solo si llega a la defensa de esta criatura
+        const hit = !r || r.roll === 20 || (!r.fumble && r.total >= def);
+        const tcrit = !!(r && r.crit && hit);
         const roll = r && i === 0 ? { roll: r.roll, bonus, total: r.total, vs: def, vsLabel: 'defensa' } : {};
         const noun = A.Skills ? A.Skills.noun(t) : t.displayName;
         if (!hit) {
@@ -1574,21 +1722,23 @@
         // v3.3: Cazador de sombras también con hechizos
         const shadowS = P() && P().shadowBonusVs ? P().shadowBonusVs(p, t) : 0;
         rawDmg += shadowS;
-        if (r && r.crit) rawDmg *= 2;
+        if (tcrit) rawDmg *= 2;
+        rawDmg += flame; // v3.11: Llama interior, después del crítico
         const armor = Math.floor((t.armor || 0) / 2);
         // v3.9: la magia siempre hace al menos 1 (la armadura para golpes, no hechizos)
         const finalDmg = mitigate(rawDmg, armor, true);
         t.hp = Math.max(0, t.hp - finalDmg);
         addLog(c, 'player', {
-          text: r && r.crit ? `¡${spell.name} crítico a ${t.displayName}!` : `${spell.name} hiere a ${t.displayName}`,
+          text: tcrit ? `¡${spell.name} crítico a ${t.displayName}!` : `${spell.name} hiere a ${t.displayName}`,
           actor: p.name, target: t.displayName, actorIcon: '',
           rawDmg, targetArmor: armor, dmg: finalDmg, hpAfter: t.hp, hpMax: t.maxHp,
           damageDice: power ? `${spell.damage}+${power}` : spell.damage,
-          spell: spell.name, ...roll, result: r && r.crit ? 'crit' : 'hit',
-          fx: { kind: 'spell', actor: 'player', target: fxKey(t), element: spellElement(spell), icon: '', crit: !!(r && r.crit), chain: i > 0 },
+          extras: flame ? [{ label: 'llama', n: flame }] : undefined,
+          spell: spell.name, ...roll, result: tcrit ? 'crit' : 'hit',
+          fx: { kind: 'spell', actor: 'player', target: fxKey(t), element: spellElement(spell), icon: '', crit: tcrit, chain: i > 0 },
           spellId: spell.id,
           ...(shadowS ? { passive: 'cazador_sombras' } : {}),
-          ...(r && r.crit ? { say: { text: `¡${spell.name} le da de lleno a ${noun}: el doble de daño, ${finalDmg}!`, tone: 'crit' } } : {}),
+          ...(tcrit ? { say: { text: `¡${spell.name} le da de lleno a ${noun}: el doble de daño, ${finalDmg}!`, tone: 'crit' } } : {}),
         });
         if (t.hp > 0 && finalDmg > 0) maybeInflictStatusOnHit(spell, t, c);
         // v3.9: el Dardo arcano del humano marca al blanco (su próximo golpe con arma le hace más daño)
@@ -1602,6 +1752,19 @@
         if (t.hp <= 0) enemyDown(c, t, 'spell');
       });
       const targetsHit = landed;
+      // v3.11 (dossier): Polvo de hada: una vez por ronda, el hechizo que le dio a su blanco lo marea
+      const mainT = targets[0];
+      if (mainT && mainT.hp > 0 && landed > 0 && P() && P().fairyHex) {
+        const fh = P().fairyHex(c, p);
+        if (fh) {
+          applyStatus(mainT, 'stagger', { turns: 2, value: fh.stagger, source: 'polvo_hada' });
+          if (fh.expose) applyStatus(mainT, 'exposed', { turns: 1, value: fh.expose, source: 'polvo_hada' });
+          const nn = A.Skills ? A.Skills.noun(mainT) : mainT.displayName;
+          addLog(c, 'system', { text: `Polvo de hada: ${mainT.displayName} queda mareado (−${fh.stagger} de precisión${fh.expose ? `, −${fh.expose} de defensa` : ''}).`, passive: 'polvo_hada', fx: { kind: 'status', target: fxKey(mainT), effect: 'stagger', passive: 'polvo_hada' }, say: { text: `El polvo de hada que va con tu hechizo marea a ${nn}: su próximo ataque tiene −${fh.stagger} de precisión${fh.expose ? ` y se defiende peor (−${fh.expose})` : ''}.`, tone: 'good' } });
+        }
+      }
+      // v3.11 (dossier): Apoyo orbital: la nave nodriza bombardea con tu hechizo de daño (si está lista)
+      if (P() && P().orbitalFire && hittableEnemies().length) orbitalStrike(c, p, mainT);
       // v3.3: Drenar vida: la mitad del daño vuelve como vida
       if (spell.drain && drained > 0 && p.hp < p.maxHp) {
         const before = p.hp;
@@ -1632,6 +1795,26 @@
       addLog(c, 'player', { text: `Lanzaste ${spell.name}.`, fx: { kind: 'cast', actor: 'player', icon: '' } });
     }
     afterPlayerAction();
+  }
+
+  /**
+   * v3.11 (dossier): la nave nodriza del alienígena: tu blanco recibe el dado y las demás, un daño fijo.
+   * No suma poder mágico, no aplica estados y no la para la armadura (pero hace al menos 1).
+   */
+  function orbitalStrike(c, p, main) {
+    const shot = P().orbitalFire(c, p);
+    if (!shot) return;
+    const alive = hittableEnemies();
+    const first = main && main.hp > 0 ? main : alive[0];
+    if (!first) return;
+    addLog(c, 'system', { text: '¡Apoyo orbital!', passive: 'mente_expansiva', fx: { kind: 'buff', target: 'player', label: '¡Apoyo orbital!', icon: 'signal' }, say: { text: alive.length > 1 ? 'Tu nave nodriza aparece entre las nubes y bombardea a todas las criaturas.' : 'Tu nave nodriza aparece entre las nubes y bombardea a tu enemigo.', tone: 'crit' } });
+    for (const e of alive) {
+      if (e.hp <= 0) continue;
+      const dmg = Math.max(1, e === first ? A.Utils.rollDice(shot.main) : shot.others);
+      e.hp = Math.max(0, e.hp - dmg);
+      addLog(c, 'player', { text: `La nave le hace ${dmg} de daño a ${e.displayName}.`, target: e.displayName, dmg, hpAfter: e.hp, hpMax: e.maxHp, result: 'hit', damageDice: e === first ? shot.main : String(shot.others), fx: { kind: 'spell', actor: 'player', target: fxKey(e), element: 'arcane', chain: e !== first }, say: { text: '', tone: 'good' } });
+      if (e.hp <= 0) enemyDown(c, e, 'spell');
+    }
   }
 
   /** v3.3: deja a una criatura sin turnos (a los jefes, como mucho uno). */
@@ -1943,7 +2126,7 @@
 
   /** Elige objetivo: el mismo que el jugador; si no está vivo, el de menos vida. */
   function petTarget() {
-    const alive = aliveEnemies();
+    const alive = hittableEnemies();
     if (!alive.length) return null;
     const c = State().combat;
     const focus = alive.find((e) => e.instanceId === c.targetInstanceId);
@@ -2029,6 +2212,105 @@
   }
 
   // ============================================================
+  // v3.11 (dossier): aliados invocados — el lobo del Aullido de manada
+  // No es una mascota: no ocupa su lugar, no come ni sube de nivel, y se va
+  // cuando termina la pelea, cuando cae o cuando hizo sus ataques.
+  // Ataca al blanco de su dueño; las criaturas lo pueden atacar.
+  // ============================================================
+
+  const ALLY_TARGET_CHANCE = 0.30;
+  function allyKey(a) { return `ally:${a.aid}`; }
+  function allyOwnerKey(c, h) { return c && c.party ? hidOf(h) : 'solo'; }
+  /** Los aliados invocados de un héroe que siguen en la pelea. */
+  function alliesOf(c, h) {
+    if (!c || !c.allies || !h) return [];
+    const k = allyOwnerKey(c, h);
+    return c.allies.filter((a) => a.owner === k && a.hp > 0 && a.attacksLeft > 0);
+  }
+  /** spec: { kind, species, name, hp, damage, attack, defense, attacks, speed } */
+  function summonAlly(c, owner, spec) {
+    const k = allyOwnerKey(c, owner);
+    // no se juntan dos del mismo dueño: el nuevo reemplaza al anterior
+    c.allies = (c.allies || []).filter((a) => !(a.owner === k && a.kind === spec.kind));
+    c.allySeq = (c.allySeq || 0) + 1;
+    const a = {
+      aid: `a${c.allySeq}`, kind: spec.kind, species: spec.species, owner: k, ownerName: owner.name,
+      name: spec.name, hp: spec.hp, maxHp: spec.hp, damage: spec.damage, attack: spec.attack, defense: spec.defense,
+      armor: 0, attacksLeft: spec.attacks, maxAttacks: spec.attacks, born: c.round, effects: [],
+    };
+    c.allies.push(a);
+    c.initiative.push({ kind: 'ally', id: allyKey(a), aid: a.aid, hid: c.party ? hidOf(owner) : undefined, name: a.name, speed: spec.speed || 12, tieRoll: 0 });
+    return a;
+  }
+
+  function executeAllyAction(a) {
+    const c = State().combat;
+    if (!c || c.result) return;
+    if (!a || a.hp <= 0 || a.attacksLeft <= 0) { nextActor(); return; }
+    const target = petTarget();
+    if (!target) { nextActor(); return; }
+    allyStrike(c, a, target);
+    a.attacksLeft -= 1;
+    if (a.attacksLeft <= 0 && a.hp > 0 && !c.result) {
+      addLog(c, 'system', { text: `${a.name} se va.`, fx: { kind: 'death', target: allyKey(a) }, say: { text: `Cumplida su parte, ${lowerFirst(a.name)} aúlla una vez más y se pierde entre las sombras.`, tone: 'neutral' } });
+    }
+    State().persist();
+    A.Bus.emit('combat:action', { actor: 'ally' });
+    if (checkEnd()) return;
+    nextActor();
+  }
+  function lowerFirst(t) { return String(t).charAt(0).toLowerCase() + String(t).slice(1); }
+
+  /** El golpe de un aliado invocado (como el de una mascota, sin habilidades). */
+  function allyStrike(c, a, target) {
+    const es = enemyStats(target);
+    const r = attackRoll(a.attack, es.defense);
+    const dodge = A.Skills ? A.Skills.dodgeHit(target, r, { name: a.name, species: a.species, id: a.species }) : null;
+    if (dodge) { r.hit = false; r.crit = false; }
+    const n = A.Skills ? A.Skills.noun(target) : target.displayName;
+    const base = { actor: a.name, target: target.displayName, roll: r.roll, bonus: a.attack, total: r.total, vs: es.defense, vsLabel: 'defensa', fx: { kind: 'attack', actor: allyKey(a), target: fxKey(target) } };
+    if (!r.hit) {
+      addLog(c, 'pet', { ...base, text: r.fumble ? `${a.name} ataca a ${target.displayName} pero falla` : `${target.displayName} esquivó a ${a.name}`, result: r.fumble ? 'fumble' : 'evaded', say: { text: dodge ? dodge.say : `${a.name} salta sobre ${n}, pero no lo alcanza.`, tone: 'neutral' } });
+      return { hit: false };
+    }
+    let raw = rollDamage(a.damage);
+    if (r.crit) raw *= 2;
+    let dmg = mitigate(raw, es.armor, r.crit);
+    const soft = A.Skills ? A.Skills.softenHit(target, dmg) : { dmg, skill: null };
+    dmg = soft.dmg;
+    target.hp = Math.max(0, target.hp - dmg);
+    addLog(c, 'pet', {
+      ...base, text: `${a.name} ${r.crit ? 'muerde CRÍTICO a' : 'muerde a'} ${target.displayName}`,
+      damageDice: a.damage, rawDmg: raw, targetArmor: es.armor, dmg, hpAfter: target.hp, hpMax: target.maxHp, result: r.crit ? 'crit' : 'hit', softened: soft.skill,
+      say: { text: dmg > 0 ? `${a.name} ${r.crit ? 'se prende del cuello de' : 'muerde a'} ${n}: ${dmg} de daño.` : `${a.name} muerde a ${n}, pero no le hace nada.`, tone: r.crit ? 'crit' : 'good' },
+    });
+    if (target.hp <= 0) enemyDown(c, target, 'pet');
+    return { hit: true, crit: r.crit, dmg };
+  }
+
+  /** Una criatura ataca a un aliado invocado (sin estados ni robo: cae o no cae). */
+  function strikeAlly(c, enemy, a, opts = {}) {
+    const es = enemyStats(enemy);
+    const atk = es.attack + (opts.atkMod || 0);
+    const r = attackRoll(atk, a.defense);
+    if ((enemy.effects || []).some((e) => e.type === 'stagger')) removeStatus(enemy, 'stagger');
+    const E = A.Narrator && A.Narrator.enemyNoun ? A.Narrator.enemyNoun(enemy) : enemy.displayName;
+    const capE = E.charAt(0).toUpperCase() + E.slice(1);
+    const base = { actor: enemy.displayName, target: a.name, roll: r.roll, bonus: atk, total: r.total, vs: a.defense, vsLabel: 'defensa', skill: opts.skill || null, fx: { kind: 'attack', actor: fxKey(enemy), target: allyKey(a) } };
+    if (!r.hit) {
+      addLog(c, 'enemy', { ...base, text: `${enemy.displayName} ataca a ${a.name} pero falla`, result: r.fumble ? 'fumble' : 'evaded', say: { text: `${capE} se tira sobre ${lowerFirst(a.name)}, que lo esquiva de un salto.`, tone: 'good' } });
+      return { hit: false, toPet: false, toAlly: true };
+    }
+    let raw = rollEnemyDamage(enemy, { mult: opts.mult || 1 });
+    if (r.crit) raw *= 2;
+    const dmg = mitigate(raw, opts.pierce ? 0 : a.armor, r.crit);
+    a.hp = Math.max(0, a.hp - dmg);
+    addLog(c, 'enemy', { ...base, text: `${enemy.displayName} hiere a ${a.name}`, damageDice: enemy.damage, rawDmg: raw, targetArmor: a.armor, dmg, hpAfter: a.hp, hpMax: a.maxHp, result: r.crit ? 'crit' : 'hit', say: { text: `${capE} ${r.crit ? 'destroza' : 'hiere'} a ${lowerFirst(a.name)}: ${dmg} de daño.`, tone: 'bad' } });
+    if (a.hp <= 0) addLog(c, 'system', { text: `${a.name} cayó.`, fx: { kind: 'death', target: allyKey(a) }, say: { text: `${a.name} cae y se deshace en sombras.`, tone: 'bad' } });
+    return { hit: true, crit: r.crit, dmg, toPet: false, toAlly: true };
+  }
+
+  // ============================================================
   // Enemigos
   // ============================================================
 
@@ -2040,6 +2322,9 @@
    */
   function enemyStrike(c, enemy, opts = {}) {
     const p = State().player;
+    // v3.11: si el héroe tiene un aliado invocado (el lobo), a veces la criatura lo ataca a él
+    const ally = !opts.forcePlayer && !opts.forcePet ? alliesOf(c, p)[0] : null;
+    if (ally && Math.random() < ALLY_TARGET_CHANCE) return strikeAlly(c, enemy, ally, opts);
     const pet = p.pet;
     const petUp = !!(pet && pet.health > 0);
     if (opts.forcePet && !petUp) return { hit: false, toPet: false };
@@ -2056,6 +2341,8 @@
     }
     if (opts.pierce) armor = 0;
     const r = attackRoll(atk, defense);
+    // v3.11: lo que la desequilibró (Embestida arrolladora, Polvo de hada) le dura hasta este ataque
+    if ((enemy.effects || []).some((e) => e.type === 'stagger')) removeStatus(enemy, 'stagger');
     // v2.2.1: Suerte: parte de los golpes que te iban a pegar, fallan
     let lucky = false;
     if (r.hit && !targetPet && P() && P().luckyDodge && Math.random() < P().luckyDodge(p)) {
@@ -2110,6 +2397,7 @@
     let passive = null;
     let guard = null;
     let absorbed = 0;
+    let guardNotes = {};
     const victim = targetPet ? pet : p;
     let petSoft = null;
     if (targetPet) {
@@ -2121,6 +2409,7 @@
       passive = ab.passive;
       guard = ab.guard;
       absorbed = ab.absorbed;
+      guardNotes = { roca: ab.roca || undefined, blessed: ab.blessed || undefined, blessBy: ab.blessBy || undefined };
       A.State.damagePlayer(finalDmg);
     }
     const hitEntry = {
@@ -2130,7 +2419,7 @@
       skill: opts.skill || null,
       actor: enemy.displayName, target: targetName, actorIcon: enemyIcon, damageDice: damageNotation,
       roll: r.roll, bonus: atk, total: r.total, vs: defense, vsLabel: 'defensa',
-      rawDmg, targetArmor: armor, dmg: finalDmg, passive, absorbed,
+      rawDmg, targetArmor: armor, dmg: finalDmg, passive, absorbed, ...guardNotes,
       hpAfter: targetPet ? pet.health : p.hp, hpMax: targetPet ? pet.maxHealth : p.maxHp,
       result: r.crit ? 'crit' : 'hit',
       fx: { kind: 'attack', actor: fxKey(enemy), target: targetPet ? 'pet' : 'player' },
@@ -2141,7 +2430,8 @@
     else if (sayFn) {
       const s = sayFn('hit', { toPet: targetPet, crit: r.crit, dmg: finalDmg });
       if (s) {
-        if (passive && A.Narrator && A.Narrator.passiveSuffix) s.text += A.Narrator.passiveSuffix(passive, hitEntry);
+        if (!targetPet && A.Narrator && A.Narrator.guardSuffix) s.text += A.Narrator.guardSuffix(hitEntry);
+        else if (passive && A.Narrator && A.Narrator.passiveSuffix) s.text += A.Narrator.passiveSuffix(passive, hitEntry);
         hitEntry.say = s;
       }
     }
@@ -2226,6 +2516,13 @@
     const c = State().combat;
     if (!c || c.result) return;
     if (!enemy || enemy.hp <= 0) { nextActor(); return; }
+    // v3.11: bajo el agua no ataca (lo hacen sus tentáculos)
+    if (enemy.submerged) {
+      if ((c.round % 3) === 1) addLog(c, 'enemy', { text: `${enemy.displayName} se mueve bajo el agua.`, fx: { kind: 'note', actor: fxKey(enemy) }, say: { text: `Una sombra enorme se mueve bajo el agua: ${A.Skills ? A.Skills.noun(enemy) : enemy.displayName} mueve sus tentáculos.`, tone: 'neutral' } });
+      State().persist();
+      nextActor();
+      return;
+    }
     // v2.5: a veces usa una habilidad (si no, el ataque de siempre)
     const usedSkill = A.Skills ? A.Skills.enemyTurn(c, enemy) : false;
     if (!usedSkill) enemyStrike(c, enemy);
@@ -2270,10 +2567,11 @@
     const ab = shieldPlayer(c, p, Math.max(0, dmg));
     A.State.damagePlayer(ab.dmg);
     let say = opts.say ? A.Skills.fill(opts.say, enemy, { d: ab.dmg }) : '';
-    if (say && ab.passive && A.Narrator && A.Narrator.passiveSuffix) say += A.Narrator.passiveSuffix(ab.passive, ab);
+    if (say && A.Narrator && A.Narrator.guardSuffix) say += A.Narrator.guardSuffix(ab);
+    else if (say && ab.passive && A.Narrator && A.Narrator.passiveSuffix) say += A.Narrator.passiveSuffix(ab.passive, ab);
     addLog(c, 'enemy', {
       text: `${enemy.displayName} te hace ${ab.dmg} de daño.`,
-      actor: enemy.displayName, target: p.name, dmg: ab.dmg, hpAfter: p.hp, hpMax: p.maxHp, passive: ab.passive, absorbed: ab.absorbed, result: 'hit',
+      actor: enemy.displayName, target: p.name, dmg: ab.dmg, hpAfter: p.hp, hpMax: p.maxHp, passive: ab.passive, absorbed: ab.absorbed, roca: ab.roca || undefined, blessed: ab.blessed || undefined, blessBy: ab.blessBy || undefined, result: 'hit',
       fx: { kind: 'spell', actor: fxKey(enemy), target: 'player', element: opts.element || 'earth' },
       say: ab.guard === 'invincible' ? { text: 'Te alcanza de lleno, pero rebota: no te hace nada.', tone: 'good' } : { text: say, tone: 'bad' },
     });
@@ -2521,6 +2819,8 @@
 
         const totalXp = grantRewards(c, c.enemies);
         if (pw === State().me()) firstXp = totalXp;
+        // v3.11: le ganaste al jefe en su guarida: vuelve al día siguiente
+        if (c.lair && A.Lairs && A.Lairs.recordWin) A.Lairs.recordWin(pw, c.lair);
 
         // v2.1: al ganar, los magos recuperan parte del maná
         const winShare = B().manaRegenOf ? B().manaRegenOf(pw).win : 0;
@@ -2692,6 +2992,7 @@
       if (p.pet) snap.pet = p.pet.health;
     }
     for (const e of c.enemies || []) snap[fxKey(e)] = e.hp;
+    for (const a of c.allies || []) snap[allyKey(a)] = a.hp; // v3.11
     return snap;
   }
 
@@ -2757,6 +3058,9 @@
     freeItem,
     itemsLeft: () => { const c = State().combat; return Math.max(0, FREE_ITEMS - ((c && c.itemsTurn) || 0)); },
     _swapHero: swapHero,
+    // v3.11: aliados invocados (lobo del Aullido)
+    summonAlly, alliesOf,
+    hittableEnemies,
     _checkEnd: checkEnd, // para las pruebas
   };
 })(window.Aventurs);

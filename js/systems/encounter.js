@@ -159,6 +159,9 @@
    * v2.5: a veces una sale de élite (alfa, campeón o mayor). opts.noElite la evita.
    */
   function generate(regionId, opts = {}) {
+    // v3.11: en las guaridas de los jefes no hay peleas de sorpresa (el jefe se desafía con un botón)
+    const reg = A.Data.getById('regions', regionId);
+    if (reg && reg.type === 'lair') return [];
     const group = buildGroup(regionId, opts);
     return opts.noElite ? group : maybeElite(group);
   }
@@ -432,6 +435,8 @@
       family: (enemyData.family || []).slice(),
       tags: (enemyData.tags || []).slice(),
       skills: (enemyData.skills || []).slice(), // v2.5: pasivas y activas de la especie
+      // v3.11: el dibujo propio (las criaturas nuevas copian el de otra con otros colores; antes en combate se perdía)
+      ...(enemyData.sprite && typeof enemyData.sprite === 'object' ? { sprite: { ...enemyData.sprite } } : {}),
       effects: [],
       equippedWeapon: null,
       equippedArmor: null,

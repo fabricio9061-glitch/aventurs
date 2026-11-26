@@ -1,10 +1,12 @@
 /* ============================================================
-   Aventurs — Pruebas contra jefes (v3.10)
+   Aventurs — Pruebas contra jefes (v3.10; v3.11: hasta el nivel 20 y en su guarida)
 
    Cada jefe contra un guerrero (orco), un híbrido (humano) y un mago (gnomo)
    del nivel del jefe y de dos niveles más, solos. Mismas semillas en cada corrida.
 
    Uso:  node tools/jefes.js [--peleas=60] [--guardar=x.json] [--comparar=x.json]
+         node tools/jefes.js --datos     -> además escribe js/data/seed-jefes-medidos.js
+                                            (lo muestra el editor en la prueba de combate de cada jefe)
    ============================================================ */
 'use strict';
 const fs = require('fs');
@@ -21,7 +23,7 @@ const SOLO = args.jefes ? String(args.jefes).split(',') : null; // --jefes=kyubi
 for (const b of A.Data.enemies.filter((e) => e.category === 'boss' && (!SOLO || SOLO.includes(e.id))).sort((x, y) => x.tier - y.tier)) {
   const row = { id: b.id, tier: b.tier, res: {} };
   for (const plus of [0, 2]) {
-    const lvl = Math.min(10, b.tier + plus);
+    const lvl = Math.min(A.Progression.MAX_LEVEL || 20, b.tier + plus); // v3.11: hasta el 20
     for (const r of RAZAS) {
       let win = 0, rounds = 0;
       for (let k = 0; k < PELEAS; k++) {
@@ -44,3 +46,32 @@ for (const b of A.Data.enemies.filter((e) => e.category === 'boss' && (!SOLO || 
   console.log(`${b.name.padEnd(24)} nv${String(b.tier).padStart(2)}  mismo nivel: ${RAZAS.map((r) => cel(`${r}+0`)).join(' ')}  +2 niveles: ${RAZAS.map((r) => cel(`${r}+2`)).join(' ')}`);
 }
 if (args.guardar) fs.writeFileSync(args.guardar, JSON.stringify(out, null, 1));
+
+// v3.11: lo medido, para el editor (con la "firma" de los números del jefe: si los cambiás, el editor avisa)
+if (args.datos) {
+  const firma = (d) => [d.health, d.damage, d.attack, d.difficulty, d.armor, d.tier].join('|');
+  const pc = (x) => Math.round(x * 100);
+  const datos = Object.assign({}, (A.Seed && A.Seed.jefesMedidos) || {}); // se suman a los que ya estaban
+  for (const row of out) {
+    const d = A.Data.getById('enemies', row.id);
+    datos[row.id] = {
+      firma: firma(d), peleas: PELEAS,
+      nivel: RAZAS.map((r) => pc(row.res[`${r}+0`].gana)),
+      mas2: RAZAS.map((r) => pc(row.res[`${r}+2`].gana)),
+      nivelMas2: Math.min(A.Progression.MAX_LEVEL || 20, row.tier + 2),
+    };
+  }
+  const file = require('path').join(__dirname, '..', 'js', 'data', 'seed-jefes-medidos.js');
+  const txt = `/* Aventurs — jefes medidos con el motor del juego (node tools/jefes.js --datos).
+   % de peleas que gana un orco (guerrero), un humano (híbrido) y un gnomo (mago), solos,
+   del nivel del jefe y de dos niveles más. Lo muestra el editor en la prueba de combate.
+   Generado: ${new Date().toISOString().slice(0, 10)}. */
+(function (A) {
+  'use strict';
+  A.Seed = A.Seed || {};
+  A.Seed.jefesMedidos = ${JSON.stringify(datos, null, 1).replace(/\n\s*/g, ' ')};
+})(window.Aventurs);
+`;
+  fs.writeFileSync(file, txt);
+  console.log('Datos para el editor: ' + file);
+}

@@ -153,6 +153,9 @@
       corrode: { icon: 'poison', label: 'Ácido (−2 de armadura)' },
       rally: { icon: 'arrow-up', label: `Envalentonado (+${ef.value || 1} de precisión y daño)` },
       guard: { icon: 'shield', label: `En guardia (+${ef.value || 3} de defensa)` },
+      // v3.11: Embestida arrolladora y Polvo de hada
+      stagger: { icon: 'target', label: `Desequilibrado (−${ef.value || 1} de precisión en su próximo ataque)` },
+      exposed: { icon: 'arrow-down', label: `Expuesto (−${ef.value || 1} de defensa)` },
     };
     if (NEW[ef.type]) return { ...NEW[ef.type], cls: ef.type };
     const label = A.Combat && A.Combat.effectLabel ? A.Combat.effectLabel(ef.type) : ef.type;

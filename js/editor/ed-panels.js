@@ -8,6 +8,7 @@
 
 (function (A) {
   'use strict';
+  const MAXL = () => (A.Progression && A.Progression.MAX_LEVEL) || 20; // v3.11: el tope ya no es 10
 
   const Ed = (A.Ed = A.Ed || {});
   const { esc, icon } = Ed.util;
@@ -87,7 +88,7 @@
 
   function regionTest(d) {
     if (!d.id || !A.Data.getById('regions', d.id)) return card('Prueba de la zona', '<div class="ed-dim">Guardá la zona para probar sus peleas.</div>', { icon: 'd20' });
-    const lvl = Math.max(1, Math.min(10, (S().simLevel && S().simLevel[`z:${d.id}`]) || lvlOf(d)));
+    const lvl = Math.max(1, Math.min(MAXL(), (S().simLevel && S().simLevel[`z:${d.id}`]) || lvlOf(d)));
     const r = A.EditorSim.zone(d.id, lvl, 160);
     if (!r.n) return card('Prueba de la zona', '<div class="ed-dim">No salió ninguna pelea: revisá que haya criaturas del nivel de la zona.</div>', { icon: 'd20' });
     const verdict = r.win >= 0.9 ? ['is-good', 'Tranquila'] : r.win >= 0.75 ? ['is-ok', 'Pareja'] : r.win >= 0.55 ? ['is-warn', 'Difícil'] : ['is-bad', 'Muy difícil'];
@@ -129,7 +130,7 @@
     return `<div class="ed-lvl">
       <button type="button" class="ed-step" data-ed="sim-level" data-key="${esc(key)}" data-d="-1" ${lvl <= 1 ? 'disabled' : ''}>−</button>
       <span>Aventurero de nivel <b>${lvl}</b></span>
-      <button type="button" class="ed-step" data-ed="sim-level" data-key="${esc(key)}" data-d="1" ${lvl >= 10 ? 'disabled' : ''}>+</button>
+      <button type="button" class="ed-step" data-ed="sim-level" data-key="${esc(key)}" data-d="1" ${lvl >= MAXL() ? 'disabled' : ''}>+</button>
     </div>`;
   }
 
@@ -144,7 +145,7 @@
   function enemySim(d) {
     if (!d || !d.health) return '';
     const key = `e:${d.id || 'nuevo'}`;
-    const lvl = Math.max(1, Math.min(10, (S().simLevel && S().simLevel[key]) || d.tier || 1));
+    const lvl = Math.max(1, Math.min(MAXL(), (S().simLevel && S().simLevel[key]) || d.tier || 1));
     let r;
     try { r = A.EditorSim.fight([d], lvl, 300); } catch (err) { return card('Prueba de combate', `<div class="ed-dim">No se pudo probar: ${esc(err.message)}</div>`, { icon: 'd20' }); }
     const v = VERDICTS.find((x) => r.win >= x[0]);
@@ -153,9 +154,22 @@
       const cal = A.EditorSim.calibration()[d.category || 'normal'];
       if (cal) {
         const catName = ({ weak: 'las criaturas débiles', normal: 'las criaturas normales', strong: 'las criaturas fuertes', boss: 'los jefes' })[d.category || 'normal'] || 'las criaturas';
-        if (r.win < cal.lo - 0.03) compare = `<div class="ed-sim-note is-bad">${icon('arrow-up', 14)}<span>Más difícil que ${catName} del juego (contra ellas se gana entre ${pct(cal.lo)} y ${pct(cal.hi)}). Bajale vida, daño o precisión.</span></div>`;
-        else if (r.win > cal.hi + 0.03) compare = `<div class="ed-sim-note is-warn">${icon('arrow-down', 14)}<span>Más fácil que ${catName} del juego (contra ellas se gana entre ${pct(cal.lo)} y ${pct(cal.hi)}). Subile vida, daño o defensa.</span></div>`;
-        else compare = `<div class="ed-sim-note is-good">${icon('check', 14)}<span>Pareja con ${catName} del juego (contra ellas se gana entre ${pct(cal.lo)} y ${pct(cal.hi)}).</span></div>`;
+        const ellas = d.category === 'boss' ? 'ellos' : 'ellas';
+        if (r.win < cal.lo - 0.03) compare = `<div class="ed-sim-note is-bad">${icon('arrow-up', 14)}<span>Más difícil que ${catName} del juego (contra ${ellas} se gana entre ${pct(cal.lo)} y ${pct(cal.hi)}). Bajale vida, daño o precisión.</span></div>`;
+        else if (r.win > cal.hi + 0.03) compare = `<div class="ed-sim-note is-warn">${icon('arrow-down', 14)}<span>Más fácil que ${catName} del juego (contra ${ellas} se gana entre ${pct(cal.lo)} y ${pct(cal.hi)}). Subile vida, daño o defensa.</span></div>`;
+        else compare = `<div class="ed-sim-note is-good">${icon('check', 14)}<span>Pareja con ${catName} del juego (contra ${ellas} se gana entre ${pct(cal.lo)} y ${pct(cal.hi)}).</span></div>`;
+      }
+    }
+    // v3.11: los jefes, además, con lo medido en el juego de verdad (node tools/jefes.js --datos)
+    let measured = '';
+    if (d.category === 'boss') {
+      const m = ((A.Seed && A.Seed.jefesMedidos) || {})[d.id];
+      const firma = [d.health, d.damage, d.attack, d.difficulty, d.armor, d.tier].join('|');
+      const cmd = `node tools/jefes.js --jefes=${esc(d.id || 'su_id')} --datos`;
+      if (m && m.firma === firma) {
+        measured = `<div class="ed-sim-note is-info">${icon('d20', 14)}<span>En el juego, con pociones, hechizos y técnicas (medido con el motor completo): a su nivel le gana un guerrero el ${m.nivel[0]}%, un híbrido el ${m.nivel[1]}% y un mago el ${m.nivel[2]}%${m.nivelMas2 > (d.tier || 1) ? `; con nivel ${m.nivelMas2}, el ${m.mas2[0]}%, el ${m.mas2[1]}% y el ${m.mas2[2]}%` : ''}.</span></div>`;
+      } else {
+        measured = `<div class="ed-sim-note is-info">${icon('d20', 14)}<span>${m ? 'Cambiaste sus números' : 'Jefe nuevo'}: para ver cuánto se le gana en el juego (con pociones, hechizos y técnicas), corré <code>${cmd}</code>.</span></div>`;
       }
     }
     return card('Prueba de combate', `
@@ -164,6 +178,7 @@
         <div class="ed-sim-big ${v[1]}"><b>${pct(r.win)}</b><span>gana el aventurero · ${v[2]}</span></div>
       </div>
       ${compare}
+      ${measured}
       <div class="ed-sim-lines">
         <div>El aventurero le acierta con <b>${r.needHero}+</b> (${r.hitHero}%) y necesita unos <b>${r.hitsToKill}</b> golpes para ganarle.</div>
         <div>La criatura le acierta con <b>${r.needFoe}+</b> (${r.hitFoe}%) y lo tumba en unos <b>${r.hitsToDie}</b> golpes.</div>

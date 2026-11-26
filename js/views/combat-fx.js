@@ -458,6 +458,8 @@
     if (entry.passive && fx.target && isHeroKey(fx.target)) return { id: entry.passive, on: fx.target, hero: true };
     // v3.3: Cazador de sombras y Corteza espinosa se anuncian sobre el héroe
     if (entry.passive === 'cazador_sombras' || entry.passive === 'corteza_espinosa' || entry.passive === 'colmillos' || entry.passive === 'sangre_lobo') return { id: entry.passive, on: selfKey(entry), hero: true };
+    // v3.11: Instinto salvaje, Núcleo de sobrecarga, Embestida arrolladora, Apoyo orbital, Polvo de hada, Ingenio
+    if (['furia', 'cuerpo_metal', 'embestida', 'mente_expansiva', 'polvo_hada', 'ingenio', 'bendicion'].includes(entry.passive) && entry.type === 'system') return { id: entry.passive, on: selfKey(entry), hero: true };
     return null;
   }
 
@@ -643,7 +645,7 @@
       slash(target, crit);
       sparks(target, crit ? 14 : 8, crit ? 'crit' : 'hit');
       playCardFx(target, crit ? 'fx-hit-crit' : 'fx-hit', crit ? 560 : 420);
-      if (isHeroKey(target) && (entry.passive === 'piel_roca' || entry.passive === 'determinacion') && A.Passives) {
+      if (isHeroKey(target) && (entry.passive === 'piel_roca' || entry.passive === 'determinacion' || entry.passive === 'bendicion') && A.Passives) {
         const info = A.Passives.info(entry.passive, A.State.player);
         if (info) later(260, () => floatText(target, info.name, 'is-status is-passive', -20, info.icon));
       }
@@ -769,13 +771,14 @@
       bleed: 'Sangrado', poison: 'Envenenado', fire: 'En llamas', cold: 'Congelado', shock: 'Electrizado', blind: 'Cegado', silence: 'Silenciado', stun: 'Paralizado', curse: 'Maldito',
       // v2.5
       prone: 'Derribado', fear: 'Asustado', grab: 'Atrapado', corrode: 'Corroído', rally: '¡Envalentonado!', guard: 'En guardia',
+      stagger: 'Desequilibrado', exposed: 'Expuesto', // v3.11
       immune: 'Inmune', fury: '¡Furia!', steal: '¡Te roba!',
     })[type] || type;
   }
 
   /** v2.5: ícono del número flotante de cada estado. */
   function statusIcon(type) {
-    const map = { stun: 'hourglass', curse: 'skull', prone: 'arrow-down', fear: 'warning', grab: 'lock', corrode: 'poison', rally: 'arrow-up', guard: 'shield', immune: 'star', fury: 'fist', steal: 'coins' };
+    const map = { stun: 'hourglass', curse: 'skull', prone: 'arrow-down', fear: 'warning', grab: 'lock', corrode: 'poison', rally: 'arrow-up', guard: 'shield', immune: 'star', fury: 'fist', steal: 'coins', stagger: 'target', exposed: 'arrow-down' };
     return map[type] || type;
   }
 

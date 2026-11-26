@@ -204,11 +204,12 @@
       combatType: 'mage',
       magic: true,
       passive: 'mente_expansiva',
-      // v3.3: 1,5 de maná por turno (antes 2: en el nivel 3 le sacaba 20 puntos a los otros magos); crece de a 1,5
-      startSpell: 'rayo_de_plasma', manaRegen: { turn: 1.5, win: 0.3, step: 1.5 },
+      // v3.11 (dossier): la Mente expansiva se cambió por el Apoyo orbital. Medido: con el maná de los otros magos
+      // quedaba 28 puntos abajo en el nivel 3; con un poco más (1,25 por turno, antes 1,5) queda en su lugar
+      startSpell: 'rayo_de_plasma', manaRegen: { turn: 1.25, win: 0.25, step: 1.25 },
       bonuses: { hp: -8, mana: 4, speed: 2, precision: 1, armor: 0, damage: 0, dodge: 2 }, // v3.6: clase + 3 puntos de raza
       explore: { fuerza: 0, agilidad: 2, ingenio: 3, punteria: 0, suerte: 0 }, // v3.6: al explorar, 5 puntos para todos
-      description: 'Visitantes de mundos lejanos. Sus mentes beben de corrientes de energía que los nativos apenas perciben.',
+      description: 'Visitantes de mundos lejanos. Desde el cielo, su nave nodriza los cuida y bombardea a quien se les ponga enfrente.',
     },
     {
       id: 'infernal',

@@ -348,6 +348,8 @@
 .ed-sim-note.is-good { background: #e3efcf; color: #355e14; }
 .ed-sim-note.is-warn { background: #f6e6c0; color: #7a4e0c; }
 .ed-sim-note.is-bad { background: #f6dcd2; color: #8a2414; }
+.ed-sim-note.is-info { background: #e2e9f3; color: #23405e; font-weight: 500; }
+.ed-sim-note.is-info code { font-size: 11.5px; background: rgba(255, 255, 255, .6); padding: 0 4px; border-radius: 4px; }
 .ed-sim-lines { display: flex; flex-direction: column; gap: 4px; font-size: 13px; line-height: 1.45; }
 .ed-mini-row { display: flex; align-items: center; gap: 10px; padding: 5px 0; border-bottom: 1px dashed var(--border-soft); }
 .ed-mini-row:last-of-type { border-bottom: none; }

@@ -169,6 +169,7 @@
     // v2.5
     stun: 'Quedás aturdido: perdés el próximo turno.', curse: 'Una maldición cae sobre vos.', prone: 'Caés al suelo: te cuesta defenderte.',
     fear: 'El miedo te paraliza las manos.', grab: 'Quedás atrapado: no podés huir.', corrode: 'El ácido te carcome la armadura.',
+    stagger: 'Quedás desequilibrado: tu próximo ataque sale torcido.', exposed: 'Quedás expuesto: te cuesta defenderte.',
   };
   const STATUS_OTHER = {
     bleed: '{E} empieza a sangrar.', poison: 'El veneno entra en la sangre de {e}.', fire: '{E} se prende fuego.',
@@ -176,6 +177,7 @@
     // v2.5
     stun: '{E} queda aturdido: pierde su próximo turno.', curse: 'Una maldición cae sobre {e}.', prone: '{E} cae al suelo.',
     fear: '{E} tiembla de miedo.', grab: '{E} queda atrapado.', corrode: 'El ácido carcome la coraza de {e}.',
+    stagger: '{E} queda desequilibrado: su próximo ataque sale torcido.', exposed: '{E} queda expuesto: se defiende peor.',
   };
   const TICK_PLAYER = {
     bleed: 'Seguís sangrando: perdés {n} de vida.', poison: 'El veneno te quema por dentro: perdés {n} de vida.', fire: 'Las llamas te queman: perdés {n} de vida.',
@@ -271,14 +273,24 @@
 
   // Lo que agrega una pasiva al final de un golpe recibido
   const PASSIVE_SUFFIX = {
-    piel_roca: ' Tu piel de roca frena la mitad del golpe.',
+    // v3.11: por ronda: le saca 1, 2...
+    piel_roca: (e) => (e && e.roca ? ` Tu piel de roca le saca ${e.roca}.` : ' Tu piel de roca le saca fuerza al golpe.'),
     determinacion: ' ¡Pero tu determinación te mantiene en pie!',
-    // v3.1: el blindaje del robot
-    cuerpo_metal: (e) => ((e && e.dmg === 0) ? ' Tu blindaje frena todo el golpe.' : e && e.absorbed ? ` Tu blindaje frena ${e.absorbed}.` : ' Tu blindaje frena parte del golpe.'),
+    // v3.11: la luz del ángel (la tuya o la de un compañero)
+    bendicion: (e) => (e && e.blessed ? ` La bendición${e.blessBy ? ` de ${e.blessBy}` : ''} frena ${e.blessed}.` : ' La bendición frena parte del golpe.'),
   };
   function passiveSuffix(id, entry) {
     const x = PASSIVE_SUFFIX[id];
     return typeof x === 'function' ? x(entry) : (x || '');
+  }
+  /** v3.11: todo lo que frenó un golpe que recibiste (Piel de roca, Bendición, Determinación), en orden. */
+  function guardSuffix(entry) {
+    if (!entry) return '';
+    let out = '';
+    if (entry.roca) out += passiveSuffix('piel_roca', entry);
+    if (entry.blessed) out += passiveSuffix('bendicion', entry);
+    if (entry.passive === 'determinacion') out += passiveSuffix('determinacion', entry);
+    return out;
   }
 
   // v2.5: el primer golpe contra una criatura con caparazón (o gelatinosa) hace la mitad
@@ -293,7 +305,7 @@
     if (out && out.text) {
       const fx = entry.fx || {};
       const toPlayer = fx.target === 'player' && (fx.kind === 'attack' || fx.kind === 'tick');
-      if (toPlayer && entry.passive && PASSIVE_SUFFIX[entry.passive]) out.text += passiveSuffix(entry.passive, entry);
+      if (toPlayer) out.text += guardSuffix(entry);
       if (entry.softened && SOFT_SUFFIX[entry.softened]) out.text += SOFT_SUFFIX[entry.softened];
       out.text = contract(out.text);
     }
@@ -305,7 +317,7 @@
     const effect = { poison: 'el veneno', bleed: 'el sangrado', fire: 'el fuego' }[fx.effect] || 'eso';
     switch (fx.passive) {
       case 'suerte': return { text: pick(['¡Suerte! Sacás un 1, pero el dado vuelve a rodar.', 'Un 1… pero la suerte de los medianos te da otra tirada.']), tone: 'good' };
-      case 'furia': return { text: `La furia se apodera de vos: tus golpes hacen +${fx.amount || 2} de daño.`, tone: 'crit' };
+      case 'furia': return { text: `El instinto salvaje te enciende: ese golpe pega +${fx.amount || 2}.`, tone: 'crit' };
       case 'cuerpo_metal': return { text: `Tu cuerpo de metal ni siente ${effect}.`, tone: 'good' };
       case 'sangre_dragon': return { text: 'Las llamas te rozan sin hacerte nada: tenés sangre de dragón.', tone: 'good' };
       default: return entry.text ? { text: entry.text, tone: 'good' } : null;
@@ -482,5 +494,5 @@
 
   function isFem(id) { return FEM.has(id); }
 
-  A.Narrator = { say, enemyNoun, petNoun, coinsInWords, groupPhrase, contract, passiveSuffix, isFem, SOFT: SOFT_SUFFIX };
+  A.Narrator = { say, enemyNoun, petNoun, coinsInWords, groupPhrase, contract, passiveSuffix, guardSuffix, isFem, SOFT: SOFT_SUFFIX };
 })(window.Aventurs);

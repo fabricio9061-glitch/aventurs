@@ -222,6 +222,16 @@
       hit: ['{E} te golpea y te manotea la bolsa: {d} de daño.'],
       miss: ['{E} intenta manotearte la bolsa, pero te das cuenta a tiempo.'],
     },
+    // v3.11: jefes con mecánica propia
+    tres_cabezas: {
+      kind: 'passive', name: 'Tres cabezas', icon: 'swords', hits: 3, mult: 0.6, // (medido: con 0,7 al híbrido le ganaba 9 de cada 10 veces aun con dos niveles más)
+      text: 'Sus tres cabezas muerden una tras otra en cada turno (cada mordida pega un poco menos; en grupo, cada una elige a quién).',
+      use: ['Las tres cabezas de {e} atacan una tras otra.', '{E} lanza sus tres cabezas al ataque.', 'Tres bocas, tres mordidas: {e} no da respiro.'],
+    },
+    ocho_tentaculos: {
+      kind: 'passive', name: 'Ocho tentáculos', icon: 'grab',
+      text: 'Arranca bajo el agua con ocho tentáculos (dos más por cada héroe extra). No se le puede pegar hasta cortarlos a todos; mientras tanto, atacan ellos.',
+    },
     doble: {
       kind: 'active', name: 'Doble ataque', icon: 'swords', act: 'multi', cd: 3, hits: 2, atk: -2,
       text: 'Ataca dos veces seguidas (con −2 de precisión cada vez).',
@@ -485,7 +495,9 @@
     kyubi: { id: 'kitsune', count: 2, tails: 5, hp: 0.7 },
   };
   function summonSpec(x, sk) {
-    const raw = SUMMONS[x.id];
+    // v3.11: también desde los datos de la criatura (los jefes nuevos traen su "summons")
+    const data = A.Data && A.Data.getById ? A.Data.getById('enemies', x.id) : null;
+    const raw = SUMMONS[x.id] || (data && data.summons) || null;
     const base = typeof raw === 'string' ? { id: raw, count: 1 } : raw ? { ...raw } : { id: x.id, count: 1, weak: true };
     if (sk && sk.count) base.count = sk.count;
     if (sk && sk.pack) { base.id = x.id; base.weak = true; }
@@ -890,7 +902,7 @@
         // v3.10: invocaciones de varios (y las de manada, de su propia especie)
         const spec = summonSpec(x, sk);
         if (!spec.id || !A.Data.getById('enemies', spec.id)) return 0;
-        if (!SUMMONS[x.id] && !sk.pack && !sk.count) return 0; // "Invocar" a secas, solo los que tienen a quién llamar
+        if (!SUMMONS[x.id] && !(A.Data.getById('enemies', x.id) || {}).summons && !sk.pack && !sk.count) return 0; // "Invocar" a secas, solo los que tienen a quién llamar
         if (x.summoned) return 0; // una invocada no invoca
         return k.alive().length < 3 ? 1.5 : 0;
       }
@@ -917,19 +929,34 @@
    * Turno de una criatura: a veces usa una activa. Devuelve true si actuó
    * (si no, combat.js hace el ataque normal).
    */
+  /** v3.11: las tres cabezas de la Hidra (su ataque de cada turno). En grupo, cada cabeza elige a un héroe. */
+  function headsAttack(x, k) {
+    const sk = LIB.tres_cabezas;
+    k.log('enemy', { text: `${x.displayName} ataca con sus tres cabezas.`, fx: { kind: 'note', actor: k.fxKey(x), skill: 'tres_cabezas' }, say: { text: fill(sk.use, x), tone: 'bad' } });
+    for (let i = 0; i < sk.hits; i++) {
+      if (x.hp <= 0) break;
+      const up = (k.heroes() || []).filter((h) => h.hp > 0);
+      if (!up.length) break;
+      const h = up[Math.floor(Math.random() * up.length)];
+      A.State.withHero(h, () => k.strike(x, { mult: sk.mult, skill: 'tres_cabezas' }));
+    }
+    return true;
+  }
+
   function enemyTurn(c, x) {
     const k = kit();
     if (!k || !x || x.hp <= 0) return false;
     x._turns = (x._turns || 0) + 1;
     tickCds(x);
+    const heads = has(x, 'tres_cabezas');
     const opts = activesOf(x).filter((sk) => ready(x, sk)).map((sk) => ({ sk, w: weightOf(sk, x, k) })).filter((o) => o.w > 0);
-    if (!opts.length) return false;
+    if (!opts.length) return heads ? headsAttack(x, k) : false;
     let chance = x.elite ? USE_CHANCE.elite : x.category === 'boss' ? USE_CHANCE.boss : USE_CHANCE.normal;
     // las fuertes, los jefes y la élite abren la pelea con su mejor golpe (aliento, aullido...)
     const big = x.elite || x.category === 'strong' || x.category === 'boss';
     const openers = x._turns === 1 ? opts.filter((o) => o.sk.first && (big || o.sk.act === 'rally')) : [];
     if (openers.length) chance = Math.max(chance, USE_CHANCE.opener);
-    if (Math.random() >= chance) return false;
+    if (Math.random() >= chance) return heads ? headsAttack(x, k) : false;
     const sk = weighted(openers.length ? openers : opts);
     markUsed(x, sk);
     const fn = ACTS[sk.act];

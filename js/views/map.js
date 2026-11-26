@@ -16,9 +16,10 @@
 (function (A) {
   'use strict';
 
-  // v2.1: lienzo más grande para 31 zonas
-  const W = 1280;
+  // v2.1: lienzo más grande para 31 zonas · v3.11: más ancho, con las Tierras Altas al este
+  const W = 1820;
   const H = 860;
+  const OLD_W = 1280; // donde termina el reino de antes (ahí empieza la Bruma)
   const U = () => A.UI;
 
   let mainEl = null;
@@ -251,17 +252,20 @@
         locked ? 'is-locked' : '',
         r.id === selectedId ? 'is-selected' : '',
         (r.type === 'safe' || r.type === 'road') ? 'is-safe' : 'is-danger',
+        r.type === 'lair' ? 'is-lair' : '', // v3.11: guarida de jefe (más chica, con corona)
       ].filter(Boolean).join(' ');
+      const lair = r.type === 'lair';
       const iconUrl = isFog ? '' : (A.ItemSprites && A.ItemSprites.iconUrl ? A.ItemSprites.iconUrl(`biome-${r.biome}`) || A.ItemSprites.iconUrl('map') : '');
       const lab = labelAttrs(p);
       const lockUrl = locked && A.ItemSprites ? A.ItemSprites.iconUrl('lock') : '';
       return `
         <g class="${cls}" data-region="${U().esc(r.id)}" transform="translate(${p.x} ${p.y})" tabindex="0" role="button" aria-label="${U().esc(isFog ? 'Zona sin explorar' : r.name)}">
-          <circle class="node-halo" r="34"/>
-          <circle class="node-ring" r="26"/>
-          <circle class="node-disc" r="22"/>
-          ${isFog ? '<text class="node-q" y="8" text-anchor="middle">?</text>' : `<image href="${iconUrl}" x="-16" y="-16" width="32" height="32" class="node-img"/>`}
-          ${lockUrl ? `<g class="node-lock" transform="translate(17 -17)"><circle r="10"/><image href="${lockUrl}" x="-8" y="-8" width="16" height="16"/></g>` : ''}
+          <circle class="node-halo" r="${lair ? 24 : 34}"/>
+          <circle class="node-ring" r="${lair ? 18 : 26}"/>
+          <circle class="node-disc" r="${lair ? 15 : 22}"/>
+          ${isFog ? `<text class="node-q" y="${lair ? 6 : 8}" text-anchor="middle">?</text>` : lair && A.Sprites ? `<image href="${A.Sprites.dataUrl(r.boss)}" x="-13" y="-13" width="26" height="26" class="node-img"/>` : `<image href="${iconUrl}" x="-16" y="-16" width="32" height="32" class="node-img"/>`}
+          ${lair && !isFog && A.ItemSprites ? `<g class="node-crown" transform="translate(${lockUrl ? -13 : 13} -14)"><circle r="8"/><image href="${A.ItemSprites.iconUrl('crown')}" x="-6" y="-6" width="12" height="12"/></g>` : ''}
+          ${lockUrl ? `<g class="node-lock" transform="translate(${lair ? 13 : 17} ${lair ? -13 : -17})"><circle r="${lair ? 8 : 10}"/><image href="${lockUrl}" x="${lair ? -6 : -8}" y="${lair ? -6 : -8}" width="${lair ? 12 : 16}" height="${lair ? 12 : 16}"/></g>` : ''}
           ${isFog ? '' : `<text class="node-label" x="${lab.x - p.x}" y="${lab.y - p.y}" text-anchor="${lab.anchor}">${U().esc(r.name)}</text>`}
           ${!isFog && (locked || !visited.has(r.id)) && minLevel(r) > 1 ? `<text class="node-lvl" x="${lab.x - p.x}" y="${lab.y - p.y + (p.label === 't' ? -15 : 14)}" text-anchor="${lab.anchor}">Nivel ${minLevel(r)}</text>` : ''}
         </g>`;
@@ -291,10 +295,12 @@
         </defs>
         <rect x="-400" y="-400" width="${W + 800}" height="${H + 800}" fill="#2a1f14"/>
         <rect width="${W}" height="${H}" fill="url(#mp-paper)"/>
-        <path class="map-sea" d="M 0 690 C 120 660, 260 700, 380 730 S 600 660, 720 690 S 900 700, 1000 720 S ${W} 700, ${W} 720 L ${W} ${H} L 0 ${H} Z" fill="url(#mp-sea)"/>
+        <path class="map-sea" d="M 0 690 C 120 660, 260 700, 380 730 S 600 660, 720 690 S 900 700, 1000 720 S 1180 700, 1280 735 S 1500 760, 1620 745 S ${W} 760, ${W} 770 L ${W} ${H} L 0 ${H} Z" fill="url(#mp-sea)"/>
+        <path class="map-mist" d="M ${OLD_W + 10} 20 C ${OLD_W + 40} 200, ${OLD_W - 10} 420, ${OLD_W + 30} 640 S ${OLD_W + 20} 800, ${OLD_W + 30} ${H - 20}"/>
+        <text class="map-region-title" x="${OLD_W + 270}" y="${H - 40}" text-anchor="middle">Tierras Altas</text>
         <rect width="${W}" height="${H}" filter="url(#mp-grain)" opacity="0.9"/>
         <rect class="map-frame" x="8" y="8" width="${W - 16}" height="${H - 16}" rx="6"/>
-        <g class="map-compass" transform="translate(1215 805)">
+        <g class="map-compass" transform="translate(${W - 65} 805)">
           <circle r="30"/>
           <path d="M 0 -26 L 6 0 L 0 26 L -6 0 Z" class="cp-a"/>
           <path d="M -26 0 L 0 6 L 26 0 L 0 -6 Z" class="cp-b"/>
@@ -525,7 +531,7 @@
           <div class="map3-top-text">
             <div class="map2-card-name">${U().esc(r.name)}${isHere ? '<span class="map2-here-tag">Estás acá</span>' : ''}</div>
             <div class="map2-card-pills">
-              <span class="pill ${(r.type === 'safe' || r.type === 'road') ? 'pill-safe' : 'pill-combat'}">${r.type === 'road' ? 'Segura adentro · criaturas en el camino' : r.type === 'safe' ? 'Zona segura' : 'Zona de peligro'}</span>
+              <span class="pill ${(r.type === 'safe' || r.type === 'road') ? 'pill-safe' : 'pill-combat'}">${r.type === 'road' ? 'Segura adentro · criaturas en el camino' : r.type === 'safe' ? 'Zona segura' : r.type === 'lair' ? `Guarida de jefe${r.altar ? ' · se invoca' : ''}` : 'Zona de peligro'}</span>
               <span class="pill pill-tier">Nivel ${minLevel(r)}+</span>
               ${visited.has(id) ? '' : '<span class="map2-meta">Sin visitar</span>'}
             </div>

@@ -3,32 +3,35 @@
 
    Del dossier de razas: cada raza guerrera trae una técnica propia, una vez por
    pelea, con un botón en el combate. Los números crecen por tramo de nivel
-   (1-4 · 5-8 · 9-10). La pelea la ejecuta combat.js (playerTechnique).
+   (1-4 · 5-8 · 9-12 · 13-16 · 17-20). La pelea la ejecuta combat.js (playerTechnique).
    Medido con tools/hordas.js: era lo que faltaba para que los guerreros
    no quedaran 30 puntos abajo de los magos contra grupos.
    ============================================================ */
 (function (A) {
   'use strict';
   const band = (p) => (A.Passives && A.Passives.band ? A.Passives.band(p) : 0);
-  const DICE = ['1d4', '1d6', '1d8'];
+  const DICE = ['1d4', '1d6', '1d8', '1d10', '2d6'];
 
   const TECH = {
     enano: {
       id: 'guardia_piedra', name: 'Guardia de piedra', icon: 'shield',
-      text: (b) => `Te plantás como una roca: +${[2, 3, 4][b]} de armadura por 2 rondas. No gasta tu ataque: pegás igual.`,
-      buff: (b) => ({ armor: [2, 3, 4][b] }), turns: 2, free: true,
+      text: (b) => `Te plantás como una roca: +${[2, 3, 4, 5, 6][b]} de armadura por 2 rondas. No gasta tu ataque: pegás igual.`,
+      buff: (b) => ({ armor: [2, 3, 4, 5, 6][b] }), turns: 2, free: true,
       say: 'Clavás los pies en el suelo y levantás la guardia: sos una roca.',
     },
     orco: {
       id: 'rugido_guerra', name: 'Rugido de guerra', icon: 'warning',
-      text: (b) => `Un rugido que te enciende: +${[1, 2, 3][b]} de daño por 2 rondas (en grupo, tus compañeros +1). No gasta tu ataque.`,
-      buff: (b) => ({ damage: [1, 2, 3][b] }), turns: 2, allies: { damage: 1 }, free: true,
+      text: (b) => `Un rugido que te enciende: +${[1, 2, 3, 4, 5][b]} de daño por 2 rondas (en grupo, tus compañeros +1). No gasta tu ataque.`,
+      buff: (b) => ({ damage: [1, 2, 3, 4, 5][b] }), turns: 2, allies: { damage: 1 }, free: true,
       say: 'Soltás un rugido de guerra que hace temblar a tus enemigos.',
     },
     licantropo: {
       id: 'aullido_manada', name: 'Aullido de manada', icon: 'paw',
-      text: (b) => `Aullás a la luna: +1 de precisión${b === 2 ? ' y +1 de daño' : ''} por 2 rondas (en grupo, tus compañeros también +1 de precisión). No gasta tu ataque.`,
-      buff: (b) => ({ precision: 1, damage: [0, 0, 1][b] }), turns: 2, allies: { precision: 1 }, free: true,
+      // v3.11 (dossier): además llama a un lobo que pelea a tu lado (no es tu mascota: se va al terminar)
+      // (medido: con el lobo Y el ataque en el mismo turno subía 10 a 20 puntos; sin el ataque queda parejo, como pedía el dossier)
+      text: (b) => `Aullás a la luna: +1 de precisión${[0, 0, 1, 1, 2][b] ? ` y +${[0, 0, 1, 1, 2][b]} de daño` : ''} por 2 rondas (en grupo, tus compañeros también +1 de precisión), y un lobo de la manada pelea a tu lado: ${WOLF.hp[b]} de vida, ${WOLF.dmg[b]} de daño, ${WOLF.attacks[b]} ataques desde la ronda siguiente.${TECH.licantropo.free ? ' No gasta tu ataque.' : ' Ese turno no atacás.'}`,
+      buff: (b) => ({ precision: 1, damage: [0, 0, 1, 1, 2][b] }), turns: 2, allies: { precision: 1 }, free: false,
+      wolf: null, // se completa abajo
       say: 'Aullás a la luna y la manada que llevás adentro te responde.',
     },
     robot: {
@@ -51,6 +54,11 @@
     },
   };
 
+  // v3.11: el lobo del Aullido (dossier: 6/10/14 de vida, 1d4 / 1d4+1 / 1d6+1, 2/3/3 ataques).
+  // Precisión +2 y defensa 10, más un tercio y la mitad del nivel del licántropo.
+  const WOLF = { hp: [6, 10, 14, 18, 22], dmg: ['1d4', '1d4+1', '1d6+1', '1d8+1', '1d8+3'], attacks: [2, 3, 3, 3, 4], prec: 2, def: 10 };
+  TECH.licantropo.wolf = WOLF;
+
   function of(p) {
     if (!p || !A.Balance || A.Balance.classOf(p) !== 'warrior') return null;
     return TECH[p.raceId] || null;
@@ -63,5 +71,5 @@
   function used(c, p) { return !!(c && c.techUsed && c.techUsed[key(c, p)]); }
   function markUsed(c, p) { c.techUsed = Object.assign({}, c.techUsed || {}, { [key(c, p)]: true }); }
 
-  A.Techniques = { TECH, of, info, used, markUsed, band };
+  A.Techniques = { TECH, WOLF, of, info, used, markUsed, band };
 })(window.Aventurs);

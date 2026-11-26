@@ -29,8 +29,9 @@
     mageRegenEvery: 4,                                // el maná por turno de los magos sube 1 cada tantos niveles (0 = no crece) · v3.1: 4 (niveles 5 y 9; antes 4, 7 y 10)
   };
 
-  const MAX_LEVEL = 10;
-  const MAX_TIER = 10;
+  // v3.11: el tope sube de 10 a 20 (para vos, tu mascota y las criaturas)
+  const MAX_LEVEL = 20;
+  const MAX_TIER = 20;
 
   // ---------- v2.4: rarezas ----------
   // value: cuánto vale un material (por la moneda base de su nivel)
@@ -57,9 +58,11 @@
   function cat(c) { return CATEGORY[c] || CATEGORY.normal; }
 
   // ---------- Curva de enemigos (categoría normal) ----------
+  // v3.11: del 11 al 20 la curva sube un poco más despacio (el equipo y la vida del jugador
+  // crecen más lento que antes del 10). Medido con tools/equilibrio.js (rachas nv15 y nv20).
   const Enemy = {
-    hp(t) { t = clampTier(t); return Math.round(13 + 4.5 * (t - 1)); },
-    dmg(t) { t = clampTier(t); return 4.0 + 1.35 * (t - 1); },          // daño promedio por golpe
+    hp(t) { t = clampTier(t); return Math.round(t <= 10 ? 13 + 4.5 * (t - 1) : 53.5 + 4.0 * (t - 10)); },
+    dmg(t) { t = clampTier(t); return t <= 10 ? 4.0 + 1.35 * (t - 1) : 16.15 + 1.1 * (t - 10); },          // daño promedio por golpe
     armor(t) { t = clampTier(t); return Math.floor((t - 1) / 2); },
     attack(t) { t = clampTier(t); return 1 + Math.floor((t - 1) / 2); },  // bonus al D20
     defense(t) { t = clampTier(t); return 8 + (t - 1); },                 // D20 a superar
@@ -159,7 +162,8 @@
      * 70 peleas). Medido con el simulador en la zona de cada nivel: del 1 al 2
      * son unas 8 peleas y va subiendo hasta unas 25 (unas 150 en total).
      */
-    XP_TABLE: [100, 210, 470, 850, 1300, 1850, 2900, 3700, 4500],
+    // v3.11: del 10 al 20 cuesta más (de unas 30 peleas por nivel a unas 45; en total, unas 2,5 veces lo del 1 al 10)
+    XP_TABLE: [100, 210, 470, 850, 1300, 1850, 2900, 3700, 4500, 8500, 10500, 12800, 15400, 18300, 21500, 25000, 29000, 33500, 38500],
     /** v3.0: la tabla de antes (para pasar las partidas viejas sin perder lo avanzado). */
     XP_TABLE_V2: [45, 100, 250, 390, 580, 820, 1240, 1800, 1950],
     xpToNext(level) {
@@ -434,6 +438,9 @@
       if (ef.type === 'corrode') out.armorPenalty += 2;
       if (ef.type === 'rally') { out.attackPenalty -= v; out.damagePenalty -= v; }
       if (ef.type === 'guard') out.defensePenalty -= v;
+      // v3.11: desequilibrado (Embestida, Polvo de hada): -N de precisión hasta su próximo ataque; expuesto: -N de defensa
+      if (ef.type === 'stagger') out.attackPenalty += v;
+      if (ef.type === 'exposed') out.defensePenalty += v;
     }
     return out;
   }
@@ -447,8 +454,8 @@
     maxEnemies: 5,   // tope de criaturas en la arena
     hp: 1.15,        // vida de cada criatura
     dmg: 1.1,        // daño de cada criatura
-    bossHp: 2.3,     // un jefe (o élite) solo: más vida... (v3.10: antes 1,9; con dos se ganaba muy fácil)
-    bossDmg: 1.45,   // ...y más daño (v3.10: antes 1,35)
+    bossHp: 2.1,     // un jefe (o élite) solo: más vida... (v3.10: 2,3; v3.11: 2,1, porque los jefes ya son más fuertes solos y traen más invocaciones)
+    bossDmg: 1.4,    // ...y más daño (v3.10: 1,45)
     share: 0.42,     // parte de la experiencia, las monedas y el botín de la pelea que se lleva cada uno
     // v3.2: la pelea se reparte más (antes 0.6 con dos): cada uno se lleva más o menos
     // 3/4 de lo que ganaría peleando solo (las peleas en grupo son más cortas y seguras).
@@ -458,7 +465,9 @@
     perHero: { extra: 0.5, maxEnemies: 1, hp: 0.35, dmg: 0.15, bossHp: 1.0, bossDmg: 0.25 },
   };
   // v3.10: los jefes también solos (vida y daño). Medido con tools/jefes.js
-  const BOSS = { hp: 1.15, dmg: 1.05, rage: 1.2 }; // rage: cuánto más pega enfurecido (con la mitad de la vida)
+  // v3.11: más fuertes (pedido: "dales más dificultad a todos"). Medido con tools/jefes.js:
+  // a su mismo nivel se les gana entre 1 y 7 de cada 10 veces según el jefe y la clase; con dos niveles más, casi siempre.
+  const BOSS = { hp: 1.3, dmg: 1.12, rage: 1.25 }; // rage: cuánto más pega enfurecido (con la mitad de la vida)
 
   /**
    * v3.2: cómo se ponen las criaturas según cuántos héroes pelean juntos.

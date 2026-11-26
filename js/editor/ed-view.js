@@ -834,7 +834,7 @@
       case 'sim-level': {
         const k = el.dataset.key;
         const cur = S.simLevel[k] || (S.draft && (S.draft.tier && !Array.isArray(S.draft.tier) ? S.draft.tier : schema.lvlOf(S.draft))) || 1;
-        S.simLevel[k] = Math.max(1, Math.min(10, cur + Number(el.dataset.d)));
+        S.simLevel[k] = Math.max(1, Math.min(A.Progression ? A.Progression.MAX_LEVEL : 20, cur + Number(el.dataset.d)));
         renderDetailOnly();
         break;
       }

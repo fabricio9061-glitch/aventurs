@@ -40,6 +40,11 @@ const PRUEBAS = [
   { id: 'n10x3', nivel: 10, n: 3, tiers: [7, 8] },
   { id: 'n10x5', nivel: 10, n: 5, tiers: [6, 7] },
   { id: 'n10x8', nivel: 10, n: 8, tiers: [4, 5] },
+  // v3.11: el tope subió a 20
+  { id: 'n15x3', nivel: 15, n: 3, tiers: [12, 13] },
+  { id: 'n15x5', nivel: 15, n: 5, tiers: [11, 12] },
+  { id: 'n20x3', nivel: 20, n: 3, tiers: [17, 18] },
+  { id: 'n20x5', nivel: 20, n: 5, tiers: [15, 16] },
 ];
 const CLASES = { warrior: 'guerrero', hybrid: 'híbrido', mage: 'mago' };
 
@@ -62,7 +67,7 @@ function medir({ razas = null, peleas = 300, preparar = null, alTerminar = null 
   const { A } = G;
   if (preparar) preparar(G);
   const porNivel = {};
-  for (const e of A.Data.enemies) if (e.category !== 'boss') (porNivel[e.tier] = porNivel[e.tier] || []).push(e);
+  for (const e of A.Data.enemies) if (e.category !== 'boss' && (e.regions || []).length) (porNivel[e.tier] = porNivel[e.tier] || []).push(e);
   const filas = [];
   for (const r of A.Data.races) {
     if (razas && !razas.includes(r.id)) continue;

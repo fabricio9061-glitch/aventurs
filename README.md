@@ -61,7 +61,10 @@ aventurs/
 │   └── app.js              Bootstrap
 └── tools/
     ├── simulador.js        Simulador de balance (Node, no se carga en el juego)
-    └── equilibrio.js       Pruebas de equilibrio entre razas y clases, con semillas fijas (v3.1)
+    ├── equilibrio.js       Pruebas de equilibrio entre razas y clases, con semillas fijas (v3.1)
+    ├── hordas.js           Cada raza contra grupos de criaturas (v3.9)
+    ├── jefes.js            Cada jefe contra un guerrero, un híbrido y un mago (v3.10)
+    └── grupo.js            Peleas de 2 a 4 héroes juntos, con el motor de verdad (v3.11)
 ```
 
 ## Correr local
@@ -85,8 +88,8 @@ node tools/simulador.js economia   # monedas, XP y precios
 node tools/simulador.js viaje      # pasos y niveles del mapa
 ```
 
-Pruebas de equilibrio (v3.1): seis pruebas por raza (1 contra 1, rachas en los niveles 1, 3, 6 y 10 y
-peleas contra parejas), con semillas fijas para comparar antes y después de un cambio:
+Pruebas de equilibrio (v3.1): ocho pruebas por raza (1 contra 1, rachas en los niveles 1, 3, 6, 10, 15 y 20
+—las dos últimas desde la v3.11— y peleas contra parejas), con semillas fijas para comparar antes y después de un cambio:
 
 ```powershell
 node tools/equilibrio.js                        # las 18 razas (unos minutos)
@@ -96,8 +99,9 @@ node tools/equilibrio.js --guardar=antes.json   # guarda los resultados
 node tools/equilibrio.js --comparar=antes.json  # muestra cuánto cambió cada número
 ```
 
-Contra grupos (v3.9): cada raza contra 1, 3, 5 y 8 criaturas iguales en los niveles 1, 5 y 10, con
-victorias, rondas, vida que queda y cuántas veces se nota la pasiva y el hechizo de nacimiento:
+Contra grupos (v3.9): cada raza contra 1, 3, 5 y 8 criaturas iguales en los niveles 1, 5 y 10 (y contra 3 y 5
+en el 15 y el 20 desde la v3.11), con victorias, rondas, vida que queda y cuántas veces se nota la pasiva y el
+hechizo de nacimiento:
 
 ```powershell
 node tools/hordas.js                          # las 18 razas (unos 2 minutos)
@@ -106,22 +110,32 @@ node tools/hordas.js --guardar=antes.json     # guarda los resultados
 node tools/hordas.js --comparar=antes.json    # muestra cuánto cambió
 ```
 
-Contra jefes (v3.10): cada jefe contra un guerrero, un híbrido y un mago de su nivel y de dos niveles más:
+Contra jefes (v3.10): cada jefe contra un guerrero, un híbrido y un mago de su nivel y de dos niveles más
+(sin pasar del 20):
 
 ```powershell
-node tools/jefes.js                      # todos los jefes (unos 8 minutos)
+node tools/jefes.js                      # los 22 jefes (unos minutos)
 node tools/jefes.js --jefes=kyubi,kraken # solo esos
+node tools/jefes.js --datos              # y guarda lo medido para el editor (js/data/seed-jefes-medidos.js)
+```
+
+En grupo (v3.11): 2 a 4 héroes juntos, con las reglas del juego en grupo (la Bendición del ángel, el lobo del
+Aullido, los jefes que suben con cada héroe):
+
+```powershell
+node tools/grupo.js --heroes=enano,angel --jefes=kyubi,kraken          # pareja contra jefes (y +2 niveles)
+node tools/grupo.js --heroes=orco,humano,gnomo,angel --criaturas=lobo_bruma*3 --nivel=11
 ```
 
 ## Contenido del juego (seed)
 
 - **18 razas** parejas, cada una con su pasiva y su arma (ver *Razas y pasivas*); las 12 que usan
   magia nacen con su propio hechizo
-- **31 regiones** (24 de combate y 7 pueblos) ordenadas por nivel (1 a 10)
-- **113 enemigos** (34 domables), cada uno con su zona propia: 4 a 7 criaturas por zona
-- **80 armas**, **44 armaduras**, **278 objetos** (22 accesorios, 51 pergaminos,
-  20 pociones, 53 comidas), **5 mochilas**; todo con rareza (común a legendario)
-- **44 hechizos** (12 de nacimiento, 24 que se aprenden de pergaminos), **25 recetas**, **13 habitantes**
+- **67 lugares** ordenados por nivel (1 a 20): 36 de combate, 9 pueblos (6 con criaturas en el camino)
+  y **22 guaridas de jefe** (v3.11)
+- **160 criaturas** (22 jefes, 34 domables), cada una con su zona propia
+- **112 armas**, **55 armaduras**, **291 objetos**; todo con rareza (común a legendario)
+- **50 hechizos**, **116 recetas**, **18 habitantes**
 - **47 misiones** (18 de la historia principal) y **86 escenas** para explorar (12 solo para grupos)
 
 ## Reglas (v1.8.0)
@@ -257,6 +271,79 @@ Explorar siempre hace pasar algo (`js/systems/explore.js` + `js/data/seed-events
   se cuentan con ×N).
 - En el celular, una franja arriba con vida, maná, comida y dinero.
 - Sin emojis en el juego (desde la v2.2, tampoco en el editor).
+
+## Versión 3.11.0: guaridas de jefes, altares y las Tierras Altas (hasta el nivel 20)
+
+### Jefes
+- **Cada jefe en su guarida** (22 lugares nuevos, al lado de su zona): en el mapa se ven con el dibujo del jefe y una corona. Adentro no hay otras criaturas: ves al jefe (qué hace y su nivel) y lo desafiás. Si le ganás, vuelve al día siguiente del juego. En grupo desafía el anfitrión. Los jefes ya no aparecen sueltos por las zonas (`js/systems/lairs.js`).
+- **Altares**: a cuatro jefes se los **invoca** poniendo objetos en su altar (se gastan): **Cthulhu** (Ídolo de R'lyeh + 3 perlas), **el Lich** (Filacteria rota + 3 cráneos; la condesa de Velmora te da la filacteria en la historia), **el Demonio mayor** (Sello infernal + 2 cuernos de demonio) y **el Devorador de Mundos** (los cuatro sellos de los jefes de las Tierras Altas).
+- **Torre del Archimago** (entre la Torre del Mago y las Ruinas Perdidas): el Archimago ya no está en el Abismo Marino, y llama a dos aprendices renegados.
+- **Kraken**: sale con **8 tentáculos** (2 más por cada héroe de más) y se queda **bajo el agua** —no se le puede pegar ni apuntar— hasta que caen todos.
+- **Hidra**: **tres cabezas**, tres mordidas por turno (cada una a un héroe al azar).
+- **Más fuertes**: solos, +30% de vida y +12% de daño (antes +15% y +5%) y +25% enfurecidos; en pareja ×2,1 de vida y ×1,4 de daño. La Kitsune tiene más vida y daño (en el editor daba 99% porque la prueba no veía sus invocaciones ni sus colas). También el Lich, el Demonio mayor, el Leviatán y el Ent.
+- **Editor, prueba de combate**: ahora cuenta lo que hacen las criaturas con las mismas cuentas del juego (invocaciones, tentáculos, tres cabezas, colas, ilusiones, piel gruesa, caparazón, regeneración, curarse, renacer, espinas, la furia y el daño extra de los jefes). En cada jefe muestra además **lo medido con el motor del juego** (con pociones, hechizos y técnicas): `node tools/jefes.js --datos` lo actualiza (`js/data/seed-jefes-medidos.js`); si le cambiás los números a un jefe, avisa que hay que medirlo de nuevo.
+- **8 jefes nuevos** (22 en total): Rey Goblin (nivel 3, Minas Olvidadas), Reina Araña (5, Montañas), Ent Anciano (6, Bosque de los Sueños), Fénix Ancestral (12), Rey de la Escarcha (14), Gólem Primordial (16), Reina de las Sombras (18) y el Devorador de Mundos (20).
+- Las misiones de jefes dicen dónde está cada guarida.
+
+Medido con `node tools/jefes.js` (% que gana un guerrero / híbrido / mago solo):
+
+| Jefe | Su nivel | +2 niveles |
+|---|---|---|
+| Rey Goblin (3) | 50 / 22 / 23 | 100 / 98 / 97 |
+| Reina Araña (5) | 33 / 18 / 47 | 92 / 92 / 80 |
+| Kitsune (7) | 7 / 2 / 7 | 80 / 82 / 80 |
+| Hidra (9) | 73 / 3 / 17 | 93 / 48 / 70 |
+| Lich (9) | 55 / 48 / 48 | 88 / 87 / 73 |
+| Kraken (10) | 8 / 20 / 25 | 82 / 87 / 90 |
+| Alamuerte (10) | 27 / 2 / 2 | 77 / 53 / 57 |
+| Fénix Ancestral (12) | 28 / 10 / 12 | 75 / 33 / 72 |
+| Devorador de Mundos (20) | 42 / 20 / 47 | — (no hay nivel 22) |
+
+En pareja (`node tools/grupo.js`, orco + gnomo, su nivel / +2): Kraken 37 / 87%, Hidra 20 / 77%, Archimago 27 / 67%, Lich 47 / 90%.
+
+### Tierras Altas: niveles 11 a 20
+- **Tope de nivel 20** para jugadores y criaturas (antes 10). La experiencia sube más despacio: del 10 al 11 pide 8.500 y del 19 al 20, 38.500.
+- **10 lugares nuevos** al este del mapa: Paso de la Bruma, **Bastión del Alba** (pueblo: Brunhild la herrera, Seren la sabia y Odo el posadero), Bosque Petrificado, Tundra Eterna, Ciénaga Primordial, Ruinas Celestes, Desierto de Cristal, Abismo de las Sombras, Cumbre del Mundo y El Fin del Mundo.
+- **34 criaturas nuevas** (nivel 10 a 20), **27 armas y 11 armaduras** (de oricalco, astrales, del alba y 6 legendarias de los jefes), **6 hechizos** que enseña la sabia (Rayo estelar, Meteoro, Curación suprema, Juicio divino, Ventisca eterna, Tormenta del vacío), pociones supremas, el Elixir de vida, materiales y recetas.
+- Las pasivas suben en **5 tramos de nivel**: 1-4, 5-8, 9-12, 13-16 y 17-20.
+
+### Razas: dossier, parte 2 (todo medido)
+- **Regla nueva: el crítico tiene que llegar.** Con 18 o 19 en el dado (Goliat, Elfo) solo es crítico si el golpe pasa la defensa; el 20 llega siempre.
+- **Estados nuevos**: *Desequilibrado* (menos precisión en su próximo ataque) y *Expuesto* (menos defensa).
+
+| Raza | Cambio |
+|---|---|
+| Enano | **Piel de roca por ronda**: los primeros golpes de cada ronda (1 a 3) te hacen 2 a 4 menos |
+| Orco | **Instinto salvaje**: tu primer golpe que acierta en cada turno pega +1 a +3; si te hirieron desde tu turno anterior, +3 a +7 |
+| Robot | **Núcleo de sobrecarga**: cada 2 golpes que aciertan, una descarga de +3 a +9 y 1 a 4 a otra criatura; +1 a +3 de armadura desde el 9 |
+| Minotauro | **Embestida arrolladora**: tu primer golpe a cada criatura pega +4 a +8 y apunta mejor; cada golpe la desequilibra |
+| Goliat | **Golpe de gigante**: +2 de precisión y el crítico suma +2 a +6 |
+| Licántropo | El **Aullido** llama a un **lobo** que pelea a tu lado (las criaturas a veces lo atacan a él) |
+| Elfo | **Ojo certero**: el crítico suma +1 a +3 desde el nivel 5 |
+| Elfo oscuro | **Cazador de sombras**: envenena el 60% de las veces (1 a 3 por turno) y desde el nivel 5 pega +1/+2 aunque la criatura no tenga nada encima |
+| Vampiro | El robo de vida deja de subir en el 13 (16% y 30% en Frenesí) |
+| Alienígena | **Apoyo orbital**: con tu hechizo de daño, la nave nodriza bombardea a tu blanco (1d3 a 2d6) y a las demás (1 a 3); después espera 3 turnos. Un poco más de maná |
+| Ángel | **Bendición divina**: al empezar cada ronda, una luz protege al más herido del grupo (frena 1 a 5, de 2 a 4 golpes por pelea) |
+| Hada | **Polvo de hada**: además, una vez por ronda tu hechizo marea a su blanco (−1 a −3 de precisión; desde el 9, también menos defensa) |
+| Infernal | **Llama interior**: +3 a +7 a un blanco (no más que tu nivel + 1) y +1 a +3 a cada una en área |
+| Gnomo | **Ingenio**: además, los primeros hechizos de 5 o más de maná de cada pelea cuestan 1 o 2 menos |
+
+Medido con `node tools/equilibrio.js` (rachas ganadas, promedio de cada clase):
+
+| Clase | nv 1 | nv 3 | nv 6 | parejas | nv 10 | nv 15 | nv 20 |
+|---|---|---|---|---|---|---|---|
+| Guerreros | 52 (+6) | 51 (+2) | 83 | 24 | 88 | 74 | 81 |
+| Híbridos | 29 | 42 | 82 | 26 | 88 (+3) | 76 | 82 |
+| Magos | 38 (+3) | 51 | 83 | 29 | 85 (+4) | 73 | 73 |
+
+(entre paréntesis, lo que cambió desde la v3.10). Las tres clases quedan a 1-10 puntos entre sí en todas las pruebas. Ninguna raza queda más de 8 puntos abajo de su clase, salvo el **Gnomo en el nivel 1** (−10; en el 3 está +16). Contra 5 criaturas los guerreros suben de 41 a 49% (nivel 5) y de 54 a 60% (nivel 10); los magos siguen en 74-87%.
+
+### Herramientas
+- `node tools/grupo.js` (nuevo): 2 a 4 héroes juntos con el motor de verdad.
+- `equilibrio.js` mide también las rachas en los niveles 15 y 20, `hordas.js` contra 3 y 5 criaturas en el 15 y el 20, y `jefes.js` no pasa del 20.
+
+### Grupo
+- Versión de grupo **10**: los dos tienen que actualizar.
 
 ## Versión 3.10.0: talleres con ventana, jefes de verdad y caminos que se pueden desandar
 

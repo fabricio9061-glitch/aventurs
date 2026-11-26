@@ -274,7 +274,7 @@
     const items = c.initiative.map((a, idx) => {
       const isActive = !frozen && idx === c.currentActorIdx;
       const ally = c.party && a.kind !== 'enemy' && a.hid !== localHid();
-      const kindCls = (a.kind === 'enemy' ? 'is-enemy' : a.kind === 'pet' ? 'is-pet' : 'is-player') + (ally ? ' is-ally' : '');
+      const kindCls = (a.kind === 'enemy' ? 'is-enemy' : a.kind === 'pet' ? 'is-pet' : a.kind === 'ally' ? 'is-pet is-summon' : 'is-player') + (ally ? ' is-ally' : '');
       return `<span class="turn-queue-item ${kindCls} ${isActive ? 'is-active' : ''} ${isActorDead(c, a, snap) ? 'is-dead' : ''}">${esc(a.name)}</span>`;
     }).join('<span class="turn-queue-arrow">›</span>');
     return `<div class="combat-turn-queue">${items}</div>`;
@@ -286,6 +286,10 @@
     if (actor.kind === 'enemy') {
       const inst = c.enemies.find((e) => e.instanceId === actor.id);
       return !inst || hpOf(`enemy:${inst.instanceId}`, inst.hp) <= 0;
+    }
+    if (actor.kind === 'ally') { // v3.11: el lobo del Aullido
+      const a = (c.allies || []).find((x) => x.aid === actor.aid);
+      return !a || a.attacksLeft <= 0 || hpOf(`ally:${a.aid}`, a.hp) <= 0;
     }
     if (c.party && (actor.kind === 'player' || actor.kind === 'pet')) {
       const h = heroOf(actor.hid);
@@ -324,11 +328,13 @@
         // v3.3: la mascota del que huyó se fue con él
         const showPet = pet && !fled && (pet.health > 0 || (Fx() && Fx().isDying(pk)) || (snap && snap[pk] > 0));
         if (showPet) { allies += petCard(pet, cur && cur.kind === 'pet' && cur.hid === hid, shown, { key: pk, i: i++, owner: ally ? hero.name : null }); units += 1; }
+        for (const a of summonsOf(c, hid, snap)) { allies += summonCard(a, cur, shown, { i: i++, owner: ally ? hero.name : null }); units += 1; }
       }
     } else {
       const showPet = p.pet && (p.pet.health > 0 || (Fx() && Fx().isDying('pet')) || (snap && snap.pet > 0));
       allies = playerCard(p, cur && cur.kind === 'player', c, shown) + (showPet ? petCard(p.pet, cur && cur.kind === 'pet', shown) : '');
       units += 1 + (showPet ? 1 : 0);
+      for (const a of summonsOf(c, 'solo', snap)) { allies += summonCard(a, cur, shown, { i: 2 }); units += 1; }
     }
 
     return `
@@ -459,13 +465,23 @@
       : `<span class="cb-badge is-blood" title="Gotas de sangre: con ${bi.max}, Frenesí vampírico">${icon('heart', 12)}${bi.pending ? bi.max : bi.charges}/${bi.max}</span>`;
     const li = live && A.Passives.lunarInfo ? A.Passives.lunarInfo(c, p) : null;
     if (li && li.beast) raceBadge = `<span class="cb-badge is-beast" title="Forma bestial: más daño y algo de vida al empezar el turno (${li.healed}/${li.cap} en esta pelea)">${icon('moon', 12)}Bestia</span>`;
+    // v3.11: Núcleo de sobrecarga (cargas), Instinto salvaje (si te hirieron), la nave nodriza y la Bendición que te protege
+    const ci = live && A.Passives.coreInfo ? A.Passives.coreInfo(c, p) : null;
+    if (ci) raceBadge = `<span class="cb-badge is-core ${ci.charges >= ci.max - 1 ? 'is-hot' : ''}" title="Núcleo de sobrecarga: con ${ci.max} golpes que aciertan, descarga">${icon('spark', 12)}${ci.charges}/${ci.max}</span>`;
+    const ii = live && A.Passives.instinctInfo ? A.Passives.instinctInfo(c, p) : null;
+    if (ii && ii.angry) raceBadge = `<span class="cb-badge is-fury" title="Instinto salvaje: te hirieron, tu próximo golpe que acierta pega +${ii.n}">${icon('fist', 12)}+${ii.n}</span>`;
+    const oi = live && A.Passives.orbitalInfo ? A.Passives.orbitalInfo(c, p) : null;
+    if (oi) raceBadge = oi.ready ? `<span class="cb-badge is-orbital" title="Apoyo orbital: la nave dispara con tu próximo hechizo de daño">${icon('signal', 12)}Nave</span>`
+      : `<span class="cb-badge is-orbital is-wait" title="La nave nodriza se recarga: lista en ${oi.wait} turno${oi.wait === 1 ? '' : 's'} tuyo${oi.wait === 1 ? '' : 's'}">${icon('signal', 12)}${oi.wait}</span>`;
+    const bo = live && A.Passives.blessOn ? A.Passives.blessOn(c, p) : null;
+    const blessBadge = bo ? `<span class="cb-badge is-bless" title="Bendición divina${bo.byName ? ` de ${bo.byName}` : ''}: el próximo golpe que recibas pega ${bo.amount} menos">${icon('sun', 12)}${bo.amount}</span>` : '';
     return unitCard({
       kind: o.ally ? 'player is-ally' : 'player', key, i: o.i || 0, isActive,
       // v3.3: el que huyó (o se desconectó) ya no está en la pelea
       dead: !!(o.gone || o.fled), deadTag: o.fled ? 'Huyó' : o.gone ? 'Se fue' : '',
       ko: !o.gone && !o.fled && hp <= 0 && !!c.party,
       name: p.name, title: `${p.name} · ${race ? race.name : ''} de nivel ${p.level}${o.ally ? ' (tu compañero)' : ''}`,
-      badges: `${o.ally ? '<span class="cb-badge is-ally" title="Tu compañero">Aliado</span>' : ''}${shieldBadge}${raceBadge}<span class="cb-badge is-gold">Nv ${p.level}</span>`,
+      badges: `${o.ally ? '<span class="cb-badge is-ally" title="Tu compañero">Aliado</span>' : ''}${shieldBadge}${raceBadge}${blessBadge}<span class="cb-badge is-gold">Nv ${p.level}</span>`,
       sprite: A.Sprites ? A.Sprites.heroFor(p, { size: 128 }) : '',
       hp, hpMax: p.maxHp, barCls: 'bar-hp',
       sub: p.hasMagic ? { cls: 'is-mana', cur: mana, max: p.maxMana, title: `Maná ${mana}/${p.maxMana}` } : null,
@@ -477,6 +493,34 @@
         stat('DAÑO', dmg, dmgTip),
         stat('ARM', st.armor || 0, 'Armadura: se resta a cada golpe que recibís'),
         stat('VEL', st.speed || 10, 'Velocidad: el más rápido actúa primero'),
+      ],
+    });
+  }
+
+  /** v3.11: los aliados invocados de un héroe (el lobo del Aullido) que siguen o se están yendo. */
+  function summonsOf(c, owner, snap) {
+    return (c.allies || []).filter((a) => a.owner === owner && ((a.hp > 0 && a.attacksLeft > 0) || (Fx() && Fx().isDying(`ally:${a.aid}`)) || (snap && snap[`ally:${a.aid}`] > 0 && a.attacksLeft > 0)));
+  }
+  function summonCard(a, cur, shown, o = {}) {
+    const key = `ally:${a.aid}`;
+    const hp = shown(key, a.hp);
+    const isActive = !!(cur && cur.kind === 'ally' && cur.aid === a.aid);
+    const left = Math.max(0, a.attacksLeft);
+    return unitCard({
+      kind: o.owner ? 'pet is-summon is-ally' : 'pet is-summon', key, i: o.i != null ? o.i : 2, isActive, ko: hp <= 0,
+      name: a.name, title: `${a.name}: llegó con el Aullido de manada${o.owner ? ` de ${o.owner}` : ''}. Ataca ${left} ${left === 1 ? 'vez' : 'veces'} más y se va.`,
+      badges: `<span class="cb-badge is-summon" title="Ataques que le quedan">${icon('paw', 12)}${left}</span>`,
+      sprite: A.Sprites ? A.Sprites.html(a.species || 'lobo', { size: 96, flip: true }) : '',
+      hp, hpMax: a.maxHp, barCls: 'bar-pet-hp',
+      sub: { cls: 'is-summon', cur: left, max: a.maxAttacks || left, title: `Le quedan ${left} ataques` },
+      effects: a.effects,
+      dc: a.defense,
+      dcTitle: `Una criatura tiene que llegar a ${a.defense} para pegarle.`,
+      stats: [
+        stat('PREC', `+${a.attack}`, 'Lo que suma al dado para acertar'),
+        stat('DAÑO', String(a.damage).replace(/\s+/g, ''), 'Daño de cada mordida'),
+        stat('ARM', a.armor || 0, 'Armadura'),
+        stat('VEL', 12, 'Ataca al final de cada ronda'),
       ],
     });
   }
@@ -515,9 +559,10 @@
     const now = enemyNow(e);
     // v2.5: la élite lleva su marca (y le gana a "Fuerte")
     // (para que entre el nombre, la élite muestra su título en vez del nivel: "Lobo [ALFA]")
-    const catBadge = e.elite ? `<span class="cb-badge is-elite" title="Criatura de élite (nivel ${e.tier}): más vida, más daño y mejor botín">${esc(e.eliteTitle || 'Élite')}</span>`
+    const catBadge = (e.submerged ? '<span class="cb-badge is-submerged" title="Está bajo el agua: no le podés pegar hasta cortar sus tentáculos">Bajo el agua</span>' : '')
+      + (e.elite ? `<span class="cb-badge is-elite" title="Criatura de élite (nivel ${e.tier}): más vida, más daño y mejor botín">${esc(e.eliteTitle || 'Élite')}</span>`
       : cat === 'boss' ? '<span class="cb-badge is-cat-boss">Jefe</span>'
-      : cat === 'strong' ? '<span class="cb-badge is-cat-strong">Fuerte</span>' : '';
+      : cat === 'strong' ? '<span class="cb-badge is-cat-strong">Fuerte</span>' : '');
     const shownName = e.elite && e.baseName ? `${e.baseName}${e.label ? ` ${e.label}` : ''}` : e.displayName;
     const skills = A.Skills ? A.Skills.listFor(e).map((sk) => sk.name).join(', ') : '';
     const tails = A.Skills && A.Skills.tailsOf ? A.Skills.tailsOf(e) : 0;
@@ -525,7 +570,7 @@
     // v2.5: envalentonado (+daño) o con miedo (-daño): se suma al dado ("2d4+1" -> "2d4+2")
     const dmgTxt = withFlat(String(e.damage || '1d3').replace(/\s+/g, ''), -(fx.damagePenalty || 0));
     return unitCard({
-      kind: 'enemy', key, targetId: e.instanceId, clickable: true, i: idx + 2,
+      kind: e.submerged ? 'enemy is-submerged' : 'enemy', key, targetId: e.instanceId, clickable: !e.submerged, i: idx + 2,
       cat, elite: !!e.elite, isTarget: isTarget && !dead, isActive, dead,
       name: shownName,
       title: dead ? `${e.displayName} (caído)` : `${e.displayName}: tocá para apuntarle${skills ? `\nHabilidades: ${skills}` : ''}`,
@@ -612,6 +657,7 @@
     else if (allyTurn && cur.kind === 'pet') txt = `Turno de ${esc(cur.name)}, la mascota de ${esc(owner ? owner.name : 'tu compañero')}…`;
     else if (cur && cur.kind === 'player') txt = busy ? 'Ya casi es tu turno…' : 'Tu turno.';
     else if (cur && cur.kind === 'pet') txt = `Turno de ${esc(cur.name)}, tu mascota…`;
+    else if (cur && cur.kind === 'ally') txt = `Turno de ${esc(cur.name)}…`;
     else if (cur && cur.kind === 'enemy') {
       const inst = c.enemies.find((e) => e.instanceId === cur.id);
       txt = `Turno de ${esc(inst ? inst.displayName : cur.name)}…`;
@@ -799,6 +845,7 @@
     if (entry.hid && key === 'pet') key = `pet:${entry.hid}`;
     if (key && String(key).startsWith('hero:')) { const h = heroOf(String(key).slice(5)); return h && A.Sprites ? A.Sprites.heroFor(h, { size: 32 }) : ''; }
     if (key && String(key).startsWith('pet:')) { const h = heroOf(String(key).slice(4)); return h && h.pet && A.Sprites ? A.Sprites.petHtml(h.pet, { size: 32 }) : ''; }
+    if (key && String(key).startsWith('ally:') && c) { const a = (c.allies || []).find((x) => `ally:${x.aid}` === key); return a && A.Sprites ? A.Sprites.html(a.species || 'lobo', { size: 32, flip: true }) : ''; }
     if (key === 'player') return A.Sprites ? A.Sprites.heroFor(p, { size: 32 }) : '';
     if (key === 'pet' && p.pet) return A.Sprites ? A.Sprites.petHtml(p.pet, { size: 32 }) : '';
     if (key && String(key).startsWith('enemy:') && c) {
@@ -828,12 +875,14 @@
     }
     if (entry.dmg != null && (entry.dmg > 0 || entry.rawDmg > 0) && (entry.result === 'hit' || entry.result === 'crit' || (entry.fx && entry.fx.kind === 'spell'))) {
       const dice = entry.damageDice ? `<span class="dice-pill">${esc(String(entry.damageDice).replace(/\s+/g, ''))}</span> ` : '';
+      // v3.11: lo que suman las pasivas después del dado (instinto, descarga, embestida, llama, Frenesí...)
+      const extras = (entry.extras || []).map((x) => `<span class="dice-pill is-extra">+${x.n} ${esc(x.label)}</span> `).join('');
       // v3.9: si la armadura es igual o mayor, para el golpe (un crítico hace al menos 1)
       const blocked = entry.targetArmor && entry.rawDmg != null && entry.targetArmor >= entry.rawDmg;
       const red = entry.targetArmor && entry.rawDmg != null
         ? ` (${entry.rawDmg} − ${entry.targetArmor} de armadura${blocked ? (entry.dmg > 0 ? (entry.fx && entry.fx.kind === 'spell' ? ': la magia hace al menos 1' : ': mínimo 1 por crítico') : ': la armadura lo para') : ''})` : '';
       const life = entry.hpAfter != null ? ` · queda ${entry.hpAfter}/${entry.hpMax}` : '';
-      parts.push(`${dice}<b>${entry.dmg}</b> de daño${red}${life}`);
+      parts.push(`${dice}${extras}<b>${entry.dmg}</b> de daño${red}${life}`);
     }
     if (!parts.length && entry.text && entry.fx && ['tick', 'heal'].includes(entry.fx.kind)) parts.push(esc(entry.text));
     return parts.length ? `<div class="cb-rolls">${parts.join('<span class="cb-rolls-sep">·</span>')}</div>` : '';

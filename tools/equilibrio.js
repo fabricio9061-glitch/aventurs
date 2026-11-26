@@ -22,6 +22,8 @@
      nv6   5 peleas seguidas al nivel 6, criaturas de nivel 5 y 6 (2.000 rachas)
      par   3 peleas al nivel 6, cada una contra 2 criaturas iguales de nivel 5 y 6 (1.000)
      nv10  5 peleas seguidas al nivel 10, criaturas de nivel 9 y 10 (1.000 rachas)
+     nv15  v3.11: 5 peleas seguidas al nivel 15, criaturas de nivel 14 y 15 (500 rachas)
+     nv20  v3.11: 5 peleas seguidas al nivel 20, criaturas de nivel 19 y 20 (500 rachas)
    Sin descanso, pociones, mascota ni accesorios; con el mejor equipo común
    del nivel y todos los hechizos que la clase aprende hasta ahí. Sin jefes.
 
@@ -38,8 +40,9 @@ const fs = require('fs');
 const path = require('path');
 const S = require('./simulador.js');
 
-const PRUEBAS = ['d1', 'r1', 'r3', 'r6', 'p6', 'r10'];
-const NOMBRE = { d1: '1v1', r1: 'nv1', r3: 'nv3', r6: 'nv6', p6: 'par', r10: 'nv10' };
+// v3.11: el tope subió a 20: también rachas al nivel 15 y al 20
+const PRUEBAS = ['d1', 'r1', 'r3', 'r6', 'p6', 'r10', 'r15', 'r20'];
+const NOMBRE = { d1: '1v1', r1: 'nv1', r3: 'nv3', r6: 'nv6', p6: 'par', r10: 'nv10', r15: 'nv15', r20: 'nv20' };
 const CLASES = { warrior: 'guerrero', hybrid: 'híbrido', mage: 'mago' };
 
 // ---------- Azar con semilla ----------
@@ -58,7 +61,7 @@ function semilla(prueba, n) {
 }
 
 /**
- * Mide las razas pedidas. Devuelve [{ id, name, cls, d1, r1, r3, r6, p6, r10 }] con valores de 0 a 1.
+ * Mide las razas pedidas. Devuelve [{ id, name, cls, d1, r1, r3, r6, p6, r10, r15, r20 }] con valores de 0 a 1.
  * `preparar(G)` (opcional) cambia el juego antes de medir, para probar una idea sin tocar el código.
  */
 function medir({ razas = null, escala = 1, preparar = null, alTerminarRaza = null } = {}) {
@@ -76,7 +79,8 @@ function medir({ razas = null, escala = 1, preparar = null, alTerminarRaza = nul
 
   const porNivel = {};
   for (const e of A.Data.enemies) (porNivel[e.tier] = porNivel[e.tier] || []).push(e);
-  const criaturas = (niveles) => niveles.flatMap((t) => (porNivel[t] || []).filter((e) => e.category !== 'boss'));
+  // (v3.11: sin las que solo aparecen invocadas, como los tentáculos del Kraken)
+  const criaturas = (niveles) => niveles.flatMap((t) => (porNivel[t] || []).filter((e) => e.category !== 'boss' && (e.regions || []).length));
 
   function racha(prueba, raza, nivel, niveles, cuantas, rachas, largo) {
     const lista = criaturas(niveles);
@@ -118,6 +122,8 @@ function medir({ razas = null, escala = 1, preparar = null, alTerminarRaza = nul
     x.r6 = racha('r6', r.id, 6, [5, 6], 1, cant(2000), 5);
     x.p6 = racha('p6', r.id, 6, [5, 6], 2, cant(1000), 3);
     x.r10 = racha('r10', r.id, 10, [9, 10], 1, cant(1000), 5);
+    x.r15 = racha('r15', r.id, 15, [14, 15], 1, cant(500), 5);
+    x.r20 = racha('r20', r.id, 20, [19, 20], 1, cant(500), 5);
     filas.push(x);
     if (alTerminarRaza) alTerminarRaza(x);
   }
@@ -146,7 +152,7 @@ function revisar(filas, { deClase = true } = {}) {
   const res = [];
   const clases = Object.keys(prom);
   if (deClase && clases.length > 1) {
-    const topes = { r3: 15, r6: 10, p6: 15, r10: 10 };
+    const topes = { r3: 15, r6: 10, p6: 15, r10: 10, r15: 12, r20: 12 };
     for (const k of Object.keys(topes)) {
       const v = clases.map((c) => prom[c][k]);
       const dist = Math.round((Math.max(...v) - Math.min(...v)) * 100);

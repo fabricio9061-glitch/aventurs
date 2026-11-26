@@ -121,6 +121,8 @@
     const neighbors = A.Travel.neighbors();
     const isCombatRegion = region.type === 'combat';
     const isSafeRegion = (region.type === 'safe' || region.type === 'road');
+    // v3.11: la guarida de un jefe
+    const lairSt = region.type === 'lair' && A.Lairs ? A.Lairs.status(region.id) : null;
     const night = A.Time ? A.Time.isNight() : false;
     const p = A.State.player;
     const minLvl = (region.unlockConditions && region.unlockConditions.minLevel) || 1;
@@ -150,6 +152,7 @@
             <div class="region2-kicker">
               <span class="region2-tag ${isSafeRegion ? 'is-safe' : 'is-danger'}">${icon(isSafeRegion ? 'shield' : 'swords', 14)}<span>${region.type === 'road' ? 'Sin peleas adentro' : isSafeRegion ? 'Zona segura' : 'Zona de peligro'}</span></span>
               ${region.type === 'road' ? `<span class="region2-tag is-road" title="En el camino hacia acá hay criaturas">${icon('swords', 14)}<span>Criaturas en el camino</span></span>` : ''}
+              ${lairSt ? `<span class="region2-tag is-lair" title="Acá vive un jefe: lo desafiás cuando quieras">${icon('crown', 14)}<span>Guarida de jefe</span></span>` : ''}
               <span class="region2-tag">Nivel ${minLvl}+</span>
               <span class="region2-tag is-soft">${esc(biomeLabel(region.biome))}</span>
             </div>
@@ -165,7 +168,10 @@
             <button class="note2-x" data-note-close aria-label="Cerrar">×</button>
           </div>` : ''}
 
-        <section class="acts2 ${isCombatRegion ? 'has-3' : 'has-2'}">
+        ${lairSt ? lairBlock(lairSt) : ''}
+
+        <section class="acts2 ${isCombatRegion || lairSt ? 'has-3' : 'has-2'}">
+          ${lairSt ? lairButton(lairSt) : ''}
           ${isCombatRegion ? `
             <button class="act2 is-main" data-action="explore">
               <span class="act2-icon">${icon('search', 40)}</span>
@@ -210,6 +216,45 @@
     `;
 
     bindEvents();
+  }
+
+  /** v3.11: la ficha del jefe de la guarida (y lo que pide su altar). */
+  function lairBlock(st) {
+    const b = st.boss;
+    const known = !A.Bestiary || A.Bestiary.isKnown(b.id);
+    const p = A.State.player;
+    const lv = p ? p.level || 1 : 1;
+    const gap = (b.tier || 1) - lv;
+    const warn = gap >= 2 ? `<span class="lair-warn">${icon('warning', 14)}Es de nivel ${b.tier}: vos sos ${lv}. Podés intentarlo, pero es muy probable que pierdas.</span>` : gap === 1 ? `<span class="lair-warn is-soft">${icon('warning', 14)}Es un nivel más que vos.</span>` : '';
+    const altar = st.altar ? `
+      <div class="lair-altar ${st.altar.ok ? 'is-ok' : ''}">
+        <div class="lair-altar-title">${icon('arcane', 16)}<b>${esc(st.altar.name)}</b></div>
+        <p>${esc(st.altar.text || '')}</p>
+        <ul>${st.altar.items.map((it) => `<li class="${it.ok ? 'is-ok' : 'is-miss'}">${A.ItemSprites && A.ItemSprites.html ? A.ItemSprites.html(it.id, { size: 22 }) : ''}<span>${it.qty} × ${esc(it.name)}</span><span class="lair-have num">${it.have}/${it.qty}</span></li>`).join('')}</ul>
+      </div>` : '';
+    const sk = A.Skills && A.Skills.idsOf ? A.Skills.idsOf(b).map((id) => A.Skills.get(id)).filter((x) => x && x.name).slice(0, 6) : [];
+    return `
+      <section class="block2 lair-card">
+        <div class="lair-portrait">${enemySprite(b, 96)}</div>
+        <div class="lair-info">
+          <div class="lair-kicker"><span class="cb-badge is-cat-boss">Jefe</span><span>Nivel ${b.tier}</span>${st.wins ? `<span class="lair-wins">${icon('crown', 12)}Le ganaste ${st.wins} ${st.wins === 1 ? 'vez' : 'veces'}</span>` : ''}</div>
+          <h2 class="lair-name">${esc(known ? b.name : '???')}</h2>
+          <p class="lair-desc">${esc(b.description || '')}</p>
+          ${sk.length && known ? `<div class="lair-skills">${sk.map((x) => `<span class="lair-skill" title="${esc(x.text || '')}">${icon(x.icon || 'star', 12)}${esc(x.name)}</span>`).join('')}</div>` : ''}
+          ${warn}
+          ${altar}
+        </div>
+      </section>`;
+  }
+  function lairButton(st) {
+    const chk = A.Lairs.canChallenge(st.region.id);
+    const verb = st.altar ? 'Invocar' : 'Desafiar';
+    const desc = chk.ok ? (st.altar ? 'Ofrecés lo del altar y aparece. Se gasta.' : 'Pelea contra el jefe. Si ganás, vuelve mañana.') : chk.reason;
+    return `
+      <button class="act2 is-main is-lair ${chk.ok ? '' : 'is-tired'}" data-action="challenge" ${chk.ok ? '' : 'aria-disabled="true"'}>
+        <span class="act2-icon">${icon('crown', 40)}</span>
+        <span class="act2-text"><span class="act2-label">${verb} a ${esc(st.boss.name)}</span><span class="act2-desc">${esc(desc)}</span></span>
+      </button>`;
   }
 
   /** v3.1: ficha de una criatura de la zona: "???" hasta que la ves; sol o luna si sale a una hora. */
@@ -906,6 +951,15 @@
     if (action === 'explore') {
       lastNote = null;
       if (A.Explore) A.Explore.explore();
+      render();
+      return;
+    }
+    // v3.11: desafiar (o invocar) al jefe de la guarida
+    if (action === 'challenge') {
+      const w = A.State.world;
+      const res = A.Lairs && w ? A.Lairs.challenge(w.regionId) : null;
+      if (res && !res.ok) { lastNote = { icon: 'warning', text: res.reason }; sayNote(lastNote); }
+      else lastNote = null;
       render();
     }
   }

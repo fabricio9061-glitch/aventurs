@@ -16,40 +16,69 @@
 
   // v2.2.1: números de las pasivas que se afinan con el simulador
   const TUNE = {
-    gigante: { critMin: 18, mult: 2, prec: 1, precLevel: 1 }, // Golpe de gigante: crítico desde 18, doble daño; +1 de precisión (v3.9: desde el nivel 1; medido: quedaba 9 puntos abajo de los guerreros en el nivel 1)
-    certero: { critMin: 19, prec: 3 },     // Ojo certero: críticos con 19-20 y precisión extra
+    // v3.11 (dossier): los números van por tramo de nivel (1-4 · 5-8 · 9-12 · 13-16 · 17-20)
+    // Golpe de gigante: crítico desde 18 (si el golpe llega: v3.11), doble daño y algo más por tramo; precisión extra.
+    // (v3.11 medido: con +1 de precisión y nada extra hasta el nv 9 quedaba 14 puntos abajo en el nv 1 y 9 en el 15-20;
+    //  con +2 y +2/+2/+3/+4/+6 queda a 1-3 puntos del promedio de los guerreros)
+    gigante: { critMin: 18, mult: 2, prec: 2, precLevel: 1, afterCrit: [2, 2, 3, 4, 6] },
+    certero: { critMin: 19, prec: 3, afterCrit: [0, 1, 1, 2, 3] }, // Ojo certero: críticos con 19-20 y precisión extra · v3.11 (dossier): +1 tras el crítico desde el nv 5
     suerte: { dodge: 0.15 },               // Suerte: parte de los golpes que te iban a pegar, fallan · v3.3: 15% (era 10%)
-    roca: { hits: 2 },                     // Piel de roca (enano): cuántos golpes por pelea te hacen la mitad · v3.3: 2 (era 1)
-    furia: { at: 0.75 },                   // Furia (orco): se enciende con esta parte de la vida o menos · v3.3: 3/4 (era la mitad)
-    metal: { armor: 0, shield: [1, 2], shieldLevel: 6 }, // Cuerpo de metal: blindaje por pelea (1; 2 desde el nivel 6). v3.1
+    // v3.11 (dossier): Piel de roca por ronda: los primeros golpes de cada ronda te hacen menos (nunca menos de 1)
+    // (v3.11 medido: con -1 a los dos primeros, en las rachas de nv 1 y 3 quedaba 7 y 16 puntos abajo: los golpes grandes
+    //  le pesaban más que antes; con -2 al primero se queda donde estaba y contra grupos sube 20 puntos)
+    roca: { cut: [2, 2, 3, 3, 4], hits: [1, 2, 2, 3, 3] },
+    // v3.11 (dossier): Instinto salvaje (orco; el id sigue siendo "furia"): tu primer golpe de cada turno pega más,
+    // y más todavía si te hirieron desde tu turno anterior (no hace falta tener poca vida)
+    instinto: { base: [1, 2, 2, 3, 3], hurt: [3, 4, 5, 6, 7] }, // (medido: con +1/+2 quedaba 1 a 3 puntos abajo de la Furia)
+    furia: { at: 0.75 },                   // (hasta v3.10) Furia: se encendía con 3/4 de la vida o menos
+    // v3.11 (dossier): Núcleo de sobrecarga (robot; el id sigue siendo "cuerpo_metal"): cada 2 golpes que aciertan, una descarga
+    nucleo: { every: 2, main: [3, 4, 5, 7, 9], arc: [1, 1, 2, 3, 4] }, // (medido: con +2/+3/+4 perdía 3-4 puntos sin el blindaje)
+    // (hasta v3.10) blindaje 1 (2 desde nv 6): v3.11 lo saca (el dossier pide no sumar dos pasivas).
+    // v3.11: armadura por tramo (medido: desde el nivel 9 quedaba 8 a 11 puntos abajo de los otros guerreros)
+    metal: { armor: [0, 0, 1, 2, 3], shield: [0, 0], shieldLevel: 6 },
     determinacion: { keep: 0.1 },         // Determinación: con cuánta vida quedás (parte de la máxima; 0 = con 1)
     sangre: { chance: 0.33 },              // Sangre de dragón: chance de prender fuego al pegar
     // v3.0
     // v3.9 (dossier de razas): Sed de sangre — Frenesí vampírico. Robo de vida por tramo de nivel
     // (1-4 · 5-8 · 9-10); 3 golpes de arma que hacen daño = Frenesí en tus 2 turnos siguientes.
-    colmillos: { steal: [0.12, 0.14, 0.16], frenzySteal: [0.2, 0.25, 0.3], frenzyDmg: [1, 2, 3], charges: 3, turns: 2, touchHeal: 1 },
-    embestida: { mult: 1.5, powerMult: 1.1 },              // Embestida (minotauro): el primer ataque de la pelea pega seguro y más fuerte
-    hada: { turns: 1 },                    // Polvo de hada: al empezar, una criatura (no jefe) se duerme
-    // v3.1
-    bendicion: { pct: 0.1, min: 3 },       // Bendición (ángel): cuánto cura (parte de la vida máxima)
-    ingenio: { pct: 0.2, min: 1 },         // Ingenio (gnomo): hechizos más baratos (parte del costo, con un mínimo) · v3.1: 20% (era 25%: el mago más fuerte)
-    llama: { base: 1, from: 3 },                               // Llama interior (infernal): daño extra de los hechizos (base + la mitad del nivel)
+    // v3.11: del 13 al 20 el robo queda como en el dossier (16% y 30%): con golpes grandes ya roba mucho
+    // (medido: con 18-20% y 33-36% ganaba 91-94% en el 15-20, 11-15 puntos sobre los híbridos)
+    colmillos: { steal: [0.12, 0.14, 0.16, 0.16, 0.16], frenzySteal: [0.2, 0.25, 0.3, 0.3, 0.3], frenzyDmg: [1, 2, 3, 3, 4], charges: 3, turns: 2, touchHeal: 1 },
+    // v3.11 (dossier): Embestida arrolladora: tu primer golpe que acierta a CADA criatura pega más, y cada golpe
+    // la desequilibra (menos precisión en su próximo ataque). Antes: el primer ataque de la pelea no fallaba (x1,5)
+    // (v3.11 medido: con +2/+3/+4 quedaba 8-10 puntos abajo en las rachas; el primer ataque a cada una también apunta mejor)
+    embestida: { first: [4, 5, 6, 7, 8], stagger: [1, 2, 2, 3, 3], prec: [2, 2, 2, 3, 3] },
+    // Polvo de hada: al empezar, una criatura (no jefe) se duerme. v3.11 (dossier): además, una vez por ronda,
+    // tu hechizo de daño marea a su blanco (menos precisión en su próximo ataque; en nv 9, también menos defensa)
+    hada: { turns: 1, stagger: [1, 2, 2, 3, 3], expose: [0, 0, 1, 1, 2] },
+    // v3.11 (dossier): Bendición divina: al empezar cada ronda, una luz protege al más herido del grupo
+    bendicion: { absorb: [1, 2, 3, 4, 5], uses: [2, 3, 3, 4, 4] },
+    ingenio: { pct: 0.2, min: 1, big: 5, extra: [0, 1, 1, 2, 2], spells: [0, 1, 2, 2, 3] }, // Ingenio (gnomo): -20% (mínimo 1) · v3.11: 1 menos en los primeros hechizos de 5 o más
+    // v3.11 (dossier): Llama interior: +1/+2/+3 a un blanco; en área, +1 a cada uno (después del crítico)
+    llama: { single: [3, 4, 5, 6, 7], area: [1, 2, 2, 3, 3] },
+    // v3.11 (dossier): Apoyo orbital (alienígena; el id sigue siendo "mente_expansiva"): la nave nodriza bombardea
+    // con tu hechizo de daño: tu blanco (dado) y cada una de las demás (fijo). Después espera 3 turnos tuyos.
+    orbital: { main: ['1d3', '1d6', '1d8', '1d10', '2d6'], others: [1, 2, 2, 3, 3], wait: 3 }, // (medido: con 1d4 en el nivel 1 ganaba 15 puntos más)
     // v3.3: razas nuevas
     // v3.9 (dossier): Sangre lunar (licántropo): 2 turnos en forma bestial y 1 normal, y así.
     // En forma bestial: +daño con arma y vida al empezar el turno, con un tope por pelea (no se cura toda).
     // start: 1 = la bestia sale en tu primer turno (medido: con start 2, como decía el dossier, quedaba 10 puntos
     // abajo en los niveles 1 y 3, porque esas peleas duran 2 o 3 rondas; con 1 queda en el promedio de los guerreros)
-    lobo: { dmg: [1, 1, 2], regen: [1, 2, 3], cap: [4, 6, 8], start: 1, beast: 2, rest: 1 },
+    lobo: { dmg: [1, 1, 2, 2, 3], regen: [1, 2, 3, 4, 5], cap: [4, 6, 8, 10, 12], start: 1, beast: 2, rest: 1 },
     // Cazador de sombras (elfo oscuro). 'actual' (50% de veneno y +3, +1 cada 4 niveles) o 'gradual' (dossier: 30/40/50% y +1/+2/+3).
     // v3.9: medido, la gradual lo dejaba 11 a 14 puntos abajo en los niveles 1 y 3 (ya era el híbrido más flojo): se queda la actual
-    sombras: { mode: 'actual', poison: [0.3, 0.4, 0.5], bonusBand: [1, 2, 3], bonus: 3, every: 4, poisonOld: 0.5 },
+    // v3.11: poisonDmg = veneno por turno de tu hoja (por tramo) · always = daño extra aunque la criatura no tenga nada encima
+    // (medido: con 50% y veneno de 1 quedaba 7-9 puntos abajo de los híbridos en el nv 6, en parejas y en el 15-20;
+    //  con 60%, veneno 1/1/2/2/3 y +0/+1/+1/+2/+2 a las demás queda a 0-7 puntos)
+    sombras: { mode: 'actual', poison: [0.3, 0.4, 0.5, 0.5, 0.5], bonusBand: [1, 2, 3, 4, 5], bonus: 3, every: 4, poisonOld: 0.6, poisonDmg: [1, 1, 2, 2, 3], always: [0, 1, 1, 2, 2] },
     // v3.9 (dossier): Dardo arcano (humano) marca al blanco: tu próximo golpe con arma que le acierta hace más daño
-    dardo: { bonus: [1, 2, 3], prec: [0, 0, 1], rounds: 2 },
+    dardo: { bonus: [1, 2, 3, 4, 5], prec: [0, 0, 1, 1, 2], rounds: 2 },
     espinas: { dmg: 1, every: 4 },         // Corteza espinosa (dríade): el que te pega de cerca se lastima
   };
   // v3.3: los estados malos que cuenta el Cazador de sombras
   const BAD_FX = ['poison', 'fire', 'bleed', 'blind', 'cold', 'curse', 'stun', 'shock', 'sleep'];
   const pctTxt = (x) => `${Math.round(x * 100)}%`;
+  const NUM = { 1: 'uno', 2: 'dos', 3: 'tres', 4: 'cuatro', 5: 'cinco' };
   const oneIn = (x) => (x > 0 ? `uno de cada ${Math.round(1 / x)}` : 'ninguno');
   /** v3.3: "una de cada 4 veces" si es exacto; si no, "el 40% de las veces". */
   const freqTxt = (x) => (x > 0 && Math.abs(1 / x - Math.round(1 / x)) < 0.01 ? `una de cada ${Math.round(1 / x)} veces` : `el ${pctTxt(x)} de las veces`);
@@ -67,7 +96,7 @@
     },
     ojo_certero: {
       name: 'Ojo certero', icon: 'target',
-      text: () => `+${TUNE.certero.prec} de precisión, y tus ataques son críticos con ${TUNE.certero.critMin} o más en el dado (no solo con 20).`,
+      text: (p) => { const a = (TUNE.certero.afterCrit || [])[band(p)] || 0; return `+${TUNE.certero.prec} de precisión, y tus ataques son críticos con ${TUNE.certero.critMin} o más en el dado, si llegan (el 20 llega siempre)${a ? `; tus críticos suman +${a}` : ''}.`; },
     },
     suerte: {
       name: 'Suerte', icon: 'clover',
@@ -79,52 +108,46 @@
     },
     piel_roca: {
       name: 'Piel de roca', icon: 'shield',
-      text: () => (TUNE.roca.hits > 1
-        ? `Los ${({ 2: 'dos', 3: 'tres', 4: 'cuatro' })[TUNE.roca.hits] || TUNE.roca.hits} primeros golpes que recibís en cada combate te hacen la mitad de daño.`
-        : 'El primer golpe que recibís en cada combate te hace la mitad de daño.'),
+      // v3.11 (dossier): por ronda, no por pelea
+      text: (p) => { const b = band(p); const T = TUNE.roca; return `Los ${NUM[T.hits[b]] || T.hits[b]} primeros golpes que recibís en cada ronda te hacen ${T.cut[b]} menos de daño (nunca menos de 1).`; },
     },
-    furia: {
-      name: 'Furia', icon: 'fist',
-      text: (p) => `Con ${furyWhen()} de la vida o menos, tus golpes hacen +${furyAmount(p)} de daño.`,
+    furia: { // v3.11: Instinto salvaje (el id sigue siendo "furia" para no tocar las partidas guardadas)
+      name: 'Instinto salvaje', icon: 'fist',
+      text: (p) => { const b = band(p); const T = TUNE.instinto; return `Tu primer golpe con arma que acierta en cada turno hace +${T.base[b]} de daño; si te hirieron desde tu turno anterior, +${T.hurt[b]}.`; },
     },
-    cuerpo_metal: {
-      name: 'Cuerpo de metal', icon: 'gear',
-      // v3.1: además del veneno y el sangrado, arranca cada pelea con blindaje
-      text: (p) => `Cada pelea arrancás con ${shieldOf(p)} de blindaje: frena ese daño antes de que te toque la vida${shieldOf(p) < TUNE.metal.shield[1] ? ` (${TUNE.metal.shield[1]} desde el nivel ${TUNE.metal.shieldLevel})` : ''}. El veneno y el sangrado no te afectan.${TUNE.metal.armor > 0 ? ` +${TUNE.metal.armor} de armadura.` : ''}`,
+    cuerpo_metal: { // v3.11: Núcleo de sobrecarga (el id sigue siendo "cuerpo_metal")
+      name: 'Núcleo de sobrecarga', icon: 'spark',
+      text: (p) => { const b = band(p); const T = TUNE.nucleo; const arm = armorBonus(p); return `Cada golpe con arma que acierta carga tu núcleo. Con ${NUM[T.every] || T.every} cargas, ese golpe suelta una descarga: +${T.main[b]} de daño${T.arc[b] ? ` y ${T.arc[b]} a otra criatura` : ''}. El veneno y el sangrado no te afectan.${arm ? ` +${arm} de armadura.` : ''}`; },
     },
     golpe_gigante: {
       name: 'Golpe de gigante', icon: 'hammer',
-      text: () => {
+      text: (p) => {
         const g = TUNE.gigante;
-        const when = g.critMin < 20 ? `con ${g.critMin} o más en el dado (no solo con 20)` : 'con 20 en el dado';
+        const when = g.critMin < 20 ? `con ${g.critMin} o más en el dado, si el golpe llega (el 20 llega siempre),` : 'con 20 en el dado';
         const how = g.mult === 2 ? 'el doble' : g.mult === 3 ? 'el triple' : `x${String(g.mult).replace('.', ',')}`;
-        return `Tus ataques son críticos ${when} y hacen ${how} de daño.${g.prec ? (g.precLevel > 1 ? ` Desde el nivel ${g.precLevel}, +${g.prec} de precisión.` : ` Además, +${g.prec} de precisión.`) : ''}`;
+        const after = (g.afterCrit || [])[band(p)] || 0;
+        return `Tus ataques son críticos ${when} y hacen ${how} de daño${after ? `, y +${after} más` : ''}.${g.prec ? (g.precLevel > 1 ? ` Desde el nivel ${g.precLevel}, +${g.prec} de precisión.` : ` Además, +${g.prec} de precisión.`) : ''}`;
       },
     },
     ingenio: {
       name: 'Ingenio', icon: 'book',
-      text: () => `Tus hechizos cuestan menos maná: ${TUNE.ingenio.pct === 0.25 ? 'un cuarto' : TUNE.ingenio.pct === 0.2 ? 'un quinto' : pctTxt(TUNE.ingenio.pct)} menos, y como mínimo ${TUNE.ingenio.min} menos.`,
-    },
-    mente_expansiva: {
-      name: 'Mente expansiva', icon: 'arcane',
-      // v3.3: con los números de verdad (1,5 por turno al empezar; crece más rápido que el de los otros magos)
       text: (p) => {
-        const B = A.Balance;
-        if (!B || !B.manaRegenOf) return 'Recuperás más maná que cualquier otro mago, en cada turno y al ganar.';
-        const lv = lvl(p);
-        const me = B.manaRegenOf({ hasMagic: true, raceId: 'alienigena', level: lv }).turn;
-        const every = (B.TUNE && B.TUNE.mageRegenEvery) || 0;
-        const other = 1 + (every > 0 ? Math.floor((lv - 1) / every) : 0);
-        return `Recuperás más maná que cualquier otro mago: ${B.regenLabel(me)} por turno${me % 1 ? ' en promedio' : ''} (los demás, ${other}), y más al ganar una pelea.`;
+        const T = TUNE.ingenio; const b = band(p); const n = T.spells[b];
+        const base = `Tus hechizos cuestan menos maná: ${T.pct === 0.25 ? 'un cuarto' : T.pct === 0.2 ? 'un quinto' : pctTxt(T.pct)} menos, y como mínimo ${T.min} menos.`;
+        return n > 0 ? `${base} En cada pelea, ${n === 1 ? 'el primer hechizo' : `los ${NUM[n] || n} primeros hechizos`} de ${T.big} o más de maná ${n === 1 ? 'cuesta' : 'cuestan'} ${T.extra[b]} menos todavía.` : base;
       },
+    },
+    mente_expansiva: { // v3.11: Apoyo orbital (el id sigue siendo "mente_expansiva")
+      name: 'Apoyo orbital', icon: 'signal',
+      text: (p) => { const b = band(p); const T = TUNE.orbital; return `Tu nave nodriza te cuida desde el cielo: cuando lanzás un hechizo de daño, bombardea a tu blanco (${T.main[b]}) y a cada una de las demás criaturas (${T.others[b]}). Después tarda ${NUM[T.wait] || T.wait} turnos tuyos en volver a disparar. Además recuperás un poco más de maná que los otros magos.`; },
     },
     llama_interior: {
       name: 'Llama interior', icon: 'fireball',
-      text: (p) => `Tus hechizos de daño hacen +${spellAmount(p)}.`,
+      text: (p) => { const b = band(p); const T = TUNE.llama; return `Tus hechizos de daño a un solo blanco hacen +${T.single[b]}; los de área, +${T.area[b]} a cada criatura.`; },
     },
     bendicion: {
-      name: 'Bendición', icon: 'heal',
-      text: (p) => `La primera vez en cada combate que quedás con la mitad de la vida o menos, una luz te cura ${blessAmount(p)} de vida.`,
+      name: 'Bendición divina', icon: 'sun',
+      text: (p) => { const b = band(p); const T = TUNE.bendicion; return `Al empezar cada ronda, una luz protege al más herido del grupo (vos también contás): le frena ${T.absorb[b]} del próximo golpe. Hasta ${NUM[T.uses[b]] || T.uses[b]} golpes frenados por pelea.`; },
     },
     // v3.0: razas nuevas
     colmillos: { // v3.9: Sed de sangre (el id sigue siendo "colmillos" para no tocar las partidas guardadas)
@@ -132,12 +155,12 @@
       text: (p) => { const b = band(p); const T = TUNE.colmillos; return `Cada golpe con arma que hace daño te devuelve el ${pctTxt(T.steal[b])} como vida y junta una gota de sangre. Con ${T.charges} gotas entrás en Frenesí vampírico tus ${T.turns} turnos siguientes: robás el ${pctTxt(T.frenzySteal[b])} y pegás +${T.frenzyDmg[b]}.`; },
     },
     embestida: {
-      name: 'Embestida', icon: 'fist',
-      text: () => `Tu primer ataque en cada pelea no falla y hace x${String(TUNE.embestida.mult).replace('.', ',')} de daño (x${String(TUNE.embestida.powerMult).replace('.', ',')} si es un Golpe fuerte).`,
+      name: 'Embestida arrolladora', icon: 'fist',
+      text: (p) => { const b = band(p); const T = TUNE.embestida; return `Tu primer golpe que acierta a cada criatura de la pelea hace +${T.first[b]} de daño. Cada golpe tuyo que acierta la deja desequilibrada: −${T.stagger[b]} de precisión en su próximo ataque.`; },
     },
     polvo_hada: {
       name: 'Polvo de hada', icon: 'stars',
-      text: () => 'Al empezar cada pelea, una de las criaturas (nunca un jefe) se queda dormida y pierde su primer turno.',
+      text: (p) => { const b = band(p); const T = TUNE.hada; return `Al empezar cada pelea, una de las criaturas (nunca un jefe) se queda dormida y pierde su primer turno. Además, una vez por ronda, tu hechizo de daño marea a su blanco: −${T.stagger[b]} de precisión en su próximo ataque${T.expose[b] ? ` y −${T.expose[b]} de defensa hasta su turno` : ''}.`; },
     },
     // v3.3: razas nuevas
     sangre_lobo: { // v3.9: Sangre lunar (antes Sangre de lobo)
@@ -146,7 +169,7 @@
     },
     cazador_sombras: {
       name: 'Cazador de sombras', icon: 'eye',
-      text: (p) => `Tus golpes con arma envenenan ${freqTxt(shadowPoisonChance(p))}. Tus golpes y hechizos hacen +${shadowAmount(p)} de daño a las criaturas que ya tienen algo malo encima: veneno, fuego, sangrado, ceguera, frío, maldición, o que están aturdidas o dormidas.`,
+      text: (p) => { const pd = shadowPoisonDmg(p); const al = shadowAlways(p); return `Tus golpes con arma envenenan ${freqTxt(shadowPoisonChance(p))}${pd > 1 ? ` (${pd} de daño por turno)` : ''}. Tus golpes y hechizos hacen +${shadowAmount(p)} de daño a las criaturas que ya tienen algo malo encima: veneno, fuego, sangrado, ceguera, frío, maldición, o que están aturdidas o dormidas${al ? `; a las demás, +${al}` : ''}.`; },
     },
     corteza_espinosa: {
       name: 'Corteza espinosa', icon: 'shield',
@@ -155,14 +178,16 @@
   };
 
   // ---------- Números que crecen con el nivel ----------
-  function furyAmount(p) { return 2 + step(p, 4); }      // 2 · 3 (nv 5) · 4 (nv 9)
-  function furyWhen() { const a = TUNE.furia.at; return a === 0.75 ? 'tres cuartos' : a === 0.5 ? 'la mitad' : pctTxt(a); }
-  function spellAmount(p) { return TUNE.llama.base + Math.floor(lvl(p) / 2) + (lvl(p) >= TUNE.llama.from ? 1 : 0); } // 1 · 2 (nv 2) · 3 (nv 4) · 4 (nv 6) · 5 (nv 8) · 6 (nv 10)
-  function manaAmount() { return 1; }                    // fijo: con más nivel ya sobra maná
-  function blessAmount(p) { return Math.max(TUNE.bendicion.min, Math.round(((p && p.maxHp) || 24) * TUNE.bendicion.pct)); } // parte de la vida máxima (con un mínimo)
+  /** v3.11: Llama interior: a un blanco o a cada uno en área (después del crítico; no cura ni sube las quemaduras). */
+  function spellAmount(p, area) {
+    const b = band(p);
+    // (medido: con +3 desde el nivel 1 ganaba 20 puntos más que antes en el nivel 1; en el 1 es +2)
+    return area ? TUNE.llama.area[b] : Math.min(TUNE.llama.single[b], 1 + lvl(p));
+  }
   // v3.3
-  /** v3.9: tramos de nivel del dossier de razas: 1-4 · 5-8 · 9-10 */
-  function band(p) { const l = lvl(p); return l >= 9 ? 2 : l >= 5 ? 1 : 0; }
+  /** v3.9: tramos de nivel del dossier de razas (v3.11: cinco, hasta el 20) */
+  /** Tramo de nivel: 1-4 · 5-8 · 9-12 · 13-16 · 17-20 (v3.11: el tope subió a 20). */
+  function band(p) { const l = lvl(p); return Math.max(0, Math.min(4, Math.floor((l - 1) / 4))); }
   function shadowAmount(p) { return TUNE.sombras.mode === 'gradual' ? TUNE.sombras.bonusBand[band(p)] : TUNE.sombras.bonus + step(p, TUNE.sombras.every); }
   function shadowPoisonChance(p) { return TUNE.sombras.mode === 'gradual' ? TUNE.sombras.poison[band(p)] : TUNE.sombras.poisonOld; }
   function thornsAmount(p) { return TUNE.espinas.dmg + step(p, TUNE.espinas.every); }
@@ -204,16 +229,15 @@
     return 0;
   }
   /** v2.2.1: armadura extra (Cuerpo de metal). */
-  function armorBonus(p) { return has(p, 'cuerpo_metal') ? TUNE.metal.armor : 0; }
+  function armorBonus(p) {
+    if (!has(p, 'cuerpo_metal')) return 0;
+    const a = TUNE.metal.armor;
+    return Array.isArray(a) ? (a[band(p)] || 0) : (a || 0); // v3.11: por tramo (en los niveles altos, chapa más gruesa)
+  }
   /** v3.1: blindaje del Robot al empezar cada pelea. */
   function shieldOf(p) { return Math.max(1, (p && p.level) || 1) >= TUNE.metal.shieldLevel ? TUNE.metal.shield[1] : TUNE.metal.shield[0]; }
-  /** Lo que todavía queda de blindaje en esta pelea (para mostrarlo en la tarjeta). */
-  function shieldLeft(c, p) {
-    if (!has(p, 'cuerpo_metal')) return 0;
-    const used = (c && c.passives) || {};
-    const k = heroKey(p, 'blindaje');
-    return used[k] == null ? shieldOf(p) : used[k];
-  }
+  /** (hasta v3.10) blindaje que quedaba en la pelea: v3.11 ya no hay blindaje. */
+  function shieldLeft() { return 0; }
   /** v3.1: lo que se usa una vez por pelea es de cada héroe (en grupo no se comparte). */
   function heroKey(p, k) { return A.State && A.State.hidOf && p ? `${k}:${A.State.hidOf(p)}` : k; }
   /** v2.2.1: chance de que un golpe que te iba a pegar falle (Suerte). */
@@ -221,22 +245,46 @@
   function burnChance(p) { return has(p, 'sangre_dragon') ? TUNE.sangre.chance : 0; }
   function burnValue(p) { return 1 + step(p, 2); }
 
-  /** Daño extra de la Furia (solo con la mitad de la vida o menos). */
-  function damageBonus(p) {
-    if (!has(p, 'furia') || !p || p.hp <= 0) return 0;
-    return p.hp <= p.maxHp * TUNE.furia.at ? furyAmount(p) : 0;
-  }
+  /** (hasta v3.10) daño extra de la Furia en el dado. v3.11: el Instinto salvaje se suma en el golpe (instinctBonus). */
+  function damageBonus() { return 0; }
 
   // ---------- Magia ----------
-  function spellCost(p, spell) {
+  /** Costo base del hechizo para esta clase (v3.1: Curación cuesta 6 a los magos). */
+  function baseCost(p, spell) {
     let base = (spell && spell.manaCost) || 0;
-    // v3.1: algunos hechizos cuestan distinto según la clase (Curación: 6 para los magos)
     const cc = spell && spell.classCost;
     if (cc && A.Balance && A.Balance.classOf) { const k = A.Balance.classOf(p); if (cc[k] != null) base = cc[k]; }
-    if (!has(p, 'ingenio') || base <= 1) return base;
-    return Math.max(1, base - Math.max(TUNE.ingenio.min, Math.round(base * TUNE.ingenio.pct)));
+    return base;
   }
-  function spellBonus(p) { return has(p, 'llama_interior') ? spellAmount(p) : 0; }
+  /**
+   * Maná que cuesta un hechizo. Con la pelea (c), el Ingenio del gnomo suma su descuento extra en los
+   * primeros hechizos caros (v3.11); sin pelea, el costo de siempre.
+   */
+  function spellCost(p, spell, c) {
+    const base = baseCost(p, spell);
+    if (!has(p, 'ingenio') || base <= 1) return base;
+    let cost = Math.max(1, base - Math.max(TUNE.ingenio.min, Math.round(base * TUNE.ingenio.pct)));
+    if (c && ingenioExtraLeft(c, p, spell) > 0) cost = Math.max(1, cost - TUNE.ingenio.extra[band(p)]);
+    return cost;
+  }
+  /** v3.11: ¿cuántos hechizos caros con descuento extra le quedan en esta pelea? (0 si este no es caro) */
+  function ingenioExtraLeft(c, p, spell) {
+    if (!c || !has(p, 'ingenio') || baseCost(p, spell) < TUNE.ingenio.big) return 0;
+    const b = band(p);
+    if (!TUNE.ingenio.extra[b]) return 0;
+    const used = (c.passives || {})[heroKey(p, 'ingenio')] || 0;
+    return Math.max(0, TUNE.ingenio.spells[b] - used);
+  }
+  /** v3.11: se lanzó un hechizo caro con el descuento extra. */
+  function ingenioUse(c, p, spell) {
+    if (ingenioExtraLeft(c, p, spell) <= 0) return false;
+    const u = c.passives || (c.passives = {});
+    const k = heroKey(p, 'ingenio');
+    u[k] = (u[k] || 0) + 1;
+    return true;
+  }
+  /** v3.11: Llama interior (spell = el hechizo, para saber si es de área). */
+  function spellBonus(p, spell) { return has(p, 'llama_interior') ? spellAmount(p, !!(spell && spell.area)) : 0; }
   /** Mente expansiva: maná al empezar tu turno, en las rondas pares. */
   function manaPerTurn() {
     // v2.1: la recuperación de maná ahora es de todos los magos (Balance.manaRegenOf)
@@ -250,14 +298,8 @@
     return false;
   }
 
-  /** Bendición: cura una vez por combate al quedar con la mitad de la vida o menos. */
-  function blessingHeal(c, p) {
-    if (!c || !has(p, 'bendicion') || !p || p.hp <= 0 || p.hp > p.maxHp / 2) return 0;
-    const used = c.passives || (c.passives = {});
-    if (used[heroKey(p, 'blessing')]) return 0;
-    used[heroKey(p, 'blessing')] = true;
-    return blessAmount(p);
-  }
+  /** (hasta v3.10) la Bendición curaba al quedar con media vida. v3.11: protege al más herido (blessRound). */
+  function blessingHeal() { return 0; }
 
   /**
    * Ajusta el daño que va a recibir el jugador.
@@ -271,19 +313,40 @@
     let out = dmg;
     let tag = null;
     let absorbed = 0;
-    // v3.1: Blindaje del Robot (frena el daño de los golpes hasta gastarse)
-    if (!opts.tick && has(p, 'cuerpo_metal') && out > 0) {
-      const k = heroKey(p, 'blindaje');
-      if (used[k] == null) used[k] = shieldOf(p);
-      const take = Math.min(used[k], out);
-      if (take > 0) { used[k] -= take; out -= take; absorbed = take; tag = 'cuerpo_metal'; }
+    let roca = 0;
+    let blessed = 0;
+    let blessBy = null;
+    // v3.11 (dossier): Piel de roca por ronda (la armadura ya se restó; nunca baja de 1)
+    if (!opts.tick && has(p, 'piel_roca') && out > 1) {
+      const k = heroKey(p, 'roca');
+      const b = band(p);
+      let s = used[k];
+      if (!s || typeof s !== 'object' || s.round !== c.round) s = used[k] = { round: c.round, n: 0 };
+      if (s.n < TUNE.roca.hits[b]) {
+        s.n += 1;
+        roca = Math.min(TUNE.roca.cut[b], out - 1);
+        out -= roca;
+        tag = 'piel_roca';
+      }
     }
-    // v3.3: los primeros golpes (TUNE.roca.hits) de cada pelea
-    if (!opts.tick && has(p, 'piel_roca') && (Number(used[heroKey(p, 'roca')]) || 0) < TUNE.roca.hits && out > 1) {
-      used[heroKey(p, 'roca')] = (Number(used[heroKey(p, 'roca')]) || 0) + 1;
-      out = Math.max(1, Math.ceil(out / 2));
-      tag = 'piel_roca';
+    // v3.11 (dossier): la protección de la Bendición divina (de un ángel: puede ser de un compañero)
+    if (!opts.tick && out > 0 && c.blessings) {
+      const k = blessKey(p);
+      const bl = c.blessings[k];
+      if (bl && bl.amount > 0) {
+        blessed = Math.min(bl.amount, out);
+        out -= blessed;
+        absorbed = blessed;
+        blessBy = bl.byName || null;
+        delete c.blessings[k];
+        // (en la pelea, no en las pasivas de cada héroe: en grupo, el golpe lo recibe otro)
+        c.blessUses = c.blessUses || {};
+        c.blessUses[bl.by] = (c.blessUses[bl.by] || 0) + 1;
+        if (!tag) tag = 'bendicion';
+      }
     }
+    // v3.11: el Instinto salvaje (orco) recuerda que te hirieron (golpes directos, no veneno ni espinas)
+    if (!opts.tick && out > 0 && has(p, 'furia')) instinctState(c, p).hurt = true;
     if (has(p, 'determinacion') && !used[heroKey(p, 'determinacion')] && p.hp > 0 && p.hp - out <= 0) {
       used[heroKey(p, 'determinacion')] = true;
       // v2.2.1: quedás en pie con una parte de tu vida (si tenías menos, te cura hasta ahí)
@@ -296,7 +359,7 @@
       }
       tag = 'determinacion';
     }
-    return { dmg: out, passive: tag, absorbed };
+    return { dmg: out, passive: tag, absorbed, roca, blessed, blessBy };
   }
 
   // ---------- v3.0 ----------
@@ -338,15 +401,9 @@
   }
   /** Para la pantalla: { charges, max, frenzy } */
   function bloodInfo(c, p) { if (!c || !has(p, 'colmillos')) return null; const s = bloodState(c, p); return { charges: s.charges, max: TUNE.colmillos.charges, frenzy: s.frenzy, pending: s.pending }; }
-  /** Embestida: ¿este es el primer ataque de la pelea? (se marca como usado) */
-  function chargeReady(c, p) {
-    if (!c || !has(p, 'embestida')) return false;
-    const used = c.passives || (c.passives = {});
-    if (used.embestida) return false;
-    used.embestida = true;
-    return true;
-  }
-  function chargeMult(power) { return power ? TUNE.embestida.powerMult : TUNE.embestida.mult; }
+  /** (hasta v3.10) el primer ataque de la pelea no fallaba. v3.11: Embestida arrolladora (rushBonus). */
+  function chargeReady() { return false; }
+  function chargeMult() { return 1; }
   /** Polvo de hada: ¿duerme a alguien al empezar? */
   function fairyDust(p) { return has(p, 'polvo_hada') ? TUNE.hada.turns : 0; }
 
@@ -395,8 +452,12 @@
   /** Cazador de sombras: daño extra contra una criatura con un estado malo. */
   function shadowBonusVs(p, target) {
     if (!has(p, 'cazador_sombras') || !target) return 0;
-    return (target.effects || []).some((e) => BAD_FX.includes(e.type) && (e.turns == null || e.turns > 0)) ? shadowAmount(p) : 0;
+    return (target.effects || []).some((e) => BAD_FX.includes(e.type) && (e.turns == null || e.turns > 0)) ? shadowAmount(p) : shadowAlways(p);
   }
+  /** v3.11: Cazador de sombras: daño extra contra cualquier criatura (desde el tramo que diga TUNE). */
+  function shadowAlways(p) { return has(p, 'cazador_sombras') ? ((TUNE.sombras.always || [])[band(p)] || 0) : 0; }
+  /** v3.11: Cazador de sombras: veneno por turno de tu hoja. */
+  function shadowPoisonDmg(p) { return (TUNE.sombras.poisonDmg || [])[band(p)] || 1; }
   /** v3.3: Cazador de sombras: chance de envenenar con un golpe de arma (v3.9: crece con el nivel). */
   function shadowPoison(p) { return has(p, 'cazador_sombras') ? shadowPoisonChance(p) : 0; }
   /** Corteza espinosa: daño que se lleva el que te pega de cerca. */
@@ -409,6 +470,156 @@
     if (used[heroKey(p, 'fury')]) return false;
     used[heroKey(p, 'fury')] = true;
     return true;
+  }
+
+
+  // ============================================================
+  // v3.11 (dossier de razas, segunda parte)
+  // ============================================================
+
+  // ---------- Golpe de gigante: daño extra después del crítico (nv 9-10) ----------
+  function afterCrit(p) {
+    if (has(p, 'golpe_gigante')) return (TUNE.gigante.afterCrit || [])[band(p)] || 0;
+    if (has(p, 'ojo_certero')) return (TUNE.certero.afterCrit || [])[band(p)] || 0;
+    return 0;
+  }
+
+  // ---------- Instinto salvaje (orco) ----------
+  function instinctState(c, p) {
+    const u = c.passives || (c.passives = {});
+    const k = heroKey(p, 'instinto');
+    return u[k] || (u[k] = { ready: false, angry: false, hurt: false });
+  }
+  /** Al empezar tu turno: tu primer golpe que acierta suma (más si te hirieron desde tu turno anterior). */
+  function instinctTurn(c, p) {
+    if (!c || !has(p, 'furia')) return;
+    const s = instinctState(c, p);
+    s.ready = true;
+    s.angry = s.hurt;
+    s.hurt = false;
+  }
+  /** El daño extra de este golpe (y lo gasta: uno por turno). { n, angry } o null */
+  function instinctBonus(c, p) {
+    if (!c || !has(p, 'furia')) return null;
+    const s = instinctState(c, p);
+    if (!s.ready) return null;
+    s.ready = false;
+    const b = band(p);
+    return { n: s.angry ? TUNE.instinto.hurt[b] : TUNE.instinto.base[b], angry: s.angry };
+  }
+  /** Para la tarjeta: lo que suma tu próximo golpe (o 0 si ya lo usaste en este turno). */
+  function instinctInfo(c, p) {
+    if (!c || !has(p, 'furia')) return null;
+    const s = instinctState(c, p);
+    const b = band(p);
+    const angry = s.ready ? s.angry : s.hurt;
+    return { ready: s.ready, angry, n: angry ? TUNE.instinto.hurt[b] : TUNE.instinto.base[b] };
+  }
+
+  // ---------- Núcleo de sobrecarga (robot) ----------
+  function coreState(c, p) {
+    const u = c.passives || (c.passives = {});
+    const k = heroKey(p, 'nucleo');
+    return u[k] || (u[k] = { charges: 0 });
+  }
+  /** Un golpe con arma que acertó: suma una carga. Con la segunda, descarga: { main, arc } (si no, null). */
+  function coreHit(c, p) {
+    if (!c || !has(p, 'cuerpo_metal')) return null;
+    const s = coreState(c, p);
+    s.charges += 1;
+    if (s.charges < TUNE.nucleo.every) return null;
+    s.charges = 0;
+    const b = band(p);
+    return { main: TUNE.nucleo.main[b], arc: TUNE.nucleo.arc[b] };
+  }
+  function coreInfo(c, p) { if (!c || !has(p, 'cuerpo_metal')) return null; return { charges: coreState(c, p).charges, max: TUNE.nucleo.every }; }
+
+  // ---------- Embestida arrolladora (minotauro) ----------
+  /** Primer golpe que acierta a ESTA criatura en la pelea (como mucho una vez por ronda): el daño extra, o 0. */
+  function rushBonus(c, p, target) {
+    if (!c || !target || !has(p, 'embestida')) return 0;
+    const u = c.passives || (c.passives = {});
+    const k = heroKey(p, 'embestida');
+    const s = u[k] && typeof u[k] === 'object' ? u[k] : (u[k] = { hit: {}, round: -1 });
+    if (s.hit[target.instanceId] || s.round === c.round) return 0;
+    s.hit[target.instanceId] = true;
+    s.round = c.round;
+    return TUNE.embestida.first[band(p)];
+  }
+  /** Precisión extra del primer ataque contra una criatura que todavía no embestiste. */
+  function rushPrec(c, p, target) {
+    if (!c || !target || !has(p, 'embestida')) return 0;
+    const s = (c.passives || {})[heroKey(p, 'embestida')];
+    if (s && typeof s === 'object' && (s.hit[target.instanceId] || s.round === c.round)) return 0;
+    return (TUNE.embestida.prec || [])[band(p)] || 0;
+  }
+  /** Cuánta precisión le saca cada golpe que acierta (hasta su próximo ataque; no se suma). */
+  function rushStagger(p) { return has(p, 'embestida') ? TUNE.embestida.stagger[band(p)] : 0; }
+
+  // ---------- Apoyo orbital (alienígena) ----------
+  function orbitalState(c, p) {
+    const u = c.passives || (c.passives = {});
+    const k = heroKey(p, 'nave');
+    return u[k] || (u[k] = { wait: 0, shots: 0 });
+  }
+  /** Lanzaste un hechizo de daño: si la nave está lista, dispara. { main (dado), others } o null. */
+  function orbitalFire(c, p) {
+    if (!c || !has(p, 'mente_expansiva')) return null;
+    const s = orbitalState(c, p);
+    if (s.wait > 0) return null;
+    s.wait = TUNE.orbital.wait;
+    s.shots += 1;
+    const b = band(p);
+    return { main: TUNE.orbital.main[b], others: TUNE.orbital.others[b] };
+  }
+  /** Al empezar tu turno, la nave se recarga un poco. */
+  function orbitalTurn(c, p) { if (c && has(p, 'mente_expansiva')) { const s = orbitalState(c, p); if (s.wait > 0) s.wait -= 1; } }
+  function orbitalInfo(c, p) { if (!c || !has(p, 'mente_expansiva')) return null; const s = orbitalState(c, p); return { wait: s.wait, ready: s.wait === 0, shots: s.shots }; }
+
+  // ---------- Bendición divina (ángel) ----------
+  function blessKey(p) { return heroKey(p, 'b'); }
+  /** Golpes que ya frenó la Bendición de este ángel en la pelea. */
+  function blessUsed(c, angel) { return ((c && c.blessUses) || {})[blessKey(angel)] || 0; }
+  function blessLeft(c, angel) { return has(angel, 'bendicion') ? Math.max(0, TUNE.bendicion.uses[band(angel)] - blessUsed(c, angel)) : 0; }
+  /**
+   * Al empezar cada ronda: cada ángel protege al más herido del grupo (por parte de la vida; si empatan,
+   * el que tiene menos vida; si siguen empatados, el ángel mismo). Una protección por héroe.
+   * heroes: los héroes en la pelea. Devuelve [{ angel, target, amount, fresh }] (fresh: no la tenía).
+   */
+  function blessRound(c, heroes) {
+    if (!c) return [];
+    const angels = (heroes || []).filter((h) => h && h.hp > 0 && has(h, 'bendicion'));
+    if (!angels.length) return [];
+    c.blessings = c.blessings || {};
+    const out = [];
+    // las protecciones que no se usaron se vuelven a repartir (no gastan carga)
+    for (const a of angels) for (const k of Object.keys(c.blessings)) if (c.blessings[k].by === blessKey(a)) delete c.blessings[k];
+    for (const a of angels) {
+      if (blessLeft(c, a) <= 0) continue;
+      const pool = heroes.filter((h) => h && h.hp > 0 && !c.blessings[blessKey(h)]);
+      if (!pool.length) continue;
+      pool.sort((x, y) => (x.hp / x.maxHp - y.hp / y.maxHp) || (x.hp - y.hp) || ((x === a ? 0 : 1) - (y === a ? 0 : 1)));
+      const t = pool[0];
+      const amount = TUNE.bendicion.absorb[band(a)];
+      const prev = (c._blessPrev || {})[blessKey(a)];
+      c.blessings[blessKey(t)] = { by: blessKey(a), byName: t === a ? null : a.name, amount };
+      out.push({ angel: a, target: t, amount, fresh: prev !== blessKey(t) });
+      (c._blessPrev = c._blessPrev || {})[blessKey(a)] = blessKey(t);
+    }
+    return out;
+  }
+  /** Para la tarjeta: la protección que tiene este héroe ahora. */
+  function blessOn(c, p) { return c && c.blessings ? c.blessings[blessKey(p)] || null : null; }
+
+  // ---------- Polvo de hada: tu hechizo marea a su blanco (una vez por ronda) ----------
+  function fairyHex(c, p) {
+    if (!c || !has(p, 'polvo_hada')) return null;
+    const u = c.passives || (c.passives = {});
+    const k = heroKey(p, 'hadaRonda');
+    if (u[k] === c.round) return null;
+    u[k] = c.round;
+    const b = band(p);
+    return { stagger: TUNE.hada.stagger[b], expose: TUNE.hada.expose[b] };
   }
 
   A.Passives = {
@@ -447,9 +658,18 @@
     frenzyOn, frenzyDamage, bloodCharge, bloodTurn, bloodInfo,
     lunarTurn, lunarHealed, beastOn, beastDamage, lunarInfo,
     markOf, placeMark, consumeMark,
-    shadowPoison,
+    shadowPoison, shadowPoisonDmg, shadowAlways,
     shadowBonusVs,
     thornsOf,
     BAD_FX,
+    // v3.11 (dossier, segunda parte)
+    afterCrit,
+    instinctTurn, instinctBonus, instinctInfo,
+    coreHit, coreInfo,
+    rushBonus, rushStagger, rushPrec,
+    orbitalFire, orbitalTurn, orbitalInfo,
+    blessRound, blessOn, blessLeft,
+    fairyHex,
+    ingenioUse, ingenioExtraLeft, baseCost,
   };
 })(window.Aventurs);

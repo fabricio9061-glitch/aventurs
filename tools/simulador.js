@@ -89,7 +89,9 @@ function setLevel(G, p, level) {
 function gearForLevel(G, p) {
   const { A } = G;
   const lvl = p.level || 1;
-  const ok = (x) => (x.tier || 1) <= lvl && ['common', 'uncommon', 'rare'].includes(x.rarity || 'common');
+  const ok = (x) => (x.tier || 1) <= lvl && (['common', 'uncommon', 'rare'].includes(x.rarity || 'common')
+    // v3.11: en las Tierras Altas, el equipo astral (se vende) y el del alba (se forja) es épico
+    || (x.rarity === 'epic' && (x.tier || 1) >= 13 && x.alto));
   const avg = (w) => (A.Balance ? A.Balance.avgOf(w.damage) : 1);
   // v2.0: cada clase elige el arma que mejor le queda (los magos, bastones)
   const type = A.Balance.classOf ? A.Balance.classOf(p) : 'hybrid';
@@ -155,16 +157,14 @@ function playerAI(G) {
   const c = A.State.combat;
   const alive = A.Combat.aliveEnemies();
   const P = A.Passives;
-  const cost = (s) => (P ? P.spellCost(p, s) : s.manaCost);
+  const cost = (s) => (P ? P.spellCost(p, s, c) : s.manaCost);
   // v3.10: la técnica de nacimiento del guerrero (una vez por pelea): las de área con 2 o más enemigos;
   // las demás, en el primer turno (como haría una persona)
   const tq = A.Combat.techniqueInfo ? A.Combat.techniqueInfo() : null;
   if (tq && !tq.used && process.env.SIN_TECNICAS !== '1') {
     const T = A.Techniques.of(p);
     const area = T && T.area; // el barrido sirve también contra uno solo
-    // la cornada, después de la Embestida (no se suman)
-    const chargeLeft = T && T.gore && P && P.has(p, 'embestida') && !((c.passives || {}).embestida);
-    if (!chargeLeft && (!area || alive.length >= 2)) { A.Combat.playerTechnique(); return; }
+    if (!area || alive.length >= 2) { A.Combat.playerTechnique(); return; }
   }
   // Cura con poción si queda poca vida
   if (p.hp < p.maxHp * 0.35) {
@@ -201,12 +201,12 @@ function playerAI(G) {
   // salvo que el hechizo termine la pelea o tenga a varios en el área.
   let best = null;
   if (p.hasMagic) {
-    const power = st.spellPower + (P ? P.spellBonus(p) : 0);
+    const power = st.spellPower;
     const healSpell = A.Combat.availableSpells().find((s) => s.heal);
     const reserve = healSpell ? cost(healSpell) : 0;
     for (const s of A.Combat.availableSpells()) {
       if (!s.damage || p.mana < cost(s) || !ready(s)) continue;
-      const each = Math.max(1, avg(s.damage) + power - Math.floor(arm / 2));
+      const each = Math.max(1, avg(s.damage) + power + (P && P.spellBonus ? P.spellBonus(p, s) : 0) - Math.floor(arm / 2));
       const finishes = weakest && each >= weakest.hp && alive.length === 1;
       if (p.mana - cost(s) < reserve && !finishes && !(s.area && alive.length > 1)) continue;
       // v3.3: los hechizos de daño pueden fallar (y con 20 hacen el doble)
