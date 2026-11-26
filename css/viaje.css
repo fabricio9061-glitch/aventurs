@@ -16,6 +16,7 @@
   .travel-log-list { min-height: 0; }
 }
 @media (max-width: 900px) {
+  .travel-body-v2 { grid-template-columns: minmax(0, 1fr); }
   .travel-log-v2 { max-height: 320px; }
 }
 
@@ -94,3 +95,242 @@
 
 /* v3.19: el cartel de votar en grupo (el dibujo no se estira) */
 .road-vote > span:first-child { flex: none; }
+
+/* ============================================================
+   v3.20.4: el viaje, más lindo. Cabecera oscura con el paisaje
+   del lugar de donde salís (a la izquierda) y del que vas (a la
+   derecha): mientras avanzás, uno se apaga y el otro aparece.
+   Tu personaje camina por un sendero de tierra.
+   ============================================================ */
+.tv-head {
+  --tv-p: 0;
+  position: relative;
+  overflow: hidden;
+  padding: 18px 22px 14px;
+  border-radius: 14px;
+  border: 1px solid #8a6a32;
+  color: #f4e8cc;
+  background: linear-gradient(180deg, rgba(255, 230, 160, 0.06), transparent 60%), linear-gradient(135deg, #3b2e1f, #1f170f);
+  box-shadow: inset 0 0 0 1px rgba(255, 230, 170, 0.08), 0 10px 26px rgba(0, 0, 0, 0.35);
+}
+.tv-head::before {
+  content: "";
+  position: absolute;
+  inset: 6px;
+  border: 1px solid rgba(232, 196, 110, 0.22);
+  border-radius: 10px;
+  pointer-events: none;
+  z-index: 1;
+}
+.tv-head.is-night { background: radial-gradient(ellipse at 50% 0%, rgba(150, 170, 255, 0.14), transparent 60%), linear-gradient(135deg, #22263a, #0e0f18); }
+.tv-head > :not(.tv-scene) { position: relative; z-index: 2; }
+.tv-scene { position: absolute; inset: 0; z-index: 0; pointer-events: none; transition: opacity 500ms ease; }
+.tv-scene .scene { position: absolute; inset: 0; width: 100%; height: 100%; }
+.tv-scene-from { transform: scaleX(-1); opacity: calc(1 - var(--tv-p) * 0.8); -webkit-mask-image: linear-gradient(90deg, transparent 35%, #000 75%); mask-image: linear-gradient(90deg, transparent 35%, #000 75%); }
+.tv-scene-to { opacity: calc(0.2 + var(--tv-p) * 0.8); -webkit-mask-image: linear-gradient(90deg, transparent 35%, #000 75%); mask-image: linear-gradient(90deg, transparent 35%, #000 75%); }
+.tv-head.is-night .scene-light { fill: rgba(255, 220, 130, 0.9); filter: drop-shadow(0 0 3px rgba(255, 200, 90, 0.9)); }
+.tv-head.is-night .scene-back { fill: #aabeff; stroke: #aabeff; }
+
+/* Origen y destino: el dibujo en un medallón */
+.tv-head .travel-route-v2 { gap: 18px; margin-bottom: 10px; }
+.tv-head .travel-endpoint { min-width: 120px; gap: 3px; }
+.tv-head .travel-endpoint-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 58px;
+  height: 58px;
+  margin: 0 0 4px;
+  border-radius: 50%;
+  border: 2px solid #c9a24a;
+  background: radial-gradient(circle at 50% 40%, rgba(255, 236, 190, 0.28), rgba(0, 0, 0, 0.45) 72%);
+  box-shadow: 0 0 0 3px rgba(20, 14, 8, 0.7), 0 0 0 4px rgba(232, 196, 110, 0.45), 0 0 18px rgba(255, 214, 130, 0.18);
+}
+.tv-head .travel-endpoint-to .travel-endpoint-icon { box-shadow: 0 0 0 3px rgba(20, 14, 8, 0.7), 0 0 0 4px rgba(232, 196, 110, 0.7), 0 0 calc(10px + var(--tv-p) * 22px) rgba(255, 214, 130, calc(0.15 + var(--tv-p) * 0.4)); }
+.tv-head .travel-endpoint-name { font-family: var(--font-display); font-size: 15px; font-weight: 700; color: #fff3d6; text-shadow: 0 2px 0 rgba(0, 0, 0, 0.5); }
+.tv-head .travel-endpoint-label { color: #d9bd80; opacity: 1; font-weight: 700; letter-spacing: 0.1em; }
+
+/* El sendero */
+.tv-head .travel-route-path { height: 46px; }
+.tv-head .travel-route-line {
+  height: 8px;
+  border-radius: 4px;
+  background: repeating-linear-gradient(90deg, rgba(255, 236, 190, 0.28) 0 10px, transparent 10px 18px), rgba(0, 0, 0, 0.35);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.6), 0 1px 0 rgba(255, 236, 190, 0.12);
+}
+.tv-head .travel-route-line-fill {
+  border-radius: 4px;
+  background: linear-gradient(180deg, #ffe9a3, #d79a32);
+  box-shadow: 0 0 8px rgba(255, 200, 90, 0.5);
+}
+.tv-head .travel-route-checkpoint-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  transform: rotate(45deg);
+  background: #2a2014;
+  border: 2px solid rgba(232, 196, 110, 0.55);
+}
+.tv-head .travel-route-checkpoint.is-passed .travel-route-checkpoint-dot { background: #ffd879; border-color: #fff2c8; box-shadow: 0 0 8px rgba(255, 210, 110, 0.7); }
+.tv-head .travel-route-marker { top: 50%; transform: translate(-50%, -62%); }
+.tv-head .travel-route-marker-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 2px solid #c9a24a;
+  background: radial-gradient(circle at 50% 62%, #6a5032, #231910 72%);
+  box-shadow: 0 0 0 2px rgba(20, 14, 8, 0.8), 0 0 0 3px rgba(232, 196, 110, 0.6), 0 4px 10px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+  filter: none;
+}
+.tv-head .travel-route-marker.is-back .travel-route-marker-icon { filter: none; }
+.tv-head .travel-route-marker.is-back .travel-route-marker-icon > * { transform: scaleX(-1); }
+
+/* La fila de abajo: paso, modo, porcentaje */
+.tv-head .travel-progress-v2 { align-items: center; padding-top: 6px; border-top: 1px solid rgba(232, 196, 110, 0.18); }
+.tv-head .travel-progress-step,
+.tv-head .travel-progress-pct { padding: 3px 11px; border-radius: 999px; background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(232, 196, 110, 0.35); color: #f0d9a0; font-weight: 700; font-size: 12.5px; }
+.tv-head .travel-mode-selector { background: rgba(0, 0, 0, 0.3); border-color: rgba(232, 196, 110, 0.35); }
+.tv-head .travel-mode-btn { color: #e8d4a8; }
+.tv-head .travel-mode-btn.is-selected { color: #3a2610; background: linear-gradient(180deg, #fff2c8, #e8c46e); }
+.tv-head .travel-follow-tag { color: #f0d9a0; }
+.tv-head .voice-toggle { background: rgba(0, 0, 0, 0.3); border-color: rgba(232, 196, 110, 0.4); }
+
+/* ---------- El escenario y la bitácora, con relieve ---------- */
+.travel-view-v2 .travel-stage-content,
+.travel-view-v2 .travel-log-v2 {
+  border: 1px solid #d2b984;
+  border-radius: 14px;
+  background: linear-gradient(180deg, #fffdf6, #f6ead0);
+  box-shadow: inset 0 1px 0 #fff, 0 3px 0 rgba(140, 105, 50, 0.2), 0 6px 14px rgba(60, 40, 15, 0.08);
+}
+.travel-stage-empty .travel-stage-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 84px;
+  height: 84px;
+  margin: 0 auto 14px;
+  border-radius: 50%;
+  border: 2px solid #c9a24a;
+  background: radial-gradient(circle at 50% 42%, #fffaf0, #ead6a8 78%);
+  box-shadow: 0 0 0 3px #fbf3de, 0 0 0 4px #b4955a, 0 4px 10px rgba(60, 40, 15, 0.2);
+  opacity: 1;
+}
+.travel-stage-empty .travel-stage-title { font-family: var(--font-display); font-size: 22px; font-weight: 800; color: #3a2610; }
+.travel-stage-card {
+  border: 1px solid #d2b984;
+  border-radius: 13px;
+  background: linear-gradient(180deg, #fffdf6, #f8eed6);
+  box-shadow: inset 0 1px 0 #fff, 0 2px 0 rgba(140, 105, 50, 0.22), 0 6px 14px rgba(60, 40, 15, 0.1);
+  overflow: hidden;
+}
+.travel-stage-card .travel-stage-card-icon {
+  border-radius: 50%;
+  border: 2px solid #c9a24a;
+  background: radial-gradient(circle at 50% 42%, #fffaf0, #ead6a8 78%);
+  box-shadow: 0 0 0 2px #fbf3de, 0 0 0 3px #b4955a;
+}
+.travel-stage-card-title { font-family: var(--font-display); letter-spacing: 0.1em; color: #7a5410; }
+.travel-log-header { border-bottom: 1px solid rgba(140, 105, 50, 0.3); }
+.travel-log-title { display: inline-flex; align-items: center; gap: 6px; font-family: var(--font-display); font-size: 15px; font-weight: 800; color: #3a2610; }
+.travel-log-row {
+  align-items: center;
+  padding: 6px 10px 6px 6px;
+  border: 1px solid #e0cc9c;
+  border-left: 1px solid #e0cc9c;
+  border-radius: 10px;
+  background: rgba(255, 253, 246, 0.85);
+  box-shadow: 0 1px 0 rgba(140, 105, 50, 0.15);
+}
+.travel-log-row .travel-log-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  margin: 0;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 42%, #fffaf0, #ead6a8 78%);
+  box-shadow: inset 0 0 0 1px rgba(180, 149, 90, 0.5);
+}
+.travel-log-row:first-child { border-color: #c9a24a; background: #fff8e2; }
+
+@media (max-width: 600px) {
+  .tv-head { padding: 14px 14px 12px; }
+  .tv-head .travel-endpoint { min-width: 0; max-width: 92px; }
+  .tv-head .travel-endpoint-icon { width: 44px; height: 44px; }
+  .tv-head .travel-endpoint-name { font-size: 12.5px; }
+  .tv-head .travel-route-v2 { gap: 8px; }
+  .tv-head .travel-progress-v2 { flex-wrap: wrap; gap: 6px; }
+  .tv-scene-from, .tv-scene-to { -webkit-mask-image: none; mask-image: none; }
+  .tv-scene-from { display: none; }
+}
+
+/* ---------- v3.21: gente en el camino ---------- */
+.people-card { border: 1px solid #c9a24a; border-radius: 14px; background: linear-gradient(180deg, #fffdf6, #f6ead0); box-shadow: inset 0 0 0 3px rgba(255, 253, 246, 0.9), inset 0 0 0 4px rgba(201, 162, 74, 0.35), 0 6px 16px rgba(60, 40, 15, 0.15); }
+.people-card.is-bandits { border-color: #a8442a; box-shadow: inset 0 0 0 3px rgba(255, 253, 246, 0.9), inset 0 0 0 4px rgba(168, 68, 42, 0.35), 0 6px 16px rgba(120, 40, 15, 0.18); }
+.people-card .people-face { border-radius: 14px; }
+.people-card.is-merchant .people-face, .people-card.is-wounded .people-face {
+  min-width: 0;
+  width: 104px;
+  height: 104px;
+  min-height: 0;
+  padding: 0;
+  border-radius: 50%;
+  border: 2px solid #c9a24a;
+  background: radial-gradient(circle at 50% 62%, #6a5032, #231910 72%);
+  box-shadow: 0 0 0 3px #fbf3de, 0 0 0 4px #b4955a, 0 4px 10px rgba(60, 40, 15, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+.people-card.is-wounded .people-face img { transform: rotate(-80deg) translate(-8px, 6px); filter: saturate(0.8); }
+.people-kicker { font-family: var(--font-display); font-size: 11.5px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #8a6a34; margin-bottom: 2px; }
+.people-card.is-bandits .people-kicker { color: #a8442a; }
+.people-say {
+  position: relative;
+  margin: 0 0 14px;
+  padding: 10px 14px 10px 36px;
+  border: 1px solid #d2b984;
+  border-radius: 12px;
+  background: linear-gradient(180deg, #fffdf6, #fbf1da);
+  box-shadow: inset 0 1px 0 #fff, 0 2px 0 rgba(140, 105, 50, 0.15);
+  font-style: italic;
+  font-size: 15px;
+  line-height: 1.4;
+  color: #3a2a18;
+}
+.people-say::before { content: "\201C"; position: absolute; left: 10px; top: 0; font-family: var(--font-display); font-size: 34px; font-style: normal; color: #c9a24a; line-height: 1; }
+.people-offers { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; margin-bottom: 14px; }
+.people-offer {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid #d2b984;
+  border-radius: 12px;
+  background: linear-gradient(180deg, #fffdf6, #f6ead0);
+  box-shadow: inset 0 1px 0 #fff, 0 2px 0 rgba(140, 105, 50, 0.2);
+}
+.people-offer.is-sold { opacity: 0.55; }
+.people-offer-sprite { flex: none; display: flex; align-items: center; justify-content: center; width: 48px; height: 48px; border-radius: 50%; background: radial-gradient(circle at 50% 42%, #fffaf0, #ead6a8 78%); box-shadow: inset 0 0 0 1px rgba(180, 149, 90, 0.5); }
+.people-offer-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.people-offer-name { font-weight: 700; font-size: 14px; color: #2b2014; line-height: 1.2; }
+.people-offer-price { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; }
+.people-tag { padding: 0 7px; border-radius: 999px; font-size: 10.5px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; }
+.people-tag.is-cheap { background: #e4f2d4; color: #3a6a1a; border: 1px solid #9ac07a; }
+.people-tag.is-dear { background: #f8e0d4; color: #8a3a1a; border: 1px solid #d49a7a; }
+.people-actions { flex-wrap: wrap; }
+.people-actions .people-btn { flex: 1 1 0; justify-content: center; min-width: 150px; }
+.people-actions .people-btn.btn-ghost { flex: 0 1 auto; }
+.people-btn-price { display: inline-flex; margin-left: 6px; padding: 1px 8px; border-radius: 999px; background: rgba(255, 255, 255, 0.5); }
+.travel-stage-card.is-people::before { background: #8a5ac8; }
+@media (max-width: 600px) {
+  .people-card.is-merchant .people-face, .people-card.is-wounded .people-face { width: 72px; height: 72px; }
+  .people-actions .people-btn { min-width: 0; flex: 1 1 100%; }
+}

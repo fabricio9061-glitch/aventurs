@@ -408,11 +408,10 @@
     // v3.9: el vínculo con tu mascota (despierta y comida)
     const bond = A.Tame && A.Tame.ownerBond ? A.Tame.ownerBond(p) : { precision: 0, defense: 0, armor: 0, damage: 0, speed: 0, spell: 0 };
     const weaponPrec = weapon && weapon.precision ? weapon.precision : 0;
-    // v3.20: lo que mejoró el herrero (+1 a +5) y la comida especial de la posada
+    // v3.20: lo que mejoró el herrero (+1 a +5)
     const O = A.Oficios;
     const fg = O ? O.gearBonus(p) : { damage: 0, precision: 0, armor: 0, defense: 0 };
-    const ml = O ? O.mealBonus(p) : { damage: 0, precision: 0, armor: 0, defense: 0 };
-    const ex = { damage: fg.damage + ml.damage, precision: fg.precision + ml.precision, armor: fg.armor + ml.armor, defense: fg.defense + ml.defense };
+    const ex = fg;
     // v3.20: cuánto sube o baja cada número por algo de afuera (equipo, comida, pociones, mascota, hambre, estados, peso)
     const accN = (k) => acc(k) + (bm[k] || 0) + (bond[k] || 0);
     const mods = {
@@ -427,7 +426,6 @@
       fit,
       mods,
       forge: fg,
-      meal: ml,
       attack: (p.stats.precision || 0) + fit.atk + weaponPrec + acc('precision') + bm.precision - fx.attackPenalty + (A.Passives && A.Passives.precisionBonus ? A.Passives.precisionBonus(p) : 0) + (bond.precision || 0) + ex.precision,
       defense: 8 + (p.stats.dodge || 0) + (armor && armor.dodge ? armor.dodge : 0) + acc('defense') + bm.defense - pen('dodge') - fx.defensePenalty + (bond.defense || 0) + ex.defense,
       // v2.5: el ácido de las criaturas te baja la armadura

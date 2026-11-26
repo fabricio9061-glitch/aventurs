@@ -69,7 +69,6 @@
     // v3.20: en qué gastar la plata
     if (A.Oficios) {
       if (npc.role === 'blacksmith') tabs.push({ id: 'upgrade', label: 'Mejorar', icon: 'up' });
-      if (npc.services && npc.services.restCost != null) tabs.push({ id: 'coach', label: 'Carruaje', icon: 'map' });
       if (npc.role === 'merchant' || npc.role === 'noble') tabs.push({ id: 'style', label: 'Lucirse', icon: 'star' });
     }
     return tabs;
@@ -702,16 +701,12 @@
       <div class="inn2">
         ${row('tent', 'Una cama hasta mañana', 'Recuperás toda la vida y el maná, y comés algo antes de dormir.', cost, 'data-inn="sleep"', A.Currency.canPay(cost), tired ? 'Dormir' : 'Dormir igual')}
         ${row('food', 'Un plato caliente', `+${INN_FOOD} de comida y +${Math.max(1, Math.round((p.maxHp || 1) * INN_HEAL))} de vida. No pasa el tiempo.`, eatCost, `data-inn="eat" data-cost="${eatCost}"`, A.Currency.canPay(eatCost) && (hungry || p.hp < p.maxHp), hungry || p.hp < p.maxHp ? 'Comer' : 'Lleno')}
-        ${A.Oficios ? `
-          <h4 class="of-sub">Comidas de la casa <small>Llenan la panza y te ayudan un día entero. Una por vez.</small></h4>
-          ${(() => { const cur = A.Oficios.mealOf(p); return cur ? `<p class="of-note">Ahora tenés <b>${U().esc(cur.name)}</b> en la panza: ${A.Oficios.modsText(cur.mods)}.</p>` : ''; })()}
-          ${A.Oficios.MEALS.map((m) => { const pr = A.Oficios.mealPrice(npc, m); return row('food', U().esc(m.name), `${U().esc(m.desc)} <b>${A.Oficios.modsText(m.mods)}</b> por un día, y la comida llena.`, pr, `data-meal="${m.id}"`, A.Currency.canPay(pr), 'Pedir'); }).join('')}` : ''}
       </div>
     `;
   }
 
   // ============================================================
-  // v3.20: Mejorar (herrero), Carruaje (posada) y Lucirse (mercader)
+  // v3.20: Mejorar (herrero) y Lucirse (mercader)
   // ============================================================
 
   function renderUpgrade() {
@@ -742,24 +737,6 @@
         ${card('weapon')}
         ${card('armor')}
         <p class="of-note">Tenés ${O.gemsHave(p)} ${O.gemsHave(p) === 1 ? 'Gema de temple' : 'Gemas de temple'}.</p>
-      </div>`;
-  }
-
-  function renderCoach() {
-    const O = A.Oficios;
-    const trips = O.coachTrips();
-    const blocked = O.coachBlocked();
-    if (!trips.length) return '<div class="of-wrap"><p class="of-intro">El carruaje solo va a pueblos que ya conocés. Cuando descubras otro, vas a poder venir y volver sin pelear en el camino.</p></div>';
-    return `
-      <div class="of-wrap">
-        <p class="of-intro">Te llevo a cualquier pueblo que ya conozcas, sin peleas en el camino. Pasa el tiempo, pero llegás entero.${A.Party && A.Party.combatHeroes && A.Party.combatHeroes() ? ' Pagás vos y viajan todos.' : ''}</p>
-        ${blocked ? `<p class="of-note is-warn">${U().esc(blocked)}</p>` : ''}
-        ${trips.map((t) => `
-          <div class="inn-row of-trip ${A.Currency.canPay(t.price) && !blocked ? '' : 'is-off'}">
-            <span class="inn-icon">${U().icon('map', 36)}</span>
-            <span class="inn-info"><span class="inn-name">${U().esc(t.region.name)}</span><span class="inn-desc">${t.hops === 1 ? 'Al lado' : `${t.hops} tramos de camino`} · llegás en ${t.time >= 10 ? 'medio día' : 'un rato'}</span></span>
-            <span class="inn-buy">${U().price(t.price, 14)}<button class="btn-mini" data-coach="${t.region.id}" ${A.Currency.canPay(t.price) && !blocked ? '' : 'disabled'}>Viajar</button></span>
-          </div>`).join('')}
       </div>`;
   }
 
@@ -834,7 +811,6 @@
     else if (tab === 'alchemy') body = renderCraft(npc, 'alchemy', payload);
     else if (tab === 'inn') body = renderInn(npc);
     else if (tab === 'upgrade') body = renderUpgrade(npc);
-    else if (tab === 'coach') body = renderCoach(npc);
     else if (tab === 'style') body = renderStyle(npc);
 
     const newsHtml = news.map((n) => {
@@ -849,6 +825,7 @@
     return `
       <div class="modal npc2" role="dialog" aria-modal="true" aria-label="${U().esc(npc.name)}">
         <header class="npc2-head">
+          ${A.Scenes ? A.Scenes.html(A.Data.getById('regions', npc.region)) : ''}
           <span class="npc2-portrait">${A.Sprites && A.Sprites.npcHtml ? A.Sprites.npcHtml(npc, { size: 80 }) : ''}</span>
           <div class="npc2-id">
             <h2 class="npc2-name">${U().esc(npc.name)}</h2>
@@ -935,14 +912,6 @@
     overlay.querySelectorAll('[data-upgrade]').forEach((b) => b.addEventListener('click', () => {
       const r = A.Oficios.upgrade(b.dataset.upgrade);
       if (r.ok) { toast(`${r.item.name} quedó en +${r.level}.`, 'good'); reopen(cur, { tab: 'upgrade', justForged: b.dataset.upgrade }); } else toast(r.error, 'bad');
-    }));
-    overlay.querySelectorAll('[data-meal]').forEach((b) => b.addEventListener('click', () => {
-      const r = A.Oficios.eat(npc.id, b.dataset.meal);
-      if (r.ok) reopen(cur, { tab: 'inn' }); else toast(r.error, 'bad');
-    }));
-    overlay.querySelectorAll('[data-coach]').forEach((b) => b.addEventListener('click', () => {
-      const r = A.Oficios.takeCoach(b.dataset.coach);
-      if (r.ok) { A.State.closeModal(); toast(`Llegaste en carruaje a ${r.region.name}.`, 'good'); } else toast(r.error, 'bad');
     }));
     overlay.querySelectorAll('[data-wear]').forEach((b) => b.addEventListener('click', () => {
       const [kind, id] = b.dataset.wear.split(':');

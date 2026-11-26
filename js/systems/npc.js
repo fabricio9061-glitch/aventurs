@@ -29,6 +29,8 @@
     const base = data.value || 0;
     // Si el NPC define un precio custom, usarlo
     if (npc.prices && typeof npc.prices[itemId] === 'number') return npc.prices[itemId];
+    // v3.20.4: algunas cosas tienen su precio fijo en la tienda (la Gema de temple)
+    if (typeof data.shopPrice === 'number') return data.shopPrice;
     // v3.14: lo que cobra la tienda (vender te sigue dando la mitad del valor)
     const m = A.Balance && A.Balance.Economy && A.Balance.Economy.shopMarkup ? A.Balance.Economy.shopMarkup(data) : 1;
     return Math.max(1, Math.round(base * m));

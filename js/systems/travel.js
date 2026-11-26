@@ -238,6 +238,8 @@
     if (!t || t.completed) return { ok: false, error: 'No hay viaje activo.' };
     // v3.3: si moriste en el camino, el viaje no sigue
     if (heroDead()) return { ok: false, error: 'Tu aventura terminó.' };
+    // v3.21: si hay alguien en el camino esperando que decidas, no se sigue
+    if (pendingPeople()) return { ok: false, error: 'Primero decidí qué hacer con quien está en el camino.' };
 
     // v3.10: si diste la vuelta, cada paso te acerca al origen
     t.currentStep += t.back ? -1 : 1;
@@ -323,6 +325,7 @@
   function turnBack() {
     const t = State().traveling;
     if (!t || t.completed) return { ok: false, error: 'No hay viaje activo.' };
+    if (pendingPeople()) return { ok: false, error: 'Primero decidí qué hacer con quien está en el camino.' };
     if (t.currentStep <= 0 && !t.back) { cancel(); return { ok: true, cancelled: true }; }
     t.back = !t.back;
     State().persist();
@@ -369,8 +372,11 @@
     const creature = isCombat ? TB.combat : isRoad ? TB.combat * 0.8 : (fromCombat ? TB.combat * 0.6 : TB.safe);
     const rest = 1 - creature;
     const weights = (isCombat || isRoad)
-      ? { nothing: rest * 0.50, minor_loot: rest * 0.12, biome_loot: rest * 0.20, creature, narrative: rest * 0.18 }
-      : { nothing: rest * 0.48, minor_loot: rest * 0.11, biome_loot: rest * 0.16, creature, narrative: rest * 0.25 };
+      ? { nothing: rest * 0.44, minor_loot: rest * 0.12, biome_loot: rest * 0.20, creature, narrative: rest * 0.16, people: rest * 0.08 }
+      : { nothing: rest * 0.42, minor_loot: rest * 0.11, biome_loot: rest * 0.16, creature, narrative: rest * 0.23, people: rest * 0.08 };
+    // v3.21: gente en el camino (no dos seguidas en el mismo viaje)
+    const tr = State().traveling;
+    if (!A.Gente || (tr && (tr.events || []).some((e) => e.kind === 'people' && (tr.currentStep - (e.step || 0)) < 4))) weights.people = 0;
 
     const kind = A.Utils.weightedPick(weights);
 
@@ -379,6 +385,11 @@
       case 'biome_loot': return resolveBiomeLoot(region) || resolveLoot(region); // fallback si bioma no tiene pool
       case 'creature': return resolveCreature(region);
       case 'narrative': return resolveNarrative(region);
+      case 'people': {
+        const ev = A.Gente.make(region, { dangerous: isCombat || isRoad || fromCombat });
+        if (ev) ev.step = tr ? tr.currentStep : 0;
+        return ev;
+      }
       case 'nothing':
       default: return null;
     }
@@ -1174,6 +1185,41 @@
     return { ok: false };
   }
 
+  // ---------- v3.21: gente en el camino ----------
+
+  /** Quien está en el camino esperando que decidas (o null). */
+  function pendingPeople() {
+    const t = State().traveling;
+    if (!t || t.completed || !Array.isArray(t.events)) return null;
+    const last = t.events[t.events.length - 1];
+    return last && last.kind === 'people' && !last.resolved ? last : null;
+  }
+
+  /** Elegir qué hacer con quien está en el camino (en grupo, elige el que toca: paga o da él). */
+  function meet(choice) {
+    const ev = pendingPeople();
+    if (!ev || !A.Gente) return { ok: false, error: 'No hay nadie en el camino.' };
+    if (A.State.combat && !A.State.combat.result) return { ok: false, error: 'Primero terminen la pelea.' };
+    const S = State();
+    const r = A.Gente.act(ev, choice);
+    if (!r.ok) return r;
+    // en grupo, cada uno se entera en su crónica
+    if (r.done && inGroup() && !r.fight) {
+      for (const h of travelers()) if (h !== S.player) S.withHero(h, () => S.addChronicle({ type: 'travel', text: ev.text }));
+    }
+    S.persist();
+    if (r.fight) {
+      return S.withHero(S.me(), () => {
+        const o = { fromTravel: true, enemies: ev.enemies };
+        if (r.ambush) o.ambush = true;
+        A.Combat.start(o);
+        return { ok: true, fight: true };
+      });
+    }
+    A.Bus.emit('travel:step', { met: true });
+    return r;
+  }
+
   /**
    * Compatibilidad con código que llamaba a Travel.travel(targetId)
    * ahora viaja con un solo step instantáneo (legacy).
@@ -1200,6 +1246,7 @@
     travel, // legacy alias
     // v3.11.1: lo que aparece en el camino (en grupo se vota)
     pendingCreature, roadOptions, decide, avoidOdds, rollAvoid,
+    pendingPeople, meet, // v3.21: gente en el camino
     _test: { executeRegionEvent, resolveLoot, resolveBiomeLoot }, // v3.2: para las pruebas
   };
 })(window.Aventurs);

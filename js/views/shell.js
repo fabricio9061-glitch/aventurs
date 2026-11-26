@@ -46,7 +46,7 @@
           <div class="shell-brand">
             <span class="brand-icon">${A.UI ? A.UI.icon('swords', 26) : ''}</span>
             <span class="brand-name">Aventurs</span>
-            <span class="version-pill" title="Versión del juego">v3.20.2</span>
+            <span class="version-pill" title="Versión del juego">v3.21.0</span>
           </div>
           ${tabs.length > 1 ? `
             <nav class="shell-nav">
@@ -557,7 +557,6 @@
     const fit = st.fit || {};
     if ((k === 'precision' && fit.atk) || (k === 'damage' && fit.dmg) || (k === 'spell' && fit.spell)) bits.push(fit.note.replace(/\.$/, ''));
     if (st.forge && st.forge[k === 'spell' ? 'x' : k]) bits.push('mejorado por el herrero');
-    if (st.meal && st.meal[k === 'spell' ? 'x' : k]) bits.push('lo que comiste en la posada');
     if (k === 'speed' && st.weightPenalty > 0) bits.push(`el peso de tu equipo: -${st.weightPenalty}`);
     return bits.join('; ');
   }

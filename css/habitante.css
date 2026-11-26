@@ -1,0 +1,243 @@
+/* ============================================================
+   Aventurs — La ventana del habitante, más linda (v3.20.3)
+   Mismo estilo que las tarjetas nuevas: el paisaje de su lugar
+   detrás de la cabecera, el retrato en medallón, pestañas como
+   botones, y fichas con relieve para comprar, vender y preparar.
+   ============================================================ */
+
+.modal.npc2 {
+  border: 1px solid #8a6a32;
+  box-shadow: inset 0 0 0 1px rgba(255, 249, 232, 0.5), 0 24px 60px rgba(0, 0, 0, 0.6);
+  background: radial-gradient(ellipse at 15% 0%, rgba(255, 252, 240, 0.7), transparent 55%), linear-gradient(180deg, #f8eed6, #ecdcb7);
+}
+
+/* ---------- Cabecera ---------- */
+.npc2-head {
+  position: relative;
+  overflow: hidden;
+  min-height: 128px;
+  padding: 18px 22px;
+  gap: 18px;
+  border-bottom: 1px solid #c9a24a;
+  box-shadow: inset 0 -1px 0 rgba(0, 0, 0, 0.4);
+}
+.npc2-head::before {
+  content: "";
+  position: absolute;
+  inset: 5px;
+  border: 1px solid rgba(232, 196, 110, 0.22);
+  border-radius: 10px;
+  pointer-events: none;
+  z-index: 1;
+}
+.npc2-head .scene {
+  position: absolute;
+  inset: auto 0 0 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+  pointer-events: none;
+  -webkit-mask-image: linear-gradient(90deg, transparent 30%, #000 70%);
+  mask-image: linear-gradient(90deg, transparent 30%, #000 70%);
+}
+.npc2-head > :not(.scene) { position: relative; z-index: 2; }
+.npc2-portrait {
+  width: 96px;
+  height: 96px;
+  align-items: center;
+  border-radius: 50%;
+  overflow: hidden;
+  background: radial-gradient(circle at 50% 62%, #6a5032, #231910 72%);
+  border: 2px solid #c9a24a;
+  box-shadow: 0 0 0 3px rgba(20, 14, 8, 0.8), 0 0 0 4px rgba(232, 196, 110, 0.55), 0 0 22px rgba(255, 214, 130, 0.2), inset 0 -8px 14px rgba(0, 0, 0, 0.45);
+}
+.npc2-name { font-size: 26px; letter-spacing: 0.01em; text-shadow: 0 2px 0 rgba(0, 0, 0, 0.5); }
+.npc2-name::after { content: ""; display: block; width: 160px; max-width: 60%; height: 2px; margin: 4px 0 6px; border-radius: 2px; background: linear-gradient(90deg, #c9a24a, rgba(201, 162, 74, 0)); }
+.npc2-role {
+  display: inline-block;
+  margin: 0 8px 0 0;
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: rgba(255, 240, 200, 0.12);
+  border: 1px solid rgba(232, 196, 110, 0.45);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: #f0d9a0;
+  vertical-align: middle;
+}
+.npc2-wallet { vertical-align: middle; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3); }
+.npc2-head .modal-close {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 1px solid rgba(232, 196, 110, 0.45);
+  background: rgba(0, 0, 0, 0.25);
+  line-height: 1;
+}
+
+/* ---------- Lo que dice ---------- */
+.npc2-say {
+  margin: 16px 22px 6px;
+  padding: 11px 16px 11px 40px;
+  border-color: #d2b984;
+  background: linear-gradient(180deg, #fffdf6, #fbf1da);
+  box-shadow: inset 0 1px 0 #fff, 0 2px 0 rgba(140, 105, 50, 0.18);
+}
+.npc2-say::after {
+  content: "\201C";
+  position: absolute;
+  left: 12px;
+  top: 2px;
+  font-family: var(--font-display);
+  font-size: 38px;
+  font-style: normal;
+  color: #c9a24a;
+  line-height: 1;
+}
+.npc2-say::before { left: 52px; background: #fffdf6; border-color: #d2b984; }
+
+/* ---------- Pestañas ---------- */
+.npc2-tabs {
+  gap: 6px;
+  margin: 10px 22px 0;
+  padding: 5px;
+  border: 1px solid #d2b984;
+  border-radius: 14px;
+  background: rgba(90, 60, 25, 0.08);
+  box-shadow: inset 0 1px 3px rgba(60, 40, 15, 0.15);
+}
+.npc2-tab {
+  flex: 1 1 auto;
+  justify-content: center;
+  margin: 0;
+  padding: 8px 12px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  white-space: nowrap;
+}
+.npc2-tab:hover { background: rgba(255, 250, 235, 0.7); }
+.npc2-tab.is-active {
+  margin: 0;
+  border-color: #c9a24a;
+  background: linear-gradient(180deg, #fffdf6, #f3e2b8);
+  box-shadow: inset 0 1px 0 #fff, 0 2px 0 rgba(140, 105, 50, 0.3), 0 3px 8px rgba(60, 40, 15, 0.15);
+  color: #3a2610;
+}
+.npc2-body { padding: 16px 22px 22px; }
+
+/* ---------- Títulos de grupo (Pociones, Comida...) ---------- */
+.shop-group-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-display);
+  letter-spacing: 0.1em;
+  color: #7a5410;
+}
+.shop-group-label::before { content: ""; flex: none; width: 6px; height: 6px; transform: rotate(45deg); background: #c9a24a; box-shadow: 0 0 0 1px rgba(122, 84, 16, 0.5); }
+.shop-group-label::after { content: ""; flex: 1; height: 1px; background: linear-gradient(90deg, rgba(140, 105, 50, 0.45), transparent); }
+
+/* ---------- Comprar ---------- */
+.shop-card {
+  border-radius: 12px;
+  border-color: #d2b984;
+  background: linear-gradient(180deg, #fffdf6, #f6ead0);
+  box-shadow: inset 0 1px 0 #fff, 0 2px 0 rgba(140, 105, 50, 0.25);
+}
+.shop-card:hover { box-shadow: inset 0 1px 0 #fff, 0 3px 0 rgba(140, 105, 50, 0.3), 0 6px 12px rgba(60, 40, 15, 0.15); }
+.shop-card.is-selected { background: linear-gradient(180deg, #fff8e0, #f6e3b0); border-color: #c9a24a; box-shadow: 0 0 0 2px rgba(201, 162, 74, 0.55), 0 6px 12px rgba(60, 40, 15, 0.15); }
+.shop-card-sprite {
+  flex: none;
+  justify-content: center;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 42%, #fffaf0, #ead6a8 78%);
+  box-shadow: inset 0 0 0 1px rgba(180, 149, 90, 0.5);
+}
+.shop-card-name { font-weight: 700; color: #2b2014; }
+.shop-card.rarity-uncommon { box-shadow: inset 3px 0 0 #5a9a4a, inset 0 1px 0 #fff, 0 2px 0 rgba(140, 105, 50, 0.25); }
+.shop-card.rarity-rare { box-shadow: inset 3px 0 0 #4a7ac8, inset 0 1px 0 #fff, 0 2px 0 rgba(140, 105, 50, 0.25); }
+.shop-card.rarity-epic { box-shadow: inset 3px 0 0 #9a5ad0, inset 0 1px 0 #fff, 0 2px 0 rgba(140, 105, 50, 0.25); }
+.shop-card.rarity-legendary { box-shadow: inset 3px 0 0 #e0962a, inset 0 1px 0 #fff, 0 0 8px rgba(224, 150, 42, 0.4); }
+
+/* La ficha de la derecha */
+.shop-detail {
+  border-radius: 14px;
+  border-color: #c9a24a;
+  background: linear-gradient(180deg, #fffdf6, #f8edd2);
+  box-shadow: inset 0 0 0 3px rgba(255, 253, 246, 0.9), inset 0 0 0 4px rgba(201, 162, 74, 0.35), 0 6px 16px rgba(60, 40, 15, 0.15);
+  padding: 16px;
+}
+.shop-detail.is-empty { border-style: dashed; box-shadow: none; background: rgba(255, 253, 246, 0.6); }
+.shop-detail-sprite {
+  border-radius: 50%;
+  border: 2px solid #c9a24a;
+  background: radial-gradient(circle at 50% 42%, #fffaf0, #ead6a8 78%);
+  box-shadow: 0 0 0 2px #fbf3de, 0 0 0 3px #b4955a, 0 3px 8px rgba(60, 40, 15, 0.25);
+}
+.shop-buy-row { padding-top: 10px; border-top: 1px dashed rgba(122, 90, 40, 0.35); }
+
+/* ---------- Vender ---------- */
+.sell-list { gap: 7px; }
+.sell-row {
+  padding: 7px 12px;
+  border-radius: 11px;
+  border-color: #d2b984;
+  background: linear-gradient(180deg, #fffdf6, #f8eed6);
+  box-shadow: inset 0 1px 0 #fff, 0 2px 0 rgba(140, 105, 50, 0.18);
+  transition: transform 120ms ease, border-color 120ms ease;
+}
+.sell-row:hover { transform: translateX(2px); border-color: #a8833a; }
+.sell-sprite {
+  width: 40px;
+  height: 40px;
+  align-items: center;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 42%, #fffaf0, #ead6a8 78%);
+  box-shadow: inset 0 0 0 1px rgba(180, 149, 90, 0.5);
+}
+.sell-name { font-size: 14.5px; font-weight: 700; }
+.sell-price { padding: 2px 9px; border-radius: 999px; background: #fff6e0; border: 1px solid #d6c08e; font-weight: 700; }
+
+/* ---------- Alquimia y forja ---------- */
+.craft3-row {
+  border-radius: 11px;
+  border-color: #d2b984;
+  background: linear-gradient(180deg, #fffdf6, #f8eed6);
+  box-shadow: inset 0 1px 0 #fff, 0 2px 0 rgba(140, 105, 50, 0.18);
+}
+.craft3-row:hover { border-color: #a8833a; }
+.craft3-sprite { border-radius: 50%; background: radial-gradient(circle at 50% 42%, #fffaf0, #ead6a8 78%); box-shadow: inset 0 0 0 1px rgba(180, 149, 90, 0.5); }
+
+/* ---------- Posada, aprender, mejorar ---------- */
+.inn-row, .learn2-row {
+  border-radius: 12px;
+  border-color: #d2b984;
+  background: linear-gradient(180deg, #fffdf6, #f8eed6);
+  box-shadow: inset 0 1px 0 #fff, 0 2px 0 rgba(140, 105, 50, 0.18);
+}
+.inn-icon {
+  flex: none;
+  width: 52px;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 2px solid #c9a24a;
+  background: radial-gradient(circle at 50% 42%, #fffaf0, #ead6a8 78%);
+  box-shadow: 0 0 0 2px #fbf3de, 0 0 0 3px #b4955a;
+}
+.inn-icon .px-icon { width: 32px; height: 32px; }
+.inn-name { font-family: var(--font-display); font-size: 15.5px; font-weight: 800; }
+.inn-row.is-off { opacity: 0.6; }
+
+@media (max-width: 760px) {
+  .npc2-head { min-height: 0; padding: 14px 16px; gap: 12px; }
+  .npc2-portrait { width: 64px; height: 64px; }
+  .npc2-name { font-size: 20px; }
+  .npc2-say { margin: 12px 14px 4px; }
+  .npc2-tabs { margin: 8px 14px 0; overflow-x: auto; }
+  .npc2-tab { flex: none; }
+  .npc2-body { padding: 12px 14px 16px; }
+}

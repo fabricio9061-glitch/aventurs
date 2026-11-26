@@ -8,10 +8,6 @@
                daño en +2 y +5; la armadura, defensa y armadura igual.
                Con tu nivel: +1 desde el 5, +2 desde el 9 ... +5 desde el 21.
                La mejora queda en esa pieza (p.forge[id]) aunque la guardes.
-   Posada    - comidas especiales: llenan la panza y dan una ayudita
-               por un día entero (p.meal). Una por vez.
-   Carruaje  - de un pueblo que ya conocés a otro, sin peleas en el camino.
-               En grupo lo toma el anfitrión y viajan todos.
    Lucirse   - marcos para tu retrato y títulos (p.look, p.owned).
    ============================================================ */
 
@@ -121,125 +117,6 @@
     return lvl ? `${item.name} +${lvl}` : item.name;
   }
 
-  // ---------------- Posada: comidas especiales ----------------
-
-  const MEALS = [
-    { id: 'guiso', name: 'Guiso del cazador', desc: 'Carne y papas que pegan fuerte.', mods: { damage: 1 }, mult: 1.2 },
-    { id: 'sopa', name: 'Sopa espesa de la casa', desc: 'Te deja el cuerpo duro como un tronco.', mods: { armor: 1 }, mult: 1.2 },
-    { id: 'pastel', name: 'Pastel de miel y nueces', desc: 'Dulce y liviano: la mano firme.', mods: { precision: 1 }, mult: 1.2 },
-    { id: 'banquete', name: 'Banquete de la casa', desc: 'Lo mejor que sale de la cocina.', mods: { damage: 1, precision: 1, armor: 1 }, mult: 5 },
-  ];
-  const MEAL_LASTS = 20; // un día entero (20 unidades de tiempo)
-
-  function now() {
-    const w = St().world;
-    return w ? (w.day || 1) * 20 + (w.timeProgress || 0) : 0;
-  }
-
-  function mealOf(p) {
-    const m = p && p.meal;
-    if (!m) return null;
-    const def = MEALS.find((x) => x.id === m.id);
-    if (!def || now() >= (m.until || 0)) return null;
-    return { ...def, until: m.until, left: m.until - now() };
-  }
-
-  function mealBonus(p) {
-    const m = mealOf(p);
-    const out = { damage: 0, precision: 0, armor: 0, defense: 0 };
-    if (m) for (const k of Object.keys(m.mods)) out[k] += m.mods[k];
-    return out;
-  }
-
-  function mealPrice(npc, meal) {
-    const cost = (npc && npc.services && npc.services.restCost) || 10;
-    return Math.max(5, Math.round(cost * meal.mult));
-  }
-
-  function modsText(mods) {
-    const N = { damage: 'de daño', precision: 'de precisión', armor: 'de armadura', defense: 'de defensa' };
-    return Object.keys(mods).map((k) => `+${mods[k]} ${N[k]}`).join(', ');
-  }
-
-  function eat(npcId, mealId) {
-    const npc = A.Data.getById('npcs', npcId);
-    const meal = MEALS.find((m) => m.id === mealId);
-    const p = St().player;
-    if (!npc || !meal || !p) return { ok: false, error: 'No hay esa comida.' };
-    const price = mealPrice(npc, meal);
-    if (!A.Currency.pay(price)) return { ok: false, error: 'No te alcanza la plata.' };
-    p.meal = { id: meal.id, until: now() + MEAL_LASTS };
-    St().modifyFood((p.maxFood || 20) - (p.food || 0));
-    St().addChronicle({ type: 'rest', text: `Comiste ${meal.name.toLowerCase()} en lo de ${npc.name}: ${modsText(meal.mods)} por un día.` });
-    St().persist();
-    A.Bus.emit('inventory:changed');
-    return { ok: true };
-  }
-
-  // ---------------- Carruaje ----------------
-
-  /** Saltos por el mapa entre dos regiones (por los caminos). */
-  function hops(fromId, toId) {
-    if (fromId === toId) return 0;
-    const seen = new Set([fromId]);
-    let edge = [fromId];
-    for (let d = 1; d < 40 && edge.length; d++) {
-      const next = [];
-      for (const id of edge) {
-        const r = A.Data.getById('regions', id);
-        for (const c of (r && r.connections) || []) {
-          if (seen.has(c)) continue;
-          if (c === toId) return d;
-          seen.add(c);
-          next.push(c);
-        }
-      }
-      edge = next;
-    }
-    // los caminos van en un solo sentido en algunos datos: también hacia atrás
-    for (const r of A.Data.regions || []) if ((r.connections || []).includes(fromId) && r.id === toId) return 1;
-    return 6;
-  }
-
-  function topTier(r) { return Array.isArray(r.tier) ? Math.max(...r.tier) : (r.tier || 1); }
-
-  function coachTrips() {
-    const w = St().world;
-    if (!w) return [];
-    const here = A.Data.getById('regions', w.regionId);
-    const curve = A.Balance && A.Balance.Economy ? A.Balance.Economy.priceCurve : (t) => Math.pow(1.45, t - 1);
-    return (w.visited || [])
-      .map((id) => A.Data.getById('regions', id))
-      .filter((r) => r && r.type === 'safe' && r.id !== w.regionId)
-      .map((r) => {
-        const n = hops(w.regionId, r.id);
-        const tier = Math.max(topTier(r), here ? topTier(here) : 1);
-        return { region: r, hops: n, price: Math.max(15, Math.round(12 * curve(tier) * n)), time: Math.min(10, 2 * n) };
-      })
-      .sort((a, b) => a.hops - b.hops || a.price - b.price);
-  }
-
-  function coachBlocked() {
-    if (St().combat) return 'Estás en una pelea.';
-    if (St().traveling && !St().traveling.completed) return 'Ya estás de viaje.';
-    const P = A.Party;
-    if (P && P.guestTogether && P.guestTogether()) return 'En grupo, el carruaje lo toma quien armó el grupo: viajan todos juntos.';
-    return '';
-  }
-
-  function takeCoach(toId) {
-    const why = coachBlocked();
-    if (why) return { ok: false, error: why };
-    const trip = coachTrips().find((t) => t.region.id === toId);
-    if (!trip) return { ok: false, error: 'El carruaje no va para allá.' };
-    if (!A.Currency.pay(trip.price)) return { ok: false, error: 'No te alcanza la plata.' };
-    St().addChronicle({ type: 'travel', text: `Subiste al carruaje hacia ${trip.region.name}.` });
-    if (A.Time) A.Time.advance(trip.time, 'coach');
-    St().setRegion(toId);
-    A.Bus.emit('travel:completed', { fromId: null, toId, coach: true });
-    return { ok: true, region: trip.region };
-  }
-
   // ---------------- Lucirse ----------------
 
   const FRAMES = [
@@ -297,8 +174,6 @@
 
   A.Oficios = {
     MAX, GEM, levelOf, bonusAt, capFor, bonusText, gearBonus, nextUpgrade, upgrade, nameWith, gemsHave,
-    MEALS, mealOf, mealBonus, mealPrice, modsText, eat,
-    coachTrips, coachBlocked, takeCoach, hops,
     FRAMES, TITLES, owned, lookOf, wear,
   };
 })(window.Aventurs);

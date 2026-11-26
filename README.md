@@ -24,10 +24,11 @@ aventurs/
 │   ├── efectos.css         Efectos de la pelea: golpes, hechizos, respiración, estados y botín (v3.16)
 │   ├── pantalla.css        La barra de la derecha compacta, para ver la mochila sin bajar (v3.17)
 │   ├── pelea.css           La pantalla de pelea: cintas, habilidades, turnos con caritas y crónica (v3.18)
-│   ├── viaje.css           La pantalla de viaje ordenada: escenario y bitácora del mismo alto (v3.18.2)
+│   ├── viaje.css           La pantalla de viaje ordenada: escenario y bitácora del mismo alto (v3.18.2); cabecera con paisaje (v3.20.4)
 │   ├── pelea2.css          Pelea más limpia: crónica por turnos y efectos nuevos (v3.19)
-│   ├── oficios.css         Herrero, comidas, carruaje y cosas para lucirse (v3.20)
-│   └── pueblo.css          La pantalla del lugar con el estilo de las tarjetas nuevas (v3.20.1)
+│   ├── oficios.css         Herrero y cosas para lucirse (v3.20)
+│   ├── pueblo.css          La pantalla del lugar con el estilo de las tarjetas nuevas (v3.20.1)
+│   └── habitante.css       La ventana de cada habitante, más linda (v3.20.3)
 ├── js/
 │   ├── core/               utils, bus (pub/sub), balance (TODAS las fórmulas), sprites e item-sprites
 │   │                       (pixel art), data (carga los seeds + cambios del editor), accounts,
@@ -55,7 +56,8 @@ aventurs/
 │   │   ├── combat-final.js     victoria, derrota, botín, registro y la API (A.Combat)
 │   │   ├── tactics.js          cuán lista es cada criatura (a quién ataca, cuándo huye)
 │   │   ├── skills.js           habilidades de las criaturas
-│   │   ├── oficios.js          en qué gastar la plata: herrero +1 a +5, comidas, carruaje, lucirse (v3.20)
+│   │   ├── oficios.js          en qué gastar la plata: herrero +1 a +5 y lucirse (v3.20)
+│   │   ├── gente.js            gente en el camino: mercader ambulante, herido y bandidos (v3.21)
 │   │   └── ...                 encounter, travel, tame, inventory, crafting, npc, explore,
 │   │                           quests, accessories, itemfx, spellbook, schools, bestiary...
 │   ├── net/                link.js (conexión con código) y party.js (el grupo)

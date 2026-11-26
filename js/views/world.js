@@ -43,7 +43,7 @@
 
     // No avanzar si hay evento sin resolver
     const lastEvent = t.events[t.events.length - 1];
-    if (lastEvent && lastEvent.kind === 'creature' && !lastEvent.resolved) return;
+    if (lastEvent && (lastEvent.kind === 'creature' || lastEvent.kind === 'people') && !lastEvent.resolved) return;
 
     const delay = mode === 'fast' ? 450 : 1500; // v3.1: rápido = 0,45 s, auto = 1,5 s (los viajes tienen más pasos)
     autoStepDelay = delay;
@@ -398,13 +398,16 @@
 
     // Si último evento es una criatura sin resolver, ofrecer opciones
     const pending = lastEvent && lastEvent.kind === 'creature' && !lastEvent.resolved;
+    // v3.21: alguien en el camino esperando que decidas
+    const meeting = lastEvent && lastEvent.kind === 'people' && !lastEvent.resolved;
 
     // v1.6.9: bioma del destino para temática visual
     const targetBiome = (toR && toR.biome) || 'plains';
 
     mainEl.innerHTML = `
       <section class="travel-view travel-view-v2 travel-biome-${targetBiome}">
-        <header class="travel-header-v2">
+        <header class="travel-header-v2 tv-head ${A.Time && A.Time.isNight() ? 'is-night' : 'is-day'} from-${esc((fromR && fromR.biome) || 'plains')} to-${esc(targetBiome)}" style="--tv-p:${(pctNum / 100).toFixed(2)}">
+          ${A.Scenes ? `<div class="tv-scene tv-scene-from">${A.Scenes.html(fromR)}</div><div class="tv-scene tv-scene-to">${A.Scenes.html(toR)}</div>` : ''}
           <div class="travel-route-v2">
             <div class="travel-endpoint travel-endpoint-from">
               <div class="travel-endpoint-icon">${A.UI ? A.UI.biomeIcon(fromR, 36) : ''}</div>
@@ -428,7 +431,7 @@
 
         <div class="travel-body-v2">
           <main class="travel-stage-v2">
-            ${guestFollows() ? renderFollowStage(t, lastEvent, pending) : pending ? renderEncounter(lastEvent) : renderTravelStage(t, lastEvent)}
+            ${meeting ? renderPeople(lastEvent) : guestFollows() ? renderFollowStage(t, lastEvent, pending) : pending ? renderEncounter(lastEvent) : renderTravelStage(t, lastEvent)}
           </main>
           <aside class="travel-log-v2">
             <div class="travel-log-header">
@@ -497,7 +500,7 @@
             </div>
           `).join('')}
           <div class="travel-route-marker ${t.back ? 'is-back' : ''}" style="left: ${pctNum}%" title="${t.back ? 'Volviendo' : 'Tu posición'}">
-            <span class="travel-route-marker-icon">${icon('pin', 22)}</span>
+            <span class="travel-route-marker-icon">${A.Sprites && A.Sprites.heroFor && A.State.player ? A.Sprites.heroFor(A.State.player, { size: 30 }) : icon('pin', 22)}</span>
           </div>
         </div>
       </div>
@@ -543,6 +546,48 @@
     `;
   }
 
+  /** v3.21: gente en el camino: quién es, qué dice y qué podés hacer. */
+  function renderPeople(ev) {
+    const G = A.Gente;
+    if (!G) return '';
+    const lk = G.look(ev);
+    const evKey = `people|${ev.who}|${(A.State.traveling && A.State.traveling.currentStep) || 0}`;
+    if (evKey !== spokenEv && A.Voice && A.Voice.isOn()) { spokenEv = evKey; A.Voice.say(`${lk.title}. ${lk.say}`); }
+    const face = lk.enemy ? encounterSprites(ev) : (A.Sprites && A.Sprites.npcHtml ? A.Sprites.npcHtml(lk.npc, { size: 80 }) : '');
+    const opts = G.options(ev);
+    const offers = opts.filter((o) => o.item);
+    const acts = opts.filter((o) => !o.item);
+    const P = (n) => (A.UI && A.UI.price ? A.UI.price(n, 16) : `${n}c`);
+    const group = roadGroup();
+    return `
+      <div class="travel-encounter travel-encounter-v2 people-card is-${esc(ev.who)}">
+        <div class="encounter-header">
+          <div class="encounter-icon-big people-face ${lk.enemy && (ev.enemies || []).length > 1 ? 'is-group' : ''}">${face}</div>
+          <div class="encounter-header-text">
+            <div class="people-kicker">Gente en el camino</div>
+            <div class="encounter-title-v2">${esc(lk.title)}</div>
+            ${lk.enemy ? `<div class="encounter-meta-v2"><span class="dim">${esc(ev.enemyName || '')}</span></div>` : ''}
+          </div>
+        </div>
+        <p class="people-say">${esc(lk.say)}</p>
+        ${offers.length ? `<div class="people-offers">${offers.map((o) => `
+          <div class="people-offer ${o.sold ? 'is-sold' : ''}">
+            <span class="people-offer-sprite">${A.UI && A.UI.itemSprite ? A.UI.itemSprite(o.item, 40) : ''}</span>
+            <span class="people-offer-info">
+              <span class="people-offer-name">${esc((A.UI.itemData && (A.UI.itemData(o.item) || {}).name) || o.item)}</span>
+              <span class="people-offer-price">${P(o.price)} <span class="people-tag ${o.cheap ? 'is-cheap' : 'is-dear'}">${o.cheap ? 'Barato' : 'Caro'}</span></span>
+            </span>
+            <button class="btn-mini" data-meet="${o.id}" ${o.ok ? '' : `disabled title="${esc(o.why || '')}"`}>${o.sold ? 'Comprado' : 'Comprar'}</button>
+          </div>`).join('')}</div>` : ''}
+        ${group ? `<div class="scene-party road-vote">${icon('party', 16)}<span>Cualquiera puede elegir. Si hay que pagar o dar algo, lo pone el que toca.</span></div>` : ''}
+        <div class="encounter-actions-v2 people-actions">
+          ${acts.map((o) => `<button class="${o.tone === 'primary' ? 'btn-primary' : o.tone === 'secondary' ? 'btn-secondary' : 'btn-ghost'} people-btn" data-meet="${o.id}" ${o.ok ? (o.title ? `title="${esc(o.title)}"` : '') : `disabled title="${esc(o.why || '')}"`}>
+            ${o.icon ? `<span class="btn-icon">${icon(o.icon, 20)}</span>` : ''}<span>${esc(o.label)}</span>${o.price ? `<span class="people-btn-price">${P(o.price)}</span>` : ''}
+          </button>`).join('')}
+        </div>
+      </div>`;
+  }
+
   /**
    * v1.6.9: Renderiza el último evento como una "tarjeta de stage" grande.
    */
@@ -554,6 +599,7 @@
 
   function eventIcon(ev, size) {
     if (ev.kind === 'creature' && ev.enemyId) return enemySprite(ev.enemyId, size);
+    if (ev.kind === 'people') return ev.who === 'bandits' || (ev.who === 'wounded' && ev.enemyId) ? enemySprite(ev.enemyId, size) : (A.Sprites && A.Sprites.npcHtml ? A.Sprites.npcHtml({ look: ev.who === 'merchant' ? 'merchant' : 'villager' }, { size }) : icon('party', size));
     return icon(EVENT_ICON[ev.kind] || 'feather', size);
   }
 
@@ -571,6 +617,7 @@
       treasure: { cls: 'is-loot', title: 'Tesoro' },
       damage: { cls: 'is-danger', title: 'Peligro' },
       heal: { cls: 'is-heal', title: 'Buen presagio' },
+      people: { cls: 'is-people', title: 'Gente en el camino' },
     };
     const theme = themeMap[k] || themeMap.narrative;
     return `
@@ -787,7 +834,7 @@
     if (n.role === 'blacksmith' && A.Oficios) offers.push(['up', 'Mejora']);
     if (ws.includes('alchemy')) offers.push(['potion', 'Alquimia']);
     if ((n.teaches || []).length) offers.push(['book', 'Enseña magia']);
-    if (n.services && n.services.restCost != null) { offers.push(['tent', 'Posada']); if (A.Oficios) offers.push(['map', 'Carruaje']); }
+    if (n.services && n.services.restCost != null) offers.push(['tent', 'Posada']);
     if (A.Oficios && (n.role === 'merchant' || n.role === 'noble')) offers.push(['star', 'Lucirse']);
     if (A.Quests && A.Quests.list().some((q) => q.giver === n.id)) offers.push(['quest', 'Encargos']);
     return `
@@ -907,6 +954,17 @@
       const at = (ev && ev.votedAt && ev.votedAt[myHidRoad()]) || Date.now();
       roadForceTimer = setTimeout(() => forceBtn.classList.remove('is-hidden'), Math.max(0, 20000 - (Date.now() - at)));
     }
+    // v3.21: gente en el camino
+    mainEl.querySelectorAll('[data-meet]').forEach((btn) => btn.addEventListener('click', () => {
+      clearAutoStepTimer();
+      const res = A.Travel.meet(btn.dataset.meet);
+      if (res && res.ok === false && res.error) {
+        if (A.Views && A.Views.Party && A.Views.Party.toast) A.Views.Party.toast(res.error, 'bad');
+        else { lastNote = { icon: 'warning', text: res.error }; render(); }
+        return;
+      }
+      if (res && !res.fight) { render(); setTimeout(scheduleAutoStep, 100); }
+    }));
     mainEl.querySelectorAll('[data-travel-action]').forEach((btn) => {
       btn.addEventListener('click', () => {
         // v1.7.0: cualquier acción manual cancela el timer de auto

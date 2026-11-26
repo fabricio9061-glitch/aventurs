@@ -2,6 +2,37 @@
 
 La más nueva arriba. Cómo correr el juego y cómo está armado: [README.md](README.md).
 
+## Versión 3.21.0: gente en el camino (`js/systems/gente.js`)
+
+Viajando, a veces te cruzás con alguien y tenés que decidir qué hacer. El viaje no sigue (ni se puede dar la vuelta) hasta que elijas.
+
+- **Mercader ambulante:** te ofrece dos cosas (pociones, comida, a veces una Hierba de la vida). Algunas están baratas y otras caras: fijate la etiqueta. Comprás lo que quieras y seguís.
+- **Herido en el camino:** le podés dar una poción de vida o compartir tu comida (6). Te lo agradece con monedas y experiencia. En zonas con bandidos, a veces es una trampa: se levanta riendo y te atacan primero (no perdés lo que ibas a darle).
+- **Bandidos:** te cobran peaje. Pagás, peleás o intentás escaparte (con la misma tirada que para esquivar criaturas; si te ven, atacan primero). Solo aparecen en zonas no tan bravas.
+- Sale más o menos una persona cada uno o dos viajes, nunca dos seguidas.
+- **En grupo:** cualquiera puede elegir. Si hay que pagar o dar algo, lo pone el que tocó el botón (el peaje lo paga por todos).
+- Cambian las reglas del grupo: **los dos tienen que actualizar** (versión 17).
+
+## Versión 3.20.4: sin comidas, gemas más caras y un viaje más lindo
+
+- **Se quitaron las comidas especiales de la posada.** Quedan la cama y el plato caliente de siempre.
+- **La Gema de temple cuesta 10 de plata en los herreros** (antes 1 de plata y 50 de cobre). Si la vendés te siguen dando 25 de cobre, y la siguen dejando las criaturas élite y los jefes.
+- **La pantalla de viaje, nueva:**
+  - Arriba, una cabecera oscura con el paisaje del lugar de donde salís y del que vas: mientras avanzás, uno se apaga y el otro aparece. De noche se prenden las luces.
+  - Tu personaje camina por un sendero de tierra, en un medallón; los hitos son rombos que se prenden al pasarlos.
+  - Origen y destino en medallones dorados; el destino brilla más cuanto más cerca estás.
+  - Lo que pasa en el camino y la bitácora van en tarjetas con relieve, con los dibujos en círculos.
+- **En el celular** lo que pasa en el camino ya no queda aplastado por la bitácora: va uno arriba del otro.
+
+## Versión 3.20.3: sin carruaje, y la ventana de los habitantes más linda (`css/habitante.css`)
+
+- **Se quitó el carruaje.** Saltar de un pueblo a otro pagando rompía las ganas de explorar: ahora hay que ir caminando otra vez.
+- **La ventana de cada habitante** tiene el paisaje de su lugar detrás de la cabecera, el retrato en un medallón dorado y su oficio en una chapita.
+- Lo que dice va en un globo con comillas, y las pestañas (Hablar, Comprar, Vender, Alquimia, Posada...) son botones; la elegida resalta.
+- **Comprar:** cada cosa en una ficha con su dibujo en un círculo y una rayita del color de la rareza; la ficha de la derecha tiene marco dorado.
+- **Vender, Alquimia, Posada, Mejorar:** filas con relieve, el precio en una chapita y los dibujos en medallones.
+- Las comidas quedan igual por ahora.
+
 ## Versión 3.20.2: cada lugar con su paisaje (`js/views/escenas.js`)
 
 - **La cabecera de cada lugar tiene una silueta al fondo** según el tipo de zona: casas con ventanas en los pueblos, pinos en el bosque, robles en el santuario, tumbas y un árbol seco en el cementerio, arcos en las catacumbas, picos nevados en la montaña, un faro y un barco en la costa, torres en la Torre del Mago, castillo en Velmora, dunas y una pirámide en el desierto, columnas rotas en las ruinas, estalactitas en las cuevas, el volcán con lava, púas y llamas en el infierno, nubes e islas en el cielo, un planeta y estrellas en el espacio...
