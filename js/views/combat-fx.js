@@ -1,5 +1,6 @@
 /* ============================================================
-   Aventurs — Efectos de combate (v1.9.1)
+   Aventurs — Efectos de combate (v1.9.1; v3.16: golpes con peso,
+   hechizos que viajan, partículas por elemento, botín que salta)
    Todo lo que se mueve en la pelea:
      - el D20 que rueda en el centro de la arena y cae en el número real
      - el que ataca se tira hacia adelante, el golpeado tiembla
@@ -168,6 +169,11 @@
     return from + (to - from) * (1 - Math.pow(1 - k, 3));
   }
 
+  function findBar(key) {
+    const el = root && root.querySelector(`[data-bar-key="${String(key).replace(/"/g, '')}"]`);
+    return el ? el.parentElement : null;
+  }
+
   function tweenBar(el, t) {
     const key = el.dataset.barKey;
     const target = parseFloat(el.style.width) || 0;
@@ -190,7 +196,15 @@
     const lagDelay = tw.delay + 300;
     const lagDur = 650;
     const finished = t >= tw.start + lagDelay + lagDur;
-    if (finished) { barTweens.delete(key); if (lag) lag.style.width = `${target}%`; return; }
+    const bar = el.parentElement;
+    if (finished) { barTweens.delete(key); if (lag) lag.style.width = `${target}%`; if (bar) bar.classList.remove('is-dropping', 'is-rising'); return; }
+    // v3.16: la barra brilla mientras baja (blanco) o sube (verde)
+    if (bar) {
+      const on = t < t0 + tw.dur + 120;
+      bar.classList.toggle('is-dropping', on && tw.to < tw.from);
+      bar.classList.toggle('is-rising', on && tw.to > tw.from);
+      if (on) later(t0 + tw.dur + 140 - t, () => { const b2 = findBar(key); if (b2) b2.classList.remove('is-dropping', 'is-rising'); });
+    }
 
     // barra principal
     const cur = tweenValue(tw.from, tw.to, tw.start, tw.delay, tw.dur, t);
@@ -508,7 +522,7 @@
       case 'attack': {
         if (entry._diceAt != null) showDice(entry, entry._diceAt);
         const lunge = String(fx.actor || '').startsWith('enemy') ? 'fx-lunge-left' : 'fx-lunge-right';
-        later(at - t - 170, () => playCardFx(fx.actor, lunge, 380));
+        later(at - t - 170, () => { playCardFx(fx.actor, lunge, 380); speedLines(fx.actor, lunge === 'fx-lunge-left' ? -1 : 1); });
         later(at - t, () => impact(entry));
         break;
       }
@@ -544,10 +558,15 @@
           playCardFx(fx.actor || me, 'fx-cast', CAST_MS + 120);
           castGlow(fx.actor || me, fx.element);
         }
+        // v3.16: el hechizo viaja de quien lo lanza a quien lo recibe
+        if (fx.target && (fx.actor || me) !== fx.target) later(at - t - BOLT_MS, () => bolt(fx.actor || me, fx.target, fx.element || 'arcane'));
         later(at - t, () => {
           // v3.3: el hechizo puede fallar
           if (fx.miss) { floatText(fx.target, entry.result === 'fumble' ? '¡Pifia!' : 'Esquiva', 'is-miss'); return; }
           burst(fx.target, fx.element || 'arcane');
+          elementFx(fx.target, fx.element || 'arcane', !!fx.crit);
+          if (entry.dmg != null) hitShake(fx.target, entry.dmg, !!fx.crit);
+          if (entry.dmg != null && isHeroKey(fx.target)) hurtVignette(!!fx.crit);
           if (entry.dmg != null) floatNumber(fx.target, `-${entry.dmg}`, `is-dmg is-spell-${fx.element || 'arcane'}${fx.crit ? ' is-crit' : ''}`);
           playCardFx(fx.target, 'fx-hit', 420);
         });
@@ -601,6 +620,7 @@
           playCardFx(fx.target, 'fx-die', DEATH_MS);
           const r = spriteRect(fx.target);
           if (r) spawn('fx-soul', r.left + r.width / 2, r.top + r.height * 0.35, pxIcon('skull', 32), 1100);
+          if (r && !entry.fled && String(fx.target).startsWith('enemy')) lootDrop(r);
         });
         later(at - t + DEATH_MS + 30, () => { if (rerender) rerender(); });
         break;
@@ -645,6 +665,9 @@
       slash(target, crit);
       sparks(target, crit ? 14 : 8, crit ? 'crit' : 'hit');
       playCardFx(target, crit ? 'fx-hit-crit' : 'fx-hit', crit ? 560 : 420);
+      impactRing(target, crit);
+      if (!crit) hitShake(target, entry.dmg || 0, false);
+      if (isHeroKey(target)) hurtVignette(crit || hpFraction(target, entry.dmg || 0) >= 0.3);
       if (isHeroKey(target) && (entry.passive === 'piel_roca' || entry.passive === 'determinacion' || entry.passive === 'bendicion') && A.Passives) {
         const info = A.Passives.info(entry.passive, A.State.player);
         if (info) later(260, () => floatText(target, info.name, 'is-status is-passive', -20, info.icon));
@@ -663,6 +686,115 @@
       floatText(fx.actor, '¡Pifia!', 'is-fumble');
       later(80, () => playCardFx(fx.actor, 'fx-stumble', 460));
     }
+  }
+
+
+  // ---------------------------------------------------------------
+  // v3.16: golpes con peso, hechizos que viajan y botín que salta
+  // ---------------------------------------------------------------
+
+  const BOLT_MS = 260;
+
+  /** Qué parte de su vida máxima es este daño (lo lee de la tarjeta). */
+  function hpFraction(key, dmg) {
+    const el = findEl(key);
+    const small = el && el.querySelector('.cb-hp-num small');
+    const max = small ? parseInt(String(small.textContent).replace(/\D/g, ''), 10) : 0;
+    return max > 0 ? dmg / max : 0;
+  }
+
+  /** La arena se sacude un poco con los golpes fuertes (los críticos ya la sacuden). */
+  function hitShake(key, dmg, crit) {
+    if (crit) { playCardFx('arena', 'fx-arena-shake', 420); return; }
+    const f = hpFraction(key, dmg);
+    if (f >= 0.3) playCardFx('arena', 'fx-arena-bump-strong', 300);
+    else if (f >= 0.12 || (isHeroKey(key) && f > 0)) playCardFx('arena', 'fx-arena-bump', 240);
+  }
+
+  function arenaRect() {
+    const arena = root && root.querySelector('.cb-arena');
+    return arena ? arena.getBoundingClientRect() : null;
+  }
+
+  /** Bordes rojos cuando te pegan. */
+  function hurtVignette(strong) {
+    const r = arenaRect();
+    if (!r) return;
+    const v = spawn(`fx-hurt${strong ? ' is-strong' : ''}`, r.left, r.top, null, 520);
+    if (v) { v.style.width = `${r.width}px`; v.style.height = `${r.height}px`; }
+  }
+
+  function impactRing(key, crit) {
+    const r = spriteRect(key);
+    if (!r) return;
+    spawn(`fx-impact${crit ? ' is-crit' : ''}`, r.left + r.width / 2, r.top + r.height / 2, null, 420);
+  }
+
+  /** Rayas de velocidad detrás del que se tira a pegar. */
+  function speedLines(key, dir) {
+    const r = spriteRect(key);
+    if (!r) return;
+    for (let i = 0; i < 3; i++) {
+      const x = dir > 0 ? r.left + r.width * 0.15 : r.right - r.width * 0.15;
+      const l = spawn(`fx-speed${dir < 0 ? ' is-left' : ''}`, x, r.top + r.height * (0.35 + i * 0.18), null, 380);
+      if (l) l.style.animationDelay = `${i * 40}ms`;
+    }
+  }
+
+  /** El hechizo vuela de una tarjeta a la otra, dejando chispas. */
+  function bolt(fromKey, toKey, element) {
+    const a = spriteRect(fromKey);
+    const b = spriteRect(toKey);
+    if (!a || !b) return;
+    const x0 = a.left + a.width / 2;
+    const y0 = a.top + a.height * 0.45;
+    const dx = b.left + b.width / 2 - x0;
+    const dy = b.top + b.height * 0.45 - y0;
+    if (element === 'shock') return; // el rayo cae del cielo (elementFx)
+    const o = spawn(`fx-orb is-${element}`, x0, y0, null, BOLT_MS + 40);
+    if (o) {
+      o.style.setProperty('--dx', `${dx}px`);
+      o.style.setProperty('--dy', `${dy}px`);
+      o.style.setProperty('--rot', `${Math.atan2(dy, dx)}rad`);
+      o.style.animationDuration = `${BOLT_MS}ms`;
+    }
+    for (let i = 1; i <= 5; i++) {
+      const k = i / 6;
+      const p = spawn(`fx-trail is-${element}`, x0 + dx * k, y0 + dy * k + (Math.random() * 10 - 5), null, 520);
+      if (p) p.style.animationDelay = `${Math.round(BOLT_MS * k)}ms`;
+    }
+  }
+
+  /** Partículas propias de cada elemento al pegar. */
+  function elementFx(key, element, crit) {
+    const r = spriteRect(key);
+    if (!r) return;
+    const cx = r.left + r.width / 2;
+    const cy = r.top + r.height / 2;
+    const n = crit ? 14 : 9;
+    if (element === 'shock') {
+      const z = spawn('fx-lightning', cx, r.top + r.height * 0.55, '<svg viewBox="0 0 40 160" preserveAspectRatio="none"><polyline points="22,0 12,52 26,60 10,112 24,118 16,160" /></svg>', 420);
+      if (z) z.style.height = `${Math.max(120, r.top + r.height * 0.55)}px`;
+      flash();
+      return;
+    }
+    if (element === 'holy') { spawn('fx-pillar', cx, r.bottom, null, 700); }
+    if (element === 'arcane') { spawn('fx-rune', cx, cy, null, 700); }
+    for (let i = 0; i < n; i++) {
+      const p = spawn(`fx-mote is-${element}`, cx + (Math.random() * r.width * 0.7 - r.width * 0.35), cy + (Math.random() * r.height * 0.5 - r.height * 0.1), null, 1000);
+      if (!p) continue;
+      const up = element === 'fire' || element === 'poison' || element === 'holy';
+      p.style.setProperty('--dx', `${Math.random() * 40 - 20}px`);
+      p.style.setProperty('--dy', `${up ? -(30 + Math.random() * 50) : 20 + Math.random() * 40}px`);
+      p.style.setProperty('--rot', `${Math.round(Math.random() * 180)}deg`);
+      p.style.animationDelay = `${Math.round(Math.random() * 140)}ms`;
+    }
+  }
+
+  /** La criatura que cae suelta una bolsita que rebota. */
+  function lootDrop(r) {
+    const d = spawn('fx-drop', r.left + r.width / 2, r.top + r.height * 0.6, pxIcon('bag', 24), 1300);
+    if (d) d.style.setProperty('--dx', `${(Math.random() < 0.5 ? -1 : 1) * (18 + Math.round(Math.random() * 14))}px`);
   }
 
   // ---------------------------------------------------------------
@@ -772,13 +904,14 @@
       // v2.5
       prone: 'Derribado', fear: 'Asustado', grab: 'Atrapado', corrode: 'Corroído', rally: '¡Envalentonado!', guard: 'En guardia',
       stagger: 'Desequilibrado', exposed: 'Expuesto', // v3.11
+      noheal: 'Herida maldita', // v3.15
       immune: 'Inmune', fury: '¡Furia!', steal: '¡Te roba!',
     })[type] || type;
   }
 
   /** v2.5: ícono del número flotante de cada estado. */
   function statusIcon(type) {
-    const map = { stun: 'hourglass', curse: 'skull', prone: 'arrow-down', fear: 'warning', grab: 'lock', corrode: 'poison', rally: 'arrow-up', guard: 'shield', immune: 'star', fury: 'fist', steal: 'coins', stagger: 'target', exposed: 'arrow-down' };
+    const map = { stun: 'hourglass', curse: 'skull', prone: 'arrow-down', fear: 'warning', grab: 'lock', corrode: 'poison', rally: 'arrow-up', guard: 'shield', immune: 'star', fury: 'fist', steal: 'coins', stagger: 'target', exposed: 'arrow-down', noheal: 'heart' };
     return map[type] || type;
   }
 

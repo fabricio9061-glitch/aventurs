@@ -377,6 +377,18 @@
     return A.Balance && A.Balance.statusMods ? A.Balance.statusMods(entity) : { attackPenalty: 0, defensePenalty: 0 };
   }
 
+  // v3.16: qué clase de efecto es (para el color de la burbuja) y qué hace
+  const FX_KIND = {
+    bleed: 'is-dot', poison: 'is-dot', fire: 'is-dot', corrode: 'is-bad', noheal: 'is-bad', curse: 'is-bad', cold: 'is-bad', blind: 'is-bad',
+    stun: 'is-ctrl', sleep: 'is-ctrl', fear: 'is-ctrl', grab: 'is-ctrl', prone: 'is-ctrl', silence: 'is-ctrl', shock: 'is-ctrl', stagger: 'is-ctrl', exposed: 'is-bad',
+    buff: 'is-good', rally: 'is-good', guard: 'is-good', fury: 'is-good',
+  };
+  const FX_WHAT = {
+    bleed: 'pierde vida en cada turno', poison: 'pierde vida en cada turno', fire: 'pierde vida en cada turno',
+    cold: '−2 de defensa y −1 de precisión', blind: '−4 de precisión', shock: 'puede quedar aturdido',
+    stun: 'pierde el turno', silence: 'no puede usar magia', noheal: 'se cura la mitad',
+  };
+
   function effectsHtml(effects) {
     const list = effects || [];
     if (!list.length) return '';
@@ -384,7 +396,12 @@
     const chips = list.slice(0, max).map((ef) => {
       // v2.4: mejoras de pociones y pergaminos, aturdido y maldición también se ven
       const ch = A.ItemFx ? A.ItemFx.chip(ef) : { icon: ef.type, label: A.Combat.effectLabel ? A.Combat.effectLabel(ef.type) : ef.type, cls: ef.type };
-      return `<span class="cb-fx effect-${esc(ch.cls || ef.type)}" title="${esc(ch.label)}: ${ef.turns} ${ef.turns === 1 ? 'turno' : 'turnos'}">${icon(ch.icon, 16, 'px-soft')}<b>${ef.turns}</b></span>`;
+      // v3.16: color según lo que hace (daño, control o mejora), qué hace en el título y aviso cuando le queda 1 turno
+      const kind = FX_KIND[ef.type] || (ef.type === 'buff' ? 'is-good' : 'is-bad');
+      const what = FX_WHAT[ef.type] ? ` (${FX_WHAT[ef.type]})` : '';
+      const ending = ef.turns === 1 ? ' is-ending' : '';
+      const left = ef.turns === 1 ? 'último turno' : `${ef.turns} turnos más`;
+      return `<span class="cb-fx effect-${esc(ch.cls || ef.type)} ${kind}${ending}" title="${esc(ch.label)}${esc(what)}: ${left}">${icon(ch.icon, 16, 'px-soft')}<b>${ef.turns}</b></span>`;
     }).join('');
     const more = list.length > max ? `<span class="cb-fx cb-fx-more" title="${list.length - max} efectos más">+${list.length - max}</span>` : '';
     return `<div class="cb-fx-row">${chips}${more}</div>`;
@@ -973,7 +990,10 @@
       if (fx.petXp && me() && me().pet) chips.push(`<span class="cb-chip">${A.Sprites ? A.Sprites.petHtml(me().pet, { size: 32 }) : ''}<span><b>+${fx.petXp}</b> para ${esc(me().pet.name)}</span></span>`);
       for (const it of fx.items || []) {
         const d = A.Inventory && A.Inventory.resolveData ? A.Inventory.resolveData(it.itemId) : null;
-        chips.push(`<span class="cb-chip">${A.ItemSprites ? A.ItemSprites.html(it.itemId, { size: 32 }) : ''}<span>${esc(d ? d.name : it.itemId)}${it.qty > 1 ? ` <b>×${it.qty}</b>` : ''}</span></span>`);
+        // v3.16: el borde y el brillo dicen la rareza
+        const rar = (d && d.rarity) || 'common';
+        const rl = A.Balance && A.Balance.RARITY && A.Balance.RARITY[rar] ? A.Balance.RARITY[rar].label : '';
+        chips.push(`<span class="cb-chip is-loot is-r-${esc(rar)}" title="${esc(rl)}">${A.ItemSprites ? A.ItemSprites.html(it.itemId, { size: 32 }) : ''}<span>${esc(d ? d.name : it.itemId)}${it.qty > 1 ? ` <b>×${it.qty}</b>` : ''}</span></span>`);
       }
     }
     if (coins > 0) chips.splice(Math.min(1, chips.length), 0, coinChip(coins));

@@ -1,131 +1,48 @@
 /* ============================================================
-   Aventurs — Seed: NPCs
-   4 NPCs hardcoded en regiones safe.
-
-   Modelo:
-     id, name, role, region, dialog [array de strings], icon, sprite,
-     sells [item ids opcional, mercaderes], teaches [spell ids opcional, sages],
-     prices {itemId: customPrice} opcional override de precios,
-     services {restCost, healCost} opcional para tabernero/curandero.
-     crafts ['forge'|'alchemy'|'enchant'] opcional (v3.3): qué taller tiene.
-       Los herreros, si no dicen nada, tienen forja y encantamiento.
-
-   Roles: merchant | shopkeeper | vendor | blacksmith | innkeeper |
-          tavernkeeper | healer | priest | sage | wizard | mage | quest | guard
+   Aventurs — Habitantes (tiendas, maestros, posadas)
+   v3.15.1: todos los cambios de las versiones (los "parches" seed-v39 a
+   seed-v315) ya están aplicados acá. La historia está en CHANGELOG.md.
    ============================================================ */
 
 (function (A) {
   'use strict';
-
-  const NPCS = [
-    {
-      id:'npc_mercader_pueblo',
-      name:'Borgan el mercader',
-      role:'merchant',
-      region:'pueblo_inicial',
-      icon:'🧑‍🌾',
-      sprite:'',
-      dialog:[
-        'Compra y vende, viajero. Tengo lo que pidas si pagas bien.',
-        'Las pociones siempre escasean por estos lados.',
-        'Si traes pieles o colmillos limpios, te doy buen precio.',
-      ],
-      sells:['pocion_curacion_menor', 'pocion_mana_menor', 'antidoto', 'pan', 'queso', 'carne_seca', 'carne_cruda', 'semillas', 'cuerda', 'linterna', 'daga', 'espada_corta', 'tunica_cuero', 'item_bag_reforzada'],
-      services:{},
-    },
-    {
-      id:'npc_tabernero_pueblo',
-      name:'Maela la tabernera',
-      role:'tavernkeeper',
-      roleName:'Tabernera',
-      region:'pueblo_inicial',
-      icon:'🍺',
-      sprite:'',
-      dialog:[
-        'Sentate, viajero. La cerveza es honesta y la cama, blanda.',
-        'Diez de cobre por una noche. Sin preguntas.',
-        'Hay algo en el bosque, dicen. Mejor no salir de noche.',
-      ],
-      sells:['hierba_vida'],
-      services:{ restCost:10 },
-      // v3.3: con lo que juntes, te prepara pociones
-      crafts:['alchemy'],
-    },
-    {
-      id:'npc_herrero_puerto',
-      name:'Druss el herrero',
-      role:'blacksmith',
-      region:'puerto',
-      icon:'⚒️',
-      sprite:'',
-      dialog:[
-        'Trae materiales, hago el resto.',
-        'El acero del puerto es el mejor del reino, no te lo voy a discutir.',
-        'Si vas al volcán, vuelve con escamas. Te interesa lo que puedo hacer con eso.',
-      ],
-      sells:['hacha_de_mano', 'arco_corto', 'maza', 'lanza', 'espada_larga', 'ballesta', 'cuero_reforzado', 'brigantina', 'cota_de_malla', 'coraza_acero', 'mat_hierro', 'mat_cuero', 'item_bag_large'],
-      services:{},
-    },
-    {
-      id:'npc_sabio_torre',
-      name:'Velrith el sabio',
-      role:'sage',
-      region:'torre_del_mago',
-      icon:'🧙',
-      sprite:'',
-      dialog:[
-        'No todo se aprende. Algunas cosas se reciben.',
-        'Si tu mente es firme y tu maná suficiente, te enseño lo que sé.',
-        'La magia no perdona la pereza. Tampoco yo.',
-      ],
-      sells:['pocion_curacion', 'pocion_mana', 'pergamino_escape', 'baston', 'varita', 'cetro_arcano', 'tabardo_arcano', 'mat_gema_arcana', 'item_bag_arcane'],
-      teaches:['chispa', 'llama', 'rayo_helado', 'curacion', 'segundo_aliento', 'bola_de_fuego'],
-      services:{},
-      // v3.3: encantamientos (bastones, amuletos, talismanes) y también pociones
-      crafts:['enchant', 'alchemy'],
-    },
-    // ---------- v2.0: dan misiones ----------
-    {
-      id:'npc_guardia_pueblo',
-      name:'Tomas el guardia',
-      role:'guard',
-      region:'pueblo_inicial',
-      icon:'',
-      sprite:'',
-      dialog:[
-        'Mantené los ojos abiertos. Últimamente pasan cosas raras en el bosque.',
-        'Si ves algo que vuela y escupe fuego, corré. Después me contás.',
-        'El cementerio está inquieto. Los muertos no descansan como antes.',
-      ],
-      sells:[],
-      services:{},
-    },
-    {
-      id:'npc_capitana_puerto',
-      name:'Irena la capitana',
-      role:'captain',
-      roleName:'Capitana del puerto',
-      region:'puerto',
-      icon:'',
-      sprite:'',
-      dialog:[
-        'El mar no perdona a los distraídos. Yo tampoco.',
-        'Veinte años navegando y nunca vi un cielo como el de la otra noche.',
-        'Si buscás trabajo, en el Camino Real sobran bandidos.',
-      ],
-      sells:['pescado_fresco', 'pocion_curacion_menor', 'cuerda', 'sal_conservante'],
-      services:{},
-    },
-    // ---------- v2.1: ciudades nuevas ----------
-    {"id": "npc_herrero_piedrahonda", "name": "Grimbold el herrero", "role": "blacksmith", "region": "aldea_piedrahonda", "icon": "", "sprite": "", "look": "dwarf", "dialog": ["El acero enano no se dobla. Tampoco yo.", "Las minas de al lado se llenaron de kobolds. Me quedé sin mineral.", "Si me traés material, te hago lo que pidas."], "sells": ["martillo_enano", "hacha_de_mano", "maza", "lanza", "cuero_reforzado", "cota_de_malla", "mat_hierro", "item_bag_reforzada"], "services": {}},
-    {"id": "npc_tabernera_piedrahonda", "name": "Brenna", "role": "tavernkeeper", "roleName": "Tabernera de El Martillo y la Gema", "region": "aldea_piedrahonda", "icon": "", "sprite": "", "look": "dwarf_woman", "dialog": ["¡Bienvenido a El Martillo y la Gema! El estofado está caliente.", "Los mineros ya no bajan. Dicen que algo come la piedra allá abajo.", "Una cama, un plato y nadie que te moleste. Eso vendo."], "sells": ["pan", "queso", "carne_seca", "te_de_hierbas"], "services": {"restCost": 8}},
-    {"id": "npc_tabernero_calavera", "name": "Tuerto Salvo", "role": "tavernkeeper", "roleName": "Tabernero pirata", "region": "puerto_calavera", "icon": "", "sprite": "", "look": "pirate", "dialog": ["Acá no se pregunta nombre ni pasado. Se paga por adelantado.", "Perdí el ojo por un doblón. Valió la pena.", "Si ves velas negras en el horizonte, corré."], "sells": ["ron_anejo", "pescado_fresco", "carne_seca"], "services": {"restCost": 15}},
-    {"id": "npc_contrabandista_calavera", "name": "Mara la contrabandista", "role": "merchant", "roleName": "Contrabandista", "region": "puerto_calavera", "icon": "", "sprite": "", "look": "pirate_woman", "dialog": ["Lo que buscás lo tengo. Lo que no buscás, también.", "No preguntes de dónde salió. Preguntá cuánto cuesta.", "El ron se vende solo. La discreción, más cara."], "sells": ["sable_pirata", "ron_anejo", "pocion_curacion", "antidoto", "cuerda", "linterna", "ballesta", "item_bag_large"], "services": {}},
-    {"id": "npc_druida_santuario", "name": "Sylveth la druida", "role": "sage", "roleName": "Druida", "region": "santuario_roble", "icon": "", "sprite": "", "look": "druid", "dialog": ["El bosque sueña. Y últimamente tiene pesadillas.", "Caminá despacio. Acá todo escucha.", "Las hadas no son malas. Solo aburridas."], "sells": ["hierba_vida", "pocion_curacion", "pocion_mana", "te_de_hierbas", "mat_hierba_curativa", "baston", "varita"], "teaches": ["curacion", "segundo_aliento", "rayo_helado", "llama"], "services": {}, "crafts": ["alchemy"]},
-    {"id": "npc_condesa_velmora", "name": "Condesa Ilyana", "role": "noble", "roleName": "Noble de Velmora", "region": "velmora", "icon": "", "sprite": "", "look": "noble", "dialog": ["Un mortal en Velmora. Qué... refrescante.", "Nosotros no cazamos. Ya no. Los salvajes del jardín, en cambio...", "La noche es larga. Tenemos tiempo para negocios."], "sells": [], "services": {}},
-    {"id": "npc_boticaria_velmora", "name": "Orsolya la boticaria", "role": "merchant", "roleName": "Boticaria", "region": "velmora", "icon": "", "sprite": "", "look": "noble_apothecary", "dialog": ["¿Sangre, hierbas o venenos? Todo en frascos elegantes.", "La flor carmesí solo crece entre tumbas. Por eso es tan cara.", "No temas. Acá los clientes vuelven siempre."], "sells": ["hierba_vida", "vial_sangre", "pocion_curacion", "pocion_mana", "antidoto", "elixir_fuerza", "katana", "espada_runica"], "services": {"restCost": 40}, "crafts": ["alchemy"]},
-  ];
-
   A.Seed = A.Seed || {};
-  A.Seed.npcs = NPCS;
+  A.Seed.npcs = [
+    { id: 'npc_mercader_pueblo', name: 'Borgan el mercader', role: 'merchant', region: 'pueblo_inicial', icon: '🧑‍🌾', sprite: '', dialog: ['Compra y vende, viajero. Tengo lo que pidas si pagas bien.', 'Las pociones siempre escasean por estos lados.', 'Si traes pieles o colmillos limpios, te doy buen precio.'], sells: ['pocion_curacion_menor', 'pocion_mana_menor', 'antidoto', 'cuerda', 'linterna', 'daga', 'espada_corta', 'tunica_cuero', 'item_bag_reforzada', 'ropa_acolchada', 'hoz', 'garrote', 'baston', 'varita', 'tunica_mago', 'acc_anillo_cobre', 'acc_colgante_hueso', 'perg_misil_arcano', 'perg_escudo'], services: {  } },
+    { id: 'npc_tabernero_pueblo', name: 'Maela la tabernera', role: 'tavernkeeper', roleName: 'Tabernera', region: 'pueblo_inicial', icon: '🍺', sprite: '', dialog: ['Sentate, viajero. La cerveza es honesta y la cama, blanda.', 'Diez de cobre por una noche. Sin preguntas.', 'Hay algo en el bosque, dicen. Mejor no salir de noche.'], sells: ['hierba_vida', 'pan', 'queso', 'carne_seca', 'carne_cruda', 'semillas', 'lata_aceite', 'botella_sangre', 'frasco_nectar', 'gel_algas', 'carbon_ardiente', 'manzana', 'zanahoria', 'huevos', 'cebolla', 'tomate', 'galletas', 'dulces'], services: { restCost: 10 }, crafts: ['alchemy'] },
+    { id: 'npc_herrero_puerto', name: 'Druss el herrero', role: 'blacksmith', region: 'puerto', icon: '⚒️', sprite: '', dialog: ['Trae materiales, hago el resto.', 'El acero del puerto es el mejor del reino, no te lo voy a discutir.', 'Si vas al volcán, vuelve con escamas. Te interesa lo que puedo hacer con eso.'], sells: ['hacha_de_mano', 'arco_corto', 'maza', 'lanza', 'espada_larga', 'ballesta', 'cuero_reforzado', 'brigantina', 'cota_de_malla', 'coraza_acero', 'mat_hierro', 'mat_cuero', 'item_bag_large', 'lata_aceite', 'bateria_runica', 'carbon_ardiente', 'estoque', 'cimitarra', 'nunchaku', 'pica', 'arco_largo', 'varita_runica', 'armadura_escamas', 'media_placa', 'quitina', 'acc_botas_velocidad'], services: {  } },
+    { id: 'npc_sabio_torre', name: 'Velrith el sabio', role: 'sage', region: 'torre_del_mago', icon: '🧙', sprite: '', dialog: ['No todo se aprende. Algunas cosas se reciben.', 'Si tu mente es firme y tu maná suficiente, te enseño lo que sé.', 'La magia no perdona la pereza. Tampoco yo.'], sells: ['pocion_curacion', 'pocion_mana', 'pergamino_escape', 'baston', 'varita', 'cetro_arcano', 'tabardo_arcano', 'mat_gema_arcana', 'item_bag_arcane', 'bateria_runica', 'tomo_antiguo', 'orbe', 'tunica_mago', 'vestiduras', 'perg_quemar', 'perg_veneno', 'perg_congelar', 'perg_maldicion', 'perg_prisa', 'perg_precision', 'perg_fuerza', 'pocion_mana_mayor', 'acc_gema_mana', 'acc_amuleto_sabiduria'], teaches: [], services: {  }, crafts: ['enchant', 'alchemy'] },
+    { id: 'npc_guardia_pueblo', name: 'Tomas el guardia', role: 'guard', region: 'pueblo_inicial', icon: '', sprite: '', dialog: ['Mantené los ojos abiertos. Últimamente pasan cosas raras en el bosque.', 'Si ves algo que vuela y escupe fuego, corré. Después me contás.', 'El cementerio está inquieto. Los muertos no descansan como antes.'], sells: [], services: {  } },
+    { id: 'npc_capitana_puerto', name: 'Irena la capitana', role: 'captain', roleName: 'Capitana del puerto', region: 'puerto', icon: '', sprite: '', dialog: ['El mar no perdona a los distraídos. Yo tampoco.', 'Veinte años navegando y nunca vi un cielo como el de la otra noche.', 'Si buscás trabajo, en el Camino Real sobran bandidos.'], sells: ['pescado_fresco', 'pocion_curacion_menor', 'cuerda', 'sal_conservante', 'gel_algas', 'uvas', 'frutillas', 'naranja', 'platano', 'sandia', 'vino', 'perg_estatica'], services: {  } },
+    { id: 'npc_herrero_piedrahonda', name: 'Grimbold el herrero', role: 'blacksmith', region: 'aldea_piedrahonda', icon: '', sprite: '', look: 'dwarf', dialog: ['El acero enano no se dobla. Tampoco yo.', 'Las minas de al lado se llenaron de kobolds. Me quedé sin mineral.', 'Si me traés material, te hago lo que pidas.'], sells: ['martillo_enano', 'hacha_de_mano', 'maza', 'lanza', 'cuero_reforzado', 'cota_de_malla', 'mat_hierro', 'item_bag_reforzada', 'lata_aceite', 'carbon_ardiente', 'pieles', 'cuero_tachonado', 'cota_anillas', 'latigo', 'lucero_del_alba', 'alfanje', 'varita_runica', 'tunica_mago'], services: {  } },
+    { id: 'npc_tabernera_piedrahonda', name: 'Brenna', role: 'tavernkeeper', roleName: 'Tabernera de El Martillo y la Gema', region: 'aldea_piedrahonda', icon: '', sprite: '', look: 'dwarf_woman', dialog: ['¡Bienvenido a El Martillo y la Gema! El estofado está caliente.', 'Los mineros ya no bajan. Dicen que algo come la piedra allá abajo.', 'Una cama, un plato y nadie que te moleste. Eso vendo.'], sells: ['pan', 'queso', 'carne_seca', 'te_de_hierbas', 'papa_asada', 'champinones', 'sopa', 'cerveza', 'pastel_carne', 'choclo', 'arroz', 'tocino', 'ensalada'], services: { restCost: 8 } },
+    { id: 'npc_tabernero_calavera', name: 'Tuerto Salvo', role: 'tavernkeeper', roleName: 'Tabernero pirata', region: 'puerto_calavera', icon: '', sprite: '', look: 'pirate', dialog: ['Acá no se pregunta nombre ni pasado. Se paga por adelantado.', 'Perdí el ojo por un doblón. Valió la pena.', 'Si ves velas negras en el horizonte, corré.'], sells: ['ron_anejo', 'pescado_fresco', 'carne_seca', 'botella_sangre', 'copa_sangre', 'cerveza', 'vino', 'estofado', 'hidromiel', 'pollo_asado', 'fideos', 'filete', 'festin_real', 'pan', 'queso'], services: { restCost: 15 } },
+    { id: 'npc_contrabandista_calavera', name: 'Mara la contrabandista', role: 'merchant', roleName: 'Contrabandista', region: 'puerto_calavera', icon: '', sprite: '', look: 'pirate_woman', dialog: ['Lo que buscás lo tengo. Lo que no buscás, también.', 'No preguntes de dónde salió. Preguntá cuánto cuesta.', 'El ron se vende solo. La discreción, más cara.'], sells: ['sable_pirata', 'ron_anejo', 'pocion_curacion', 'antidoto', 'cuerda', 'linterna', 'ballesta', 'item_bag_large', 'bateria_runica', 'copa_sangre', 'cimitarra', 'tridente', 'mangual', 'armadura_sombras', 'pocion_velocidad', 'pocion_piel_piedra', 'perg_terror', 'perg_armadura', 'acc_talisman_fortuna', 'acc_capa_evasion'], services: {  } },
+    { id: 'npc_druida_santuario', name: 'Sylveth la druida', role: 'sage', roleName: 'Druida', region: 'santuario_roble', icon: '', sprite: '', look: 'druid', dialog: ['El bosque sueña. Y últimamente tiene pesadillas.', 'Caminá despacio. Acá todo escucha.', 'Las hadas no son malas. Solo aburridas.'], sells: ['hierba_vida', 'pocion_curacion', 'pocion_mana', 'te_de_hierbas', 'mat_hierba_curativa', 'baston', 'varita', 'frasco_nectar', 'baston_natura', 'tunica_druida', 'corteza', 'perg_enredar', 'perg_purificar', 'perg_regenerar', 'pocion_regeneracion', 'miel', 'jalea_real', 'pan_elfico', 'acc_trebol'], teaches: [], services: {  }, crafts: ['alchemy', 'enchant'] },
+    { id: 'npc_condesa_velmora', name: 'Condesa Ilyana', role: 'noble', roleName: 'Noble de Velmora', region: 'velmora', icon: '', sprite: '', look: 'noble', dialog: ['Un mortal en Velmora. Qué... refrescante.', 'Nosotros no cazamos. Ya no. Los salvajes del jardín, en cambio...', 'La noche es larga. Tenemos tiempo para negocios.'], sells: [], services: {  } },
+    { id: 'npc_boticaria_velmora', name: 'Orsolya la boticaria', role: 'merchant', roleName: 'Boticaria', region: 'velmora', icon: '', sprite: '', look: 'noble_apothecary', dialog: ['¿Sangre, hierbas o venenos? Todo en frascos elegantes.', 'La flor carmesí solo crece entre tumbas. Por eso es tan cara.', 'No temas. Acá los clientes vuelven siempre.'], sells: ['hierba_vida', 'vial_sangre', 'pocion_curacion', 'pocion_mana', 'antidoto', 'elixir_fuerza', 'katana', 'espada_runica', 'copa_sangre', 'botella_sangre', 'pocion_curacion_mayor', 'pocion_regeneracion', 'pocion_contra_fuego', 'pocion_contra_frio', 'pocion_invisibilidad', 'perg_drenar', 'perg_curacion_mayor', 'perg_invisibilidad', 'perg_reflejar', 'ropajes_oscuros', 'acc_amuleto_vampirico'], services: { restCost: 40 }, crafts: ['alchemy', 'enchant'] },
+    { id: 'npc_posadera_faroles', name: 'Ilda la posadera', role: 'tavernkeeper', roleName: 'Posadera', region: 'aldea_faroles', icon: '', sprite: '', dialog: ['Los aprendices de la Torre vienen a comer acá: allá arriba solo hay libros.', 'Doce de cobre la cama, con sopa incluida. El plato solo, mucho menos.', 'Si vas por el camino de la Torre, cuidate de las chispas: queman la ropa.'], sells: ['hierba_vida', 'pocion_curacion_menor', 'pan', 'queso', 'carne_seca', 'galletas', 'manzana', 'huevos', 'dulces', 'zanahoria', 'tomate', 'cebolla', 'lata_aceite', 'botella_sangre', 'frasco_nectar', 'gel_algas', 'carbon_ardiente'], services: { restCost: 12 }, crafts: ['alchemy'] },
+    { id: 'npc_buhonero_faroles', name: 'Tobin el buhonero', role: 'merchant', roleName: 'Buhonero', region: 'aldea_faroles', icon: '', sprite: '', dialog: ['Traigo de todo un poco: lo que los aprendices venden cuando se quedan sin cobre.', 'Las varitas rúnicas las hace un enano del puerto. Son mejores de lo que parecen.', '¿Una llave vieja? Algún cofre del camino te la va a agradecer.'], sells: ['pocion_curacion', 'pocion_mana', 'antidoto', 'pocion_velocidad', 'pocion_regeneracion', 'perg_misil_arcano', 'perg_escudo', 'perg_prisa', 'perg_purificar', 'varita_runica', 'cetro_arcano', 'espada_larga', 'alfanje', 'ballesta', 'lanza', 'cota_de_malla', 'tabardo_arcano', 'cuero_tachonado', 'acc_amuleto_sabiduria', 'acc_trebol', 'cuerda', 'linterna', 'item_llave_oxidada'], services: {  }, crafts: ['enchant'] },
+    { icon: '', sprite: '', services: {  }, _source: 'v311', id: 'npc_herrera_bastion', name: 'Brunhild la herrera', role: 'blacksmith', roleName: 'Herrera', region: 'bastion_alba', dialog: ['El oricalco no se dobla: se doma.', 'Traeme cristal astral y te hago algo que brille de verdad.', 'Más allá de la Bruma, el acero común es papel.', 'Arriba de la Cumbre hay metal que cayó de las estrellas. Traémelo y te forjo lo que nadie vio.'], sells: ['espada_oricalco', 'hacha_oricalco', 'martillo_oricalco', 'lanza_oricalco', 'arco_oricalco', 'daga_oricalco', 'placa_oricalco', 'cuero_oricalco', 'espada_astral', 'hacha_astral', 'martillo_astral', 'lanza_astral', 'arco_astral', 'daga_astral', 'placa_astral', 'malla_astral', 'mat_oricalco', 'espada_estelar', 'hacha_estelar', 'martillo_estelar', 'lanza_estelar', 'arco_estelar', 'daga_estelar', 'placa_estelar', 'malla_estelar', 'mat_metal_estelar'], crafts: ['forge'] },
+    { icon: '', sprite: '', services: {  }, _source: 'v311', id: 'npc_sabia_bastion', name: 'Seren la sabia', role: 'sage', roleName: 'Sabia', region: 'bastion_alba', dialog: ['Allá arriba la magia es más vieja. Y más hambrienta.', 'Te enseño lo que sé si tu maná aguanta.', 'El Devorador no es un cuento. Ojalá lo fuera.', 'Más arriba del cielo hay otro cielo. Y más abajo del infierno, otro infierno. Ninguno es amigo.'], sells: ['pocion_curacion_suprema', 'pocion_mana_suprema', 'baston_oricalco', 'tunica_bruma', 'baston_astral', 'manto_astral', 'mat_gema_arcana', 'pocion_curacion_divina', 'pocion_mana_divina', 'baston_estelar', 'tunica_estelar'], teaches: [], crafts: ['enchant', 'alchemy'] },
+    { icon: '', sprite: '', services: { restCost: 400 }, _source: 'v311', id: 'npc_posadero_bastion', name: 'Odo el posadero', role: 'tavernkeeper', roleName: 'Posadero', region: 'bastion_alba', dialog: ['Cama caliente y sopa espesa: lo único que no cambia en las Tierras Altas.', 'Los que vuelven de la Cumbre no hablan mucho.', 'Si vas al Fin del Mundo, pagá la cuenta antes.'], sells: ['pan', 'queso', 'carne_seca', 'pocion_curacion_mayor', 'pocion_mana', 'hierba_vida', 'pocion_curacion_suprema', 'pocion_curacion_divina'], crafts: ['alchemy'] },
+    { icon: '', sprite: '', role: 'master', sells: [], services: {  }, _source: 'v313', heroRace: 'humano', id: 'npc_maestro_humano', name: 'Aldric el Duelista', roleName: 'Maestro de arcanismo', region: 'torre_del_mago', school: 'humano', heroWeapon: 'sword', dialog: ['Me vine a la torre porque acá la magia se toma en serio. Igual, la espada no la suelto.', 'Marcá a tu rival. Después, pegale donde marcaste. Así de simple.', 'La magia de los humanos es terca, como nosotros.'] },
+    { icon: '', sprite: '', role: 'master', sells: [], services: {  }, _source: 'v313', heroRace: 'angel', id: 'npc_maestra_angel', name: 'Sor Celestine', roleName: 'Maestra celestial', region: 'torre_del_mago', school: 'angel', dialog: ['Desde lo alto de la torre se ve todo el valle. Desde ahí cuido a los que pelean.', 'Un voto protege a todos. Un ángel que solo se cuida a sí mismo, todavía no entendió nada.', 'Que la luz te encuentre, aunque sea tarde.'] },
+    { icon: '', sprite: '', role: 'master', sells: [], services: {  }, _source: 'v313', heroRace: 'enano', id: 'npc_maestro_enano', name: 'Borin Escudohondo', roleName: 'Maestro del bastión', region: 'aldea_piedrahonda', school: 'enano', heroWeapon: 'hammer', dialog: ['Un enano no retrocede. Un enano se planta y deja que el enemigo se canse.', 'La piedra aguanta mil años. Vos con aguantar la pelea ya estás bien.', 'Escudo arriba, barba al frente.'] },
+    { icon: '', sprite: '', role: 'master', sells: [], services: {  }, _source: 'v313', heroRace: 'goliat', id: 'npc_maestra_goliat', name: 'Kaya Rompemontes', roleName: 'Maestra de fuerza', region: 'aldea_piedrahonda', school: 'goliat', dialog: ['Cuando un goliat golpea el suelo, el que está enfrente se cae. Así de fácil.', 'No hace falta apuntar si le pegás a todos.', 'La montaña es mi maestra. Yo soy la tuya.'] },
+    { icon: '', sprite: '', role: 'master', sells: [], services: {  }, _source: 'v313', heroRace: 'draconido', id: 'npc_maestro_draconido', name: 'Vharax Escamabrasa', roleName: 'Maestro dracónico', region: 'aldea_piedrahonda', school: 'draconido', dialog: ['La sangre de dragón no se esconde: se escupe.', 'Tus escamas pueden arder. El que te toque, que aprenda.', 'El fuego de la forja de esta aldea me recuerda a casa.'] },
+    { icon: '', sprite: '', role: 'master', sells: [], services: {  }, _source: 'v313', heroRace: 'gnomo', id: 'npc_maestra_gnomo', name: 'Fizzi Tuercaloca', roleName: 'Maestra tecnomante', region: 'puerto', school: 'gnomo', dialog: ['¡Cuidado con ese cable! Bueno, no hay cable. Todavía.', 'Un buen circuito no desperdicia nada. Ni la chispa, ni el maná.', 'Si algo ya está electrizado, el resto de la corriente vuelve a vos. ¡Es física!'] },
+    { icon: '', sprite: '', role: 'master', sells: [], services: {  }, _source: 'v313', heroRace: 'robot', id: 'npc_maestro_robot', name: 'Unidad K-7', roleName: 'Instructor de combate', region: 'puerto', school: 'robot', dialog: ['SALUDO. PROTOCOLO DE INSTRUCCIÓN ACTIVO.', 'Probabilidad de éxito: alta, si seguís mis cálculos.', 'Un campo electromagnético bien calibrado desalienta a los que se acercan.'] },
+    { icon: '', sprite: '', role: 'master', sells: [], services: {  }, _source: 'v313', heroRace: 'orco', id: 'npc_maestro_orco', name: 'Grumak Colmillo Roto', roleName: 'Maestro de guerra', region: 'puerto', school: 'orco', heroWeapon: 'axe', dialog: ['¡Gritá más fuerte! El enemigo tiene que temblar antes de que lo toques.', 'Un golpe es poco. Dos, empieza a ser una conversación.', 'Me rompí este colmillo contra un ogro. El ogro se rompió más.'] },
+    { icon: '', sprite: '', role: 'master', sells: [], services: {  }, _source: 'v313', heroRace: 'elfo', id: 'npc_maestra_elfo', name: 'Ilyana Velo de Plata', roleName: 'Maestra lunar', region: 'torre_del_mago', school: 'elfo', heroWeapon: 'bow', dialog: ['Desde lo alto de la torre la luna se ve más cerca. Vení de noche, si podés.', 'La luna no grita: muestra. Y lo que muestra, lo podés atravesar.', 'Un elfo que lee a su enemigo ya ganó la mitad de la pelea.'] },
+    { icon: '', sprite: '', role: 'master', sells: [], services: {  }, _source: 'v313', heroRace: 'alienigena', id: 'npc_maestro_alienigena', name: 'Xo\'ren el Observador', roleName: 'Maestro psiónico', region: 'torre_del_mago', school: 'alienigena', dialog: ['Tu nave te escucha, aunque no la veas. Solo hay que aprender a llamarla.', 'Pensá en el aire como algo pesado. Ahora hacé que les caiga encima.', 'Este planeta es ruidoso. Me gusta.'] },
+    { icon: '', sprite: '', role: 'master', sells: [], services: {  }, _source: 'v313', heroRace: 'mediano', id: 'npc_maestra_mediano', name: 'Tía Pippa Buenaventura', roleName: 'Maestra de la fortuna', region: 'aldea_faroles', school: 'mediano', dialog: ['La suerte no se tiene, querido: se practica.', 'Un paso al costado a tiempo vale más que diez escudos.', '¿Un té? La suerte también se cocina a fuego lento.'] },
+    { icon: '', sprite: '', role: 'master', sells: [], services: {  }, _source: 'v313', heroRace: 'vampiro', id: 'npc_maestra_vampiro', name: 'Lady Morwen', roleName: 'Maestra de sangre', region: 'aldea_faroles', school: 'vampiro', dialog: ['Los faroles de esta aldea son lo único que me deja vivir entre los vivos.', 'La sangre te obedece si le das algo a cambio.', 'No cures a los demás: no es tu oficio. El tuyo es seguir de pie.'] },
+    { icon: '', sprite: '', role: 'master', sells: [], services: {  }, _source: 'v313', heroRace: 'elfo_oscuro', id: 'npc_maestro_elfo_oscuro', name: 'Szarith Sombra Quieta', roleName: 'Maestro de sombras', region: 'puerto_calavera', school: 'elfo_oscuro', dialog: ['En Puerto Calavera nadie pregunta de dónde venís. Por eso estoy acá.', 'Una sombra bien puesta debilita más que un golpe.', 'Maldecilo primero. Después, tu hoja hace el resto.'] },
+    { icon: '', sprite: '', role: 'master', sells: [], services: {  }, _source: 'v313', heroRace: 'infernal', id: 'npc_maestra_infernal', name: 'Ceniza', roleName: 'Maestra infernal', region: 'puerto_calavera', school: 'infernal', dialog: ['El fuego que ya prendiste es fuego que podés hacer explotar.', 'Los piratas me tienen miedo. Hacen bien.', 'No hace falta prender todo de nuevo: alcanza con avivarlo.'] },
+    { icon: '', sprite: '', role: 'master', sells: [], services: {  }, _source: 'v313', heroRace: 'minotauro', id: 'npc_maestro_minotauro', name: 'Varg el Toro', roleName: 'Campeón de embestidas', region: 'puerto_calavera', school: 'minotauro', heroWeapon: 'axe', dialog: ['Gané cien peleas en la arena de este puerto. Cargando, siempre cargando.', 'Si hay una fila de enemigos, la fila es tuya.', 'Cabeza baja, cuernos al frente, y no pares.'] },
+    { icon: '', sprite: '', role: 'master', sells: [], services: {  }, _source: 'v313', heroRace: 'hada', id: 'npc_maestra_hada', name: 'Brizna', roleName: 'Maestra feérica', region: 'santuario_roble', school: 'hada', dialog: ['¡Hola, hola! ¿Querés aprender a hacer dormir a un ogro? Es divertidísimo.', 'Un enemigo mareado pega mal. Uno dormido no pega.', 'Los jefes son aburridos: nunca se duermen.'] },
+    { icon: '', sprite: '', role: 'master', sells: [], services: {  }, _source: 'v313', heroRace: 'driade', id: 'npc_maestra_driade', name: 'Madre Sauce', roleName: 'Maestra natural', region: 'santuario_roble', school: 'driade', dialog: ['El roble no ataca. Espera, y el que lo golpea se lastima.', 'Las raíces de este santuario llegan más lejos de lo que creés.', 'Escuchá al bosque: él también quiere pelear.'] },
+    { icon: '', sprite: '', role: 'master', sells: [], services: {  }, _source: 'v313', heroRace: 'licantropo', id: 'npc_maestro_licantropo', name: 'Fenrik Pelo Gris', roleName: 'Maestro de la manada', region: 'santuario_roble', school: 'licantropo', dialog: ['La manada elige una presa y no la suelta. Vos tampoco.', 'El druida me deja dormir acá a cambio de que no me coma a nadie.', 'Cuando la luna está alta, saltá. Ya vas a entender.'] },
+  ];
 })(window.Aventurs);

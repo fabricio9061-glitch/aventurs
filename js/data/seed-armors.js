@@ -1,54 +1,80 @@
 /* ============================================================
-   Aventurs — Seed: Armaduras (v1.8.0)
-   defense: resta daño a cada golpe recibido.
-   dodge (armaduras mágicas): suma a tu defensa (más difícil que te peguen).
-   Peso: si arma + armadura pesan más de 4, cada punto extra resta velocidad.
+   Aventurs — Armaduras
+   v3.15.1: todos los cambios de las versiones (los "parches" seed-v39 a
+   seed-v315) ya están aplicados acá. La historia está en CHANGELOG.md.
    ============================================================ */
 
 (function (A) {
   'use strict';
-
-  const ARMORS = [
-    { id:'tunica_tela', name:'Túnica de tela', type:'armor', icon:'👘', defense:0, value:10, rarity:'common', tier:1, weight:1, magic:false,
-      description:'Apenas un trapo cosido. Mejor que nada.' },
-
-    { id:'tunica_cuero', name:'Túnica de cuero', type:'armor', icon:'🥋', defense:1, value:30, rarity:'common', tier:1, weight:2, magic:false,
-      description:'Cuero curtido sobre lana. Cómoda y silenciosa.' },
-
-    { id:'cuero_reforzado', name:'Cuero reforzado', type:'armor', icon:'🦺', defense:2, value:44, rarity:'common', tier:2, weight:3, magic:false,
-      description:'Placas de cuero hervido remachadas con bronce.' },
-
-    { id:'brigantina', name:'Brigantina', type:'armor', icon:'🦺', tier:3, rarity:'common', weight:3, magic:false, defense:2, value:63,
-      description:'Chapas de hierro remachadas bajo tela gruesa. Barata y honesta.' },
-
-    { id:'cota_de_malla', name:'Cota de malla', type:'armor', icon:'⛓️', defense:3, value:119, rarity:'uncommon', tier:4, weight:5, slots:2, magic:false,
-      description:'Anillos de hierro entrelazados. Pesa, pero detiene aceros.' },
-
-    { id:'tabardo_arcano', name:'Tabardo arcano', type:'armor', icon:'🧥', defense:2, value:119, rarity:'uncommon', tier:4, weight:2, magic:true, dodge:2,
-      description:'Bordado con hilos de plata. Dispersa hechizos hostiles antes de tocar la piel.' },
-
-    { id:'coraza_acero', name:'Coraza de acero', type:'armor', icon:'🛡️', tier:5, rarity:'uncommon', weight:5, magic:false, defense:3, value:172,
-      description:'Peto y espaldar de acero templado. Suena como una campana al recibir golpes.' },
-
-    { id:'armadura_placas', name:'Armadura de placas', type:'armor', icon:'🛡️', defense:4, value:327, rarity:'rare', tier:6, weight:8, slots:2, magic:false,
-      description:'Acero pulido sobre cuero. Pesada como una sentencia.' },
-
-    { id:'manto_brujo', name:'Manto del brujo', type:'armor', icon:'🧙', defense:3, value:327, rarity:'rare', tier:6, weight:2, magic:true, dodge:2,
-      description:'Tejido con cabellos de no-muerto. Quien lo viste roba magia al aire.' },
-
-    { id:'armadura_runica', name:'Armadura rúnica', type:'armor', icon:'🛡️', tier:7, rarity:'rare', weight:5, magic:false, defense:4, value:474,
-      description:'Las runas se encienden un instante antes de cada impacto.' },
-
-    { id:'armadura_obsidiana', name:'Armadura de obsidiana', type:'armor', icon:'⬛', tier:8, rarity:'rare', weight:6, magic:false, defense:5, value:687,
-      description:'Vidrio volcánico tallado en escamas. Fría al tacto incluso junto a la lava.' },
-
-    { id:'manto_estelar', name:'Manto estelar', type:'armor', icon:'🌌', tier:9, rarity:'epic', weight:2, magic:true, dodge:3, defense:5, value:1466,
-      description:'Tejido con hilos de luz de estrellas muertas. Los golpes resbalan como si no estuvieras ahí.' },
-
-    { id:'placa_dragon', name:'Placa de dragón', type:'armor', icon:'🐲', defense:7, value:3400, rarity:'legendary', tier:10, weight:7, slots:2, magic:true, dodge:3,
-      description:'Forjada con escamas de dragón anciano. El fuego se desliza sin marcarla.' },
-  ];
-
   A.Seed = A.Seed || {};
-  A.Seed.armors = ARMORS;
+  A.Seed.armors = [
+    { id: 'tunica_tela', name: 'Túnica de tela', type: 'armor', icon: '👘', defense: 0, value: 10, rarity: 'common', tier: 1, weight: 1, magic: false, description: 'Apenas un trapo cosido. Mejor que nada.' },
+    { id: 'tunica_cuero', name: 'Túnica de cuero', type: 'armor', icon: '🥋', defense: 1, value: 30, rarity: 'common', tier: 1, weight: 2, magic: false, description: 'Cuero curtido sobre lana. Cómoda y silenciosa.' },
+    { id: 'cuero_reforzado', name: 'Cuero reforzado', type: 'armor', icon: '🦺', defense: 2, value: 44, rarity: 'common', tier: 2, weight: 3, magic: false, description: 'Placas de cuero hervido remachadas con bronce.' },
+    { id: 'brigantina', name: 'Brigantina', type: 'armor', icon: '🦺', tier: 3, rarity: 'common', weight: 3, magic: false, defense: 2, value: 63, description: 'Chapas de hierro remachadas bajo tela gruesa. Barata y honesta.' },
+    { id: 'cota_de_malla', name: 'Cota de malla', type: 'armor', icon: '⛓️', defense: 3, value: 119, rarity: 'uncommon', tier: 4, weight: 5, slots: 2, magic: false, description: 'Anillos de hierro entrelazados. Pesa, pero detiene aceros.' },
+    { id: 'tabardo_arcano', name: 'Tabardo arcano', type: 'armor', icon: '🧥', defense: 2, value: 119, rarity: 'uncommon', tier: 4, weight: 2, magic: true, dodge: 2, description: 'Bordado con hilos de plata. Dispersa hechizos hostiles antes de tocar la piel.' },
+    { id: 'coraza_acero', name: 'Coraza de acero', type: 'armor', icon: '🛡️', tier: 5, rarity: 'uncommon', weight: 5, magic: false, defense: 3, value: 172, description: 'Peto y espaldar de acero templado. Suena como una campana al recibir golpes.' },
+    { id: 'armadura_placas', name: 'Armadura de placas', type: 'armor', icon: '🛡️', defense: 4, value: 327, rarity: 'rare', tier: 6, weight: 8, slots: 2, magic: false, description: 'Acero pulido sobre cuero. Pesada como una sentencia.' },
+    { id: 'manto_brujo', name: 'Manto del brujo', type: 'armor', icon: '🧙', defense: 3, value: 327, rarity: 'rare', tier: 6, weight: 2, magic: true, dodge: 2, description: 'Tejido con cabellos de no-muerto. Quien lo viste roba magia al aire.' },
+    { id: 'armadura_runica', name: 'Armadura rúnica', type: 'armor', icon: '🛡️', tier: 7, rarity: 'rare', weight: 5, magic: false, defense: 4, value: 474, description: 'Las runas se encienden un instante antes de cada impacto.' },
+    { id: 'armadura_obsidiana', name: 'Armadura de obsidiana', type: 'armor', icon: '⬛', tier: 8, rarity: 'rare', weight: 6, magic: false, defense: 5, value: 687, description: 'Vidrio volcánico tallado en escamas. Fría al tacto incluso junto a la lava.' },
+    { id: 'manto_estelar', name: 'Manto estelar', type: 'armor', icon: '🌌', tier: 9, rarity: 'epic', weight: 2, magic: true, dodge: 3, defense: 5, value: 1876, description: 'Tejido con hilos de luz de estrellas muertas. Los golpes resbalan como si no estuvieras ahí.' },
+    { id: 'placa_dragon', name: 'Placa de dragón', type: 'armor', icon: '🐲', defense: 7, value: 4675, rarity: 'legendary', tier: 10, weight: 7, slots: 2, magic: true, dodge: 3, description: 'Forjada con escamas de dragón anciano. El fuego se desliza sin marcarla.' },
+    { id: 'ropa_acolchada', name: 'Ropa acolchada', type: 'armor', icon: '', defense: 1, dodge: 0, value: 30, rarity: 'common', tier: 1, weight: 1, description: 'Capas de tela rellena. Mejor que nada, y no pesa.' },
+    { id: 'tunica_mago', name: 'Túnica de mago', type: 'armor', icon: '', defense: 1, dodge: 1, value: 61, rarity: 'uncommon', tier: 2, weight: 0, magic: true, mana: 3, description: 'Tela azul bordada con estrellas. +3 de maná máximo.' },
+    { id: 'pieles', name: 'Pieles', type: 'armor', icon: '', defense: 2, dodge: 0, value: 44, rarity: 'common', tier: 2, weight: 3, description: 'Pieles curtidas a lo bruto. Abrigan y frenan un poco.' },
+    { id: 'cuero_tachonado', name: 'Cuero tachonado', type: 'armor', icon: '', defense: 2, dodge: 1, value: 88, rarity: 'uncommon', tier: 3, weight: 2, description: 'Cuero con remaches de metal. Protege sin quitar soltura.' },
+    { id: 'cota_anillas', name: 'Cota de anillas', type: 'armor', icon: '', defense: 3, dodge: 0, value: 88, rarity: 'uncommon', tier: 3, weight: 6, description: 'Anillos cosidos sobre cuero. Protege bien, pero pesa bastante para lo que cubre.' },
+    { id: 'armadura_huesos', name: 'Armadura de huesos', type: 'armor', icon: '', defense: 2, dodge: 0, value: 88, rarity: 'uncommon', tier: 3, weight: 3, description: 'Huesos atados con tendones. Da miedo verla.' },
+    { id: 'vestiduras', name: 'Vestiduras sagradas', type: 'armor', icon: '', defense: 2, dodge: 1, value: 128, rarity: 'uncommon', tier: 4, weight: 1, magic: true, mana: 4, description: 'Ropa de sacerdote, blanca y dorada. +4 de maná máximo.' },
+    { id: 'tunica_druida', name: 'Túnica de druida', type: 'armor', icon: '', defense: 2, dodge: 1, value: 128, rarity: 'uncommon', tier: 4, weight: 1, magic: true, mana: 4, description: 'Tejida con fibras de hojas. +4 de maná máximo.' },
+    { id: 'corteza', name: 'Armadura de corteza', type: 'armor', icon: '', defense: 3, dodge: 0, value: 128, rarity: 'uncommon', tier: 4, weight: 3, description: 'Corteza de roble viejo, dura como la piedra.' },
+    { id: 'quitina', name: 'Armadura de quitina', type: 'armor', icon: '', defense: 3, dodge: 1, value: 128, rarity: 'uncommon', tier: 4, weight: 3, description: 'Placas de caparazón de insecto gigante. Livianas y duras.' },
+    { id: 'armadura_sombras', name: 'Armadura de sombras', type: 'armor', icon: '', defense: 2, dodge: 2, value: 265, rarity: 'rare', tier: 5, weight: 1, description: 'Cuero negro que se confunde con la oscuridad. Cuesta pegarte.' },
+    { id: 'armadura_escamas', name: 'Armadura de escamas', type: 'armor', icon: '', defense: 4, dodge: 0, value: 186, rarity: 'uncommon', tier: 5, weight: 7, description: 'Escamas de metal superpuestas. Protege como pocas, pero pesa mucho.' },
+    { id: 'media_placa', name: 'Media placa', type: 'armor', icon: '', defense: 4, dodge: 0, value: 265, rarity: 'rare', tier: 5, weight: 6, description: 'Placas en el pecho y malla en el resto. Muy pesada.' },
+    { id: 'tablillas', name: 'Armadura de tablillas', type: 'armor', icon: '', defense: 5, dodge: 0, value: 385, rarity: 'rare', tier: 6, weight: 9, description: 'Tiras de acero sobre cuero grueso. Aguanta mucho, pesa más.' },
+    { id: 'armadura_coral', name: 'Armadura de coral', type: 'armor', icon: '', defense: 4, dodge: 1, value: 385, rarity: 'rare', tier: 6, weight: 4, description: 'Coral vivo tallado por sirenas. Dura y liviana para su tamaño.' },
+    { id: 'ropajes_oscuros', name: 'Ropajes oscuros', type: 'armor', icon: '', defense: 2, dodge: 2, value: 385, rarity: 'rare', tier: 6, weight: 0, magic: true, mana: 6, description: 'Seda negra de nigromante. +6 de maná máximo.' },
+    { id: 'armadura_bandas', name: 'Armadura de bandas', type: 'armor', icon: '', defense: 5, dodge: 0, value: 558, rarity: 'rare', tier: 7, weight: 8, description: 'Bandas de acero remachadas. Una muralla que camina.' },
+    { id: 'armadura_cristal', name: 'Armadura de cristal', type: 'armor', icon: '', defense: 4, dodge: 2, value: 892, rarity: 'epic', tier: 7, weight: 2, description: 'Cristal encantado que no se quiebra. Brilla al moverte.' },
+    { id: 'vestido_elemental', name: 'Vestido elemental', type: 'armor', icon: '', defense: 3, dodge: 2, value: 558, rarity: 'rare', tier: 7, weight: 1, magic: true, mana: 7, description: 'Tela que cambia de color con los elementos. +7 de maná máximo.' },
+    { id: 'armadura_completa', name: 'Armadura completa', type: 'armor', icon: '', defense: 6, dodge: 0, value: 1294, rarity: 'epic', tier: 8, weight: 8, description: 'Acero de pies a cabeza. Nada pasa, pero te cuesta moverte.' },
+    { id: 'armadura_volcanica', name: 'Armadura volcánica', type: 'armor', icon: '', defense: 4, dodge: 0, value: 809, rarity: 'rare', tier: 8, weight: 5, resist: ['fire'], description: 'Roca de volcán enfriada en forma de placas. El fuego no te hace nada.' },
+    { id: 'armadura_escarcha', name: 'Armadura de escarcha', type: 'armor', icon: '', defense: 4, dodge: 0, value: 809, rarity: 'rare', tier: 8, weight: 5, resist: ['cold'], description: 'Hielo que nunca se derrite. El frío no te afecta.' },
+    { id: 'armadura_tormenta', name: 'Armadura de tormenta', type: 'armor', icon: '', defense: 4, dodge: 0, value: 809, rarity: 'rare', tier: 8, weight: 5, resist: ['shock'], description: 'Placas cargadas de electricidad. Los rayos no te aturden.' },
+    { id: 'tunica_archimago', name: 'Túnica de archimago', type: 'armor', icon: '', defense: 3, dodge: 3, value: 1294, rarity: 'epic', tier: 8, weight: 0, magic: true, mana: 9, description: 'Bordada con hilo de plata y runas vivas. +9 de maná máximo.' },
+    { id: 'armadura_gotica', name: 'Armadura gótica', type: 'armor', icon: '', defense: 7, dodge: 0, value: 1876, rarity: 'epic', tier: 9, weight: 8, description: 'Acero negro con filos y crestas. Pesadísima.' },
+    { id: 'armadura_torneo', name: 'Armadura de torneo', type: 'armor', icon: '', defense: 8, dodge: 0, value: 1172, rarity: 'rare', tier: 9, weight: 10, description: 'Hecha para justas: casi impenetrable y casi imposible de mover.' },
+    { id: 'armadura_mithril', name: 'Armadura de mithril', type: 'armor', icon: '', defense: 6, dodge: 2, value: 3224, rarity: 'legendary', tier: 9, weight: 2, description: 'El metal de los elfos: fuerte como el acero y liviano como la seda.' },
+    { id: 'plumas_fenix', name: 'Plumas de fénix', type: 'armor', icon: '', defense: 4, dodge: 3, value: 3224, rarity: 'legendary', tier: 9, weight: 1, magic: true, mana: 9, resist: ['fire'], description: 'Plumas que no se apagan. +9 de maná y el fuego no te hace nada.' },
+    { id: 'manto_celestial', name: 'Manto celestial', type: 'armor', icon: '', defense: 4, dodge: 3, value: 1876, rarity: 'epic', tier: 9, weight: 0, magic: true, mana: 10, description: 'Tela que parece cielo de noche. +10 de maná máximo.' },
+    { id: 'armadura_adamantina', name: 'Armadura de adamantina', type: 'armor', icon: '', defense: 8, dodge: 0, value: 4675, rarity: 'legendary', tier: 10, weight: 6, description: 'El metal indestructible. Ningún golpe la marca.' },
+    { id: 'armadura_vacio', name: 'Armadura del vacío', type: 'armor', icon: '', defense: 5, dodge: 3, value: 4675, rarity: 'legendary', tier: 10, weight: 2, magic: true, mana: 10, description: 'Hecha de algo que no debería existir. +10 de maná máximo.' },
+    { type: 'armor', icon: '', magic: false, value: 2448, alto: true, _source: 'v311', id: 'placa_oricalco', name: 'Placa de oricalco', defense: 9, dodge: 0, weight: 7, description: 'Placas de oricalco: aguantan lo que partiría al acero.', tier: 12, rarity: 'rare' },
+    { type: 'armor', icon: '', magic: false, value: 2448, alto: true, _source: 'v311', id: 'cuero_oricalco', name: 'Cuero con oricalco', defense: 7, dodge: 2, weight: 3, description: 'Placas de oricalco: aguantan lo que partiría al acero.', tier: 12, rarity: 'rare' },
+    { type: 'armor', icon: '', magic: true, value: 2448, alto: true, _source: 'v311', id: 'tunica_bruma', name: 'Túnica de la bruma', defense: 5, dodge: 3, weight: 1, description: 'Tejida con hilos de niebla. Cuesta acertarle a quien la lleva.', tier: 12, rarity: 'rare', mana: 12 },
+    { type: 'armor', icon: '', magic: false, value: 6768, alto: true, _source: 'v311', id: 'placa_astral', name: 'Placa astral', defense: 10, dodge: 0, weight: 7, description: 'Con el brillo frío de las estrellas.', tier: 15, rarity: 'epic' },
+    { type: 'armor', icon: '', magic: false, value: 6768, alto: true, _source: 'v311', id: 'malla_astral', name: 'Malla astral', defense: 8, dodge: 2, weight: 4, description: 'Con el brillo frío de las estrellas.', tier: 15, rarity: 'epic' },
+    { type: 'armor', icon: '', magic: true, value: 6768, alto: true, _source: 'v311', id: 'manto_astral', name: 'Manto astral', defense: 6, dodge: 4, weight: 1, description: 'Con el brillo frío de las estrellas.', tier: 15, rarity: 'epic', mana: 16 },
+    { type: 'armor', icon: '', magic: false, value: 11696, alto: true, _source: 'v311', id: 'placa_alba', name: 'Placa del alba', defense: 11, dodge: 1, weight: 7, description: 'Hecha con la luz del amanecer: liviana y casi irrompible.', tier: 18, rarity: 'epic' },
+    { type: 'armor', icon: '', magic: false, value: 11696, alto: true, _source: 'v311', id: 'escamas_alba', name: 'Escamas del alba', defense: 9, dodge: 3, weight: 4, description: 'Hecha con la luz del amanecer: liviana y casi irrompible.', tier: 18, rarity: 'epic' },
+    { type: 'armor', icon: '', magic: true, value: 11696, alto: true, _source: 'v311', id: 'vestiduras_alba', name: 'Vestiduras del alba', defense: 7, dodge: 5, weight: 1, description: 'Hecha con la luz del amanecer: liviana y casi irrompible.', tier: 18, rarity: 'epic', mana: 20 },
+    { type: 'armor', icon: '', magic: false, value: 28947, alto: true, _source: 'v311', id: 'coraza_ancestral', name: 'Coraza ancestral', defense: 12, dodge: 2, weight: 6, description: 'Escamas de las bestias más viejas del mundo, una sobre otra.', tier: 20, rarity: 'legendary' },
+    { type: 'armor', icon: '', magic: true, value: 28947, alto: true, _source: 'v311', id: 'manto_vacio', name: 'Manto del vacío', defense: 8, dodge: 6, weight: 1, description: 'Hecho de algo que no debería existir. Se lleva la magia hasta el fondo.', tier: 20, rarity: 'legendary', mana: 26 },
+    { type: 'armor', icon: '', magic: false, value: 20210, alto: true, _source: 'v312', id: 'placa_estelar', name: 'Placa estelar', defense: 12, dodge: 1, weight: 7, description: 'Placas de metal estelar: frías al tacto y más duras que cualquier cosa de este mundo.', tier: 21, rarity: 'epic' },
+    { type: 'armor', icon: '', magic: false, value: 20210, alto: true, _source: 'v312', id: 'malla_estelar', name: 'Malla estelar', defense: 10, dodge: 3, weight: 4, description: 'Placas de metal estelar: frías al tacto y más duras que cualquier cosa de este mundo.', tier: 21, rarity: 'epic' },
+    { type: 'armor', icon: '', magic: true, value: 20210, alto: true, _source: 'v312', id: 'tunica_estelar', name: 'Túnica estelar', defense: 8, dodge: 5, weight: 1, description: 'Placas de metal estelar: frías al tacto y más duras que cualquier cosa de este mundo.', tier: 21, rarity: 'epic', mana: 24 },
+    { type: 'armor', icon: '', magic: false, value: 29103, alto: true, _source: 'v312', id: 'placa_crepusculo', name: 'Placa del crepúsculo', defense: 13, dodge: 1, weight: 7, description: 'Luz y fuego trabajados juntos. Brilla dorada de un lado y roja del otro.', tier: 23, rarity: 'epic' },
+    { type: 'armor', icon: '', magic: false, value: 29103, alto: true, _source: 'v312', id: 'malla_crepusculo', name: 'Malla del crepúsculo', defense: 11, dodge: 3, weight: 4, description: 'Luz y fuego trabajados juntos. Brilla dorada de un lado y roja del otro.', tier: 23, rarity: 'epic' },
+    { type: 'armor', icon: '', magic: true, value: 29103, alto: true, _source: 'v312', id: 'manto_crepusculo', name: 'Manto del crepúsculo', defense: 9, dodge: 6, weight: 1, description: 'Luz y fuego trabajados juntos. Brilla dorada de un lado y roja del otro.', tier: 23, rarity: 'epic', mana: 28 },
+    { type: 'armor', icon: '', magic: false, value: 41908, alto: true, _source: 'v312', id: 'placa_eterna', name: 'Placa eterna', defense: 14, dodge: 2, weight: 7, description: 'Hecha con lo mejor de los tres reinos. Lo que la golpea, rebota.', tier: 25, rarity: 'epic' },
+    { type: 'armor', icon: '', magic: false, value: 41908, alto: true, _source: 'v312', id: 'malla_eterna', name: 'Malla eterna', defense: 12, dodge: 4, weight: 4, description: 'Hecha con lo mejor de los tres reinos. Lo que la golpea, rebota.', tier: 25, rarity: 'epic' },
+    { type: 'armor', icon: '', magic: true, value: 41908, alto: true, _source: 'v312', id: 'manto_eterno', name: 'Manto eterno', defense: 10, dodge: 6, weight: 1, description: 'Tejido con hilos de luz, de fuego y de estrellas. Casi no pesa.', tier: 25, rarity: 'epic', mana: 32 },
+    { type: 'armor', icon: '', magic: false, value: 72030, alto: true, _source: 'v312', id: 'coraza_infernal', name: 'Coraza infernal', defense: 15, dodge: 2, weight: 7, description: 'La armadura de los guardias de Satanás. Quema a quien la mira, no a quien la lleva.', tier: 25, rarity: 'legendary' },
+    { type: 'armor', icon: '', magic: false, value: 72030, alto: true, _source: 'v312', id: 'traje_estelar', name: 'Traje de la colmena', defense: 13, dodge: 5, weight: 3, description: 'Un traje que se ajusta solo al cuerpo y endurece donde lo van a golpear.', tier: 25, rarity: 'legendary' },
+    { type: 'armor', icon: '', magic: true, value: 72030, alto: true, _source: 'v312', id: 'manto_sol', name: 'Manto del sol', defense: 11, dodge: 7, weight: 1, description: 'Un manto tejido con rayos de sol. Abriga, protege y llena de magia.', tier: 25, rarity: 'legendary', mana: 40 },
+    { type: 'armor', icon: '', magic: false, value: 20102, alto: true, _source: 'v312', id: 'piel_valhir', name: 'Piel de Valhir', defense: 11, dodge: 3, weight: 4, tier: 18, rarity: 'legendary', description: 'La piel blanca de la Tormenta Implacable, con chispas que todavía corren entre los pelos. Abriga y protege.' },
+  ];
 })(window.Aventurs);

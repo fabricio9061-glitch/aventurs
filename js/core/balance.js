@@ -479,8 +479,11 @@
   const BOSS = { hp: 1.3, dmg: 1.12, rage: 1.25 }; // rage: cuánto más pega enfurecido (con la mitad de la vida)
   // v3.14: por cada mascota que pelea contra un jefe, el jefe tiene esto de más (vida y daño)
   const PET_BOSS = { hp: 0.5, dmg: 0.15 };
-  // v3.14: lo que se recupera de vida al ganar una pelea (el respiro)
-  const WIN_HEAL = 0.15;
+  // v3.14: lo que se recupera de vida al ganar una pelea (el respiro), solo magos e híbridos
+  // v3.15: 15% -> 25% los magos y 30% los híbridos (la prueba "de a dos" los dejaba 23 puntos abajo de los guerreros)
+  const WIN_HEAL = { mage: 0.25, hybrid: 0.30 };
+  // v3.15: cuánto corta la curación la herida maldita (y la maldición de sangre)
+  const NOHEAL_CUT = 0.5;
 
   /**
    * v3.2: cómo se ponen las criaturas según cuántos héroes pelean juntos.
@@ -561,12 +564,25 @@
       return Math.max(1, Math.round(avg * (0.8 + 0.4 * rnd())));
     },
 
+    /**
+     * v3.15: quién carga monedas. Los humanoides, muertos vivientes, demonios, dragones,
+     * gigantes, arcanos y espíritus, sí; las bestias, insectos, plantas, elementales,
+     * babosas, gólems y bichos del mar, no (lo compensan con materiales que valen más).
+     * `coins: true/false` en la criatura manda sobre esto.
+     */
+    COIN_FAMILIES: ['humanoid', 'demon', 'undead', 'dragon', 'giant', 'arcane', 'spirit'],
+    carriesCoins(enemy) {
+      if (!enemy) return false;
+      if (enemy.coins === true || enemy.coins === false) return enemy.coins;
+      return (enemy.family || []).some((f) => Economy.COIN_FAMILIES.includes(f));
+    },
+
     /** Drop de monedas listo para enemy.drops. */
     coinDrop(enemy) {
       const avg = Economy.coinBase(enemy.tier) * cat(enemy.category).coin;
       const fam = enemy.family || [];
       // Bestias e insectos no cargan monedas: casi nunca sueltan, pero dejan materiales
-      const carries = fam.some((f) => ['humanoid', 'demon', 'undead', 'dragon', 'giant', 'arcane', 'spirit'].includes(f));
+      const carries = Economy.carriesCoins(enemy);
       const chance = carries ? 0.9 : 0.35;
       const perDrop = avg / chance;
       return {
@@ -590,7 +606,8 @@
      * por nivel (peleas, escenas y misiones): un arma común de tu nivel costaba el 8% de lo que
      * ganás en un nivel; ahora, un tercio. Vender sigue dando la mitad del valor (sin el recargo).
      */
-    SHOP_MARKUP: { gear: 4, potion: 2, scroll: 2.5, food: 2.5, material: 3, other: 2.5 },
+    // v3.15: equipo ×4 -> ×4,5 (con el botín nuevo, desde el nivel 7 se gana entre 20% y 40% más por nivel)
+    SHOP_MARKUP: { gear: 4.5, potion: 2, scroll: 2.5, food: 2.5, material: 3, other: 2.5 },
     shopMarkup(item) {
       const M = Economy.SHOP_MARKUP;
       if (!item) return 1;
@@ -697,6 +714,7 @@
     BOSS,
     PET_BOSS,
     WIN_HEAL,
+    NOHEAL_CUT,
     partyScale,
     partyShare,
     MAX_LEVEL,

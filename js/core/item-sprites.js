@@ -959,7 +959,40 @@
     P.ell(23, 14, 3.4, 2.6, 'a');
   }
 
+  // v3.15: yelmo, máscara y lámpara (botín de las criaturas)
+  function helm(P) {
+    P.ell(16, 14, 10, 10, 'b');
+    P.rect(6, 14, 20, 11, 'b');
+    P.rect(15, 2.5, 2, 9, 'c');
+    P.rect(8.5, 14.5, 15, 2.4, 'k');
+    P.rect(15, 16.5, 2, 6, 'k');
+    P.put(11, 15.5, 'g'); P.put(21, 15.5, 'g');
+    P.rect(6, 24.5, 20, 2.4, 'c');
+    P.line([[8, 10], [12, 6]], 0.5, 0.5, 'c');
+  }
+  function mask(P) {
+    P.ell(16, 15, 11, 11, 'b');
+    P.poly([[7, 19], [25, 19], [21, 27], [16, 29], [11, 27]], 'b');
+    P.ell(11.5, 14, 3, 2.2, 'k'); P.ell(20.5, 14, 3, 2.2, 'k');
+    P.put(11.5, 14, 'g'); P.put(20.5, 14, 'g');
+    P.line([[8, 9], [16, 7], [24, 9]], 0.6, 0.6, 'c');
+    P.line([[5, 14], [1, 12]], 0.6, 0.6, 'a'); P.line([[27, 14], [31, 12]], 0.6, 0.6, 'a');
+    P.rect(13, 23, 6, 1.2, 'k');
+  }
+  function lamp(P) {
+    P.ell(14, 21, 9, 5, 'b');
+    P.poly([[21, 19], [30, 14], [29.5, 17], [23, 23]], 'b');
+    P.line(bez([6, 19], [1, 19], [1, 25], [6, 24], 6), 0.7, 0.7, 'b');
+    P.ell(14, 16.5, 4, 1.8, 'c');
+    P.rect(13, 13, 2, 3, 'b');
+    P.rect(10, 25, 8, 2.5, 'b');
+    P.line([[8, 20], [20, 20]], 0.4, 0.4, 'c');
+    P.poly([[30, 13], [28.5, 8], [30.5, 4], [32, 9]], 'g');
+    P.dot(30.3, 10, 1, 'f');
+  }
+
   const SHAPES = {
+    helm, mask, lamp,
     sword, axe, halberd, club, mace, hammer, staff, wand, scepter, bow, crossbow, spear, armor,
     potion, meat, bread, cheese, berries, cactus, goo, scroll, coins, oldCoin, key, bag, lantern, rope,
     amulet, ingot, rock, gem, crystal, feather, bone, fang, claw, horn, stinger, scale, pearl, pelt,
@@ -1088,6 +1121,22 @@
     if (/^bit[aá]cora/.test(t)) return { shape: 'book', p: { b: '#4a2a1a', c: '#d8c8a0', a: '#8a6a3a', g: '#ff7020' } };
     if (/^tomo de antorcha/.test(t)) return { shape: 'book', p: { b: '#3a2a4a', c: '#e0d4b0', a: '#c89a30', g: '#ff9a30' } };
     if (/^sello de/.test(t)) return { shape: 'oldCoin', p: { b: '#5a5a62', c: '#a8a8b0' } };
+
+    // v3.15: botín de las criaturas (palabras nuevas)
+    if (/corona/.test(t)) return { shape: 'ui:crown', p: {} };
+    if (/(^|\s)mapa/.test(t)) return { shape: 'ui:map', p: {} };
+    if (/yelmo|casco/.test(t)) return { shape: 'helm', p: { b: '#6a6e78', c: '#a8aeb8', k: '#121218', g: '#ff3030' } };
+    if (/m[aá]scara/.test(t)) return { shape: 'mask', p: { b: '#e8e0d0', c: '#ffffff', k: '#1a1a1a', a: '#8a5a30', g: '#1a1a1a' } };
+    if (/l[aá]mpara/.test(t)) return { shape: 'lamp', p: { b: '#d0a030', c: '#ffe080', g: '#ff9a30', f: '#fff6c0' } };
+    if (/[oó]bolo/.test(t)) return { shape: 'oldCoin', p: { b: '#8a8a7a', c: '#c8c8b0' } };
+    if (/filacteria/.test(t)) return { shape: 'urn', p: { b: '#2a3a2a', c: '#6a8a6a', g: '#60ff90' } };
+    if (/(^|\s)halo/.test(t)) return { shape: 'ring', p: { a: '#f0c840', c: '#fff8c0', g: '#ffffff', hl: '#ffffff' } };
+    if (/pinza/.test(t)) return { shape: 'claw', p: { b: '#c83a2a', c: '#f08a6a' } };
+    if (/garfio/.test(t)) return { shape: 'claw', p: { b: '#8a929c', c: '#3a2a1a' } };
+    if (/apuntes|libreta/.test(t)) return { shape: 'book', p: { b: '#4a3a6a', c: '#e8dcc0', a: '#c09a40' } };
+    if (/trofeo/.test(t)) return { shape: 'ui:trophy', p: {} };
+    if (/melena|(^|\s)crin/.test(t)) return { shape: 'bodyPart', p: { b: '#c08a3a', c: '#e0b060', wd: '#6a4a2a' }, o: { kind: 'tuft' } };
+    if (/gelatina/.test(t)) return { shape: 'goo', p: { b: '#60c060', c: '#a0f090', hl: '#ffffff' }, o: { cube: true } };
 
     // monedas y llaves
     if (sub === 'coin' || /^moneda de/.test(t)) {
@@ -1267,7 +1316,7 @@
     if (/oreja/.test(t)) return { shape: 'bodyPart', p: /goblin/.test(t) ? { b: '#6a9a3a', c: '#8aba5a' } : { b: '#6a4a6a', c: '#a07a9a' }, o: { kind: 'ear' } };
     if (/nariz/.test(t)) return { shape: 'bodyPart', p: { b: '#6a9a3a', c: '#8aba5a' }, o: { kind: 'nose' } };
     if (/cola/.test(t)) return { shape: 'bodyPart', p: /diablillo/.test(t) ? { b: '#c03a2a', a: '#f0d080' } : { b: '#e0a0a0' }, o: { kind: 'tail', spade: /diablillo/.test(t) } };
-    if (/pelo|melena/.test(t)) return { shape: 'bodyPart', p: /quimera/.test(t) ? { b: '#c08a3a', c: '#e0b060', wd: '#6a4a2a' } : { b: '#7d6d5c', c: '#a89580', wd: '#5a4a3a' }, o: { kind: 'tuft' } };
+    if (/pelo|melena|crin/.test(t)) return { shape: 'bodyPart', p: /quimera/.test(t) ? { b: '#c08a3a', c: '#e0b060', wd: '#6a4a2a' } : { b: '#7d6d5c', c: '#a89580', wd: '#5a4a3a' }, o: { kind: 'tuft' } };
     if (/pata de/.test(t)) return { shape: 'bodyPart', p: { b: '#30242f', c: '#b03050' }, o: { kind: 'leg' } };
     if (/(^|\s)ojo/.test(t)) {
       const col = /zombi/.test(t) ? '#a0a040' : /basilisco/.test(t) ? '#40c040' : '#8a50e0';
@@ -1327,7 +1376,9 @@
     else if (item.type === 'armor' || item.defense != null) sh = armorShape(item, t);
     else if (item.slots != null && !item.subtype) sh = itemShape({ ...item, subtype: 'bag' }, t);
     else sh = itemShape(item, t);
-    return { shape: sh.shape, p: sh.p || {}, o: sh.o || {} };
+    // v3.15: cada objeto puede traer sus propios colores (tint)
+    const p = item.tint ? { ...(sh.p || {}), ...item.tint } : (sh.p || {});
+    return { shape: sh.shape, p, o: sh.o || {} };
   }
 
   // ============================================================
@@ -1352,8 +1403,13 @@
     const it = resolveItem(itemOrId);
     if (!it) return '';
     const sh = shapeOf(it);
-    const draw = SHAPES[sh.shape] || SHAPES.rock;
     const key = JSON.stringify(sh);
+    // v3.15: algunos objetos usan un dibujo de la interfaz (corona, mapa, trofeo)
+    if (/^ui:/.test(sh.shape) && ICONS[sh.shape.slice(3)]) {
+      const def = ICONS[sh.shape.slice(3)];
+      return renderCustom(key, def.d, { ...def.p, ...sh.p });
+    }
+    const draw = SHAPES[sh.shape] || SHAPES.rock;
     return renderCustom(key, (P) => draw(P, sh.o), { b: '#8a7a68', ...sh.p });
   }
 

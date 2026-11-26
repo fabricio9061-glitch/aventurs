@@ -8,7 +8,7 @@
    v3.14: es la única magia que hay: los sabios ya no enseñan hechizos comunes y los
    pergaminos no se aprenden. Lo que ya habías aprendido se quita y se devuelve
    (migrateMagic, una sola vez por personaje).
-   Los datos están en js/data/seed-v313.js (escuelas, hechizos, maestros y
+   Los datos están en js/data/seed-escuelas.js (escuelas), seed-spells/npcs (hechizos, maestros y
    pruebas) y en js/systems/techniques.js (las técnicas de los guerreros).
    Lo que hacen en la pelea lo resuelve js/systems/combat.js.
 

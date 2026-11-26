@@ -569,6 +569,11 @@
 
     healHp(amount) {
       if (!State.player) return;
+      // v3.15: la herida maldita (y la maldición de sangre) corta la curación a la mitad mientras dura la pelea
+      if (amount > 0 && State.combat && !State.combat.result && (State.player.effects || []).some((e) => e.type === 'noheal')) {
+        const cut = (A.Balance && A.Balance.NOHEAL_CUT) || 0.5;
+        amount = Math.max(1, Math.round(amount * (1 - cut)));
+      }
       State.setHp(State.player.hp + amount);
     },
 

@@ -1,161 +1,152 @@
 /* ============================================================
-   Aventurs — Seed: Armas (v1.8.0)
-   Daño y precio salen de js/core/balance.js según tier y rareza:
-     - dagas: un poco menos de daño, pero sangrado
-     - armas de mago (magic: true): bastones, varitas, cetros, orbes y tomos.
-       v3.4: solo las usan los magos (y los magos, solo esas); les suman poder
-       a los hechizos. Las legendarias como Excalibur o Mjölnir son comunes.
-     - armas pesadas (peso 5+): más daño, te hacen más lento
+   Aventurs — Armas
+   v3.15.1: todos los cambios de las versiones (los "parches" seed-v39 a
+   seed-v315) ya están aplicados acá. La historia está en CHANGELOG.md.
    ============================================================ */
 
 (function (A) {
   'use strict';
-
-  const WEAPONS = [
-    // ---------- v3.3: las armas con las que nace cada raza ----------
-    // Todas valen lo mismo que la vieja daga del principio (1d4, livianas): cambian
-    // la forma y un detalle (sangran o son más certeras). v3.5: cada raza de mago, con
-    // su arma de mago (solo para magos): 1d4, +2 de maná y +1 de poder mágico, como la varita.
-    { id:'espada_recluta', name:'Espada de recluta', type:'weapon', icon:'', damage:'1d4', value:20, rarity:'common', tier:1, weight:1, magic:false, starter:'humano', statusEffect:{type:'bleed',chance:0.2,turns:3,value:1},
-      description:'La espada que reparten en el cuartel del pueblo. Corta poco, pero corta. Arma de los humanos.' },
-    { id:'arco_rama', name:'Arco de rama', type:'weapon', icon:'', damage:'1d4', value:20, rarity:'common', tier:1, weight:1, precision:1, magic:false, starter:'elfo',
-      description:'Una rama de fresno curvada a mano: liviano y certero (+1 de precisión). Arma de los elfos.' },
-    { id:'cuchillo_caza', name:'Cuchillo de caza', type:'weapon', icon:'', damage:'1d4', value:20, rarity:'common', tier:1, weight:1, magic:false, starter:'mediano', statusEffect:{type:'bleed',chance:0.2,turns:3,value:1},
-      description:'Sirve para pelar papas y para pelear, en ese orden. Arma de los medianos.' },
-    { id:'hacha_escamas', name:'Hacha de escamas', type:'weapon', icon:'', damage:'1d4', value:20, rarity:'common', tier:1, weight:1, magic:false, starter:'draconido', statusEffect:{type:'bleed',chance:0.2,turns:3,value:1},
-      description:'Una hojita de escamas viejas atada a un mango. Arma de los dracónidos.' },
-    { id:'punal_sangre', name:'Puñal de sangre', type:'weapon', icon:'', damage:'1d4', value:20, rarity:'common', tier:1, weight:1, magic:false, starter:'vampiro', statusEffect:{type:'bleed',chance:0.2,turns:3,value:1},
-      description:'Hoja fina con un canal para que corra la sangre. Arma de los vampiros.' },
-    { id:'martillo_minero', name:'Martillo de minero', type:'weapon', icon:'', damage:'1d4', value:20, rarity:'common', tier:1, weight:1, precision:1, magic:false, starter:'enano',
-      description:'El de picar piedra en las minas: firme y certero (+1 de precisión). Arma de los enanos.' },
-    { id:'garrote_hueso', name:'Garrote de hueso', type:'weapon', icon:'', damage:'1d4', value:20, rarity:'common', tier:1, weight:1, magic:false, starter:'orco', statusEffect:{type:'bleed',chance:0.2,turns:3,value:1},
-      description:'Un fémur grande con astillas. Feo y efectivo. Arma de los orcos.' },
-    { id:'maza_engranajes', name:'Maza de engranajes', type:'weapon', icon:'', damage:'1d4', value:20, rarity:'common', tier:1, weight:1, precision:1, magic:false, starter:'robot',
-      description:'Un engranaje en la punta de una barra: calculada para no fallar (+1 de precisión). Arma de los robots.' },
-    { id:'porra_piedra', name:'Porra de piedra', type:'weapon', icon:'', damage:'1d4', value:20, rarity:'common', tier:1, weight:1, precision:1, magic:false, starter:'goliat',
-      description:'Una piedra de río con forma de puño. En la mano de un goliat, es certera (+1 de precisión). Arma de los goliats.' },
-    { id:'colmillo_lobo', name:'Colmillo de lobo', type:'weapon', icon:'', damage:'1d4', value:20, rarity:'common', tier:1, weight:1, magic:false, starter:'licantropo', statusEffect:{type:'bleed',chance:0.2,turns:3,value:1},
-      description:'Un colmillo enorme con un mango de cuero. Arma de los licántropos.' },
-    { id:'punal_obsidiana', name:'Puñal de obsidiana', type:'weapon', icon:'', damage:'1d4', value:20, rarity:'common', tier:1, weight:1, magic:false, starter:'elfo_oscuro', statusEffect:{type:'poison',chance:0.2,turns:3,value:1},
-      description:'Vidrio negro de las cuevas, afilado como una navaja y untado en veneno. Arma de los elfos oscuros.' },
-    { id:'varita_engranajes', name:'Varita de engranajes', type:'weapon', icon:'', damage:'1d4', value:36, rarity:'common', tier:1, weight:0, magic:true, mana:2, starter:'gnomo',
-      description:'Una varita de bronce con engranajes que giran solos cuando junta maná: potencia tus hechizos y da maná (+2). Arma de mago de los gnomos.' },
-    { id:'cetro_plasma', name:'Cetro de plasma', type:'weapon', icon:'', damage:'1d4', value:36, rarity:'common', tier:1, weight:0, magic:true, mana:2, starter:'alienigena',
-      description:'Un tubo de metal que no es de este mundo, con una bola de luz verde en la punta: potencia tus hechizos y da maná (+2). Arma de mago de los alienígenas.' },
-    { id:'baston_ascuas', name:'Bastón de ascuas', type:'weapon', icon:'', damage:'1d4', value:36, rarity:'common', tier:1, weight:0, magic:true, mana:2, starter:'infernal',
-      description:'Madera negra que nunca termina de apagarse: potencia tus hechizos y da maná (+2). Arma de mago de los infernales.' },
-    { id:'baculo_luz', name:'Báculo de luz', type:'weapon', icon:'', damage:'1d4', value:36, rarity:'common', tier:1, weight:0, magic:true, mana:2, starter:'angel',
-      description:'Un báculo blanco con una estrella pequeña en la punta: potencia tus hechizos y da maná (+2). Arma de mago de los ángeles.' },
-    { id:'varita_hada', name:'Varita de hada', type:'weapon', icon:'', damage:'1d4', value:36, rarity:'common', tier:1, weight:0, magic:true, mana:2, starter:'hada',
-      description:'Un tallo de flor que suelta polvo brillante al moverlo: potencia tus hechizos y da maná (+2). Arma de mago de las hadas.' },
-    { id:'vara_sauce', name:'Vara de sauce', type:'weapon', icon:'', damage:'1d4', value:36, rarity:'common', tier:1, weight:0, magic:true, mana:2, starter:'driade',
-      description:'Una rama viva que todavía echa hojas: potencia tus hechizos y da maná (+2). Arma de mago de las dríades.' },
-    { id:'hacha_cuerno', name:'Hacha de cuerno', type:'weapon', icon:'', damage:'1d4', value:20, rarity:'common', tier:1, weight:1, magic:false, starter:'minotauro', statusEffect:{type:'bleed',chance:0.2,turns:3,value:1},
-      description:'Un cuerno viejo afilado y montado en un palo. Arma de los minotauros.' },
-
-    { id:'garrote', name:'Garrote', type:'weapon', icon:'🏏', damage:'1d6', value:10, rarity:'common', tier:1, weight:2, magic:false,
-      description:'Madera nudosa con manija. Lo más simple que se llama arma: barato, pesado y pega más que una daga.' },
-
-    { id:'daga', name:'Daga', type:'weapon', icon:'🗡️', damage:'1d4', value:25, rarity:'common', tier:1, weight:1, statusEffect:{type:'bleed',chance:0.2,turns:3,value:1}, magic:false,
-      description:'Hoja corta y ligera. Buena para empezar.' },
-
-    { id:'espada_corta', name:'Espada corta', type:'weapon', icon:'⚔️', damage:'1d6', value:25, rarity:'common', tier:1, weight:2, precision:1, magic:false,
-      description:'Una hoja confiable y bien equilibrada: pega más que la daga y es más certera (+1 de precisión), pero pesa el doble.' },
-
-    { id:'baston', name:'Bastón', type:'weapon', icon:'🪄', damage:'1d4', value:25, rarity:'common', tier:1, weight:1, magic:true,
-      description:'Madera tallada con runas. Quien lo empuña siente el zumbido del maná.' },
-
-    { id:'hacha_de_mano', name:'Hacha de mano', type:'weapon', icon:'🪓', damage:'1d6+1', value:36, rarity:'common', tier:2, weight:2, statusEffect:{type:'bleed',chance:0.15,turns:3,value:1}, magic:false,
-      description:'Pesada pero efectiva. Astilla escudos con un golpe firme y deja heridas que sangran.' },
-
-    { id:'arco_corto', name:'Arco corto', type:'weapon', icon:'🏹', damage:'1d6+1', value:36, rarity:'common', tier:2, weight:2, precision:1, magic:false,
-      description:'Ligero, certero, silencioso: +1 de precisión. La distancia es su mejor escudo.' },
-
-    { id:'varita', name:'Varita', type:'weapon', icon:'🪄', damage:'1d4', value:36, rarity:'common', tier:2, weight:0, magic:true, mana:2,
-      description:'Madera tallada con runas. Potencia tus hechizos y da +2 de maná máximo, pero pega flojo si te quedás sin.' },
-
-    { id:'lanza', name:'Lanza', type:'weapon', icon:'🔱', damage:'1d6+1', value:53, rarity:'common', tier:3, weight:3, precision:1, magic:false,
-      description:'Asta larga con punta de hierro. Mantiene al enemigo a raya: +1 de precisión. Pega menos que la maza, pero erra menos.' },
-
-    { id:'maza', name:'Maza', type:'weapon', icon:'🔨', damage:'1d8+1', value:68, rarity:'uncommon', tier:3, weight:3, magic:false,
-      description:'Cabeza de hierro macizo. No corta, aplasta.' },
-
-    { id:'daga_obsidiana', name:'Daga de obsidiana', type:'weapon', icon:'🗡️', damage:'1d6+1', value:68, rarity:'uncommon', tier:3, weight:1, statusEffect:{type:'bleed',chance:0.3,turns:3,value:1}, magic:false,
-      description:'Filo de vidrio volcánico, más cortante que el acero pero frágil. Hace sangrar feo.' },
-
-    { id:'espada_larga', name:'Espada larga', type:'weapon', icon:'⚔️', damage:'2d4+1', value:99, rarity:'uncommon', tier:4, weight:3, precision:1, magic:false,
-      description:'Más peso, más alcance, más daño, y una hoja que va donde la mandás (+1 de precisión).' },
-
-    { id:'cetro_arcano', name:'Cetro arcano', type:'weapon', icon:'🪄', damage:'1d8+1', value:99, rarity:'uncommon', tier:4, weight:1, magic:true,
-      description:'Una piedra azul late en el extremo. Alimenta hechizos con cada golpe.' },
-
-    { id:'ballesta', name:'Ballesta', type:'weapon', icon:'🏹', damage:'2d4+2', value:99, rarity:'uncommon', tier:4, weight:4, magic:false,
-      description:'Arco mecánico que pega más fuerte que un arco común. Pesada y lenta de recargar.' },
-
-    { id:'lanza_hueso', name:'Lanza de hueso antiguo', type:'weapon', icon:'🔱', damage:'2d4+1', value:99, rarity:'uncommon', tier:4, weight:2, magic:false,
-      description:'Asta tallada de un hueso que no se rompe. Liviana y temida.' },
-
-    { id:'mandoble', name:'Mandoble', type:'weapon', icon:'🗡️', damage:'2d8', value:188, rarity:'rare', tier:5, weight:5, slots:2, magic:false,
-      description:'Espada a dos manos. Tremenda. Lenta. Devastadora.' },
-
-    { id:'katana', name:'Katana', type:'weapon', icon:'⚔️', damage:'2d6', value:188, rarity:'rare', tier:5, weight:2, magic:false, statusEffect:{type:'bleed',chance:0.3,turns:3,value:2},
-      description:'Hoja curva forjada en cien capas. Corta lo que mira, sangra lo que toca.' },
-
-    { id:'alabarda', name:'Alabarda', type:'weapon', icon:'🪓', damage:'2d8', value:188, rarity:'rare', tier:5, weight:5, slots:2, precision:1, magic:false,
-      description:'Hacha y lanza juntas en un asta larga. Para mantener distancia (+1 de precisión) y abrir cráneos.' },
-
-    { id:'baston_de_fuego', name:'Bastón de fuego', type:'weapon', icon:'🔥', damage:'2d4+1', value:188, rarity:'rare', tier:5, weight:2, magic:true, statusEffect:{type:'fire',chance:0.4,turns:4,value:2},
-      description:'La punta arde sin consumirse. Cada golpe deja brasas en la herida.' },
-
-    { id:'baston_de_hielo', name:'Bastón de hielo', type:'weapon', icon:'❄️', damage:'2d4+1', value:188, rarity:'rare', tier:5, weight:2, magic:true, statusEffect:{type:'cold',chance:0.4,turns:4,value:3},
-      description:'Cristal helado en el extremo. Quien lo toca queda lento por minutos.' },
-
-    { id:'arco_pluma', name:'Arco de pluma extraña', type:'weapon', icon:'🏹', damage:'2d6+1', value:188, rarity:'rare', tier:5, weight:1, magic:false,
-      description:'Empuñadura adornada con plumas que no son de este mundo. Dispara más lejos.' },
-
-    { id:'hacha_de_guerra', name:'Hacha de guerra', type:'weapon', icon:'🪓', damage:'2d8+1', value:272, rarity:'rare', tier:6, weight:5, slots:2, magic:false,
-      description:'Forjada para reyes y para enemigos de reyes.' },
-
-    { id:'baston_arcano', name:'Bastón arcano', type:'weapon', icon:'🪄', damage:'2d6', value:272, rarity:'rare', tier:6, weight:2, statusEffect:{type:'fire',chance:0.2,turns:3,value:2}, magic:true,
-      description:'Madera de fresno teñida en sangre de dragón. Dobla el poder de los hechizos.' },
-
-    { id:'martillo_de_guerra', name:'Martillo de guerra', type:'weapon', icon:'🔨', damage:'2d8+1', value:272, rarity:'rare', tier:6, weight:6, slots:2, magic:false, statusEffect:{type:'shock',chance:0.2,turns:2,value:1},
-      description:'Cabeza de hierro forjada para romper armaduras. Lo que toca, abolla, y a veces lo deja aturdido.' },
-
-    { id:'cetro_igneo', name:'Cetro ígneo', type:'weapon', icon:'📜', damage:'2d6', value:272, rarity:'rare', tier:6, weight:2, magic:true, statusEffect:{type:'fire',chance:0.35,turns:3,value:2},
-      description:'Una gema ígnea engarzada en cuarzo. Quema al que toca su luz.' },
-
-    { id:'espada_runica', name:'Espada rúnica', type:'weapon', icon:'🗡️', tier:7, rarity:'rare', weight:3, magic:false, damage:'2d8+1', value:395, precision:1,
-      description:'Runas de filo grabadas a fuego: +1 de precisión. Corta cotas como si fueran tela.' },
-
-    { id:'baston_runico', name:'Bastón rúnico', type:'weapon', icon:'🪄', tier:7, rarity:'rare', weight:2, magic:true, damage:'2d8', value:395,
-      description:'Madera petrificada que guarda el eco de cada hechizo lanzado con ella.' },
-
-    { id:'hacha_runica', name:'Hacha rúnica', type:'weapon', icon:'🪓', tier:8, rarity:'rare', weight:5, magic:false, damage:'3d6+2', value:573,
-      description:'Dos hojas que zumban al girar. Pesa, pero lo que toca no se levanta.' },
-
-    { id:'matamuertos', name:'Matamuertos', type:'weapon', icon:'⚔️', damage:'3d6', value:842, rarity:'epic', tier:8, weight:4, slots:2, magic:false,
-      description:'Una espada que hiere a los muertos como a los vivos. Brilla cerca de las tumbas.' },
-
-    { id:'arco_elfico', name:'Arco élfico', type:'weapon', icon:'🏹', tier:9, rarity:'epic', weight:2, magic:false, statusEffect:{type:'bleed',chance:0.25,turns:3,value:3}, damage:'3d6+2', value:1221,
-      description:'Cuerda de crin de unicornio. Las flechas encuentran solas los huecos de la armadura.' },
-
-    { id:'cetro_abisal', name:'Cetro abisal', type:'weapon', icon:'🔱', tier:9, rarity:'epic', weight:2, magic:true, statusEffect:{type:'cold',chance:0.3,turns:2,value:1}, damage:'3d6+1', value:1221,
-      description:'Coral negro del fondo del mar. Hiela la sangre de quien lo enfrenta.' },
-
-    { id:'colmillo_de_dragon', name:'Colmillo de dragón', type:'weapon', icon:'🦷', damage:'3d8+1', value:2833, rarity:'legendary', tier:10, weight:3, magic:false,
-      description:'Tallado del diente de un dragón ancestral. La carne que toca arde.' },
-
-    { id:'excalibur', name:'Excalibur', type:'weapon', icon:'🗡️', damage:'3d8', value:2833, rarity:'legendary', tier:10, weight:3, magic:false, statusEffect:{type:'shock',chance:0.3,turns:3,value:4},
-      description:'Hoja de luz pura, forjada en el lago. Solo el digno puede empuñarla. Brilla más cuando hay justicia que defender.' },
-
-    { id:'mjolnir', name:'Mjölnir', type:'weapon', icon:'🔨', damage:'3d8+2', value:2833, rarity:'legendary', tier:10, weight:8, slots:2, magic:false, statusEffect:{type:'shock',chance:0.5,turns:4,value:5},
-      description:'Martillo del dios del trueno. Pesa lo que pesa la fe del que lo levanta. Suelta rayos al impactar.' },
-    // ---------- v2.1 ----------
-    {"id": "sable_pirata", "name": "Espada curva pirata", "type": "weapon", "icon": "", "damage": "2d4+1", "value": 99, "rarity": "uncommon", "tier": 4, "weight": 2, "magic": false, "statusEffect": {"type": "bleed", "chance": 0.15, "turns": 3, "value": 1}, "description": "Hoja curva y corta, hecha para pelear en la cubierta de un barco."},
-    {"id": "martillo_enano", "name": "Martillo enano", "type": "weapon", "icon": "", "damage": "1d8+1", "value": 68, "rarity": "uncommon", "tier": 3, "weight": 4, "magic": false, "description": "Forjado en Piedrahonda. Pesado y honesto: lo que golpea, no se levanta rápido."},
-  ];
-
   A.Seed = A.Seed || {};
-  A.Seed.weapons = WEAPONS;
+  A.Seed.weapons = [
+    { id: 'espada_recluta', name: 'Espada de recluta', type: 'weapon', icon: '', damage: '1d4', value: 20, rarity: 'common', tier: 1, weight: 1, magic: false, starter: 'humano', statusEffect: { type: 'bleed', chance: 0.2, turns: 3, value: 1 }, description: 'La espada que reparten en el cuartel del pueblo. Corta poco, pero corta. Arma de los humanos.' },
+    { id: 'arco_rama', name: 'Arco de rama', type: 'weapon', icon: '', damage: '1d4', value: 20, rarity: 'common', tier: 1, weight: 1, precision: 1, magic: false, starter: 'elfo', description: 'Una rama de fresno curvada a mano: liviano y certero (+1 de precisión). Arma de los elfos.' },
+    { id: 'cuchillo_caza', name: 'Cuchillo de caza', type: 'weapon', icon: '', damage: '1d4', value: 20, rarity: 'common', tier: 1, weight: 1, magic: false, starter: 'mediano', statusEffect: { type: 'bleed', chance: 0.2, turns: 3, value: 1 }, description: 'Sirve para pelar papas y para pelear, en ese orden. Arma de los medianos.' },
+    { id: 'hacha_escamas', name: 'Hacha de escamas', type: 'weapon', icon: '', damage: '1d4', value: 20, rarity: 'common', tier: 1, weight: 1, magic: false, starter: 'draconido', statusEffect: { type: 'bleed', chance: 0.2, turns: 3, value: 1 }, description: 'Una hojita de escamas viejas atada a un mango. Arma de los dracónidos.' },
+    { id: 'punal_sangre', name: 'Puñal de sangre', type: 'weapon', icon: '', damage: '1d4', value: 20, rarity: 'common', tier: 1, weight: 1, magic: false, starter: 'vampiro', statusEffect: { type: 'bleed', chance: 0.2, turns: 3, value: 1 }, description: 'Hoja fina con un canal para que corra la sangre. Arma de los vampiros.' },
+    { id: 'martillo_minero', name: 'Martillo de minero', type: 'weapon', icon: '', damage: '1d4', value: 20, rarity: 'common', tier: 1, weight: 1, precision: 1, magic: false, starter: 'enano', description: 'El de picar piedra en las minas: firme y certero (+1 de precisión). Arma de los enanos.' },
+    { id: 'garrote_hueso', name: 'Garrote de hueso', type: 'weapon', icon: '', damage: '1d4', value: 20, rarity: 'common', tier: 1, weight: 1, magic: false, starter: 'orco', statusEffect: { type: 'bleed', chance: 0.2, turns: 3, value: 1 }, description: 'Un fémur grande con astillas. Feo y efectivo. Arma de los orcos.' },
+    { id: 'maza_engranajes', name: 'Maza de engranajes', type: 'weapon', icon: '', damage: '1d4', value: 20, rarity: 'common', tier: 1, weight: 1, precision: 1, magic: false, starter: 'robot', description: 'Un engranaje en la punta de una barra: calculada para no fallar (+1 de precisión). Arma de los robots.' },
+    { id: 'porra_piedra', name: 'Porra de piedra', type: 'weapon', icon: '', damage: '1d4', value: 20, rarity: 'common', tier: 1, weight: 1, precision: 1, magic: false, starter: 'goliat', description: 'Una piedra de río con forma de puño. En la mano de un goliat, es certera (+1 de precisión). Arma de los goliats.' },
+    { id: 'colmillo_lobo', name: 'Colmillo de lobo', type: 'weapon', icon: '', damage: '1d4', value: 20, rarity: 'common', tier: 1, weight: 1, magic: false, starter: 'licantropo', statusEffect: { type: 'bleed', chance: 0.2, turns: 3, value: 1 }, description: 'Un colmillo enorme con un mango de cuero. Arma de los licántropos.' },
+    { id: 'punal_obsidiana', name: 'Puñal de obsidiana', type: 'weapon', icon: '', damage: '1d4', value: 20, rarity: 'common', tier: 1, weight: 1, magic: false, starter: 'elfo_oscuro', statusEffect: { type: 'poison', chance: 0.2, turns: 3, value: 1 }, description: 'Vidrio negro de las cuevas, afilado como una navaja y untado en veneno. Arma de los elfos oscuros.' },
+    { id: 'varita_engranajes', name: 'Varita de engranajes', type: 'weapon', icon: '', damage: '1d4', value: 36, rarity: 'common', tier: 1, weight: 0, magic: true, mana: 2, starter: 'gnomo', description: 'Una varita de bronce con engranajes que giran solos cuando junta maná: potencia tus hechizos y da maná (+2). Arma de mago de los gnomos.' },
+    { id: 'cetro_plasma', name: 'Cetro de plasma', type: 'weapon', icon: '', damage: '1d4', value: 36, rarity: 'common', tier: 1, weight: 0, magic: true, mana: 2, starter: 'alienigena', description: 'Un tubo de metal que no es de este mundo, con una bola de luz verde en la punta: potencia tus hechizos y da maná (+2). Arma de mago de los alienígenas.' },
+    { id: 'baston_ascuas', name: 'Bastón de ascuas', type: 'weapon', icon: '', damage: '1d4', value: 36, rarity: 'common', tier: 1, weight: 0, magic: true, mana: 2, starter: 'infernal', description: 'Madera negra que nunca termina de apagarse: potencia tus hechizos y da maná (+2). Arma de mago de los infernales.' },
+    { id: 'baculo_luz', name: 'Báculo de luz', type: 'weapon', icon: '', damage: '1d4', value: 36, rarity: 'common', tier: 1, weight: 0, magic: true, mana: 2, starter: 'angel', description: 'Un báculo blanco con una estrella pequeña en la punta: potencia tus hechizos y da maná (+2). Arma de mago de los ángeles.' },
+    { id: 'varita_hada', name: 'Varita de hada', type: 'weapon', icon: '', damage: '1d4', value: 36, rarity: 'common', tier: 1, weight: 0, magic: true, mana: 2, starter: 'hada', description: 'Un tallo de flor que suelta polvo brillante al moverlo: potencia tus hechizos y da maná (+2). Arma de mago de las hadas.' },
+    { id: 'vara_sauce', name: 'Vara de sauce', type: 'weapon', icon: '', damage: '1d4', value: 36, rarity: 'common', tier: 1, weight: 0, magic: true, mana: 2, starter: 'driade', description: 'Una rama viva que todavía echa hojas: potencia tus hechizos y da maná (+2). Arma de mago de las dríades.' },
+    { id: 'hacha_cuerno', name: 'Hacha de cuerno', type: 'weapon', icon: '', damage: '1d4', value: 20, rarity: 'common', tier: 1, weight: 1, magic: false, starter: 'minotauro', statusEffect: { type: 'bleed', chance: 0.2, turns: 3, value: 1 }, description: 'Un cuerno viejo afilado y montado en un palo. Arma de los minotauros.' },
+    { id: 'garrote', name: 'Garrote', type: 'weapon', icon: '🏏', damage: '1d6', value: 10, rarity: 'common', tier: 1, weight: 2, magic: false, description: 'Madera nudosa con manija. Lo más simple que se llama arma: barato, pesado y pega más que una daga.' },
+    { id: 'daga', name: 'Daga', type: 'weapon', icon: '🗡️', damage: '1d4', value: 25, rarity: 'common', tier: 1, weight: 1, statusEffect: { type: 'bleed', chance: 0.2, turns: 3, value: 1 }, magic: false, description: 'Hoja corta y ligera. Buena para empezar.' },
+    { id: 'espada_corta', name: 'Espada corta', type: 'weapon', icon: '⚔️', damage: '1d6', value: 25, rarity: 'common', tier: 1, weight: 2, precision: 1, magic: false, description: 'Una hoja confiable y bien equilibrada: pega más que la daga y es más certera (+1 de precisión), pero pesa el doble.' },
+    { id: 'baston', name: 'Bastón', type: 'weapon', icon: '🪄', damage: '1d4', value: 25, rarity: 'common', tier: 1, weight: 1, magic: true, description: 'Madera tallada con runas. Quien lo empuña siente el zumbido del maná.' },
+    { id: 'hacha_de_mano', name: 'Hacha de mano', type: 'weapon', icon: '🪓', damage: '1d6+1', value: 36, rarity: 'common', tier: 2, weight: 2, statusEffect: { type: 'bleed', chance: 0.15, turns: 3, value: 1 }, magic: false, description: 'Pesada pero efectiva. Astilla escudos con un golpe firme y deja heridas que sangran.' },
+    { id: 'arco_corto', name: 'Arco corto', type: 'weapon', icon: '🏹', damage: '1d6+1', value: 36, rarity: 'common', tier: 2, weight: 2, precision: 1, magic: false, description: 'Ligero, certero, silencioso: +1 de precisión. La distancia es su mejor escudo.' },
+    { id: 'varita', name: 'Varita', type: 'weapon', icon: '🪄', damage: '1d4', value: 36, rarity: 'common', tier: 2, weight: 0, magic: true, mana: 2, description: 'Madera tallada con runas. Potencia tus hechizos y da +2 de maná máximo, pero pega flojo si te quedás sin.' },
+    { id: 'lanza', name: 'Lanza', type: 'weapon', icon: '🔱', damage: '1d6+1', value: 53, rarity: 'common', tier: 3, weight: 3, precision: 1, magic: false, description: 'Asta larga con punta de hierro. Mantiene al enemigo a raya: +1 de precisión. Pega menos que la maza, pero erra menos.' },
+    { id: 'maza', name: 'Maza', type: 'weapon', icon: '🔨', damage: '1d8+1', value: 68, rarity: 'uncommon', tier: 3, weight: 3, magic: false, description: 'Cabeza de hierro macizo. No corta, aplasta.' },
+    { id: 'daga_obsidiana', name: 'Daga de obsidiana', type: 'weapon', icon: '🗡️', damage: '1d6+1', value: 68, rarity: 'uncommon', tier: 3, weight: 1, statusEffect: { type: 'bleed', chance: 0.3, turns: 3, value: 1 }, magic: false, description: 'Filo de vidrio volcánico, más cortante que el acero pero frágil. Hace sangrar feo.' },
+    { id: 'espada_larga', name: 'Espada larga', type: 'weapon', icon: '⚔️', damage: '2d4+1', value: 99, rarity: 'uncommon', tier: 4, weight: 3, precision: 1, magic: false, description: 'Más peso, más alcance, más daño, y una hoja que va donde la mandás (+1 de precisión).' },
+    { id: 'cetro_arcano', name: 'Cetro arcano', type: 'weapon', icon: '🪄', damage: '1d8+1', value: 99, rarity: 'uncommon', tier: 4, weight: 1, magic: true, description: 'Una piedra azul late en el extremo. Alimenta hechizos con cada golpe.' },
+    { id: 'ballesta', name: 'Ballesta', type: 'weapon', icon: '🏹', damage: '2d4+2', value: 99, rarity: 'uncommon', tier: 4, weight: 4, magic: false, description: 'Arco mecánico que pega más fuerte que un arco común. Pesada y lenta de recargar.' },
+    { id: 'lanza_hueso', name: 'Lanza de hueso antiguo', type: 'weapon', icon: '🔱', damage: '2d4+1', value: 99, rarity: 'uncommon', tier: 4, weight: 2, magic: false, description: 'Asta tallada de un hueso que no se rompe. Liviana y temida.' },
+    { id: 'mandoble', name: 'Mandoble', type: 'weapon', icon: '🗡️', damage: '2d8', value: 188, rarity: 'rare', tier: 5, weight: 5, slots: 2, magic: false, description: 'Espada a dos manos. Tremenda. Lenta. Devastadora.' },
+    { id: 'katana', name: 'Katana', type: 'weapon', icon: '⚔️', damage: '2d6', value: 188, rarity: 'rare', tier: 5, weight: 2, magic: false, statusEffect: { type: 'bleed', chance: 0.3, turns: 3, value: 2 }, description: 'Hoja curva forjada en cien capas. Corta lo que mira, sangra lo que toca.' },
+    { id: 'alabarda', name: 'Alabarda', type: 'weapon', icon: '🪓', damage: '2d8', value: 188, rarity: 'rare', tier: 5, weight: 5, slots: 2, precision: 1, magic: false, description: 'Hacha y lanza juntas en un asta larga. Para mantener distancia (+1 de precisión) y abrir cráneos.' },
+    { id: 'baston_de_fuego', name: 'Bastón de fuego', type: 'weapon', icon: '🔥', damage: '2d4+1', value: 188, rarity: 'rare', tier: 5, weight: 2, magic: true, statusEffect: { type: 'fire', chance: 0.4, turns: 4, value: 2 }, description: 'La punta arde sin consumirse. Cada golpe deja brasas en la herida.' },
+    { id: 'baston_de_hielo', name: 'Bastón de hielo', type: 'weapon', icon: '❄️', damage: '2d4+1', value: 188, rarity: 'rare', tier: 5, weight: 2, magic: true, statusEffect: { type: 'cold', chance: 0.4, turns: 4, value: 3 }, description: 'Cristal helado en el extremo. Quien lo toca queda lento por minutos.' },
+    { id: 'arco_pluma', name: 'Arco de pluma extraña', type: 'weapon', icon: '🏹', damage: '2d6+1', value: 188, rarity: 'rare', tier: 5, weight: 1, magic: false, description: 'Empuñadura adornada con plumas que no son de este mundo. Dispara más lejos.' },
+    { id: 'hacha_de_guerra', name: 'Hacha de guerra', type: 'weapon', icon: '🪓', damage: '2d8+1', value: 272, rarity: 'rare', tier: 6, weight: 5, slots: 2, magic: false, description: 'Forjada para reyes y para enemigos de reyes.' },
+    { id: 'baston_arcano', name: 'Bastón arcano', type: 'weapon', icon: '🪄', damage: '2d6', value: 272, rarity: 'rare', tier: 6, weight: 2, statusEffect: { type: 'fire', chance: 0.2, turns: 3, value: 2 }, magic: true, description: 'Madera de fresno teñida en sangre de dragón. Dobla el poder de los hechizos.' },
+    { id: 'martillo_de_guerra', name: 'Martillo de guerra', type: 'weapon', icon: '🔨', damage: '2d8+1', value: 272, rarity: 'rare', tier: 6, weight: 6, slots: 2, magic: false, statusEffect: { type: 'shock', chance: 0.2, turns: 2, value: 1 }, description: 'Cabeza de hierro forjada para romper armaduras. Lo que toca, abolla, y a veces lo deja aturdido.' },
+    { id: 'cetro_igneo', name: 'Cetro ígneo', type: 'weapon', icon: '📜', damage: '2d6', value: 272, rarity: 'rare', tier: 6, weight: 2, magic: true, statusEffect: { type: 'fire', chance: 0.35, turns: 3, value: 2 }, description: 'Una gema ígnea engarzada en cuarzo. Quema al que toca su luz.' },
+    { id: 'espada_runica', name: 'Espada rúnica', type: 'weapon', icon: '🗡️', tier: 7, rarity: 'rare', weight: 3, magic: false, damage: '2d8+1', value: 395, precision: 1, description: 'Runas de filo grabadas a fuego: +1 de precisión. Corta cotas como si fueran tela.' },
+    { id: 'baston_runico', name: 'Bastón rúnico', type: 'weapon', icon: '🪄', tier: 7, rarity: 'rare', weight: 2, magic: true, damage: '2d8', value: 395, description: 'Madera petrificada que guarda el eco de cada hechizo lanzado con ella.' },
+    { id: 'hacha_runica', name: 'Hacha rúnica', type: 'weapon', icon: '🪓', tier: 8, rarity: 'rare', weight: 5, magic: false, damage: '3d6+2', value: 573, description: 'Dos hojas que zumban al girar. Pesa, pero lo que toca no se levanta.' },
+    { id: 'matamuertos', name: 'Matamuertos', type: 'weapon', icon: '⚔️', damage: '3d6', value: 1078, rarity: 'epic', tier: 8, weight: 4, slots: 2, magic: false, description: 'Una espada que hiere a los muertos como a los vivos. Brilla cerca de las tumbas.' },
+    { id: 'arco_elfico', name: 'Arco élfico', type: 'weapon', icon: '🏹', tier: 9, rarity: 'epic', weight: 2, magic: false, statusEffect: { type: 'bleed', chance: 0.25, turns: 3, value: 3 }, damage: '3d6+2', value: 1563, description: 'Cuerda de crin de unicornio. Las flechas encuentran solas los huecos de la armadura.' },
+    { id: 'cetro_abisal', name: 'Cetro abisal', type: 'weapon', icon: '🔱', tier: 9, rarity: 'epic', weight: 2, magic: true, statusEffect: { type: 'cold', chance: 0.3, turns: 2, value: 1 }, damage: '3d6+1', value: 1563, description: 'Coral negro del fondo del mar. Hiela la sangre de quien lo enfrenta.' },
+    { id: 'colmillo_de_dragon', name: 'Colmillo de dragón', type: 'weapon', icon: '🦷', damage: '3d8+1', value: 3896, rarity: 'legendary', tier: 10, weight: 3, magic: false, description: 'Tallado del diente de un dragón ancestral. La carne que toca arde.' },
+    { id: 'excalibur', name: 'Excalibur', type: 'weapon', icon: '🗡️', damage: '3d8', value: 3896, rarity: 'legendary', tier: 10, weight: 3, magic: false, statusEffect: { type: 'shock', chance: 0.3, turns: 3, value: 4 }, description: 'Hoja de luz pura, forjada en el lago. Solo el digno puede empuñarla. Brilla más cuando hay justicia que defender.' },
+    { id: 'mjolnir', name: 'Mjölnir', type: 'weapon', icon: '🔨', damage: '3d8+2', value: 3896, rarity: 'legendary', tier: 10, weight: 8, slots: 2, magic: false, statusEffect: { type: 'shock', chance: 0.5, turns: 4, value: 5 }, description: 'Martillo del dios del trueno. Pesa lo que pesa la fe del que lo levanta. Suelta rayos al impactar.' },
+    { id: 'sable_pirata', name: 'Espada curva pirata', type: 'weapon', icon: '', damage: '2d4+1', value: 99, rarity: 'uncommon', tier: 4, weight: 2, magic: false, statusEffect: { type: 'bleed', chance: 0.15, turns: 3, value: 1 }, description: 'Hoja curva y corta, hecha para pelear en la cubierta de un barco.' },
+    { id: 'martillo_enano', name: 'Martillo enano', type: 'weapon', icon: '', damage: '1d8+1', value: 68, rarity: 'uncommon', tier: 3, weight: 4, magic: false, description: 'Forjado en Piedrahonda. Pesado y honesto: lo que golpea, no se levanta rápido.' },
+    { id: 'hoz', name: 'Hoz', type: 'weapon', icon: '', damage: '1d4+1', value: 25, rarity: 'common', tier: 1, weight: 1, magic: false, statusEffect: { type: 'bleed', chance: 0.15, turns: 3, value: 1 }, description: 'Herramienta de cosecha con filo curvo. Liviana como la daga y pega un poco más; a veces hace sangrar.' },
+    { id: 'latigo', name: 'Látigo', type: 'weapon', icon: '', damage: '1d4+1', value: 36, rarity: 'common', tier: 2, weight: 1, magic: false, statusEffect: { type: 'bleed', chance: 0.25, turns: 3, value: 1 }, description: 'Cuero trenzado que chasquea. No mata rápido, pero lastima.' },
+    { id: 'estoque', name: 'Estoque', type: 'weapon', icon: '', damage: '1d6+1', value: 74, rarity: 'uncommon', tier: 3, weight: 1, magic: false, precision: 1, statusEffect: { type: 'bleed', chance: 0.2, turns: 3, value: 1 }, description: 'Hoja fina y larga para estocadas certeras. +1 de precisión.' },
+    { id: 'cimitarra', name: 'Cimitarra', type: 'weapon', icon: '', damage: '1d8', value: 74, rarity: 'uncommon', tier: 3, weight: 2, magic: false, statusEffect: { type: 'bleed', chance: 0.15, turns: 3, value: 1 }, description: 'Curva como la luna del desierto. Corta al pasar.' },
+    { id: 'nunchaku', name: 'Nunchaku', type: 'weapon', icon: '', damage: '1d6+1', value: 74, rarity: 'uncommon', tier: 3, weight: 1, magic: false, statusEffect: { type: 'shock', chance: 0.12, turns: 2, value: 1 }, description: 'Dos palos y una cadena. Los golpes rápidos aturden.' },
+    { id: 'alfanje', name: 'Alfanje', type: 'weapon', icon: '', damage: '2d4+1', value: 107, rarity: 'uncommon', tier: 4, weight: 3, magic: false, statusEffect: { type: 'bleed', chance: 0.2, turns: 3, value: 2 }, description: 'Sable ancho y pesado de punta. Muerde hondo: las heridas sangran.' },
+    { id: 'lucero_del_alba', name: 'Lucero del alba', type: 'weapon', icon: '', damage: '2d4+1', value: 107, rarity: 'uncommon', tier: 4, weight: 4, magic: false, statusEffect: { type: 'shock', chance: 0.15, turns: 2, value: 1 }, description: 'Una bola con púas en la punta de un mango. Aturde al que la recibe.' },
+    { id: 'tomo_antiguo', name: 'Tomo antiguo', type: 'weapon', icon: '', damage: '1d6+1', value: 107, rarity: 'uncommon', tier: 4, weight: 2, magic: true, mana: 4, description: 'Páginas que murmuran solas. Potencia tus hechizos y da +4 de maná máximo.' },
+    { id: 'varita_runica', name: 'Varita rúnica', type: 'weapon', icon: '', damage: '1d4', value: 74, rarity: 'uncommon', tier: 3, weight: 1, magic: true, mana: 4, description: 'Runas grabadas a fuego: +1 de poder mágico extra (sus hechizos pegan como con un cetro). La venden los herreros de Piedrahonda y del Puerto.', spellBonus: 1 },
+    { id: 'baston_natura', name: 'Bastón de la naturaleza', type: 'weapon', icon: '', damage: '1d6+1', value: 107, rarity: 'uncommon', tier: 4, weight: 1, magic: true, statusEffect: { type: 'poison', chance: 0.3, turns: 3, value: 1 }, description: 'Rama viva que todavía brota. Su golpe envenena.' },
+    { id: 'mangual', name: 'Mangual', type: 'weapon', icon: '', damage: '2d6+1', value: 221, rarity: 'rare', tier: 5, weight: 4, magic: false, statusEffect: { type: 'shock', chance: 0.15, turns: 2, value: 1 }, description: 'Bola de hierro con cadena. Pasa por encima de los escudos y a veces aturde.' },
+    { id: 'pica', name: 'Pica', type: 'weapon', icon: '', damage: '2d8', value: 155, rarity: 'uncommon', tier: 5, weight: 6, magic: false, description: 'Lanza larguísima de infantería. Pega como un hacha, pero pesa una barbaridad.' },
+    { id: 'arco_largo', name: 'Arco largo', type: 'weapon', icon: '', damage: '1d10+1', value: 155, rarity: 'uncommon', tier: 5, weight: 2, magic: false, precision: 1, description: 'Alto como un hombre. +1 de precisión.' },
+    { id: 'orbe', name: 'Orbe', type: 'weapon', icon: '', damage: '1d8+1', value: 221, rarity: 'rare', tier: 5, weight: 1, magic: true, mana: 4, description: 'Esfera de cristal que flota sobre la palma. Potencia tus hechizos y da +4 de maná máximo.' },
+    { id: 'claymore', name: 'Claymore', type: 'weapon', icon: '', damage: '2d8+2', value: 320, rarity: 'rare', tier: 6, weight: 7, magic: false, description: 'Espada de dos manos de las tierras altas. Lenta y brutal.' },
+    { id: 'tridente', name: 'Tridente', type: 'weapon', icon: '', damage: '2d6+1', value: 320, rarity: 'rare', tier: 6, weight: 3, magic: false, statusEffect: { type: 'bleed', chance: 0.2, turns: 3, value: 2 }, description: 'Tres puntas de pescador de monstruos. Las heridas sangran.' },
+    { id: 'grimorio', name: 'Grimorio', type: 'weapon', icon: '', damage: '1d8+1', value: 320, rarity: 'rare', tier: 6, weight: 1, magic: true, mana: 6, description: 'Libro de tapas de cuero negro. Potencia tus hechizos y da +6 de maná máximo.' },
+    { id: 'baston_trueno', name: 'Bastón del trueno', type: 'weapon', icon: '', damage: '2d6', value: 320, rarity: 'rare', tier: 6, weight: 2, magic: true, statusEffect: { type: 'shock', chance: 0.3, turns: 2, value: 2 }, description: 'La punta chisporrotea. Cada golpe puede aturdir.' },
+    { id: 'hacha_doble', name: 'Hacha doble', type: 'weapon', icon: '', damage: '3d6+1', value: 465, rarity: 'rare', tier: 7, weight: 6, magic: false, description: 'Dos hojas, el doble de miedo. Muy pesada.' },
+    { id: 'lanza_caballero', name: 'Lanza de caballero', type: 'weapon', icon: '', damage: '2d8+2', value: 465, rarity: 'rare', tier: 7, weight: 5, magic: false, description: 'Larga y con guarda de acero. Hecha para la carga.' },
+    { id: 'guadana', name: 'Guadaña', type: 'weapon', icon: '', damage: '3d6', value: 465, rarity: 'rare', tier: 7, weight: 5, magic: false, statusEffect: { type: 'bleed', chance: 0.25, turns: 3, value: 2 }, description: 'La herramienta de la muerte, o algo parecido. Abre heridas.' },
+    { id: 'cristal_arcano', name: 'Cristal arcano', type: 'weapon', icon: '', damage: '2d6', value: 744, rarity: 'epic', tier: 7, weight: 1, magic: true, mana: 5, statusEffect: { type: 'shock', chance: 0.25, turns: 2, value: 2 }, description: 'Un cristal que zumba de maná puro. Potencia tus hechizos, da +5 de maná máximo y aturde.' },
+    { id: 'baston_oscuro', name: 'Bastón oscuro', type: 'weapon', icon: '', damage: '2d6+1', value: 744, rarity: 'epic', tier: 7, weight: 3, magic: true, statusEffect: { type: 'blind', chance: 0.25, turns: 2, value: 1 }, description: 'La sombra se pega a la madera. Ciega a quien golpea.' },
+    { id: 'espadon', name: 'Espadón', type: 'weapon', icon: '', damage: '3d8', value: 1078, rarity: 'epic', tier: 8, weight: 8, magic: false, description: 'Más alto que su dueño. El arma más pesada que se puede blandir.' },
+    { id: 'baston_sagrado', name: 'Bastón sagrado', type: 'weapon', icon: '', damage: '2d6+2', value: 1078, rarity: 'epic', tier: 8, weight: 2, magic: true, statusEffect: { type: 'fire', chance: 0.25, turns: 3, value: 2 }, description: 'Bendecido en el templo de la montaña. Quema a los impuros.' },
+    { id: 'matadragones', name: 'Matadragones', type: 'weapon', icon: '', damage: '3d8+2', value: 1563, rarity: 'epic', tier: 9, weight: 7, magic: false, description: 'Forjada para un solo trabajo, y lo hace bien. Pesadísima.' },
+    { id: 'segadora_almas', name: 'Segadora de almas', type: 'weapon', icon: '', damage: '3d6+3', value: 2687, rarity: 'legendary', tier: 9, weight: 5, magic: false, statusEffect: { type: 'bleed', chance: 0.35, turns: 3, value: 3 }, description: 'Una guadaña negra que susurra nombres. Abre heridas que no cierran.' },
+    { id: 'vengador_sagrado', name: 'Vengador sagrado', type: 'weapon', icon: '', damage: '3d8', value: 2687, rarity: 'legendary', tier: 9, weight: 4, magic: false, statusEffect: { type: 'fire', chance: 0.3, turns: 3, value: 3 }, description: 'Espada de paladín que arde contra la oscuridad.' },
+    { id: 'baston_vacio', name: 'Bastón del vacío', type: 'weapon', icon: '', damage: '3d6+1', value: 2687, rarity: 'legendary', tier: 9, weight: 3, magic: true, statusEffect: { type: 'cold', chance: 0.3, turns: 2, value: 2 }, description: 'Donde debería tener punta, hay nada. Hiela lo que toca.' },
+    { id: 'gungnir', name: 'Gungnir', type: 'weapon', icon: '', damage: '3d8+2', value: 3896, rarity: 'legendary', tier: 10, weight: 4, magic: false, precision: 2, description: 'La lanza que nunca erra. +2 de precisión.' },
+    { id: 'masamune', name: 'Masamune', type: 'weapon', icon: '', damage: '3d8+1', value: 3896, rarity: 'legendary', tier: 10, weight: 2, magic: false, statusEffect: { type: 'bleed', chance: 0.35, turns: 3, value: 3 }, description: 'La katana perfecta. Liviana como una pluma, corta como el viento.' },
+    { id: 'lamento_helado', name: 'Lamento helado', type: 'weapon', icon: '', damage: '3d8+1', value: 3896, rarity: 'legendary', tier: 10, weight: 5, magic: false, statusEffect: { type: 'cold', chance: 0.4, turns: 3, value: 3 }, description: 'Una espada rúnica que llora escarcha. Lo que toca se congela.' },
+    { type: 'weapon', icon: '', magic: false, value: 2040, alto: true, _source: 'v311', id: 'espada_oricalco', name: 'Espada de oricalco', damage: '3d8+3', weight: 3, description: 'Forjada en oricalco: más dura que el acero y casi no pesa.', tier: 12, rarity: 'rare' },
+    { type: 'weapon', icon: '', magic: false, value: 2040, alto: true, _source: 'v311', id: 'hacha_oricalco', name: 'Hacha de oricalco', damage: '3d10+2', weight: 6, description: 'Forjada en oricalco: más dura que el acero y casi no pesa.', tier: 12, rarity: 'rare' },
+    { type: 'weapon', icon: '', magic: false, value: 2040, alto: true, _source: 'v311', id: 'martillo_oricalco', name: 'Martillo de oricalco', damage: '4d8', weight: 7, description: 'Forjada en oricalco: más dura que el acero y casi no pesa.', tier: 12, rarity: 'rare' },
+    { type: 'weapon', icon: '', magic: false, value: 2040, alto: true, _source: 'v311', id: 'lanza_oricalco', name: 'Lanza de oricalco', damage: '3d8+4', weight: 5, description: 'Forjada en oricalco: más dura que el acero y casi no pesa.', tier: 12, rarity: 'rare' },
+    { type: 'weapon', icon: '', magic: false, value: 2040, alto: true, _source: 'v311', id: 'arco_oricalco', name: 'Arco de oricalco', damage: '3d8+2', weight: 2, description: 'Forjada en oricalco: más dura que el acero y casi no pesa.', tier: 12, rarity: 'rare' },
+    { type: 'weapon', icon: '', magic: false, value: 2040, alto: true, _source: 'v311', id: 'daga_oricalco', name: 'Daga de oricalco', damage: '3d6+3', weight: 1, description: 'Forjada en oricalco: más dura que el acero y casi no pesa.', tier: 12, rarity: 'rare' },
+    { type: 'weapon', icon: '', magic: true, value: 2040, alto: true, _source: 'v311', id: 'baston_oricalco', name: 'Bastón de oricalco', damage: '3d6+2', weight: 2, description: 'Forjada en oricalco: más dura que el acero y casi no pesa.', tier: 12, rarity: 'rare' },
+    { type: 'weapon', icon: '', magic: false, value: 5640, alto: true, _source: 'v311', id: 'espada_astral', name: 'Espada astral', damage: '4d8+2', weight: 3, description: 'Brilla con luz de estrellas. Corta como si el aire no existiera.', tier: 15, rarity: 'epic' },
+    { type: 'weapon', icon: '', magic: false, value: 5640, alto: true, _source: 'v311', id: 'hacha_astral', name: 'Hacha astral', damage: '4d10', weight: 6, description: 'Brilla con luz de estrellas. Corta como si el aire no existiera.', tier: 15, rarity: 'epic' },
+    { type: 'weapon', icon: '', magic: false, value: 5640, alto: true, _source: 'v311', id: 'martillo_astral', name: 'Martillo astral', damage: '5d8', weight: 7, description: 'Brilla con luz de estrellas. Corta como si el aire no existiera.', tier: 15, rarity: 'epic' },
+    { type: 'weapon', icon: '', magic: false, value: 5640, alto: true, _source: 'v311', id: 'lanza_astral', name: 'Lanza astral', damage: '4d8+3', weight: 5, description: 'Brilla con luz de estrellas. Corta como si el aire no existiera.', tier: 15, rarity: 'epic' },
+    { type: 'weapon', icon: '', magic: false, value: 5640, alto: true, _source: 'v311', id: 'arco_astral', name: 'Arco astral', damage: '4d8+1', weight: 2, description: 'Brilla con luz de estrellas. Corta como si el aire no existiera.', tier: 15, rarity: 'epic' },
+    { type: 'weapon', icon: '', magic: false, value: 5640, alto: true, _source: 'v311', id: 'daga_astral', name: 'Daga astral', damage: '4d6+3', weight: 1, description: 'Brilla con luz de estrellas. Corta como si el aire no existiera.', tier: 15, rarity: 'epic' },
+    { type: 'weapon', icon: '', magic: true, value: 5640, alto: true, _source: 'v311', id: 'baston_astral', name: 'Bastón astral', damage: '4d6+2', weight: 2, description: 'Brilla con luz de estrellas. Corta como si el aire no existiera.', tier: 15, rarity: 'epic' },
+    { type: 'weapon', icon: '', magic: false, value: 9747, alto: true, _source: 'v311', id: 'espada_alba', name: 'Espada del alba', damage: '5d8+3', weight: 3, description: 'Templada con el primer rayo del día. Las sombras le tienen miedo.', tier: 18, rarity: 'epic' },
+    { type: 'weapon', icon: '', magic: false, value: 9747, alto: true, _source: 'v311', id: 'hacha_alba', name: 'Hacha del alba', damage: '5d10+2', weight: 6, description: 'Templada con el primer rayo del día. Las sombras le tienen miedo.', tier: 18, rarity: 'epic' },
+    { type: 'weapon', icon: '', magic: false, value: 9747, alto: true, _source: 'v311', id: 'martillo_alba', name: 'Martillo del alba', damage: '6d8+2', weight: 8, description: 'Templada con el primer rayo del día. Las sombras le tienen miedo.', tier: 18, rarity: 'epic' },
+    { type: 'weapon', icon: '', magic: false, value: 9747, alto: true, _source: 'v311', id: 'lanza_alba', name: 'Lanza del alba', damage: '5d8+4', weight: 5, description: 'Templada con el primer rayo del día. Las sombras le tienen miedo.', tier: 18, rarity: 'epic' },
+    { type: 'weapon', icon: '', magic: false, value: 9747, alto: true, _source: 'v311', id: 'arco_alba', name: 'Arco del alba', damage: '5d8+2', weight: 2, description: 'Templada con el primer rayo del día. Las sombras le tienen miedo.', tier: 18, rarity: 'epic' },
+    { type: 'weapon', icon: '', magic: false, value: 9747, alto: true, _source: 'v311', id: 'daga_alba', name: 'Daga del alba', damage: '5d6+4', weight: 1, description: 'Templada con el primer rayo del día. Las sombras le tienen miedo.', tier: 18, rarity: 'epic' },
+    { type: 'weapon', icon: '', magic: true, value: 9747, alto: true, _source: 'v311', id: 'baston_alba', name: 'Bastón del alba', damage: '5d6+3', weight: 2, description: 'Templada con el primer rayo del día. Las sombras le tienen miedo.', tier: 18, rarity: 'epic' },
+    { type: 'weapon', icon: '', magic: false, value: 6732, alto: true, _source: 'v311', id: 'espada_fenix', name: 'Espada del Fénix', damage: '4d8+3', weight: 3, description: 'Arde sin quemar a quien la empuña. Lo que toca, se prende fuego.', tier: 13, rarity: 'legendary', statusEffect: { type: 'fire', chance: 0.35, turns: 3, value: 4 } },
+    { type: 'weapon', icon: '', magic: false, value: 9694, alto: true, _source: 'v311', id: 'lanza_escarcha', name: 'Lanza de escarcha', damage: '4d8+4', weight: 5, description: 'La punta está tan fría que el aire se congela a su paso.', tier: 15, rarity: 'legendary', statusEffect: { type: 'cold', chance: 0.35, turns: 3, value: 4 } },
+    { type: 'weapon', icon: '', magic: false, value: 13960, alto: true, _source: 'v311', id: 'martillo_primordial', name: 'Martillo primordial', damage: '6d8+2', weight: 8, description: 'Pesa como una montaña. Cuando pega, la tierra tiembla y suelta chispas.', tier: 17, rarity: 'legendary', statusEffect: { type: 'shock', chance: 0.3, turns: 2, value: 4 } },
+    { type: 'weapon', icon: '', magic: false, value: 20102, alto: true, _source: 'v311', id: 'guadana_sombras', name: 'Guadaña de las sombras', damage: '5d8+5', weight: 5, description: 'La hoja no refleja nada. Las heridas que deja no se cierran.', tier: 19, rarity: 'legendary', statusEffect: { type: 'bleed', chance: 0.35, turns: 3, value: 5 } },
+    { type: 'weapon', icon: '', magic: false, value: 24123, alto: true, _source: 'v311', id: 'fin_del_mundo', name: 'Fin del Mundo', damage: '6d8+6', weight: 4, description: 'La espada del Devorador. Lo que corta, no deja de sangrar.', tier: 20, rarity: 'legendary', statusEffect: { type: 'bleed', chance: 0.4, turns: 3, value: 6 } },
+    { type: 'weapon', icon: '', magic: true, value: 24123, alto: true, _source: 'v311', id: 'cetro_vacio', name: 'Cetro del vacío', damage: '6d6+4', weight: 2, description: 'Un cetro que bebe la luz. La magia sale de él más negra y más fuerte.', tier: 20, rarity: 'legendary' },
+    { type: 'weapon', icon: '', magic: false, value: 16842, alto: true, _source: 'v312', id: 'espada_estelar', name: 'Espada estelar', damage: '6d8+2', weight: 3, description: 'Forjada con metal estelar. Brilla con una luz fría, como las estrellas que la vieron caer.', tier: 21, rarity: 'epic' },
+    { type: 'weapon', icon: '', magic: false, value: 16842, alto: true, _source: 'v312', id: 'hacha_estelar', name: 'Hacha estelar', damage: '6d10', weight: 6, description: 'Forjada con metal estelar. Brilla con una luz fría, como las estrellas que la vieron caer.', tier: 21, rarity: 'epic' },
+    { type: 'weapon', icon: '', magic: false, value: 16842, alto: true, _source: 'v312', id: 'martillo_estelar', name: 'Martillo estelar', damage: '7d8+1', weight: 8, description: 'Forjada con metal estelar. Brilla con una luz fría, como las estrellas que la vieron caer.', tier: 21, rarity: 'epic' },
+    { type: 'weapon', icon: '', magic: false, value: 16842, alto: true, _source: 'v312', id: 'lanza_estelar', name: 'Lanza estelar', damage: '6d8+3', weight: 5, description: 'Forjada con metal estelar. Brilla con una luz fría, como las estrellas que la vieron caer.', tier: 21, rarity: 'epic' },
+    { type: 'weapon', icon: '', magic: false, value: 16842, alto: true, _source: 'v312', id: 'arco_estelar', name: 'Arco estelar', damage: '6d8+1', weight: 2, description: 'Forjada con metal estelar. Brilla con una luz fría, como las estrellas que la vieron caer.', tier: 21, rarity: 'epic' },
+    { type: 'weapon', icon: '', magic: false, value: 16842, alto: true, _source: 'v312', id: 'daga_estelar', name: 'Daga estelar', damage: '6d6+4', weight: 1, description: 'Forjada con metal estelar. Brilla con una luz fría, como las estrellas que la vieron caer.', tier: 21, rarity: 'epic' },
+    { type: 'weapon', icon: '', magic: true, value: 16842, alto: true, _source: 'v312', id: 'baston_estelar', name: 'Bastón estelar', damage: '6d6+3', weight: 2, description: 'Forjada con metal estelar. Brilla con una luz fría, como las estrellas que la vieron caer.', tier: 21, rarity: 'epic' },
+    { type: 'weapon', icon: '', magic: false, value: 24253, alto: true, _source: 'v312', id: 'espada_crepusculo', name: 'Espada del crepúsculo', damage: '6d8+5', weight: 3, description: 'Templada con luz del cielo y fuego del infierno a la vez. Tiene un color que no es de día ni de noche.', tier: 23, rarity: 'epic' },
+    { type: 'weapon', icon: '', magic: false, value: 24253, alto: true, _source: 'v312', id: 'hacha_crepusculo', name: 'Hacha del crepúsculo', damage: '6d10+3', weight: 6, description: 'Templada con luz del cielo y fuego del infierno a la vez. Tiene un color que no es de día ni de noche.', tier: 23, rarity: 'epic' },
+    { type: 'weapon', icon: '', magic: false, value: 24253, alto: true, _source: 'v312', id: 'martillo_crepusculo', name: 'Martillo del crepúsculo', damage: '7d8+4', weight: 8, description: 'Templada con luz del cielo y fuego del infierno a la vez. Tiene un color que no es de día ni de noche.', tier: 23, rarity: 'epic' },
+    { type: 'weapon', icon: '', magic: false, value: 24253, alto: true, _source: 'v312', id: 'lanza_crepusculo', name: 'Lanza del crepúsculo', damage: '6d8+6', weight: 5, description: 'Templada con luz del cielo y fuego del infierno a la vez. Tiene un color que no es de día ni de noche.', tier: 23, rarity: 'epic' },
+    { type: 'weapon', icon: '', magic: false, value: 24253, alto: true, _source: 'v312', id: 'arco_crepusculo', name: 'Arco del crepúsculo', damage: '6d8+4', weight: 2, description: 'Templada con luz del cielo y fuego del infierno a la vez. Tiene un color que no es de día ni de noche.', tier: 23, rarity: 'epic' },
+    { type: 'weapon', icon: '', magic: false, value: 24253, alto: true, _source: 'v312', id: 'daga_crepusculo', name: 'Daga del crepúsculo', damage: '6d6+7', weight: 1, description: 'Templada con luz del cielo y fuego del infierno a la vez. Tiene un color que no es de día ni de noche.', tier: 23, rarity: 'epic' },
+    { type: 'weapon', icon: '', magic: true, value: 24253, alto: true, _source: 'v312', id: 'baston_crepusculo', name: 'Bastón del crepúsculo', damage: '6d6+6', weight: 2, description: 'Templada con luz del cielo y fuego del infierno a la vez. Tiene un color que no es de día ni de noche.', tier: 23, rarity: 'epic' },
+    { type: 'weapon', icon: '', magic: false, value: 34924, alto: true, _source: 'v312', id: 'espada_eterna', name: 'Espada eterna', damage: '7d8+3', weight: 3, description: 'Hecha con lo mejor de los tres reinos. No se mella, no se oxida y no se olvida.', tier: 25, rarity: 'epic' },
+    { type: 'weapon', icon: '', magic: false, value: 34924, alto: true, _source: 'v312', id: 'hacha_eterna', name: 'Hacha eterna', damage: '7d10', weight: 6, description: 'Hecha con lo mejor de los tres reinos. No se mella, no se oxida y no se olvida.', tier: 25, rarity: 'epic' },
+    { type: 'weapon', icon: '', magic: false, value: 34924, alto: true, _source: 'v312', id: 'martillo_eterno', name: 'Martillo eterno', damage: '8d8+2', weight: 8, description: 'Hecho con lo mejor de los tres reinos. No se mella, no se oxida y no se olvida.', tier: 25, rarity: 'epic' },
+    { type: 'weapon', icon: '', magic: false, value: 34924, alto: true, _source: 'v312', id: 'lanza_eterna', name: 'Lanza eterna', damage: '7d8+4', weight: 5, description: 'Hecha con lo mejor de los tres reinos. No se mella, no se oxida y no se olvida.', tier: 25, rarity: 'epic' },
+    { type: 'weapon', icon: '', magic: false, value: 34924, alto: true, _source: 'v312', id: 'arco_eterno', name: 'Arco eterno', damage: '7d8+2', weight: 2, description: 'Hecho con lo mejor de los tres reinos. No se mella, no se oxida y no se olvida.', tier: 25, rarity: 'epic' },
+    { type: 'weapon', icon: '', magic: false, value: 34924, alto: true, _source: 'v312', id: 'daga_eterna', name: 'Daga eterna', damage: '7d6+6', weight: 1, description: 'Hecha con lo mejor de los tres reinos. No se mella, no se oxida y no se olvida.', tier: 25, rarity: 'epic' },
+    { type: 'weapon', icon: '', magic: true, value: 34924, alto: true, _source: 'v312', id: 'baston_eterno', name: 'Bastón eterno', damage: '7d6+5', weight: 2, description: 'Hecho con lo mejor de los tres reinos. No se mella, no se oxida y no se olvida.', tier: 25, rarity: 'epic' },
+    { type: 'weapon', icon: '', magic: false, value: 60025, alto: true, _source: 'v312', id: 'tridente_infernal', name: 'Tridente infernal', damage: '7d8+6', weight: 5, description: 'El tridente de Satanás. Las heridas que deja siguen ardiendo.', tier: 25, rarity: 'legendary', statusEffect: { type: 'fire', chance: 0.35, turns: 3, value: 7 } },
+    { type: 'weapon', icon: '', magic: true, value: 60025, alto: true, _source: 'v312', id: 'baston_colmena', name: 'Bastón de la colmena', damage: '7d6+8', weight: 2, description: 'Un bastón que piensa. Cuando lanzás un hechizo, sentís que te ayuda a apuntar.', tier: 25, rarity: 'legendary', spellBonus: 2 },
+    { type: 'weapon', icon: '', magic: false, value: 9694, alto: true, _source: 'v312', id: 'agonia_escarcha', name: 'Agonía de Escarcha', damage: '4d8+5', weight: 4, description: 'Una espada de hielo negro con runas que brillan azul. Cada herida que hace congela… y le devuelve a quien la empuña un poco de vida robada.', tier: 15, rarity: 'legendary', statusEffect: { type: 'cold', chance: 0.3, turns: 2, value: 4 }, drain: 0.15 },
+    { type: 'weapon', icon: '', magic: false, value: 24123, alto: true, _source: 'v312', id: 'martillo_maldito', name: 'Martillo Maldito', damage: '6d8+5', weight: 8, description: 'Un martillo de piedra negra que retumba como un trueno. Cuando pega, un rayo salta a otro enemigo.', tier: 20, rarity: 'legendary', statusEffect: { type: 'shock', chance: 0.3, turns: 2, value: 5 }, chain: 10 },
+    { type: 'weapon', icon: '', magic: false, value: 60025, alto: true, _source: 'v312', id: 'crematoria', name: 'Crematoria', damage: '7d8+8', weight: 4, description: 'Una espada dorada que arde con fuego sagrado. Los no muertos y los demonios le temen: contra ellos pega mucho más fuerte.', tier: 25, rarity: 'legendary', statusEffect: { type: 'fire', chance: 0.3, turns: 3, value: 7 }, bane: { families: ['undead', 'demon'], bonus: 8, label: 'Crematoria' } },
+    { type: 'weapon', icon: '', magic: true, value: 20102, alto: true, _source: 'v312', id: 'baculo_sueno', name: 'Báculo del Sueño Esmeralda', damage: '5d6+6', weight: 2, tier: 19, rarity: 'legendary', spellBonus: 3, description: 'Una rama del árbol más viejo del Sueño Esmeralda, regalo de Ysera. La magia sale de él tibia y verde, y pega más fuerte.' },
+    { type: 'weapon', icon: '', magic: false, value: 20102, alto: true, _source: 'v312', id: 'hoja_estrellas', name: 'Hoja de las Estrellas', damage: '5d8+6', weight: 3, tier: 19, rarity: 'legendary', statusEffect: { type: 'fire', chance: 0.25, turns: 2, value: 5 }, description: 'Una espada forjada en el corazón de una estrella por Aurelion Sol. Brilla en la oscuridad y a veces prende fuego lo que corta.' },
+  ];
 })(window.Aventurs);

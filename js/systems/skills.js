@@ -1,7 +1,7 @@
 /* ============================================================
    Aventurs — Habilidades de las criaturas (v2.5)
 
-   Cada criatura tiene "skills": ids de esta biblioteca (ver js/data/seed-skills.js).
+   Cada criatura tiene "skills": ids de esta biblioteca (ver js/data/seed-enemies.js).
      - Pasivas: actúan solas (Manada, Caparazón, Regeneración, Etéreo...).
      - Activas: en su turno la criatura a veces las usa en vez de atacar normal
        (Mordida feroz, Telaraña, Aliento de fuego...). Cada una tiene un tiempo
@@ -26,7 +26,7 @@
   const cap = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
 
   // Probabilidad de usar una activa en su turno (si tiene alguna lista)
-  const USE_CHANCE = { normal: 0.38, boss: 0.45, elite: 0.5, opener: 0.5, pet: 0.3 };
+  const USE_CHANCE = { normal: 0.38, boss: 0.45, elite: 0.5, opener: 0.5, pet: 0.3, urgent: 0.8 }; // v3.15: urgent, lo que una criatura lista no deja pasar
 
   const STAT_NAME = { fuerza: 'fuerza', agilidad: 'agilidad', ingenio: 'ingenio', suerte: 'suerte' };
 
@@ -309,6 +309,22 @@
     },
 
     // ---------------- Sin daño: te dejan un estado ----------------
+    // v3.15: cortan la curación (las pociones, los hechizos y la sangre curan la mitad)
+    herida_maldita: {
+      kind: 'active', name: 'Herida maldita', icon: 'bleed', act: 'strike', cd: 4,
+      onHit: { type: 'noheal', save: 'fuerza', turns: 3 },
+      text: 'Un golpe que deja la herida abierta: si no resistís con fuerza, durante 3 turnos te curás la mitad.',
+      hit: ['{E} te abre una herida que no quiere cerrar: {d} de daño.'],
+      miss: ['{E} tira un zarpazo sucio, pero no te toca.'],
+      fail: 'La herida queda abierta y negra: te curás la mitad.', resist: 'Apretás la herida y se cierra a tiempo.',
+      own: ['{P} le abre una herida a {e}: {d} de daño.'],
+    },
+    maldicion_sangre: {
+      kind: 'active', name: 'Maldición de sangre', icon: 'skull', act: 'debuff', cd: 5, save: 'ingenio', status: 'noheal', turns: 3,
+      text: 'Te maldice la sangre: si no resistís con ingenio, durante 3 turnos te curás la mitad.',
+      use: ['{E} te señala y murmura algo en una lengua muerta.'],
+      fail: 'Sentís la sangre espesa y fría: te curás la mitad.', resist: 'Cerrás la mente y la maldición se te resbala.',
+    },
     calambre: {
       kind: 'active', name: 'Calambre', icon: 'spark', act: 'debuff', cd: 5, save: 'agilidad', status: 'stun', turns: 1,
       text: 'Una descarga que te acalambra: resistí con agilidad o perdés tu próximo turno.',
@@ -1010,7 +1026,7 @@
     for (const id of Object.keys(x._cds)) if (x._cds[id] > 0) x._cds[id] -= 1;
   }
 
-  const LASTING = ['stun', 'grab', 'fear', 'blind', 'prone', 'curse', 'corrode', 'silence'];
+  const LASTING = ['stun', 'grab', 'fear', 'blind', 'prone', 'curse', 'corrode', 'silence', 'noheal'];
   function playerHas(type) {
     const p = A.State.player;
     return !!(p && (p.effects || []).some((e) => e.type === type));
@@ -1091,9 +1107,13 @@
     x._turns = (x._turns || 0) + 1;
     tickCds(x);
     const heads = has(x, 'tres_cabezas');
-    const opts = activesOf(x).filter((sk) => ready(x, sk)).map((sk) => ({ sk, w: weightOf(sk, x, k) })).filter((o) => o.w > 0);
+    let opts = activesOf(x).filter((sk) => ready(x, sk)).map((sk) => ({ sk, w: weightOf(sk, x, k) })).filter((o) => o.w > 0);
+    // v3.15: las que piensan usan cada cosa en su momento (js/systems/tactics.js)
+    if (A.Tactics) opts = A.Tactics.adjust(x, opts, k);
     if (!opts.length) return heads ? headsAttack(x, k) : false;
     let chance = x.elite ? USE_CHANCE.elite : x.category === 'boss' ? USE_CHANCE.boss : USE_CHANCE.normal;
+    const urgent = opts.filter((o) => o.urgent);
+    if (urgent.length) { chance = Math.max(chance, USE_CHANCE.urgent); opts = urgent; }
     // las fuertes, los jefes y la élite abren la pelea con su mejor golpe (aliento, aullido...)
     const big = x.elite || x.category === 'strong' || x.category === 'boss';
     const openers = x._turns === 1 ? opts.filter((o) => o.sk.first && (big || o.sk.act === 'rally')) : [];

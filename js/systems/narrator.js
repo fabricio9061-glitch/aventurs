@@ -177,6 +177,7 @@
     stun: 'Quedás aturdido: perdés el próximo turno.', curse: 'Una maldición cae sobre vos.', prone: 'Caés al suelo: te cuesta defenderte.',
     fear: 'El miedo te paraliza las manos.', grab: 'Quedás atrapado: no podés huir.', corrode: 'El ácido te carcome la armadura.',
     stagger: 'Quedás desequilibrado: tu próximo ataque sale torcido.', exposed: 'Quedás expuesto: te cuesta defenderte.',
+    noheal: 'Te curás la mitad mientras dure la herida maldita.', // v3.15
   };
   const STATUS_OTHER = {
     bleed: '{E} empieza a sangrar.', poison: 'El veneno entra en la sangre de {e}.', fire: '{E} se prende fuego.',
@@ -185,6 +186,7 @@
     stun: '{E} queda aturdido: pierde su próximo turno.', curse: 'Una maldición cae sobre {e}.', prone: '{E} cae al suelo.',
     fear: '{E} tiembla de miedo.', grab: '{E} queda atrapado.', corrode: 'El ácido carcome la coraza de {e}.',
     stagger: '{E} queda desequilibrado: su próximo ataque sale torcido.', exposed: '{E} queda expuesto: se defiende peor.',
+    noheal: '{E} se cura la mitad.',
   };
   const TICK_PLAYER = {
     bleed: 'Seguís sangrando: perdés {n} de vida.', poison: 'El veneno te quema por dentro: perdés {n} de vida.', fire: 'Las llamas te queman: perdés {n} de vida.',
