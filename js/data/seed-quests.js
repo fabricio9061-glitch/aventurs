@@ -244,11 +244,11 @@
     {
       id: 'mq8_sombra', main: true, chapter: 18, giver: 'npc_sabio_torre', requires: 'mq7b_heraldo', auto: true,
       title: 'La sombra del dragón',
-      offer: 'El dragón anciano espera en su nido.',
-      text: 'El dragón anciano espera en su cima, sobre el Nido de Dragones. Terminá con la sombra que cubre el reino.',
+      offer: 'El dragón anciano espera en su nido. Es el más viejo de los dragones después de Alamuerte: antes de subir a su cima, hacete fuerte en las Tierras Altas.',
+      text: 'El dragón anciano espera en su cima, sobre el Nido de Dragones (es para nivel 19: hacete fuerte en las Tierras Altas). Terminá con la sombra que cubre el reino.',
       objectives: [{ type: 'kill', enemy: 'dragon_anciano', count: 1, text: 'Derrotá al dragón anciano' }],
       done: 'La sombra que cubría el reino se disipa. Tu nombre se va a cantar en todas las tabernas.',
-      reward: { xp: 1000, coins: 1000 },
+      reward: { xp: 3500, coins: 20000 }, // v3.11.5: el dragón ahora es de nivel 19 (era 1000 y 1000)
     },
 
     // ============================================================
@@ -419,14 +419,14 @@
       reward: { coins: 150, xp: 60 },
     },
     {
-      id: 'sq_hidra', giver: 'npc_sabio_torre', minLevel: 9,
+      id: 'sq_hidra', giver: 'npc_sabio_torre', minLevel: 13, // v3.11.5: la hidra ahora es de nivel 14 (era 9)
       title: 'El colmillo de la hidra',
       offer: 'Para un hechizo que estoy estudiando necesito un colmillo de hidra. La hidra vive en su lago, en el corazón del Pantano. Tiene tres cabezas y muerde con las tres, así que cortá rápido.',
-      text: 'Velrith necesita un colmillo de la hidra del Lago de la Hidra (en el Pantano).',
+      text: 'Velrith necesita un colmillo de la hidra del Lago de la Hidra (en el Pantano). Es de nivel 14.',
       objectives: [{ type: 'kill', enemy: 'hidra', count: 1, text: 'Derrotá a la hidra' }, { type: 'collect', item: 'mat_colmillo_hidra', count: 1 }],
       turnIn: true,
       done: 'Velrith guarda el colmillo en una caja de plomo. "No lo toques. Nunca."',
-      reward: { coins: 800, xp: 200, items: [['pocion_mana_mayor', 2]] },
+      reward: { coins: 3500, xp: 450, items: [['pocion_mana_suprema', 2]] }, // v3.11.5: era 800, 200 y maná mayor
     },
 
     // ============================================================

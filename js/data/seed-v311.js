@@ -168,6 +168,29 @@
   // Era la más floja en el editor (74 de vida, 2d6+3), pero el editor no contaba sus invocaciones (v3.11 sí).
   // Medido con jefes.js: con 92 de vida y 2d8+3, a dos niveles más se le ganaba 43-75%; con esto, 80%.
   if (kyubi) Object.assign(kyubi, { health: 84, damage: '2d6+4', attack: 5, difficulty: 15, armor: 2 });
+  // v3.11.3: Alamuerte, el más fuerte de todos los dragones: nivel 20 (era 10, como el dragón anciano).
+  // Placas de adamantita (frenan 4 de cada golpe de arma hasta la mitad de la vida), Cataclismo (fuego a todos)
+  // y llama a un dragón de la tormenta. Su guarida sigue al lado del Nido de Dragones.
+  // Medido en el nivel 20 (orco/humano/gnomo solos; pareja sin pociones con tools/grupo.js): con 269 de vida, 6d10
+  // y el dragón entero se le ganaba 13/0/17% (pareja 0-3%); así queda un poco más difícil que el Devorador de Mundos.
+  const alamuerte = byId(S.enemies, 'alamuerte');
+  if (alamuerte) {
+    Object.assign(alamuerte, {
+      tier: 20, health: 226, damage: '5d10+4', attack: 12, difficulty: 28, armor: 9, speed: 13,
+      skills: ['vuelo', 'placas_adamantita', 'cuerpo_fuego', 'aliento_fuego', 'cataclismo', 'barrido', 'rugido', 'invocar', 'enfurecer'],
+      summons: { id: 'dragon_tormenta', count: 1, hp: 0.3 },
+      autoLoot: false,
+      description: 'El padre de todos los dragones. Tiene el cuerpo cubierto de placas de metal clavadas a la carne, y por las grietas le sale fuego. Donde vuela, la tierra se parte.',
+    });
+    const coin = B.Economy.coinDrop(alamuerte);
+    alamuerte.drops = [Object.assign({}, coin, { chance: 1 })]
+      .concat((alamuerte.drops || []).filter((d) => d.itemId !== 'coin_copper'));
+    drop('alamuerte', 'mat_escama_ancestral', 0.9);
+    drop('alamuerte', 'mat_sangre_dragon', 0.6);
+    drop('alamuerte', 'mat_oricalco', 0.5);
+    drop('alamuerte', 'gungnir', 0.08);
+    drop('alamuerte', 'ambrosia', 0.25);
+  }
   const lich = byId(S.enemies, 'lich');
   if (lich) Object.assign(lich, { health: 125, attack: 8 }); // se invoca: tiene que valer el viaje
   const demonio = byId(S.enemies, 'demonio_mayor');
@@ -194,6 +217,39 @@
   //    type 'lair': un solo jefe (boss); sin peleas de sorpresa adentro ni en el camino.
   //    altar: { name, items: [[id, cantidad]], text }: hay que ofrecer eso para que aparezca.
   // ---------------------------------------------------------------
+  // ---------------------------------------------------------------
+  // 3b) v3.11.5: un jefe no puede tener una versión común con más nivel.
+  //     La Hidra (9) pasa al 14 (la Hidra primordial es 13), el Demonio mayor (9) al 18 (el Demonio de las
+  //     sombras baja al 17), el Dragón anciano (10) al 19 (el Dragón de la tormenta baja al 18; Alamuerte
+  //     sigue arriba de todos, en el 20) y el Titán (10) al 19 (el Titán celeste baja al 18).
+  //     Sus guaridas siguen donde estaban; los números salen de la curva de jefes de su nivel.
+  // ---------------------------------------------------------------
+  function raiseBoss(id, tier, prof, set) {
+    const e = byId(S.enemies, id);
+    if (!e) return null;
+    Object.assign(e, curve(tier, 'boss', prof || {}), { tier }, set || {});
+    const coin = B.Economy.coinDrop(e);
+    e.drops = [Object.assign({}, coin, { chance: 1 })].concat((e.drops || []).filter((d) => d.itemId !== 'coin_copper'));
+    return e;
+  }
+  // (medido con tools/jefes.js, orco/humano/gnomo solos, su nivel · +2: con la curva entera la Hidra quedaba 3/0/0 · 43/3/10
+  //  por sus tres cabezas; así, 60/17/37 · 100/63/100, como el Rey de la Escarcha. El dragón con la curva al 85%
+  //  quedaba 93/70/80; así, 43/23/57, un poco más fácil que Alamuerte en el 20)
+  raiseBoss('hidra', 14, null, { health: 155, damage: '3d8+3', attack: 8, difficulty: 22, armor: 5 });
+  raiseBoss('demonio_mayor', 18, { hp: 1.0, dmg: 1.0 }); // 63/28/63 · 88/68/65
+  raiseBoss('dragon_anciano', 19, null, { // por debajo de Alamuerte (el más fuerte de los dragones)
+    health: 222, damage: '5d10+3', attack: 13, difficulty: 28, armor: 9,
+    skills: ['ignifugo', 'cuerpo_fuego', 'aguante', 'aliento_fuego', 'rugido', 'barrido', 'enfurecer'],
+  });
+  raiseBoss('titan', 19, { hp: 1.1, dmg: 0.9 }); // aguanta mucho: 68/45/73 · 83/57/78
+  drop('hidra', 'mat_escama_ancestral', 0.4);
+  drop('demonio_mayor', 'mat_esencia_sombra', 0.5);
+  drop('demonio_mayor', 'mat_esencia_vacio', 0.15);
+  drop('dragon_anciano', 'mat_escama_ancestral', 0.7);
+  drop('dragon_anciano', 'mat_sangre_dragon', 0.5);
+  drop('titan', 'mat_cristal_astral', 0.5);
+  drop('titan', 'mat_oricalco', 0.4);
+
   function lair(o) {
     const boss = byId(S.enemies, o.boss);
     if (!boss || byId(S.regions, o.id)) return;

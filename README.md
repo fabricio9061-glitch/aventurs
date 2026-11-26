@@ -272,6 +272,33 @@ Explorar siempre hace pasar algo (`js/systems/explore.js` + `js/data/seed-events
 - En el celular, una franja arriba con vida, maná, comida y dinero.
 - Sin emojis en el juego (desde la v2.2, tampoco en el editor).
 
+## Versión 3.11.5: ningún jefe con una versión común más fuerte
+
+Un jefe ya no tiene una versión común con más nivel. Sus guaridas siguen donde estaban (el mapa avisa el nivel nuevo):
+
+| Jefe | Antes | Ahora | Su versión común |
+|---|---|---|---|
+| Hidra | 9 | **14** | Hidra primordial: 13 |
+| Demonio mayor | 9 | **18** | Demonio de las sombras: 17 (era 18) |
+| Dragón anciano | 10 | **19** | Dragón de la tormenta: 18 (era 19); Alamuerte sigue arriba, en el 20 |
+| Titán | 10 | **19** | Titán celeste: 18 (era 19) |
+
+- Sus números salen de la curva de jefes de su nivel, con mejor botín (escamas ancestrales, esencias, cristal astral, oricalco). El Dragón anciano suma Cuerpo de fuego y Aguante, pero sigue por debajo de Alamuerte.
+- Medido con `node tools/jefes.js` (guerrero / híbrido / mago, solos; su nivel · dos niveles más): Hidra 65/13/40 · 100/70/100; Demonio mayor 63/28/63 · 88/68/65; Dragón anciano 43/23/45 · 53/33/53 (en el 20); Titán 68/45/73 · 83/57/78 (en el 20).
+- **La historia**: la última misión (el Dragón anciano) ahora es para nivel 19: la misión lo dice y da 3.500 de experiencia y 20.000 de cobre (antes 1.000 y 1.000). **El colmillo de la hidra** se ofrece desde el nivel 13 y paga 3.500 de cobre, 450 de experiencia y pociones de maná supremas.
+
+## Versión 3.11.4: la Hidra primordial
+
+- La **"Hidra joven"** de la Ciénaga Primordial (nivel 13) tenía más nivel que la Hidra del Pantano (nivel 9, jefa). Ahora se llama **Hidra primordial**: una hidra más vieja y más grande que la del Pantano, con otros colores. Mismos números, mismo lugar; las partidas guardadas no cambian.
+
+## Versión 3.11.3: Alamuerte, el más fuerte de todos los dragones
+
+- **Alamuerte pasa al nivel 20** (era 10, como el dragón anciano): más vida, daño y nivel que cualquier otro dragón del juego. Su guarida sigue al lado del Nido de Dragones; el mapa avisa que es para nivel 20.
+- **Placas de adamantita** (pasiva nueva): mientras le quede más de la mitad de la vida, sus placas le sacan 4 a cada golpe de arma (la magia entra entera). Con la mitad de la vida se le caen y se enfurece.
+- **Cataclismo** (activa nueva): parte la tierra en dos y todo arde: daño a todos (con agilidad se recibe la mitad) y fuego por tres turnos. Además sigue con su aliento de fuego, el coletazo y el rugido, y **llama a un dragón de la tormenta** (uno más por cada héroe de más).
+- Mejor botín: escamas ancestrales, sangre de dragón, oricalco, ambrosía y una chance de Gungnir.
+- Medido en el nivel 20 con `node tools/jefes.js` (guerrero / híbrido / mago, solos): 33 / 8 / 50% (el Devorador de Mundos: 48 / 20 / 50%). En pareja y sin pociones (`tools/grupo.js`): 10 a 17% (el Devorador: 37%). Antes, a dos niveles más, se le ganaba 53 a 77%.
+
 ## Versión 3.11.2: en grupo, lo que aparece en el camino lo deciden todos
 
 - Cuando aparece una criatura en el camino, **todos ven los botones** (Pelear, Evitar y Domar si pueden) y **votan**, como en las escenas: si votan lo mismo, se hace; si no, gana lo más votado, y si empatan cada uno tira un D20 y gana el más alto. Antes decidía solo el que armó el grupo.

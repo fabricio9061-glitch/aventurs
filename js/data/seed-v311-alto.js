@@ -254,9 +254,11 @@
   C({ id: 'gusano_cienaga', name: 'Gusano de la ciénaga', tier: 13, prof: { hp: 1.2 }, family: ['beast'], tags: ['big'], biome: ['swamp'], speed: 8, regions: ['cienaga_primordial'],
     base: 'gusano_arena', colors: { b: '#4a5a2a', c: '#8a9a4a' }, skills: ['piel_gruesa', 'tragar', 'acido'], mats: [['mat_gelatina', 0.5], ['mat_veneno', 0.4]],
     description: 'Sale del barro sin avisar. Lo que traga, no vuelve.' });
-  C({ id: 'hidra_joven', name: 'Hidra joven', category: 'strong', tier: 13, family: ['reptile', 'dragon'], tags: ['poison'], biome: ['swamp'], speed: 10, regions: ['cienaga_primordial'],
-    base: 'hidra', colors: { b: '#4a7a3a', c: '#9ac060' }, skills: ['regeneracion', 'venenoso', 'doble'], mats: [['mat_colmillo_hidra', 0.5], ['mat_escama_ancestral', 0.3]],
-    description: 'Todavía tiene dos cabezas, pero ya tiene el mal carácter de su madre.' });
+  // v3.11.4: era "Hidra joven", pero tenía más nivel que la Hidra del Pantano (9): ahora es una hidra primordial,
+  // más vieja que la del Pantano (el id sigue siendo "hidra_joven" para no tocar las partidas guardadas)
+  C({ id: 'hidra_joven', name: 'Hidra primordial', category: 'strong', tier: 13, family: ['reptile', 'dragon'], tags: ['poison'], biome: ['swamp'], speed: 10, regions: ['cienaga_primordial'],
+    base: 'hidra', colors: { b: '#3a5a2a', c: '#7a9a40' }, skills: ['regeneracion', 'venenoso', 'doble'], mats: [['mat_colmillo_hidra', 0.5], ['mat_escama_ancestral', 0.3]],
+    description: 'De las hidras que había antes que los hombres: más grande y más vieja que la del Pantano, con musgo entre las escamas. Muerde con dos cabezas a la vez y se cura sola.' });
   C({ id: 'naga_ancestral', name: 'Naga ancestral', category: 'strong', tier: 14, family: ['reptile', 'humanoid', 'arcane'], tags: ['magic'], biome: ['swamp'], speed: 11, regions: ['cienaga_primordial'],
     base: 'naga', colors: { b: '#2a5a5a', c: '#60c0b0', a: '#e0c060' }, skills: ['mente_arcana', 'hechizo', 'colmillos_veneno', 'agarre'], mats: [['mat_escama_sirena', 0.5], ['mat_gema_arcana', 0.35]],
     description: 'Una reina serpiente que habla con voz de agua. Sus hechizos son tan viejos como la ciénaga.' });
@@ -299,17 +301,17 @@
   C({ id: 'devorador_almas', name: 'Devorador de almas', tier: 17, family: ['aberration'], tags: ['gaze'], biome: ['crypt'], speed: 11, regions: ['abismo_sombras'],
     base: 'contemplador', colors: { b: '#3a1a3a', c: '#a03a6a', e: '#ffe070' }, skills: ['abismal', 'mirada', 'drenar', 'miedo'], mats: [['mat_ojo_magico', 0.6], ['mat_esencia_vacio', 0.1]],
     description: 'Un ojo con hambre. Lo que mira, se apaga un poco.' });
-  C({ id: 'demonio_sombras', name: 'Demonio de las sombras', category: 'strong', tier: 18, family: ['demon'], tags: ['dark'], biome: ['crypt', 'hell'], speed: 12, regions: ['abismo_sombras'],
+  C({ id: 'demonio_sombras', name: 'Demonio de las sombras', category: 'strong', tier: 17, // v3.11.5: era 18 (el Demonio mayor, jefe, es 18) family: ['demon'], tags: ['dark'], biome: ['crypt', 'hell'], speed: 12, regions: ['abismo_sombras'],
     base: 'demonio_mayor', colors: { b: '#2a1a3a', c: '#6a3a8a', e: '#ff3a3a' }, skills: ['oscuridad', 'miedo', 'cuerpo_fuego'], mats: [['mat_cuerno_demonio', 0.6], ['mat_esencia_sombra', 0.5], ['mat_esencia_vacio', 0.12]],
     description: 'Un demonio hecho de oscuridad. Donde pisa, las antorchas se apagan.' });
   // Cumbre del Mundo (18-20)
   C({ id: 'roc', name: 'Roc', tier: 18, prof: { hp: 1.15 }, family: ['beast', 'flying'], tags: ['flying', 'big'], biome: ['mountain'], speed: 15, regions: ['cumbre_mundo'],
     base: 'aguila', colors: { b: '#6a4a2a', c: '#e0c080', a: '#f0a020' }, skills: ['vuelo', 'picotazo', 'rafaga'], mats: [['mat_pluma', 0.8], ['carne_ave', 0.6]],
     description: 'Un pájaro tan grande que caza mamuts. Para él, vos sos una lombriz.' });
-  C({ id: 'titan_celeste', name: 'Titán celeste', category: 'strong', tier: 19, prof: { hp: 1.2 }, family: ['giant', 'celestial'], tags: ['big'], biome: ['mountain'], speed: 8, regions: ['cumbre_mundo'],
+  C({ id: 'titan_celeste', name: 'Titán celeste', category: 'strong', tier: 18, // v3.11.5: era 19 (el Titán, jefe, es 19) prof: { hp: 1.2 }, family: ['giant', 'celestial'], tags: ['big'], biome: ['mountain'], speed: 8, regions: ['cumbre_mundo'],
     base: 'titan', colors: { b: '#e8e0d0', c: '#ffffff', a: '#e0c060' }, skills: ['gigante', 'terremoto', 'aguante'], mats: [['mat_cristal_astral', 0.5], ['mat_escama_ancestral', 0.3]],
     description: 'Uno de los que sostienen el cielo. Bajó a ver quién hace tanto ruido.' });
-  C({ id: 'dragon_tormenta', name: 'Dragón de la tormenta', category: 'strong', tier: 19, family: ['dragon', 'flying'], tags: ['flying', 'storm'], biome: ['mountain'], speed: 14, regions: ['cumbre_mundo'],
+  C({ id: 'dragon_tormenta', name: 'Dragón de la tormenta', category: 'strong', tier: 18, // v3.11.5: era 19 (Dragón anciano 19, Alamuerte 20) family: ['dragon', 'flying'], tags: ['flying', 'storm'], biome: ['mountain'], speed: 14, regions: ['cumbre_mundo'],
     base: 'dragon_joven', colors: { b: '#2a3a7a', c: '#7a9ae0', e: '#fff070' }, skills: ['vuelo', 'rafaga', 'barrido', 'aliento_hielo'], mats: [['mat_escama_ancestral', 0.6], ['mat_chispa_tormenta', 0.6], ['carne_dragon', 0.5]],
     description: 'Vuela dentro de las nubes de tormenta. Cuando ruge, cae un rayo.' });
   // El Fin del Mundo (19-20)

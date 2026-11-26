@@ -966,6 +966,10 @@
         entity.dmgMult = (entity.dmgMult || 1) * ((B().BOSS && B().BOSS.rage) || 1.2);
         const n = A.Skills ? A.Skills.noun(entity) : entity.displayName;
         addLog(c, 'enemy', { text: `¡${entity.displayName} se enfurece!`, fx: { kind: 'status', target: fxKey(entity), effect: 'rally' }, say: { text: `¡${n.charAt(0).toUpperCase()}${n.slice(1)} se enfurece! Desde ahora pega más fuerte.`, tone: 'bad' } });
+        // v3.11.3: Alamuerte: con la mitad de la vida se le caen las placas
+        if (A.Skills && A.Skills.has && A.Skills.has(entity, 'placas_adamantita')) {
+          addLog(c, 'system', { text: `A ${entity.displayName} se le caen las placas de metal.`, say: { text: `A ${n} se le caen las placas de metal: ahora los golpes le entran enteros.`, tone: 'good' } });
+        }
       }
     } else if (cur.kind === 'pet') {
       owner = heroOfEntry(c, cur);

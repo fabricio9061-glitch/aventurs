@@ -51,6 +51,8 @@
     furia: { kind: 'passive', name: 'Furia', icon: 'fist', text: 'Con la mitad de la vida o menos, pega un 25% más fuerte.' },
     regeneracion: { kind: 'passive', name: 'Regeneración', icon: 'heart', text: 'Recupera vida al empezar cada turno (hasta un cuarto de su vida por pelea), salvo que esté en llamas.' },
     no_muerto: { kind: 'passive', name: 'No muerto', icon: 'skull', text: 'No sangra, no se envenena y no siente miedo.', immune: ['bleed', 'poison', 'fear'] },
+    // v3.11.3: Alamuerte
+    placas_adamantita: { kind: 'passive', name: 'Placas de adamantita', icon: 'shield', text: 'Mientras le quede más de la mitad de la vida, sus placas de metal le sacan 4 a cada golpe de arma (la magia entra entera). Con la mitad de la vida se le caen.' },
     constructo: { kind: 'passive', name: 'Constructo', icon: 'gear', text: 'No sangra, no se envenena, no se asusta y no se encandila.', immune: ['bleed', 'poison', 'fear', 'blind'] },
     esencia: { kind: 'passive', name: 'Ser elemental', icon: 'spark', text: 'No sangra ni se envenena.', immune: ['bleed', 'poison'] },
     etereo: { kind: 'passive', name: 'Etéreo', icon: 'eye', text: '1 de cada 4 golpes de arma lo atraviesa sin hacerle nada. No sangra, no cae al suelo y no se lo puede agarrar. La magia lo daña normal.', immune: ['bleed', 'prone', 'grab'] },
@@ -417,6 +419,16 @@
       kind: 'passive', name: 'Furia de jefe', icon: 'fire',
       text: 'Cuando le queda la mitad de la vida, se enfurece: pega un 20% más fuerte el resto de la pelea.',
     },
+    // v3.11.3: Alamuerte, el más fuerte de los dragones
+    cataclismo: {
+      kind: 'active', name: 'Cataclismo', icon: 'breath', act: 'breath', cd: 6, mult: 1.25,
+      element: 'fire', status: 'fire', turns: 3, save: 'agilidad',
+      text: 'Parte la tierra en dos y todo arde: daño a todos (resistí con agilidad para recibir la mitad) y fuego por tres turnos.',
+      use: ['{E} abre las alas y la tierra se parte en dos: sale fuego de todas las grietas.'],
+      fail: 'El fuego de las grietas te traga: {d} de daño.', resist: 'Saltás entre las grietas y el fuego solo te roza: {d} de daño.',
+      pet: 'El fuego de las grietas alcanza a {p}: {d} de daño.',
+      ownUse: ['{P} parte la tierra en dos.'],
+    },
     terremoto: {
       kind: 'active', name: 'Terremoto', icon: 'hourglass', act: 'quake', cd: 5, mult: 0.8, save: 'agilidad', status: 'stun', turns: 1,
       text: 'Golpea el suelo: a todos, daño y, si no resisten con agilidad, pierden su próximo turno.',
@@ -734,6 +746,7 @@
   }
 
   /** El primer golpe de arma le hace la mitad (Caparazón / Gelatinoso). Devuelve { dmg, skill }. */
+  const PLATES = 4; // v3.11.3: lo que frenan las placas de Alamuerte
   function softenHit(target, dmg) {
     if (!target) return { dmg, skill: null };
     let skill = null;
@@ -750,6 +763,12 @@
       const cut = (target.tier || 1) >= 8 ? 2 : 1;
       const nd = Math.max(1, dmg - cut);
       if (nd < dmg && !skill && !target._hideSaid) { target._hideSaid = true; skill = 'piel_gruesa'; }
+      dmg = nd;
+    }
+    // v3.11.3: Placas de adamantita (Alamuerte): -4 a cada golpe de arma mientras tenga más de la mitad de la vida
+    if (has(target, 'placas_adamantita') && (target.hp || 0) > (target.maxHp || 0) / 2) {
+      const nd = Math.max(1, dmg - PLATES);
+      if (nd < dmg && !skill && !target._platesSaid) { target._platesSaid = true; skill = 'placas_adamantita'; }
       dmg = nd;
     }
     return { dmg, skill };

@@ -299,6 +299,7 @@
     caparazon: ' Su caparazón frena la mitad del golpe.',
     gelatinoso: ' El golpe se hunde en su cuerpo blando y pierde fuerza.',
     piel_gruesa: ' Su piel gruesa le saca fuerza al golpe.', // v3.8
+    placas_adamantita: ' Sus placas de metal frenan buena parte del golpe.', // v3.11.3
   };
 
   function say(entry, c) {
