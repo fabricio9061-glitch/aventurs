@@ -2,6 +2,29 @@
 
 La más nueva arriba. Cómo correr el juego y cómo está armado: [README.md](README.md).
 
+## Versión 3.19.0: la pelea más limpia, con más efectos y la crónica por turnos (`css/pelea2.css`)
+
+### Limpieza
+- Se van los íconos de habilidades de las criaturas: lo que hace cada una se ve al pasar el mouse por la criatura.
+- Se van el **VS** del medio y el cartel oscuro de abajo de la arena, que repetía la crónica. El botón de la voz pasó a la cabecera de la crónica.
+
+### Efectos
+- **Números de daño** más grandes y con rebote.
+- **Crítico:** la arena se frena un instante y se acerca al golpe.
+- **Al morir, la criatura se desarma en cuadraditos** con los colores de su dibujo.
+- **Quemado, veneno, sangrado, frío, electrizado y maldito se ven sobre la criatura** mientras duran.
+- Los hechizos abren una **onda** al explotar y la bola de fuego es más grande.
+- **Foco en quien juega:** los demás se apagan un poco.
+
+### Crónica
+- **Una tarjeta por turno:** arriba quién y a quién ("León → Vos"), y debajo lo que pasó.
+- Lo que pasa solo (quemaduras, regeneración, caídas, estados) va en **renglones chicos** dentro del turno de quien lo sufre.
+- **Las tiradas en una fila de fichas:** dado, bonus, total, "contra 12 ✓", daño, armadura y vida que queda.
+- Las reglas del arranque (orden por velocidad, empates) van juntas en **una sola línea que se abre**.
+
+### Viaje
+- Arreglado: en grupo, el cartel de votar mostraba un dibujo estirado (venía de la v3.18.2).
+
 ## Versión 3.18.2: el viaje, ordenado (`css/viaje.css`)
 
 - **Lo que pasa en el camino y la bitácora miden lo mismo de alto.** La bitácora ya no estira la pantalla: si hay muchos sucesos, se baja adentro.

@@ -1,0 +1,187 @@
+/* ============================================================
+   Aventurs — Pelea más limpia y con más efectos (v3.19)
+   Sin íconos de habilidades ni "VS", sin el cartel de abajo
+   de la arena (la crónica ya lo cuenta), foco en el que juega,
+   estados que se ven sobre la criatura y crónica por turnos.
+   (Va al final: pisa medidas de theme.css, v2.css, v3.css y pelea.css.)
+   ============================================================ */
+
+/* ---------- Limpieza ---------- */
+.cb-vs > span { display: none; }
+.cb-vs { background: none !important; border: 0 !important; box-shadow: none !important; }
+.combat-view.cb .cb-stage > .cb-narrator { display: none; }
+.combat-view.cb .cb-stage > .cb-arena { border-radius: 4px; border-bottom: 1px solid #4a3a26; }
+.cb-log-tools .cb-voice-btn { width: 30px; height: 30px; padding: 0; display: inline-flex; align-items: center; justify-content: center; }
+.cb-log-tools .cb-voice-btn .px-sprite, .cb-log-tools .cb-voice-btn .px-icon { width: 18px; height: 18px; }
+
+/* ---------- Crónica por turnos ---------- */
+.cb-line.cb-turn {
+  align-items: start;
+  margin: 4px 0;
+  padding: 6px 10px 7px 8px;
+  background: rgba(255, 250, 236, 0.55);
+  border: 1px solid rgba(160, 128, 74, 0.22);
+  border-left-width: 3px;
+  border-radius: 8px;
+}
+.cb-line.cb-turn.side-enemy { background: rgba(248, 226, 216, 0.45); }
+.cb-line.cb-turn.side-pet { background: rgba(232, 240, 218, 0.5); }
+.cb-line.cb-turn.side-ally { background: rgba(226, 234, 246, 0.5); }
+.cb-line.cb-turn .cb-line-who { margin-top: 2px; }
+.cb-turn-head {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+  margin-bottom: 1px;
+  font-family: var(--font-display);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #6b5434;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cb-turn-head b { font-weight: 700; color: #4a3520; }
+.cb-turn.side-enemy .cb-turn-head b { color: #8a2a14; }
+.cb-turn.side-pet .cb-turn-head b { color: #3f6a22; }
+.cb-turn.side-ally .cb-turn-head b { color: #2f528a; }
+.cb-turn-arrow { color: #a8936c; }
+.cb-turn-target { overflow: hidden; text-overflow: ellipsis; }
+.cb-turn .cb-line-text + .cb-line-text { margin-top: 3px; }
+
+/* Lo que pasa solo (quemaduras, regeneración, caídas): renglones chicos */
+.cb-minor {
+  display: flex;
+  align-items: flex-start;
+  gap: 5px;
+  margin-top: 4px;
+  padding: 2px 7px 2px 5px;
+  border-radius: 6px;
+  background: rgba(120, 90, 40, 0.08);
+  font-size: 12.5px;
+  line-height: 1.35;
+  color: #4a3a22;
+}
+.cb-minor-ic { flex: none; display: flex; margin-top: 1px; }
+.cb-minor-ic .px-sprite, .cb-minor-ic .px-icon, .cb-minor-ic svg { width: 14px; height: 14px; }
+.cb-minor-text { min-width: 0; }
+.cb-minor .cb-res { font-size: 0.85em; }
+.cb-minor.kind-death { background: rgba(58, 44, 28, 0.12); font-weight: 600; }
+.cb-minor.kind-heal, .cb-minor.tone-good { background: rgba(127, 154, 85, 0.14); }
+.cb-minor.kind-tick { background: rgba(184, 67, 42, 0.09); }
+.cb-line.cb-loose { display: block; padding: 0 4px; border: 0; }
+.cb-line.cb-loose .cb-minor { margin: 3px 0 3px 42px; }
+
+/* Las tiradas en una sola fila de fichas */
+.cb-rolls { gap: 4px 10px; margin-top: 4px; font-size: 11.5px; }
+.cb-rg { display: inline-flex; align-items: center; gap: 4px; padding: 1px 6px 1px 2px; border-radius: 999px; background: rgba(120, 90, 40, 0.09); white-space: nowrap; }
+.cb-rg.is-text { padding-left: 8px; white-space: normal; }
+.cb-r { color: #5a4630; }
+.cb-r.is-eq b { color: #2a1d12; }
+.cb-r.is-vs.is-ok { color: #3f6a22; font-weight: 700; }
+.cb-r.is-vs.is-no { color: #9a2a14; font-weight: 700; }
+.cb-r.is-dim { color: #8a744c; }
+.cb-rg .dice-pill { margin: 0; }
+
+/* Reglas del arranque (orden por velocidad, empates): una sola línea que se abre */
+.cb-tech-group { margin: 4px 0 6px; border-radius: 8px; background: rgba(120, 90, 40, 0.07); font-size: 12px; color: var(--text-dim); }
+.cb-tech-group > summary { display: flex; align-items: center; gap: 6px; padding: 4px 10px; cursor: pointer; list-style: none; font-weight: 600; color: #6b5434; }
+.cb-tech-group > summary::-webkit-details-marker { display: none; }
+.cb-tech-group > summary::after { content: '▸'; margin-left: auto; transition: transform 160ms ease; }
+.cb-tech-group[open] > summary::after { transform: rotate(90deg); }
+.cb-tech-group > summary em { font-style: normal; font-size: 10.5px; padding: 0 6px; border-radius: 999px; background: rgba(120, 90, 40, 0.15); }
+.cb-tech-line { padding: 2px 12px 2px 30px; line-height: 1.35; }
+.cb-tech-line:last-child { padding-bottom: 7px; }
+
+/* ---------- Efectos ---------- */
+
+/* Números de daño más grandes y con rebote */
+.fx-num { font-size: 34px; animation: num-bounce 1350ms cubic-bezier(.2, .8, .3, 1) both; }
+.fx-num.is-crit { font-size: 52px; -webkit-text-stroke: 2px #3a1500; text-shadow: 0 3px 0 #3a1500, 0 0 18px rgba(255, 190, 60, 0.85); }
+.fx-num.is-tick { font-size: 24px; }
+@keyframes num-bounce {
+  0% { opacity: 0; transform: translate(-50%, -20%) scale(0.3); }
+  12% { opacity: 1; transform: translate(-50%, -95%) scale(1.35); }
+  22% { transform: translate(-50%, -70%) scale(0.95); }
+  32% { transform: translate(-50%, -85%) scale(1.05); }
+  42% { transform: translate(-50%, -80%) scale(1); }
+  78% { opacity: 1; }
+  100% { opacity: 0; transform: translate(-50%, -175%) scale(0.95); }
+}
+
+/* Crítico: la arena se sacude y se acerca al golpe un instante */
+.combat-view.cb .cb-stage { overflow: hidden; border-radius: 4px; }
+.cb-arena.fx-arena-crit {
+  transform-origin: var(--zx, 50%) var(--zy, 60%);
+  animation: arena-shake 420ms ease both, arena-zoom 640ms cubic-bezier(.2, .9, .3, 1) both;
+}
+@keyframes arena-zoom {
+  0% { scale: 1; filter: none; }
+  14% { scale: 1.07; filter: saturate(1.35) contrast(1.08); }
+  45% { scale: 1.07; filter: saturate(1.35) contrast(1.08); }
+  100% { scale: 1; filter: none; }
+}
+
+/* Onda del hechizo al explotar */
+.fx-shockwave {
+  --c: rgba(200, 170, 255, 0.9);
+  width: 40px;
+  height: 40px;
+  margin: -20px 0 0 -20px;
+  border-radius: 50%;
+  border: 4px solid var(--c);
+  box-shadow: 0 0 14px var(--c), inset 0 0 10px var(--c);
+  animation: shockwave 600ms ease-out both;
+  pointer-events: none;
+}
+.fx-shockwave.is-fire { --c: rgba(255, 150, 50, 0.95); }
+.fx-shockwave.is-ice, .fx-shockwave.is-cold { --c: rgba(160, 225, 255, 0.95); }
+.fx-shockwave.is-poison { --c: rgba(160, 230, 80, 0.95); }
+.fx-shockwave.is-holy { --c: rgba(255, 235, 160, 0.95); }
+.fx-shockwave.is-shock { --c: rgba(255, 245, 120, 0.95); }
+.fx-shockwave.is-earth { --c: rgba(220, 170, 110, 0.95); }
+.fx-shockwave.is-crit { border-width: 6px; }
+@keyframes shockwave { 0% { opacity: 1; transform: scale(0.3); } 100% { opacity: 0; transform: scale(4.2); border-width: 1px; } }
+.fx-orb.is-fire { width: 40px; height: 40px; margin: -20px 0 0 -20px; box-shadow: 0 0 26px rgba(255, 140, 40, 0.95); }
+
+/* La criatura que cae se desarma en cuadraditos */
+.fx-pixel {
+  pointer-events: none;
+  animation: pixel-fly 1000ms cubic-bezier(.3, .6, .4, 1) both;
+}
+@keyframes pixel-fly {
+  0% { opacity: 1; transform: none; }
+  100% { opacity: 0; transform: translate(var(--dx, 0), var(--dy, -40px)) rotate(var(--rot, 0deg)) scale(0.4); }
+}
+.cb-unit.fx-die .cb-sprite > .px-sprite { animation: die-fade 700ms ease-in both; }
+@keyframes die-fade { 0% { opacity: 1; } 30% { opacity: 1; filter: brightness(2); } 100% { opacity: 0.25; filter: grayscale(1) brightness(0.45); transform: translateY(8px) scale(0.92); } }
+
+/* Estados que se ven sobre la criatura mientras duran */
+.cb-aura { position: absolute; left: 18%; right: 18%; bottom: 10px; top: 25%; pointer-events: none; z-index: 1; }
+.cb-aura i { position: absolute; bottom: 0; width: 9px; height: 9px; border-radius: 1px; opacity: 0; animation: aura-up 1.6s linear infinite; }
+.cb-aura i:nth-child(1) { left: 8%; animation-delay: 0s; }
+.cb-aura i:nth-child(2) { left: 26%; animation-delay: 0.55s; }
+.cb-aura i:nth-child(3) { left: 44%; animation-delay: 1.1s; }
+.cb-aura i:nth-child(4) { left: 62%; animation-delay: 0.3s; }
+.cb-aura i:nth-child(5) { left: 78%; animation-delay: 0.85s; }
+.cb-aura i:nth-child(6) { left: 92%; animation-delay: 1.35s; }
+@keyframes aura-up { 0% { opacity: 0; transform: translateY(0) scale(1); } 15% { opacity: 1; } 100% { opacity: 0; transform: translateY(-90px) scale(0.4); } }
+@keyframes aura-drip { 0% { opacity: 0; transform: translateY(-80px); } 15% { opacity: 1; } 100% { opacity: 0; transform: translateY(0); } }
+@keyframes aura-flick { 0%, 100% { opacity: 0; } 10%, 30% { opacity: 1; } 20% { opacity: 0.2; } }
+.cb-aura.is-fire i { background: #ffb347; box-shadow: 0 0 6px #ff6a20, 0 0 2px #fff3a0; }
+.cb-aura.is-poison i { background: #b9f06a; border-radius: 50%; box-shadow: 0 0 5px #5a9a20; width: 10px; height: 10px; animation-duration: 2.1s; }
+.cb-aura.is-bleed i { background: #c8221a; border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%; width: 7px; height: 11px; animation-name: aura-drip; animation-duration: 1.3s; }
+.cb-aura.is-cold i { background: #d8f4ff; box-shadow: 0 0 6px #7ac8ff; animation-duration: 2.4s; }
+.cb-aura.is-shock i { background: #fff27a; box-shadow: 0 0 8px #ffe040; width: 4px; height: 18px; animation-name: aura-flick; animation-duration: 0.9s; top: 30%; bottom: auto; }
+.cb-aura.is-curse i { background: #8a5ad0; border-radius: 50%; box-shadow: 0 0 6px #5a2a8a; animation-duration: 2.6s; }
+
+/* Foco en el que juega: los demás se apagan un poco */
+.cb-arena:has(.cb-unit.is-active:not(.is-dead)) .cb-unit:not(.is-active):not(.is-target):not(.is-dead) .cb-sprite > .px-sprite { filter: brightness(0.78) saturate(0.85); transition: filter 250ms ease; }
+.cb-arena:has(.cb-unit.is-active:not(.is-dead)) .cb-unit:not(.is-active):not(.is-dead) .cb-plate { opacity: 0.88; transition: opacity 250ms ease; }
+
+@media (prefers-reduced-motion: reduce) {
+  .fx-pixel, .fx-shockwave, .cb-aura { display: none; }
+  .cb-arena.fx-arena-crit { animation: none; }
+}

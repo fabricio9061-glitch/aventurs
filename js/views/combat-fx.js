@@ -564,6 +564,7 @@
           // v3.3: el hechizo puede fallar
           if (fx.miss) { floatText(fx.target, entry.result === 'fumble' ? '¡Pifia!' : 'Esquiva', 'is-miss'); return; }
           burst(fx.target, fx.element || 'arcane');
+          shockwave(fx.target, fx.element || 'arcane', !!fx.crit);
           elementFx(fx.target, fx.element || 'arcane', !!fx.crit);
           if (entry.dmg != null) hitShake(fx.target, entry.dmg, !!fx.crit);
           if (entry.dmg != null && isHeroKey(fx.target)) hurtVignette(!!fx.crit);
@@ -618,6 +619,7 @@
       case 'death': {
         later(at - t, () => {
           playCardFx(fx.target, 'fx-die', DEATH_MS);
+          if (!entry.fled) shatter(fx.target);
           const r = spriteRect(fx.target);
           if (r) spawn('fx-soul', r.left + r.width / 2, r.top + r.height * 0.35, pxIcon('skull', 32), 1100);
           if (r && !entry.fled && String(fx.target).startsWith('enemy')) lootDrop(r);
@@ -675,7 +677,7 @@
       if (crit) {
         const label = entry.passive === 'golpe_gigante' ? '¡GOLPE DE GIGANTE!' : entry.passive === 'ojo_certero' ? '¡OJO CERTERO!' : '¡CRÍTICO!';
         floatText(target, label, 'is-crit-label', -34);
-        playCardFx('arena', 'fx-arena-shake', 420);
+        critZoom(target);
         flash();
       }
     } else if (res === 'evaded') {
@@ -705,7 +707,7 @@
 
   /** La arena se sacude un poco con los golpes fuertes (los críticos ya la sacuden). */
   function hitShake(key, dmg, crit) {
-    if (crit) { playCardFx('arena', 'fx-arena-shake', 420); return; }
+    if (crit) { critZoom(key); return; }
     const f = hpFraction(key, dmg);
     if (f >= 0.3) playCardFx('arena', 'fx-arena-bump-strong', 300);
     else if (f >= 0.12 || (isHeroKey(key) && f > 0)) playCardFx('arena', 'fx-arena-bump', 240);
@@ -795,6 +797,70 @@
   function lootDrop(r) {
     const d = spawn('fx-drop', r.left + r.width / 2, r.top + r.height * 0.6, pxIcon('bag', 24), 1300);
     if (d) d.style.setProperty('--dx', `${(Math.random() < 0.5 ? -1 : 1) * (18 + Math.round(Math.random() * 14))}px`);
+  }
+
+  // ---------------------------------------------------------------
+  // v3.19: crítico con acercamiento, onda de los hechizos y la criatura que se desarma en píxeles
+  // ---------------------------------------------------------------
+
+  /** En un crítico la arena se frena un instante y se acerca al golpe. */
+  function critZoom(key) {
+    const arena = root && root.querySelector('.cb-arena');
+    const r = spriteRect(key);
+    if (arena && r) {
+      const a = arena.getBoundingClientRect();
+      arena.style.setProperty('--zx', `${Math.round(r.left + r.width / 2 - a.left)}px`);
+      arena.style.setProperty('--zy', `${Math.round(r.top + r.height / 2 - a.top)}px`);
+    }
+    playCardFx('arena', 'fx-arena-crit', 640);
+  }
+
+  /** Un anillo que se abre donde explota el hechizo. */
+  function shockwave(key, element, crit) {
+    const r = spriteRect(key);
+    if (!r) return;
+    spawn(`fx-shockwave is-${element}${crit ? ' is-crit' : ''}`, r.left + r.width / 2, r.top + r.height / 2, null, 620);
+  }
+
+  /** La criatura se desarma: toma los colores de su dibujo y los tira en cuadraditos. */
+  function shatter(key) {
+    const el = findEl(key);
+    const img = el && el.querySelector('.cb-sprite > .px-sprite img');
+    if (!img || !layer) return;
+    const r = img.getBoundingClientRect();
+    if (!r.width || !r.height) return;
+    const GRID = 14;
+    let data = null;
+    try {
+      const cv = document.createElement('canvas');
+      cv.width = GRID; cv.height = GRID;
+      const ctx = cv.getContext('2d');
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(img, 0, 0, GRID, GRID);
+      data = ctx.getImageData(0, 0, GRID, GRID).data;
+    } catch (err) { data = null; }
+    const cell = r.width / GRID;
+    let n = 0;
+    for (let y = 0; y < GRID; y++) {
+      for (let x = 0; x < GRID; x++) {
+        let color = '#6b5434';
+        if (data) {
+          const i = (y * GRID + x) * 4;
+          if (data[i + 3] < 90) continue;
+          color = `rgb(${data[i]}, ${data[i + 1]}, ${data[i + 2]})`;
+        } else if (Math.random() < 0.6) continue;
+        if (n > 110) break;
+        n++;
+        const p = spawn('fx-pixel', r.left + x * cell, r.top + y * cell, null, 1250);
+        if (!p) continue;
+        p.style.width = p.style.height = `${Math.max(3, Math.round(cell))}px`;
+        p.style.background = color;
+        p.style.setProperty('--dx', `${Math.round((x - GRID / 2) * (3 + Math.random() * 5))}px`);
+        p.style.setProperty('--dy', `${Math.round(-30 - Math.random() * 70 + y * 2)}px`);
+        p.style.setProperty('--rot', `${Math.round(Math.random() * 360 - 180)}deg`);
+        p.style.animationDelay = `${Math.round(120 + (GRID - y) * 18 + Math.random() * 90)}ms`;
+      }
+    }
   }
 
   // ---------------------------------------------------------------

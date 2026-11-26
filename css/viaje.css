@@ -91,3 +91,6 @@
   .travel-encounter-v2 .encounter-header { margin-bottom: 10px; padding-bottom: 10px; }
   .travel-encounter-v2 .encounter-icon-big { min-height: 90px; }
 }
+
+/* v3.19: el cartel de votar en grupo (el dibujo no se estira) */
+.road-vote > span:first-child { flex: none; }

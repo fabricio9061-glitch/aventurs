@@ -397,7 +397,7 @@
         <div class="cb-side cb-allies">
           ${allies}
         </div>
-        <div class="cb-vs" aria-hidden="true"><span>VS</span></div>
+        <div class="cb-vs" aria-hidden="true"></div>
         <div class="cb-side cb-enemies">
           ${c.enemies.map((e, i) => enemyCard(e, i, e.instanceId === targetId && !frozen,
             cur && cur.kind === 'enemy' && cur.id === e.instanceId, shown)).join('')}
@@ -425,6 +425,15 @@
     cold: '−2 de defensa y −1 de precisión', blind: '−4 de precisión', shock: 'puede quedar aturdido',
     stun: 'pierde el turno', silence: 'no puede usar magia', noheal: 'se cura la mitad',
   };
+
+  /** v3.19: quemado, veneno, sangrado, frío o electrizado se ven sobre la criatura mientras duran. */
+  const AURA_TYPES = { fire: 'fire', burn: 'fire', poison: 'poison', bleed: 'bleed', cold: 'cold', freeze: 'cold', shock: 'shock', curse: 'curse' };
+  function auraHtml(effects, dead) {
+    if (dead || !effects || !effects.length) return '';
+    const seen = new Set();
+    for (const ef of effects) { const t = AURA_TYPES[ef.type]; if (t) seen.add(t); }
+    return [...seen].slice(0, 2).map((t) => `<span class="cb-aura is-${t}" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></span>`).join('');
+  }
 
   function effectsHtml(effects) {
     const list = effects || [];
@@ -496,7 +505,7 @@
           ${effectsHtml(u.effects)}
           ${u.dc != null && A.ItemSprites && A.ItemSprites.dcBadge ? A.ItemSprites.dcBadge(u.dc, { size: 34, cls: 'cb-dc', title: u.dcTitle }) : ''}
           ${u.sprite}
-          ${u.traits || ''}
+          ${auraHtml(u.effects, u.dead)}
           <span class="cb-shadow"></span>
           ${u.isTarget && !u.dead ? '<span class="cb-target-mark" aria-label="objetivo">▼</span>' : ''}
         </div>
@@ -642,7 +651,7 @@
       : cat === 'strong' ? { cls: 'is-strong', text: 'Fuerte', title: 'Criatura fuerte: más vida y pega más' } : null;
     const skillList = A.Skills ? A.Skills.listFor(e) : [];
     const shownName = e.elite && e.baseName ? `${e.baseName}${e.label ? ` ${e.label}` : ''}` : e.displayName;
-    const skills = A.Skills ? A.Skills.listFor(e).map((sk) => sk.name).join(', ') : '';
+    const skills = skillList.map((sk) => { const w = sk.desc || sk.text || sk.description || ''; return `${sk.name}${sk.kind === 'passive' ? ' (pasiva)' : ''}${w ? `: ${w}` : ''}`; }).join('\n');
     const tails = A.Skills && A.Skills.tailsOf ? A.Skills.tailsOf(e) : 0;
     const fx = mods(e);
     // v2.5: envalentonado (+daño) o con miedo (-daño): se suma al dado ("2d4+1" -> "2d4+2")
@@ -651,11 +660,9 @@
       kind: e.submerged ? 'enemy is-submerged' : 'enemy', key, targetId: e.instanceId, clickable: !e.submerged, i: idx + 2,
       cat, elite: !!e.elite, isTarget: isTarget && !dead, isActive, dead,
       name: shownName,
-      title: dead ? `${e.displayName} (caído)` : `${e.displayName}: tocá para apuntarle${skills ? `\nHabilidades: ${skills}` : ''}`,
+      title: dead ? `${e.displayName} (caído)` : `${e.displayName}: tocá para apuntarle${skills ? `\n\nHabilidades:\n${skills}` : ''}`,
       badges: `${e.elite ? '' : `<span class="cb-badge" title="Nivel de peligro">Nv ${e.tier}</span>`}${catBadge}`,
       ribbon,
-      // v3.18: sus habilidades, como íconos chiquitos (qué hace cada una, al pasar el mouse)
-      traits: dead ? '' : skillTraits(skillList),
       sprite: A.Sprites ? A.Sprites.html(e, { size: 128 }) : '',
       hp, hpMax: e.maxHp, barCls: 'bar-enemy-hp',
       // v3.8: las colas del kitsune (le crece una por turno)
@@ -670,21 +677,6 @@
         stat('VEL', e.speed || 10, 'Velocidad: el más rápido actúa primero'),
       ],
     });
-  }
-
-  /** v3.18: las habilidades de una criatura, en íconos (las pasivas con borde azul). */
-  const TRAIT_ICON = { strike: 'swords', heal: 'heal', healAlly: 'heal', summon: 'skulls', rally: 'arrow-up', debuff: 'warning', breath: 'breath', aoe: 'fireball' };
-  function skillTraits(list) {
-    if (!list || !list.length) return '';
-    const max = 4;
-    const chips = list.slice(0, max).map((sk) => {
-      const passive = sk.kind === 'passive';
-      const ic = sk.icon || TRAIT_ICON[sk.act] || (passive ? 'star' : 'spark');
-      const what = sk.desc || sk.text || sk.description || '';
-      return `<span class="cb-trait ${passive ? 'is-passive' : ''}" title="${esc(sk.name)}${passive ? ' (pasiva)' : ''}${what ? `: ${esc(what)}` : ''}">${icon(ic, 12, 'px-soft')}</span>`;
-    }).join('');
-    const more = list.length > max ? `<span class="cb-trait is-more" title="${esc(list.slice(max).map((x) => x.name).join(', '))}">+${list.length - max}</span>` : '';
-    return `<div class="cb-traits">${chips}${more}</div>`;
   }
 
   /** Lo que tenés que sacar en el D20 para pegarle (con tu ataque). */
@@ -930,6 +922,7 @@
             <input type="checkbox" data-combat-toggle="rolls" ${showRolls ? 'checked' : ''}>
             <span>Ver tiradas</span>
           </label>
+          ${voiceBtn()}
           <button type="button" class="cb-log-full" data-combat-action="show-full-log" title="Toda la crónica en grande, con las tiradas">${icon('book', 14)}<span>Ver entera</span></button>
         </span>
       </div>`;
@@ -1003,55 +996,172 @@
     return '';
   }
 
+  /** v3.19: las tiradas en una fila de fichas: [12] +8 = 20 contra 12 ✓ · [2d4+1] 3 de daño · queda 18/21 */
   function rollsHtml(entry) {
     const parts = [];
     if (entry.roll != null) {
-      const bonus = entry.bonus ? ` ${entry.bonus > 0 ? '+' : '−'} ${Math.abs(entry.bonus)} = <b>${entry.total}</b>` : '';
-      const vs = entry.vs != null ? ` contra ${entry.vsLabel === 'DC huida' ? 'huida' : 'dificultad'} <b>${entry.vs}</b>` : '';
       const nat = entry.roll === 20 ? 'is-nat20' : entry.roll === 1 ? 'is-nat1' : '';
-      parts.push(`<span class="die-pill ${nat}">${entry.roll}</span> D20${bonus}${vs}`);
+      const bonus = entry.bonus ? `<span class="cb-r">${entry.bonus > 0 ? '+' : '−'}${Math.abs(entry.bonus)}</span><span class="cb-r is-eq">= <b>${entry.total}</b></span>` : '';
+      let vs = '';
+      if (entry.vs != null) {
+        const ok = (entry.total != null ? entry.total : entry.roll) >= entry.vs;
+        vs = `<span class="cb-r is-vs ${ok ? 'is-ok' : 'is-no'}">contra ${entry.vs} ${ok ? '✓' : '✗'}</span>`;
+      }
+      parts.push(`<span class="cb-rg"><span class="die-pill ${nat}" title="Lo que salió en el dado de 20">${entry.roll}</span>${bonus}${vs}</span>`);
     }
     if (entry.dmg != null && (entry.dmg > 0 || entry.rawDmg > 0) && (entry.result === 'hit' || entry.result === 'crit' || (entry.fx && entry.fx.kind === 'spell'))) {
-      const dice = entry.damageDice ? `<span class="dice-pill">${esc(String(entry.damageDice).replace(/\s+/g, ''))}</span> ` : '';
+      const dice = entry.damageDice ? `<span class="dice-pill" title="Dado de daño">${esc(String(entry.damageDice).replace(/\s+/g, ''))}</span>` : '';
       // v3.11: lo que suman las pasivas después del dado (instinto, descarga, embestida, llama, Frenesí...)
-      const extras = (entry.extras || []).map((x) => `<span class="dice-pill is-extra">+${x.n} ${esc(x.label)}</span> `).join('');
-      // v3.9: si la armadura es igual o mayor, para el golpe (un crítico hace al menos 1)
+      const extras = (entry.extras || []).map((x) => `<span class="dice-pill is-extra">+${x.n} ${esc(x.label)}</span>`).join('');
       const blocked = entry.targetArmor && entry.rawDmg != null && entry.targetArmor >= entry.rawDmg;
-      const red = entry.targetArmor && entry.rawDmg != null
-        ? ` (${entry.rawDmg} − ${entry.targetArmor} de armadura${blocked ? (entry.dmg > 0 ? (entry.fx && entry.fx.kind === 'spell' ? ': la magia hace al menos 1' : ': mínimo 1 por crítico') : ': la armadura lo para') : ''})` : '';
-      const life = entry.hpAfter != null ? ` · queda ${entry.hpAfter}/${entry.hpMax}` : '';
-      parts.push(`${dice}${extras}<b>${entry.dmg}</b> de daño${red}${life}`);
+      const arm = entry.targetArmor && entry.rawDmg != null
+        ? `<span class="cb-r is-dim" title="${esc(`${entry.rawDmg} menos ${entry.targetArmor} de armadura${blocked ? (entry.dmg > 0 ? (entry.fx && entry.fx.kind === 'spell' ? ': la magia hace al menos 1' : ': mínimo 1 por crítico') : ': la armadura lo para') : ''}`)}">${entry.rawDmg} − ${entry.targetArmor} arm.</span>` : '';
+      const life = entry.hpAfter != null ? `<span class="cb-r is-dim">queda ${entry.hpAfter}/${entry.hpMax}</span>` : '';
+      parts.push(`<span class="cb-rg">${dice}${extras}<span class="cb-r"><b>${entry.dmg}</b> de daño</span>${arm}${life}</span>`);
     }
-    if (!parts.length && entry.text && entry.fx && ['tick', 'heal'].includes(entry.fx.kind)) parts.push(esc(entry.text));
-    return parts.length ? `<div class="cb-rolls">${parts.join('<span class="cb-rolls-sep">·</span>')}</div>` : '';
+    if (!parts.length && entry.text && entry.fx && ['tick', 'heal'].includes(entry.fx.kind)) parts.push(`<span class="cb-rg is-text">${esc(techFor(entry))}</span>`);
+    return parts.length ? `<div class="cb-rolls">${parts.join('')}</div>` : '';
+  }
+
+  // ---------- v3.19: la crónica por turnos ----------
+  // Cada acción (atacar, un hechizo, la habilidad de una criatura) abre una tarjeta con quién y a quién;
+  // lo que pasa solo (quemaduras, regeneración, caídas, estados) va como renglones chicos dentro de la tarjeta.
+  const MINOR_KINDS = ['tick', 'status', 'stun', 'passive', 'death', 'buff', 'note', 'tamed'];
+
+  function normKey(k, e) {
+    if (!k) return null;
+    if (e && e.hid && k === 'player') return `hero:${e.hid}`;
+    if (e && e.hid && k === 'pet') return `pet:${e.hid}`;
+    if (k === 'player') return `hero:${localHid()}`;
+    if (k === 'pet') return `pet:${localHid()}`;
+    return String(k);
+  }
+
+  function isMainEntry(e) {
+    const fx = e.fx || {};
+    if (!fx.kind || fx.kind === 'start' || fx.kind === 'reward' || fx.kind === 'defeat') return false;
+    if (e.type === 'system') return false;
+    return !MINOR_KINDS.includes(fx.kind);
+  }
+
+  function keyName(key, c) {
+    if (!key) return '';
+    if (key.startsWith('hero:')) {
+      const hid = key.slice(5);
+      if (hid === localHid()) return 'Vos';
+      const h = heroOf(hid); return h ? h.name : 'Tu compañero';
+    }
+    if (key.startsWith('pet:')) {
+      const h = heroOf(key.slice(4)) || (key.slice(4) === localHid() ? me() : null);
+      const pet = h && h.pet;
+      if (!pet) return 'Mascota';
+      return key.slice(4) === localHid() ? `Tu ${String(pet.name).toLowerCase()}` : `${pet.name} (de ${h.name})`;
+    }
+    if (key.startsWith('ally:') && c) { const a = (c.allies || []).find((x) => `ally:${x.aid}` === key); return a ? a.name : 'Aliado'; }
+    if (key.startsWith('enemy:') && c) { const inst = (c.enemies || []).find((x) => `enemy:${x.instanceId}` === key); return inst ? inst.displayName : 'Criatura'; }
+    return '';
+  }
+
+  function textHtml(e) {
+    const told = sayFor(e) || { text: (e.say && e.say.text) || techFor(e), who: null };
+    return `${whoTag(told.who)}${esc(told.text)}${resultTag(e)}`;
+  }
+
+  function minorHtml(e, c, rolls) {
+    const fx = e.fx || {};
+    const side = lineSide(e);
+    const ic = fx.kind === 'death' ? icon('skull', 14) : fx.kind === 'tick' ? icon(fx.effect || 'poison', 14)
+      : fx.kind === 'heal' ? icon('heart', 14) : fx.kind === 'stun' ? icon('hourglass', 14) : fx.kind === 'buff' ? icon(fx.icon || 'star', 14) : icon('feather', 14);
+    return `<div class="cb-minor side-${side} kind-${esc(fx.kind || 'note')} tone-${(e.say && e.say.tone) || 'neutral'}"><span class="cb-minor-ic">${ic}</span><span class="cb-minor-text">${textHtml(e)}${rolls && e.roll != null ? rollsHtml(e) : ''}</span></div>`;
   }
 
   function chronicleHtml(entries, opts = {}) {
     const c = opts.combat || A.State.combat;
     const out = [];
+    let group = null; // { actor, target, side, avatar, mains: [], before: [], after: [], ally }
+    let pending = []; // renglones chicos que todavía no se sabe de qué turno son
+    let tech = [];
+    const flushTech = () => {
+      if (!tech.length) return;
+      out.push(`<details class="cb-tech-group" ${techOpen ? 'open' : ''}><summary>${icon('dice', 14)}<span>Reglas y orden de turnos</span><em>${tech.length}</em></summary>${tech.map((t) => `<div class="cb-tech-line">${esc(t)}</div>`).join('')}</details>`);
+      tech = [];
+    };
+    const flushGroup = () => {
+      if (!group) return;
+      const g = group;
+      const head = `<div class="cb-turn-head"><b>${esc(g.actorName)}</b>${g.targetName ? `<span class="cb-turn-arrow">→</span><span class="cb-turn-target">${esc(g.targetName)}</span>` : ''}</div>`;
+      out.push(`
+        <div class="cb-line cb-turn side-${g.side} ${g.ally ? 'is-ally' : ''}">
+          <span class="cb-line-who">${g.avatar}</span>
+          <span class="cb-line-body">
+            ${head}
+            ${g.before.map((e) => minorHtml(e, c, opts.rolls)).join('')}
+            ${g.mains.map((e) => `<span class="cb-line-text tone-${(e.say && e.say.tone) || 'neutral'}">${textHtml(e)}</span>${opts.rolls ? rollsHtml(e) : ''}`).join('')}
+            ${g.after.map((e) => minorHtml(e, c, opts.rolls)).join('')}
+          </span>
+        </div>`);
+      group = null;
+    };
+    const placePending = (nextActor) => {
+      if (!pending.length) return [];
+      const mineNext = pending.filter((e) => nextActor && normKey(whoKey(e.fx), e) === nextActor);
+      const rest = pending.filter((e) => !mineNext.includes(e));
+      if (rest.length) {
+        if (group) group.after.push(...rest);
+        else rest.forEach((e) => out.push(`<div class="cb-line cb-loose">${minorHtml(e, c, opts.rolls)}</div>`));
+      }
+      pending = [];
+      return mineNext;
+    };
     for (const e of entries || []) {
       if (e.type === 'turn-header') {
+        placePending(null); flushGroup(); flushTech();
         out.push(`<div class="combat-log-divider"><span>Ronda ${e.turnNumber || ''}</span></div>`);
         continue;
       }
       const say = e.say && e.say.text ? e.say : null;
       if (!say) {
-        if (opts.rolls && e.text) out.push(`<div class="cb-line is-tech"><span class="cb-line-who"></span><span class="cb-line-body"><span class="cb-line-text">${esc(techFor(e))}</span></span></div>`);
+        if (opts.rolls && e.text) { placePending(null); flushGroup(); tech.push(techFor(e)); }
         continue;
       }
-      const told = sayFor(e) || { text: say.text, who: null };
-      const side = lineSide(e);
-      out.push(`
-        <div class="cb-line tone-${say.tone} side-${side} ${e.hid && e.hid !== localHid() ? 'is-ally' : ''}">
-          <span class="cb-line-who">${lineAvatar(e, c)}</span>
-          <span class="cb-line-body">
-            <span class="cb-line-text">${whoTag(told.who)}${esc(told.text)}${resultTag(e)}</span>
-            ${opts.rolls ? rollsHtml(e) : ''}
-          </span>
-        </div>`);
+      flushTech();
+      const fx = e.fx || {};
+      if (fx.kind === 'start' || fx.kind === 'reward' || fx.kind === 'defeat' || !fx.kind) {
+        placePending(null); flushGroup();
+        out.push(`
+          <div class="cb-line tone-${say.tone} side-system">
+            <span class="cb-line-who">${lineAvatar(e, c)}</span>
+            <span class="cb-line-body"><span class="cb-line-text">${textHtml(e)}</span></span>
+          </div>`);
+        continue;
+      }
+      if (!isMainEntry(e)) { pending.push(e); continue; }
+      const actor = normKey(fx.actor || (e.type === 'player' ? 'player' : e.type === 'pet' ? 'pet' : null), e) || `x:${out.length}`;
+      const target = normKey(fx.target, e);
+      if (group && group.actor === actor) {
+        group.after.push(...placePending(null).filter(Boolean));
+        group.mains.push(e);
+        if (!group.targetName && target && target !== actor) group.targetName = keyName(target, c);
+        continue;
+      }
+      const before = placePending(actor);
+      flushGroup();
+      group = {
+        actor,
+        actorName: keyName(actor, c) || (e.type === 'enemy' ? 'Criatura' : ''),
+        targetName: target && target !== actor ? keyName(target, c) : '',
+        side: lineSide(e),
+        avatar: lineAvatar(e, c),
+        ally: !!(e.hid && e.hid !== localHid()),
+        mains: [e], before, after: [],
+      };
     }
+    placePending(null);
+    flushGroup();
+    flushTech();
     return out.length ? out.join('') : '<div class="cb-line is-empty">Todavía no pasó nada.</div>';
   }
+  let techOpen = false; // v3.19: si dejaste abierto "Reglas y orden de turnos"
 
   // ============================================================
   // Resultado
@@ -1298,6 +1408,12 @@
     if (!mainEl) return;
     mainEl.removeEventListener('click', onClick);
     mainEl.removeEventListener('change', onChange);
+    mainEl.removeEventListener('toggle', onTechToggle, true);
+  }
+
+  function onTechToggle(ev) {
+    const d = ev.target;
+    if (d && d.classList && d.classList.contains('cb-tech-group')) techOpen = d.open;
   }
 
   const CombatView = {
@@ -1309,6 +1425,7 @@
         lastHtml = {};
         mainEl.addEventListener('click', onClick);
         mainEl.addEventListener('change', onChange);
+        mainEl.addEventListener('toggle', onTechToggle, true);
       }
       if (Fx()) Fx().mount(container, { rerender: render });
       window.removeEventListener('resize', onResize);
