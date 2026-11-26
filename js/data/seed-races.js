@@ -220,7 +220,7 @@
       combatType: 'mage',
       magic: true,
       passive: 'llama_interior',
-      startSpell: 'ascua_infernal', manaRegen: { turn: 1, win: 0.15 },
+      startSpell: 'ascua_infernal', manaRegen: { turn: 1, win: 0.15, upTo: 20 }, // v3.12: su maná por turno crece hasta el 20 (los demás magos, hasta el 16): vive de su maná
       bonuses: { hp: -8, mana: 4, speed: 1, precision: 2, armor: 0, damage: 0, dodge: 2 }, // v3.6: clase + 3 puntos de raza
       explore: { fuerza: 1, agilidad: 0, ingenio: 3, punteria: 1, suerte: 0 }, // v3.6: al explorar, 5 puntos para todos
       description: 'Nacidos con sangre de demonio. Llevan el fuego del abismo en las venas y lo vuelcan en cada hechizo.',

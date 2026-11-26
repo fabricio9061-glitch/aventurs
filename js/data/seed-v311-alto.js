@@ -45,8 +45,8 @@
       spawn: { min: 1, max: cat === 'normal' ? 2 : 1, weight: 1, groupable: cat !== 'boss' },
       tameable: false, autoLoot: cat !== 'boss', _source: 'v311',
     }, curve(o.tier, cat, o.prof || {}), o);
-    if (o.base || o.colors) e.sprite = Object.assign({ t: o.base }, o.colors || {});
-    delete e.prof; delete e.base; delete e.colors; delete e.mats;
+    if (o.base || o.colors || o.shape) e.sprite = Object.assign({ t: o.base }, o.colors || {}, o.shape ? { o: o.shape } : {}); // v3.12: shape (la forma)
+    delete e.prof; delete e.base; delete e.colors; delete e.mats; delete e.shape;
     e.drops = [B.Economy.coinDrop(e)].concat((o.mats || []).map(([itemId, chance]) => ({ itemId, chance, source: 'v311' })));
     S.enemies.push(e);
     return e;
@@ -242,7 +242,10 @@
     base: 'huargo', colors: { b: '#e8f0f8', c: '#9ac8e8', e: '#3a8aff' }, skills: ['manada', 'mordida', 'cuerpo_hielo'], mats: [['mat_piel_lobo', 0.6], ['mat_esencia_hielo', 0.3]],
     spawn: { min: 1, max: 3, weight: 1.2, groupable: true }, description: 'Su aliento congela la nieve en el aire. Cazan en manada y no se cansan nunca.' });
   C({ id: 'mamut', name: 'Mamut lanudo', tier: 13, prof: { hp: 1.3, dmg: 1.05 }, family: ['beast'], tags: ['big'], biome: ['mountain'], speed: 8, regions: ['tundra_eterna'],
-    base: 'oso', colors: { b: '#6a4a2a', c: '#a07a4a', a: '#f0e8d0' }, skills: ['piel_gruesa', 'embestida', 'pisoton'], mats: [['mat_piel_oso', 0.6], ['mat_cuerno', 0.5], ['carne_gigante', 0.5]],
+    // v3.12: con trompa, colmillos y pelo largo (antes parecía un oso)
+    base: 'oso', colors: { b: '#6a4a2a', c: '#8a6440', a: '#f0e8d0', tc: '#f4ecd8' },
+    shape: { len: 21, h: 14, cx: 19.5, leg: 6, legW: 3, head: 5, headLow: false, headX: 1.8, snout: 0, trunk: true, tusks: true, ears: 'round', tail: 'short', hump: true, claws: false, shaggy: true, belly: false },
+    skills: ['piel_gruesa', 'embestida', 'pisoton'], mats: [['mat_piel_oso', 0.6], ['mat_cuerno', 0.5], ['carne_gigante', 0.5]],
     description: 'Una montaña de pelo con colmillos. Tranquilo, hasta que no.' });
   C({ id: 'yeti_anciano', name: 'Yeti anciano', category: 'strong', tier: 13, family: ['beast', 'giant'], tags: ['cold'], biome: ['mountain'], speed: 10, regions: ['tundra_eterna'],
     base: 'yeti', colors: { b: '#f4f8fc', c: '#b8c8d8' }, skills: ['gigante', 'aguante', 'rugido', 'cuerpo_hielo'], mats: [['mat_esencia_hielo', 0.5], ['mat_piel_oso', 0.5]],
@@ -301,17 +304,17 @@
   C({ id: 'devorador_almas', name: 'Devorador de almas', tier: 17, family: ['aberration'], tags: ['gaze'], biome: ['crypt'], speed: 11, regions: ['abismo_sombras'],
     base: 'contemplador', colors: { b: '#3a1a3a', c: '#a03a6a', e: '#ffe070' }, skills: ['abismal', 'mirada', 'drenar', 'miedo'], mats: [['mat_ojo_magico', 0.6], ['mat_esencia_vacio', 0.1]],
     description: 'Un ojo con hambre. Lo que mira, se apaga un poco.' });
-  C({ id: 'demonio_sombras', name: 'Demonio de las sombras', category: 'strong', tier: 17, // v3.11.5: era 18 (el Demonio mayor, jefe, es 18) family: ['demon'], tags: ['dark'], biome: ['crypt', 'hell'], speed: 12, regions: ['abismo_sombras'],
+  C({ id: 'demonio_sombras', name: 'Demonio de las sombras', category: 'strong', tier: 17, /* v3.11.5: era 18 (el Demonio mayor, jefe, es 18) */ family: ['demon'], tags: ['dark'], biome: ['crypt', 'hell'], speed: 12, regions: ['abismo_sombras'],
     base: 'demonio_mayor', colors: { b: '#2a1a3a', c: '#6a3a8a', e: '#ff3a3a' }, skills: ['oscuridad', 'miedo', 'cuerpo_fuego'], mats: [['mat_cuerno_demonio', 0.6], ['mat_esencia_sombra', 0.5], ['mat_esencia_vacio', 0.12]],
     description: 'Un demonio hecho de oscuridad. Donde pisa, las antorchas se apagan.' });
   // Cumbre del Mundo (18-20)
   C({ id: 'roc', name: 'Roc', tier: 18, prof: { hp: 1.15 }, family: ['beast', 'flying'], tags: ['flying', 'big'], biome: ['mountain'], speed: 15, regions: ['cumbre_mundo'],
     base: 'aguila', colors: { b: '#6a4a2a', c: '#e0c080', a: '#f0a020' }, skills: ['vuelo', 'picotazo', 'rafaga'], mats: [['mat_pluma', 0.8], ['carne_ave', 0.6]],
     description: 'Un pájaro tan grande que caza mamuts. Para él, vos sos una lombriz.' });
-  C({ id: 'titan_celeste', name: 'Titán celeste', category: 'strong', tier: 18, // v3.11.5: era 19 (el Titán, jefe, es 19) prof: { hp: 1.2 }, family: ['giant', 'celestial'], tags: ['big'], biome: ['mountain'], speed: 8, regions: ['cumbre_mundo'],
+  C({ id: 'titan_celeste', name: 'Titán celeste', category: 'strong', tier: 18, /* v3.11.5: era 19 (el Titán, jefe, es 19) */ prof: { hp: 1.2 }, family: ['giant', 'celestial'], tags: ['big'], biome: ['mountain'], speed: 8, regions: ['cumbre_mundo'],
     base: 'titan', colors: { b: '#e8e0d0', c: '#ffffff', a: '#e0c060' }, skills: ['gigante', 'terremoto', 'aguante'], mats: [['mat_cristal_astral', 0.5], ['mat_escama_ancestral', 0.3]],
     description: 'Uno de los que sostienen el cielo. Bajó a ver quién hace tanto ruido.' });
-  C({ id: 'dragon_tormenta', name: 'Dragón de la tormenta', category: 'strong', tier: 18, // v3.11.5: era 19 (Dragón anciano 19, Alamuerte 20) family: ['dragon', 'flying'], tags: ['flying', 'storm'], biome: ['mountain'], speed: 14, regions: ['cumbre_mundo'],
+  C({ id: 'dragon_tormenta', name: 'Dragón de la tormenta', category: 'strong', tier: 18, /* v3.11.5: era 19 (Dragón anciano 19, Alamuerte 20) */ family: ['dragon', 'flying'], tags: ['flying', 'storm'], biome: ['mountain'], speed: 14, regions: ['cumbre_mundo'],
     base: 'dragon_joven', colors: { b: '#2a3a7a', c: '#7a9ae0', e: '#fff070' }, skills: ['vuelo', 'rafaga', 'barrido', 'aliento_hielo'], mats: [['mat_escama_ancestral', 0.6], ['mat_chispa_tormenta', 0.6], ['carne_dragon', 0.5]],
     description: 'Vuela dentro de las nubes de tormenta. Cuando ruge, cae un rayo.' });
   // El Fin del Mundo (19-20)

@@ -30,7 +30,7 @@
 (function (A) {
   'use strict';
 
-  const VERSION = 11;       // si cambian los mensajes o las reglas, sube y avisa "actualicen los dos" (v3.2: 4 · v3.3: 5 · v3.4: 6 · v3.8: 7 · v3.9: 8 · v3.10: 9 · v3.11: 10 · v3.11.1: 11)
+  const VERSION = 12;       // si cambian los mensajes o las reglas, sube y avisa "actualicen los dos" (v3.2: 4 · v3.3: 5 · v3.4: 6 · v3.8: 7 · v3.9: 8 · v3.10: 9 · v3.11: 10 · v3.11.1: 11 · v3.12: 12)
   const MAX_MEMBERS = 4;     // v3.2: hasta cuatro jugadores
   const SNAP_MS = 50;       // juntar cambios antes de mandar la foto
   const HERO_MS = 150;      // juntar cambios del invitado antes de mandarlos
@@ -592,9 +592,18 @@
       if (A.State.combat || hostBusySceneOpen()) return { ok: false, error: 'Esperá a que termine lo que está pasando.' };
       return ORIG['Travel.step']();
     },
+    // v3.12: cualquiera del grupo puede dar la vuelta (o seguir) a mitad de camino
+    'Travel.turnBack': () => {
+      const t = A.State.traveling;
+      if (!t || t.completed) return { ok: false, error: 'No hay viaje activo.' };
+      const last = t.events[t.events.length - 1];
+      if (last && last.kind === 'creature' && !last.resolved) return { ok: false, error: 'Primero hay que resolver lo que apareció en el camino.' };
+      if (A.State.combat || hostBusySceneOpen()) return { ok: false, error: 'Esperá a que termine lo que está pasando.' };
+      return ORIG['Travel.turnBack']();
+    },
   };
   // v3.9: lo que corre como el anfitrión (no con el héroe del invitado)
-  const RPC_AS_HOST = { 'Travel.step': true };
+  const RPC_AS_HOST = { 'Travel.step': true, 'Travel.turnBack': true };
   function hostBusySceneOpen() { return !!(A.State.ui && A.State.ui.openModal); }
 
   function plain(v) {
@@ -1176,8 +1185,12 @@
     if (name.startsWith('Travel.')) {
       if (!P.together) return PASS;
       // v3.9: avanzar en el camino lo puede tocar cualquiera (lo hace el anfitrión)
-      if (name === 'Travel.step' && A.State.traveling && !A.State.traveling.completed) {
-        rpc(name, [{}]);
+      // v3.12: dar la vuelta, también
+      if ((name === 'Travel.step' || name === 'Travel.turnBack') && A.State.traveling && !A.State.traveling.completed) {
+        rpc(name, [{}], (res) => {
+          const r = res && res.result;
+          if (res && res.ok !== false && r && r.ok === false && r.error) toast(r.error, 'bad');
+        });
         return { ok: true, pending: true };
       }
       // v3.11.1: lo que aparece en el camino lo votan todos (el voto lo cuenta el anfitrión)
@@ -1247,7 +1260,7 @@
   function installWrappers() {
     ['playerAttack', 'playerPowerAttack', 'playerTechnique', 'playerSpell', 'playerUseItem', 'playerTame', 'playerFlee', 'setTarget', 'finish', 'start'].forEach((f) => wrap(A.Combat, 'Combat', f));
     ['explore', 'choose', 'proceed', 'rest'].forEach((f) => wrap(A.Explore, 'Explore', f));
-    ['start', 'step', 'cancel', 'decide'].forEach((f) => wrap(A.Travel, 'Travel', f)); // v3.11.1: decide (votar en el camino)
+    ['start', 'step', 'cancel', 'decide', 'turnBack'].forEach((f) => wrap(A.Travel, 'Travel', f)); // v3.11.1: decide (votar en el camino) · v3.12: turnBack
     ['equip', 'unequip', 'use', 'drop'].forEach((f) => wrap(A.Inventory, 'Inventory', f));
     ['feed', 'healWithPotion'].forEach((f) => wrap(A.Tame, 'Tame', f));
     // El anfitrión: lo que corre con el héroe del invitado lo marca para mandárselo

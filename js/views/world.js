@@ -243,9 +243,16 @@
           <p class="lair-desc">${esc(b.description || '')}</p>
           ${sk.length && known ? `<div class="lair-skills">${sk.map((x) => `<span class="lair-skill" title="${esc(x.text || '')}">${icon(x.icon || 'star', 12)}${esc(x.name)}</span>`).join('')}</div>` : ''}
           ${warn}
+          ${supremeHint()}
           ${altar}
         </div>
       </section>`;
+  }
+  /** v3.12: a veces el jefe sale en su forma suprema (dorado: más fuerte y con mejor botín). */
+  function supremeHint() {
+    const EL = A.Balance && A.Balance.ELITE;
+    if (!EL || !(EL.chanceBoss > 0)) return '';
+    return `<p class="lair-supreme">${icon('elite', 16)}<span>Una de cada ${Math.round(1 / EL.chanceBoss)} veces sale en su <b>forma suprema</b>: dorado, más fuerte y con mejor botín.</span></p>`;
   }
   function lairButton(st) {
     const chk = A.Lairs.canChallenge(st.region.id);
@@ -455,8 +462,9 @@
     return `
       <div class="travel-stage-content">${card}</div>
       <div class="travel-actions-v2 is-follow">
-        <p class="travel-follow-note">${icon('party', 18)}<span>${pending ? 'Esperando a que se resuelva lo que apareció en el camino.' : `Viajan juntos: cualquiera puede avanzar. Si aparece una criatura, deciden entre todos qué hacer.`}</span></p>
-        ${pending || t.completed ? '' : `<button class="btn-primary btn-travel-step" data-travel-action="step">${icon('boot', 18)}<span>Avanzar</span></button>`}
+        <p class="travel-follow-note">${icon('party', 18)}<span>${pending ? 'Esperando a que se resuelva lo que apareció en el camino.' : `Viajan juntos: cualquiera puede avanzar o dar la vuelta. Si aparece una criatura, deciden entre todos qué hacer.`}</span></p>
+        ${pending || t.completed ? '' : `<button class="btn-primary btn-travel-step" data-travel-action="step">${icon('boot', 18)}<span>${t.back ? `Volver a ${esc(regionNameOf(t.fromId))}` : 'Avanzar'}</span></button>
+        <button class="btn-ghost" data-travel-action="turn" title="${t.back ? 'Seguir hacia el destino' : 'Volver por el mismo camino (paso a paso)'}">${icon(t.back ? 'arrow-up' : 'arrow-down', 16)}<span>${(t.currentStep || 0) <= 0 && !t.back ? 'Quedarse acá' : t.back ? `Seguir hacia ${esc(regionNameOf(t.toId))}` : 'Dar la vuelta'}</span></button>`}
       </div>`;
   }
 
@@ -825,6 +833,7 @@
       lair: 'Guarida', abyss: 'Abismo',
       hills: 'Colinas', meadow: 'Pradera', darkwood: 'Bosque oscuro', dream: 'Bosque encantado',
       grove: 'Santuario', gothic: 'Ciudad de la noche', pirate: 'Puerto pirata', bloodwood: 'Jardín maldito',
+      sky: 'Cielo', space: 'Espacio', // v3.12
     };
     return map[b] || b;
   }

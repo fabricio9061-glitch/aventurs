@@ -816,6 +816,38 @@
     }
   }
 
+  // ============================================================
+  // v3.12: lo único de algunas armas legendarias
+  //   bane:  { families: [...], bonus: N, label } -> +N contra esas criaturas (Crematoria)
+  //   drain: 0..1 -> esa parte del daño vuelve como vida (Agonía de Escarcha)
+  //   chain: N -> un rayo salta a otra criatura y le hace N (Martillo Maldito)
+  // ============================================================
+  function weaponBane(w, target) {
+    const b = w && w.bane;
+    if (!b || !target || !b.bonus) return 0;
+    const fam = target.family || [];
+    return (b.families || []).some((f) => fam.includes(f)) ? b.bonus : 0;
+  }
+  function weaponSpecials(c, p, w, target, dmg) {
+    if (!w || !c) return;
+    if (w.drain && p.hp > 0 && p.hp < p.maxHp) {
+      const before = p.hp;
+      A.State.healHp(Math.max(1, Math.round(dmg * w.drain)));
+      const got = p.hp - before;
+      if (got > 0) addLog(c, 'system', { text: `${w.name}: +${got} de vida.`, fx: { kind: 'heal', actor: 'player', target: 'player', amount: got }, say: { text: `${w.name} bebe del golpe: recuperás ${got} de vida.`, tone: 'good' } });
+    }
+    if (w.chain) {
+      const others = hittableEnemies().filter((e) => e !== target && e.hp > 0);
+      const to = others[Math.floor(Math.random() * others.length)];
+      if (to) {
+        const n = Math.max(1, w.chain);
+        to.hp = Math.max(0, to.hp - n);
+        addLog(c, 'player', { text: `Un rayo salta de ${w.name} a ${to.displayName}: ${n} de daño.`, target: to.displayName, dmg: n, hpAfter: to.hp, hpMax: to.maxHp, result: 'hit', fx: { kind: 'spell', actor: 'player', target: fxKey(to), element: 'shock', chain: true }, say: { text: `Un rayo salta de ${w.name} y alcanza a ${A.Skills ? A.Skills.noun(to) : to.displayName}: ${n} de daño.`, tone: 'good' } });
+        if (to.hp <= 0) enemyDown(c, to, 'player');
+      }
+    }
+  }
+
   /** Arma o hechizo con statusEffect: chance de aplicarlo al pegar. */
   function maybeInflictStatusOnHit(source, target, c) {
     if (!source || !target || !source.statusEffect) return;
@@ -1084,6 +1116,11 @@
   /** v2.5: Regeneración de criaturas y mascotas al empezar su turno (el fuego la frena). */
   function creatureTurnPassives(c, kind, x) {
     if (!A.Skills || !x) return;
+    // v3.12: Sumergirse: al empezar su turno sale a la superficie (y ataca)
+    if (kind === 'enemy' && x.submerged && x._dived) {
+      x.submerged = false; x._dived = false;
+      addLog(c, 'enemy', { text: `${x.displayName} sale a la superficie.`, fx: { kind: 'note', actor: fxKey(x) }, say: { text: `${cap1(A.Skills.noun(x))} sale del agua de golpe.`, tone: 'bad' } });
+    }
     tailPassive(c, kind, x);
     const n = A.Skills.regenOf(x);
     if (!n) return;
@@ -1107,6 +1144,24 @@
       fx: { kind: 'heal', actor: fxKey(x), target: fxKey(x), amount: got, skill: 'regeneracion' },
       say: { text: `Las heridas de ${noun} se cierran solas: recupera ${got} de vida.`, tone: isPetX ? 'good' : 'bad' },
     });
+  }
+
+  function cap1(t) { return t ? t.charAt(0).toUpperCase() + t.slice(1) : t; }
+
+  /** v3.12: Sumergirse: después de atacar se hunde, si queda otra a la que pegarle. */
+  function maybeDive(c, e) {
+    if (!e || e.hp <= 0 || e.submerged || !(A.Skills && A.Skills.has(e, 'sumergirse'))) return;
+    if (!hittableEnemies().some((x) => x !== e)) return; // sola no se puede esconder
+    e.submerged = true; e._dived = true;
+    addLog(c, 'enemy', { text: `${e.displayName} se hunde.`, fx: { kind: 'note', actor: fxKey(e) }, say: { text: `${cap1(A.Skills.noun(e))} se hunde: hasta su próximo turno no se le puede pegar.`, tone: 'bad' } });
+  }
+  /** v3.12: si ya no queda a quién pegarle, las que se hundieron salen. */
+  function surfaceIfNoTargets(c) {
+    if (hittableEnemies().length) return;
+    for (const e of aliveEnemies()) if (e.submerged && e._dived) {
+      e.submerged = false; e._dived = false;
+      addLog(c, 'enemy', { text: `${e.displayName} sale a la superficie.`, fx: { kind: 'note', actor: fxKey(e) }, say: { text: `Sin nadie que la cubra, ${A.Skills.noun(e)} tiene que salir del agua.`, tone: 'good' } });
+    }
   }
 
   /** v3.8: Colas de zorro: le crece una cola por turno; con nueve despierta. */
@@ -1158,9 +1213,24 @@
       return false;
     }
     const text = how === 'pet' ? `${t.displayName} cayó por la mascota.` : how === 'tick' ? `${t.displayName} cayó por los efectos.` : `${t.displayName} cayó.`;
-    addLog(c, 'system', { text, killed: t.displayName, fx: { kind: 'death', target: fxKey(t) } });
+    // v3.12: algunos tienen su propia forma de terminar la pelea (Dios no "cae": te da por aprobado)
+    const own = (A.Data.getById('enemies', t.id) || {}).defeatText;
+    const ownText = own ? own.replace(/\{E\}/g, t.displayName) : '';
+    addLog(c, 'system', Object.assign({ text: ownText || text, killed: t.displayName, fx: { kind: 'death', target: fxKey(t) } }, ownText ? { say: { text: ownText, tone: 'good' } } : {}));
     if (how === 'player' || how === 'item') maybeDropEquippedWeapon(c, t);
     if (t.guardOf) surfaceIfFree(c, t.guardOf);
+    // v3.12: Dividirse: la primera vez que cae se parte en dos más chicas
+    if (A.Skills && A.Skills.has(t, 'dividirse') && !t._split && !t.summoned) {
+      const kids = [];
+      for (let i = 0; i < 2; i++) { const k = summonEnemy(c, t, t.id, { hp: 0.35 }); if (k) { k._split = true; k.name = `${k.name} (mitad)`; k.displayName = k.name; kids.push(k); } }
+      if (kids.length) {
+        assignLabels(c.enemies);
+        addLog(c, 'enemy', { text: `${t.displayName} se parte en dos.`, fx: { kind: 'summon', actor: fxKey(t), target: fxKey(kids[0]) }, say: { text: `${cap1(A.Skills.noun(t))} se parte en dos y cada mitad sigue peleando.`, tone: 'bad' } });
+      }
+    }
+    // v3.12: Estallido: al caer explota
+    if (A.Skills && A.Skills.deathBurst) A.Skills.deathBurst(t);
+    surfaceIfNoTargets(c);
     return true;
   }
 
@@ -1443,7 +1513,10 @@
     if (instinct) extras.push({ label: 'instinto', n: instinct.n });
     if (rush) extras.push({ label: 'embestida', n: rush });
     if (core) extras.push({ label: 'descarga', n: core.main });
-    rawDmg += frenzy + beast + markDmg + giant + (instinct ? instinct.n : 0) + rush + (core ? core.main : 0);
+    // v3.12: armas legendarias que pegan más contra ciertas criaturas (Crematoria contra no muertos y demonios)
+    const wbane = weaponBane(st.weapon, target);
+    if (wbane) extras.push({ label: st.weapon.bane.label || 'arma', n: wbane });
+    rawDmg += frenzy + beast + markDmg + giant + (instinct ? instinct.n : 0) + rush + (core ? core.main : 0) + wbane;
     let finalDmg = mitigate(rawDmg, es.armor, r.crit);
     // v2.5: Caparazón / Gelatinoso: el primer golpe hace la mitad (el golpe fuerte lo rompe)
     const soft = A.Skills && !pw ? A.Skills.softenHit(target, finalDmg) : { dmg: finalDmg, skill: null };
@@ -1528,6 +1601,7 @@
       if (bc && bc.ready) addLog(c, 'system', { text: 'Tres gotas de sangre: Frenesí en tu próximo turno.', fx: { kind: 'note' }, say: { text: 'Tres gotas de sangre. En tu próximo turno, el Frenesí.', tone: 'good' } });
     }
     if (target.hp > 0 && finalDmg > 0) maybeInflictStatusOnHit(st.weapon, target, c); // v3.9: si la armadura lo paró, no
+    if (finalDmg > 0) weaponSpecials(c, p, st.weapon, target, finalDmg); // v3.12: armas legendarias
     // Sangre de dragón: a veces el golpe prende fuego
     if (target.hp > 0 && P() && Math.random() < P().burnChance(p)) {
       if (applyStatus(target, 'fire', { turns: 2, value: P().burnValue(p), source: 'sangre_dragon' })) {
@@ -1730,10 +1804,14 @@
         rawDmg += flame; // v3.11: Llama interior, después del crítico
         const armor = Math.floor((t.armor || 0) / 2);
         // v3.9: la magia siempre hace al menos 1 (la armadura para golpes, no hechizos)
-        const finalDmg = mitigate(rawDmg, armor, true);
+        let finalDmg = mitigate(rawDmg, armor, true);
+        // v3.12: los escudos (de fe, de fuerza, de monedas) también frenan los hechizos
+        const shield = A.Skills && A.Skills.shieldAbsorb ? A.Skills.shieldAbsorb(t, finalDmg) : { dmg: finalDmg, skill: null };
+        finalDmg = shield.dmg;
         t.hp = Math.max(0, t.hp - finalDmg);
         addLog(c, 'player', {
           text: tcrit ? `¡${spell.name} crítico a ${t.displayName}!` : `${spell.name} hiere a ${t.displayName}`,
+          ...(shield.skill ? { softened: shield.skill } : {}),
           actor: p.name, target: t.displayName, actorIcon: '',
           rawDmg, targetArmor: armor, dmg: finalDmg, hpAfter: t.hp, hpMax: t.maxHp,
           damageDice: power ? `${spell.damage}+${power}` : spell.damage,
@@ -2530,6 +2608,7 @@
     // v2.5: a veces usa una habilidad (si no, el ataque de siempre)
     const usedSkill = A.Skills ? A.Skills.enemyTurn(c, enemy) : false;
     if (!usedSkill) enemyStrike(c, enemy);
+    maybeDive(c, enemy); // v3.12
     State().persist();
     A.Bus.emit('combat:action', { actor: 'enemy' });
     if (checkEnd()) return;
@@ -2633,7 +2712,7 @@
     // v3.10: invocaciones especiales (kitsunes de cinco colas, crías de la manada)
     const WORD = ['', 'una', 'dos', 'tres', 'cuatro', 'cinco', 'seis', 'siete', 'ocho', 'nueve'];
     if (opts.tails) { inst.tails = opts.tails; inst.name = `${inst.name} de ${WORD[opts.tails] || opts.tails} colas`; }
-    if (opts.weak) { inst.maxHp = Math.max(1, Math.round(inst.maxHp * 0.6)); inst.hp = inst.maxHp; inst.name = `${inst.name} joven`; }
+    if (opts.weak) { inst.maxHp = Math.max(1, Math.round(inst.maxHp * 0.6)); inst.hp = inst.maxHp; inst.name = `${inst.name} joven`; inst.dmgMult = Math.min(inst.dmgMult || 1, 0.8); } // v3.12: también pega menos
     if (opts.hp && opts.hp !== 1) { inst.maxHp = Math.max(1, Math.round(inst.maxHp * opts.hp)); inst.hp = inst.maxHp; }
     inst.displayName = inst.name;
     normalizeInstance(inst);
@@ -3066,5 +3145,6 @@
     summonAlly, alliesOf,
     hittableEnemies,
     _checkEnd: checkEnd, // para las pruebas
+    _enemyDown: enemyDown, // v3.12: para las pruebas (estallido, dividirse)
   };
 })(window.Aventurs);

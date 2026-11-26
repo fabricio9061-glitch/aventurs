@@ -45,6 +45,9 @@ const PRUEBAS = [
   { id: 'n15x5', nivel: 15, n: 5, tiers: [11, 12] },
   { id: 'n20x3', nivel: 20, n: 3, tiers: [17, 18] },
   { id: 'n20x5', nivel: 20, n: 5, tiers: [15, 16] },
+  // v3.12: el tope subió a 25
+  { id: 'n25x3', nivel: 25, n: 3, tiers: [22, 23] },
+  { id: 'n25x5', nivel: 25, n: 5, tiers: [20, 21] },
 ];
 const CLASES = { warrior: 'guerrero', hybrid: 'híbrido', mage: 'mago' };
 

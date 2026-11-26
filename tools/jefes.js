@@ -52,6 +52,7 @@ if (args.datos) {
   const firma = (d) => [d.health, d.damage, d.attack, d.difficulty, d.armor, d.tier].join('|');
   const pc = (x) => Math.round(x * 100);
   const datos = Object.assign({}, (A.Seed && A.Seed.jefesMedidos) || {}); // se suman a los que ya estaban
+  for (const id of Object.keys(datos)) { const d = A.Data.getById('enemies', id); if (!d || d.category !== 'boss') delete datos[id]; } // v3.12: los que dejaron de ser jefes
   for (const row of out) {
     const d = A.Data.getById('enemies', row.id);
     datos[row.id] = {

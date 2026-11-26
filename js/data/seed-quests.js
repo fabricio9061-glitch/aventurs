@@ -244,11 +244,12 @@
     {
       id: 'mq8_sombra', main: true, chapter: 18, giver: 'npc_sabio_torre', requires: 'mq7b_heraldo', auto: true,
       title: 'La sombra del dragón',
-      offer: 'El dragón anciano espera en su nido. Es el más viejo de los dragones después de Alamuerte: antes de subir a su cima, hacete fuerte en las Tierras Altas.',
-      text: 'El dragón anciano espera en su cima, sobre el Nido de Dragones (es para nivel 19: hacete fuerte en las Tierras Altas). Terminá con la sombra que cubre el reino.',
-      objectives: [{ type: 'kill', enemy: 'dragon_anciano', count: 1, text: 'Derrotá al dragón anciano' }],
-      done: 'La sombra que cubría el reino se disipa. Tu nombre se va a cantar en todas las tabernas.',
-      reward: { xp: 3500, coins: 20000 }, // v3.11.5: el dragón ahora es de nivel 19 (era 1000 y 1000)
+      // v3.12: el dragón de la historia es Alamuerte (el dragón anciano ya no es jefe: vuela por la Cumbre del Mundo)
+      offer: 'El dragón que despertó Morvaith es Alamuerte, el más fuerte de todos los dragones. Espera en su trono, sobre el Nido de Dragones: antes de ir, hacete fuerte en las Tierras Altas.',
+      text: 'Alamuerte espera en su trono, sobre el Nido de Dragones (es para nivel 20: hacete fuerte en las Tierras Altas). Terminá con la sombra que cubre el reino.',
+      objectives: [{ type: 'kill', enemy: 'alamuerte', count: 1, text: 'Derrotá a Alamuerte' }],
+      done: 'Las placas de Alamuerte se apagan una por una. La sombra que cubría el reino se disipa y tu nombre se va a cantar en todas las tabernas.',
+      reward: { xp: 4000, coins: 25000 }, // v3.11.5: nivel 19 (era 1000 y 1000) · v3.12: Alamuerte, nivel 20
     },
 
     // ============================================================

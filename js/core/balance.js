@@ -27,11 +27,13 @@
     hybridManaOnHit: 1,                               // maná que recupera un híbrido al acertar con el arma
     hybridManaEvery: 8,                               // ...y 1 más cada tantos niveles (0 = no crece) · v3.1: 8 (2 por golpe recién al nivel 9; antes al 6 y arrasaban)
     mageRegenEvery: 4,                                // el maná por turno de los magos sube 1 cada tantos niveles (0 = no crece) · v3.1: 4 (niveles 5 y 9; antes 4, 7 y 10)
+    mageRegenUpTo: 16,                                // v3.12: ...hasta este nivel (después crece el maná máximo, no lo de cada turno)
+    mageWinFrom: 13, mageWinHigh: 0.5,                // v3.12: desde este nivel, lo que vuelve al ganar es la mitad, sin bajar del 10% (los magos encadenaban peleas sin cansarse)
   };
 
-  // v3.11: el tope sube de 10 a 20 (para vos, tu mascota y las criaturas)
-  const MAX_LEVEL = 20;
-  const MAX_TIER = 20;
+  // v3.11: el tope sube de 10 a 20 (para vos, tu mascota y las criaturas) · v3.12: hasta el 25 (el Cielo, el Espacio y el Infierno profundo)
+  const MAX_LEVEL = 25;
+  const MAX_TIER = 25;
 
   // ---------- v2.4: rarezas ----------
   // value: cuánto vale un material (por la moneda base de su nivel)
@@ -98,6 +100,9 @@
     ['3d8', 13.5], ['3d8+1', 14.5], ['3d8+2', 15.5], ['4d6+2', 16], ['3d10+1', 17.5],
     ['4d8', 18], ['3d10+3', 19.5], ['4d8+2', 20], ['4d10', 22], ['5d8', 22.5], ['4d10+2', 24],
     ['5d10', 27.5], ['6d10', 33], ['7d10', 38.5],
+    // v3.12: para los niveles 21 a 25 (con pasos intermedios: de 6d10 a 7d10 había mucho salto)
+    ['6d10+3', 36], ['7d10+3', 41.5],
+    ['8d10', 44], ['9d10', 49.5], ['10d10', 55], ['11d10', 60.5], ['12d10', 66],
   ];
 
   function damageToNotation(avg) {
@@ -163,7 +168,8 @@
      * son unas 8 peleas y va subiendo hasta unas 25 (unas 150 en total).
      */
     // v3.11: del 10 al 20 cuesta más (de unas 30 peleas por nivel a unas 45; en total, unas 2,5 veces lo del 1 al 10)
-    XP_TABLE: [100, 210, 470, 850, 1300, 1850, 2900, 3700, 4500, 8500, 10500, 12800, 15400, 18300, 21500, 25000, 29000, 33500, 38500],
+    // v3.12: del 20 al 25 (el Cielo, el Espacio y el Infierno profundo), cada nivel pide un poco más
+    XP_TABLE: [100, 210, 470, 850, 1300, 1850, 2900, 3700, 4500, 8500, 10500, 12800, 15400, 18300, 21500, 25000, 29000, 33500, 38500, 44000, 50500, 57500, 65500, 74500],
     /** v3.0: la tabla de antes (para pasar las partidas viejas sin perder lo avanzado). */
     XP_TABLE_V2: [45, 100, 250, 390, 580, 820, 1240, 1800, 1950],
     xpToNext(level) {
@@ -368,8 +374,11 @@
     const base = (race && race.manaRegen) || (type === 'mage' ? { turn: 1, win: 0.2 } : { turn: 0, win: 0 });
     // v2.2.1: con más nivel vuelve más maná por turno (+1 desde nivel 5, +2 desde nivel 9)
     const every = Balance_TUNE.mageRegenEvery;
-    const extra = every > 0 && (base.turn || 0) > 0 ? Math.floor((Math.max(1, p.level || 1) - 1) / every) * (base.step || 1) : 0;
-    return { turn: (base.turn || 0) + extra, win: base.win || 0 };
+    const lvl = Math.min(Math.max(1, p.level || 1), base.upTo || Balance_TUNE.mageRegenUpTo || 99); // v3.12: deja de crecer en el 16 (el infernal, en el 20)
+    const extra = every > 0 && (base.turn || 0) > 0 ? Math.floor((lvl - 1) / every) * (base.step || 1) : 0;
+    const high = (p.level || 1) >= (Balance_TUNE.mageWinFrom || 99);
+    const win = high ? Math.max(Math.min(base.win || 0, 0.1), (base.win || 0) * (Balance_TUNE.mageWinHigh || 1)) : (base.win || 0); // (nunca menos del 10%)
+    return { turn: (base.turn || 0) + extra, win };
   }
 
   /** v3.3: el maná por turno puede tener coma (1,5 = 1 un turno y 2 el siguiente): así se escribe. */
@@ -501,6 +510,7 @@
   const ELITE = {
     chanceSolo: 0.05,  // si aparece sola
     chanceGroup: 0.09, // si viene en grupo (una sola del grupo)
+    chanceBoss: 0.1,   // v3.12: un jefe sale en su forma suprema (élite) una de cada diez veces
     hp: 1.5, dmg: 1.2, atk: 1, def: 1, armorFromTier: 4, speed: 1,
     xp: 2.5, coin: 2.5, drop: 1.5,
   };
@@ -519,9 +529,20 @@
   };
 
   // ---------- Economía ----------
+  // v3.12 (economía): hasta el nivel 10 todo sube x1,45 por nivel; desde el 11, x1,2. Antes seguía x1,45 y en el
+  // 20 una criatura soltaba 40 veces más que en el 10 (las pociones, la comida y los materiales quedaban regalados).
+  // Las monedas, el precio del equipo y lo que valen los materiales usan la misma curva: se compra lo mismo con las
+  // peleas de siempre, pero sin inflación.
+  const PRICE_SLOW_FROM = 10;
+  const PRICE_SLOW = 1.2;
+  function priceCurve(t) {
+    t = clampTier(t);
+    return Math.pow(1.45, Math.min(t, PRICE_SLOW_FROM) - 1) * Math.pow(PRICE_SLOW, Math.max(0, t - PRICE_SLOW_FROM));
+  }
   const Economy = {
+    priceCurve,
     /** Cobre promedio que suelta un enemigo normal de tier t. */
-    coinBase(t) { t = clampTier(t); return 2.5 * Math.pow(1.45, t - 1); },
+    coinBase(t) { return 2.5 * priceCurve(t); },
 
     /**
      * v2.0: monedas SEGURAS de un enemigo (siempre suelta algo).
@@ -553,7 +574,7 @@
     /** Precio de armas y armaduras por tier y rareza (en cobre). */
     gearPrice(t, rarity = 'common', kind = 'weapon') {
       const RAR = { common: 1, uncommon: 1.3, rare: 1.7, epic: 2.5, legendary: 4 };
-      const base = 25 * Math.pow(1.45, clampTier(t) - 1) * (RAR[rarity] || 1);
+      const base = 25 * priceCurve(t) * (RAR[rarity] || 1);
       return Math.round(base * (kind === 'armor' ? 1.2 : 1));
     },
 

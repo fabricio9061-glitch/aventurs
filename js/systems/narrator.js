@@ -25,8 +25,13 @@
     // v2.5: las que se sumaron después ("la bruja", no "el bruja")
     'bruja', 'hada_traviesa', 'polilla_onirica', 'noble_vampira', 'momia', 'bestia_sangre', 'pesadilla',
     'brightwing', // v3.11.1: Alafeliz
+    // v3.11 / v3.12
+    'hidra_joven', 'naga_ancestral', 'cocatriz', 'esfinge', 'gargola_antigua', 'sombra_viviente', 'sierpe_vacio', 'reina_sombras',
+    'medusa_abisal', 'sanguijuela_gigante', 'gaviota_ladrona', 'momia_real', 'alma_condenada', 'larva_colmena', 'medusa_estelar',
+    'potestad', 'virtud', 'dominacion', 'mente_colmena',
+    'ysera',
   ]);
-  const PROPER = new Set(['brightwing', 'alamuerte']);
+  const PROPER = new Set(['brightwing', 'alamuerte', 'dios', 'satanas', 'ysera', 'volibear', 'aurelion_sol']);
   // v3.0: femeninas que empiezan con "a" tónica llevan "el"/"un" (el hada, un hada), pero siguen siendo "la" de pronombre
   const ART_EL = new Set(['hada_traviesa']);
   function artOf(id) { return FEM.has(id) && !ART_EL.has(id) ? 'la' : 'el'; }
@@ -36,6 +41,7 @@
     const name = inst.displayName || inst.name || 'enemigo';
     if (PROPER.has(inst.id)) return name;
     const lower = name.charAt(0).toLowerCase() + name.slice(1);
+    if (/^(el|la|los|las) /i.test(name)) return lower; // v3.12: "El Devorador de Mundos", "La Mente Colmena" (ya traen su artículo)
     let art = artOf(inst.id);
     if (!FEM.has(inst.id) && !A.Data.getById('enemies', inst.id) && /a$/i.test(inst.name || '')) art = 'la';
     return `${art} ${lower}`;
@@ -300,6 +306,10 @@
     gelatinoso: ' El golpe se hunde en su cuerpo blando y pierde fuerza.',
     piel_gruesa: ' Su piel gruesa le saca fuerza al golpe.', // v3.8
     placas_adamantita: ' Sus placas de metal frenan buena parte del golpe.', // v3.11.3
+    escudo_fe: ' Su escudo de luz frena el golpe.', escudo_fe_roto: ' El golpe rompe su escudo de luz.', // v3.12
+    campo_fuerza: ' Su campo de fuerza frena el golpe.', campo_fuerza_roto: ' El golpe revienta su campo de fuerza.',
+    escudo_oro: ' Una pared de monedas frena el golpe.', escudo_oro_roto: ' Las monedas vuelan para todos lados: se rompió su escudo.',
+    escudo_tormenta: ' Su escudo de rayos frena el golpe.', escudo_tormenta_roto: ' El golpe rompe su escudo de rayos.',
   };
 
   function say(entry, c) {
@@ -459,7 +469,8 @@
       const many = grp ? grp.plural : true;
       // v2.5: si hay una criatura de élite, se avisa
       const elite = c && (c.enemies || []).find((e) => e.elite);
-      const eliteNote = !elite ? '' : many ? ` ${cap(enemyNoun(elite))} los lidera: es más fuerte que el resto.` : ' Es de élite: más fuerte que los de su especie.';
+      // v3.12: un jefe en su forma suprema ya lo avisa la guarida ("¡Brilla como el oro!")
+      const eliteNote = !elite || elite.category === 'boss' ? '' : many ? ` ${cap(enemyNoun(elite))} los lidera: es más fuerte que el resto.` : ' Es de élite: más fuerte que los de su especie.';
       // v3.0: en grupo, a los dos ("les cierran el paso")
       const you = c && c.party ? 'les' : 'te';
       const can = c && c.party ? 'puedan' : 'puedas';
@@ -496,5 +507,5 @@
 
   function isFem(id) { return FEM.has(id); }
 
-  A.Narrator = { say, enemyNoun, petNoun, coinsInWords, groupPhrase, contract, passiveSuffix, guardSuffix, isFem, SOFT: SOFT_SUFFIX };
+  A.Narrator = { say, enemyNoun, petNoun, coinsInWords, groupPhrase, contract, passiveSuffix, guardSuffix, isFem, isProper: (id) => PROPER.has(id), SOFT: SOFT_SUFFIX };
 })(window.Aventurs);

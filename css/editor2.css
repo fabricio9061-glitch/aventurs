@@ -600,3 +600,14 @@
 .ed-skill { display: flex; align-items: flex-start; gap: 8px; padding: 5px 0; border-bottom: 1px dashed rgba(0, 0, 0, 0.08); }
 .ed-skill:last-of-type { border-bottom: none; }
 .ed-skill > .px-icon, .ed-skill > img { flex: 0 0 auto; margin-top: 2px; }
+
+/* v3.12: el mapa del editor con el mismo tamaño que el del juego: partes del mundo y guaridas */
+.ed-map-areas { pointer-events: none; }
+.ed-map-mist { fill: none; stroke: rgba(255, 255, 255, 0.45); stroke-width: 16; stroke-linecap: round; stroke-dasharray: 2 24; }
+.ed-map-title { font-family: var(--font-display); font-weight: 700; font-size: 30px; letter-spacing: 0.2em; text-transform: uppercase; fill: rgba(90, 60, 30, 0.3); }
+.ed-map-title.is-space { fill: rgba(230, 220, 255, 0.45); }
+.ed-map-title.is-hell { fill: rgba(255, 200, 150, 0.5); }
+.ed-realm.is-sky { fill: rgba(255, 250, 225, 0.7); }
+.ed-realm.is-space { fill: rgba(36, 30, 74, 0.72); }
+.ed-realm.is-hell { fill: rgba(110, 26, 12, 0.6); }
+.ed-node.is-lair .ed-node-ring { fill: #3a1a12; stroke: #e0a060; stroke-width: 3; }

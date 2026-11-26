@@ -12,6 +12,8 @@
 
   const Ed = (A.Ed = A.Ed || {});
   const { esc, icon } = Ed.util;
+  // v3.12: el nivel tope del juego (25): los filtros y los campos de nivel llegan hasta ahí
+  const MAXL = () => (A.Progression && A.Progression.MAX_LEVEL) || 25;
 
   // ============================================================
   // Nombres en castellano
@@ -24,6 +26,8 @@
       elemental: 'Elemental', spirit: 'Espíritu', demon: 'Demonio', marine: 'Marina', aquatic: 'Acuática',
       arcane: 'Arcana', plant: 'Planta', construct: 'Constructo', giant: 'Gigante', dragon: 'Dragón',
       legendary: 'Legendaria', fey: 'Feérica',
+      // v3.11 / v3.12
+      celestial: 'Celestial', aberration: 'Aberración', reptile: 'Reptil', ooze: 'Limo', alien: 'Alienígena',
     },
     TAGS: {
       flying: 'Vuela', small: 'Pequeña', poison: 'Venenosa', agile: 'Ágil', pack: 'En manada', charge: 'Embiste',
@@ -32,12 +36,16 @@
       magic: 'Mágica', undead: 'No muerta', curse: 'Maldice', regen: 'Se regenera', grab: 'Agarra', petrify: 'Petrifica',
       drain: 'Drena', arcane: 'Arcana', ice: 'Hielo', fear: 'Da miedo', revive: 'Revive', ancient: 'Antigua',
       armored: 'Acorazada', pirate: 'Pirata', blood: 'Sangre',
+      // v3.11 / v3.12
+      holy: 'Sagrada', light: 'Luz', sin: 'Pecado', hunter: 'Cazadora', guard: 'Guardiana', leader: 'Líder', shock: 'Rayo',
+      storm: 'Tormenta', void: 'Vacío', big: 'Grande', gaze: 'Mirada', dark: 'Oscura', cold: 'Frío',
     },
     BIOME: {
       village: 'Pueblo', forest: 'Bosque', graveyard: 'Cementerio', plains: 'Llanura', swamp: 'Pantano', coast: 'Costa',
       arcane: 'Arcano', mountain: 'Montaña', desert: 'Desierto', ruins: 'Ruinas', crypt: 'Cripta', cave: 'Cueva',
       sea: 'Mar', volcano: 'Volcán', hell: 'Infierno', lair: 'Guarida', abyss: 'Abismo', dream: 'Sueño', grove: 'Arboleda',
       gothic: 'Gótico', pirate: 'Pirata', bloodwood: 'Bosque carmesí', hills: 'Colinas', meadow: 'Pradera', darkwood: 'Bosque oscuro',
+      sky: 'Cielo', space: 'Espacio', // v3.12
     },
     STATUS: { bleed: 'Sangrado', poison: 'Veneno', fire: 'Quemadura', cold: 'Frío', shock: 'Descarga', blind: 'Ceguera', silence: 'Silencio' },
     SCHOOL: { arcane: 'Arcana', fire: 'Fuego', ice: 'Hielo', holy: 'Sagrada', light: 'Luz', nature: 'Naturaleza', shadow: 'Sombra' },
@@ -158,11 +166,11 @@
           F.text('name', 'Nombre'),
           F.sel('type', 'Tipo', [{ value: 'combat', label: 'Zona con criaturas' }, { value: 'safe', label: 'Pueblo (sin peleas)' }, { value: 'road', label: 'Pueblo sin peleas, con criaturas en el camino' }], { help: 'El de criaturas en el camino: adentro no se pelea, pero al viajar hacia acá salen las criaturas de este lugar.' }),
           F.choice('biome', 'Paisaje', biomeOpts, { help: 'Cambia el dibujo, el fondo y el botín que se encuentra al explorar.' }),
-          { kind: 'range2', path: 'tier', label: 'Nivel de las criaturas', min: 1, max: 10, help: 'Solo aparecen las criaturas de la zona con nivel dentro de este rango.' },
+          { kind: 'range2', path: 'tier', label: 'Nivel de las criaturas', min: 1, max: MAXL(), help: 'Solo aparecen las criaturas de la zona con nivel dentro de este rango.' },
           F.area('description', 'Descripción', { rows: 3 }),
         ] },
         { title: 'Para entrar', fields: [
-          F.num('unlockConditions.minLevel', 'Nivel mínimo', { min: 1, max: 10, help: 'Si sos de menos nivel, no te deja viajar.' }),
+          F.num('unlockConditions.minLevel', 'Nivel mínimo', { min: 1, max: MAXL(), help: 'Si sos de menos nivel, no te deja viajar.' }),
           F.refs('unlockConditions.requiredItems', 'Objetos que tenés que llevar', ['items', 'weapons', 'armors'], { add: 'Agregar objeto' }),
           F.refs('unlockConditions.requiredRegions', 'Lugares que tenés que haber visitado', 'regions', { add: 'Agregar lugar', filter: (r, d) => r.id !== d.id }),
           F.text('unlockConditions.warningText', 'Cartel si no podés entrar', { placeholder: 'Ej: El calor te frena. Necesitás el amuleto.', wide: true }),
@@ -281,7 +289,7 @@
       sort: (a, b) => (a.tier - b.tier) || String(a.name).localeCompare(String(b.name), 'es'),
       filters: [
         { key: 'zone', label: 'Zona', options: () => A.Data.regions.filter((r) => (r.type === 'combat' || r.type === 'road')).sort((a, b) => lvlOf(a) - lvlOf(b)).map((r) => ({ value: r.id, label: r.name })).concat([{ value: '__none', label: 'Sin zona' }]), test: (e, v) => (v === '__none' ? !(e.regions || []).length : (e.regions || []).includes(v)) },
-        { key: 'tier', label: 'Nivel', options: () => Array.from({ length: 10 }, (_, i) => ({ value: String(i + 1), label: `Nivel ${i + 1}` })), test: (e, v) => String(e.tier) === v },
+        { key: 'tier', label: 'Nivel', options: () => Array.from({ length: MAXL() }, (_, i) => ({ value: String(i + 1), label: `Nivel ${i + 1}` })), test: (e, v) => String(e.tier) === v },
         { key: 'cat', label: 'Tipo', options: opts(L.CAT), test: (e, v) => e.category === v },
         { key: 'tame', label: 'Domar', options: [{ value: 'yes', label: 'Se pueden domar' }, { value: 'no', label: 'No se pueden domar' }], test: (e, v) => (v === 'yes' ? !!e.tameable : !e.tameable) },
       ],
@@ -293,7 +301,7 @@
       sections: [
         { title: 'Lo básico', fields: [
           F.text('name', 'Nombre'),
-          F.num('tier', 'Nivel', { min: 1, max: 10, help: 'Para qué nivel de jugador está pensada.' }),
+          F.num('tier', 'Nivel', { min: 1, max: MAXL(), help: 'Para qué nivel de jugador está pensada.' }),
           F.sel('category', 'Tipo', opts(L.CAT), { help: 'Las débiles salen en grupo; los jefes van solos.' }),
           F.refs('regions', 'Dónde vive', 'regions', { filter: (r) => (r.type === 'combat' || r.type === 'road'), add: 'Agregar zona', help: (d) => Ed.panels.homeHelp(d) }),
           F.tags('family', 'Es', opts(L.FAMILY), { add: 'Agregar', help: 'Humanoides, demonios, muertos, arcanos y dragones no se pueden domar.' }),
@@ -432,7 +440,7 @@
           F.ref('giver', 'Quién la da', 'npcs'),
           F.tog('main', 'Es de la historia principal', { on: 'Sí', off: 'No, es un encargo' }),
           F.num('chapter', 'Capítulo', { min: 1, max: 30, when: (d) => !!d.main }),
-          F.num('minLevel', 'Nivel mínimo', { min: 1, max: 10 }),
+          F.num('minLevel', 'Nivel mínimo', { min: 1, max: MAXL() }),
           F.tog('turnIn', 'Hay que volver a entregarla', { on: 'Sí, a quien la dio', off: 'No, se cobra sola' }),
           F.ref('requires', 'Aparece después de', 'quests', { none: 'Siempre disponible', filter: (q, d) => q.id !== d.id }),
           F.ref('next', 'Sigue con', 'quests', { none: 'Ninguna', filter: (q, d) => q.id !== d.id }),
@@ -494,7 +502,7 @@
           F.text('name', 'Nombre'),
           F.sel('subtype', 'Tipo', opts(L.SUBTYPE)),
           F.sel('rarity', 'Rareza', opts(L.RARITY), { help: 'Común, poco común, raro, épico o legendario. Se ve con su color en la mochila y la tienda.' }),
-          F.num('tier', 'Nivel', { min: 1, max: 10, when: (d) => ['accessory', 'scroll', 'potion'].includes(d.subtype), help: 'Para qué nivel de personaje está pensado.' }),
+          F.num('tier', 'Nivel', { min: 1, max: MAXL(), when: (d) => ['accessory', 'scroll', 'potion'].includes(d.subtype), help: 'Para qué nivel de personaje está pensado.' }),
           F.num('value', 'Precio', { min: 0, max: 999999, unit: 'cobre', help: (d) => `${Ed.panels.priceHelp(d && d.value)}${d && d.value ? ` Lo compran a la mitad: ${A.Currency ? A.Currency.formatPrice(Math.max(1, Math.floor(d.value / 2))) : Math.floor(d.value / 2)}.` : ''}` }),
           F.num('stack', 'Cuántos por casilla', { min: 1, max: 999 }),
           F.area('description', 'Descripción', { rows: 2 }),
@@ -564,12 +572,12 @@
       hint: 'Con qué pegás.',
       meta: (w) => `Nivel ${w.tier} · ${w.damage}${w.magic ? ' · de mago' : ''}${(w.weight || 0) >= 4 ? ' · pesada' : ''}`,
       sort: (a, b) => (a.tier - b.tier) || String(a.name).localeCompare(String(b.name), 'es'),
-      filters: [{ key: 'tier', label: 'Nivel', options: () => Array.from({ length: 10 }, (_, i) => ({ value: String(i + 1), label: `Nivel ${i + 1}` })), test: (w, v) => String(w.tier) === v }],
+      filters: [{ key: 'tier', label: 'Nivel', options: () => Array.from({ length: MAXL() }, (_, i) => ({ value: String(i + 1), label: `Nivel ${i + 1}` })), test: (w, v) => String(w.tier) === v }],
       template: () => ({ name: 'Arma nueva', type: 'weapon', damage: '1d6', value: 40, rarity: 'common', tier: 1, weight: 2, magic: false, description: '' }),
       sections: [
         { title: 'Lo básico', fields: [
           F.text('name', 'Nombre'),
-          F.num('tier', 'Nivel', { min: 1, max: 10 }),
+          F.num('tier', 'Nivel', { min: 1, max: MAXL() }),
           F.sel('rarity', 'Rareza', opts(L.RARITY)),
           F.num('value', 'Precio', { min: 0, max: 999999, unit: 'cobre', help: (d) => Ed.panels.priceHelp(d && d.value) }),
           F.area('description', 'Descripción', { rows: 2 }),
@@ -598,7 +606,7 @@
       sections: [
         { title: 'Lo básico', fields: [
           F.text('name', 'Nombre'),
-          F.num('tier', 'Nivel', { min: 1, max: 10 }),
+          F.num('tier', 'Nivel', { min: 1, max: MAXL() }),
           F.sel('rarity', 'Rareza', opts(L.RARITY)),
           F.num('value', 'Precio', { min: 0, max: 999999, unit: 'cobre', help: (d) => Ed.panels.priceHelp(d && d.value) }),
           F.area('description', 'Descripción', { rows: 2 }),
@@ -626,7 +634,7 @@
         { title: 'Lo básico', fields: [
           F.text('name', 'Nombre'),
           F.num('slots', 'Casillas', { min: 4, max: 60 }),
-          F.num('tier', 'Nivel', { min: 1, max: 10 }),
+          F.num('tier', 'Nivel', { min: 1, max: MAXL() }),
           F.sel('rarity', 'Rareza', opts(L.RARITY)),
           F.num('value', 'Precio', { min: 0, max: 999999, unit: 'cobre', help: (d) => Ed.panels.priceHelp(d && d.value) }),
           F.area('description', 'Descripción', { rows: 2 }),
@@ -646,7 +654,7 @@
         { title: 'Lo básico', fields: [
           F.text('name', 'Nombre'),
           F.sel('workshop', 'Taller', opts(L.WORKSHOP)),
-          F.num('tier', 'Nivel', { min: 1, max: 10 }),
+          F.num('tier', 'Nivel', { min: 1, max: MAXL() }),
           F.ref('result', 'Lo que sale', ['items', 'weapons', 'armors']),
           F.area('description', 'Descripción', { rows: 2 }),
         ] },
@@ -672,7 +680,7 @@
         { title: 'Lo básico', fields: [
           F.text('name', 'Nombre'),
           F.sel('school', 'Escuela', opts(L.SCHOOL)),
-          F.num('tier', 'Nivel', { min: 1, max: 10 }),
+          F.num('tier', 'Nivel', { min: 1, max: MAXL() }),
           F.num('manaCost', 'Maná que cuesta', { min: 0, max: 40 }),
           F.ref('racial', 'De nacimiento de', 'races', { none: 'Nadie (se aprende)', help: 'Si es de una raza, no se vende ni se enseña.' }),
           // v3.4: los magos aprenden todo; los híbridos, solo lo marcado

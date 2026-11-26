@@ -737,6 +737,17 @@
     }
   }
 
+  /** v3.12: lo único de un arma legendaria (contra quién pega más, si roba vida, si el rayo salta). */
+  const FAM_WORD = { undead: 'no muertos', demon: 'demonios', dragon: 'dragones', beast: 'bestias', giant: 'gigantes', celestial: 'celestiales', aberration: 'aberraciones', construct: 'constructos', spirit: 'espíritus' };
+  function weaponSpecialLines(w) {
+    const out = [];
+    if (!w) return out;
+    if (w.bane && w.bane.bonus) out.push(`+${w.bane.bonus} de daño contra ${(w.bane.families || []).map((f) => FAM_WORD[f] || f).join(' y ')}`);
+    if (w.drain) out.push(`recuperás el ${Math.round(w.drain * 100)}% del daño que hacés como vida`);
+    if (w.chain) out.push(`al pegar, un rayo salta a otra criatura y le hace ${w.chain}`);
+    return out;
+  }
+
   /** Lo que cuenta el narrador cuando tu arma deja el estado. Para hechizos devuelve null. */
   function weaponProcLine(source, target) {
     if (!source || !source.statusEffect || source.manaCost != null || !A.Data.getById('weapons', source.id)) return null;
@@ -759,7 +770,7 @@
 
   A.ItemFx = {
     BAD,
-    weaponEffectLine,
+    weaponEffectLine, weaponSpecialLines,
     weaponProcLine,
     modsOf,
     buffMods,

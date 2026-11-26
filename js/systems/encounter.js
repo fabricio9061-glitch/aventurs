@@ -83,7 +83,7 @@
   }
 
   // ---------- v3.1: criaturas de día y de noche ----------
-  const UNDERGROUND = ['cave', 'crypt', 'hell', 'abyss'];
+  const UNDERGROUND = ['cave', 'crypt', 'hell', 'abyss', 'sky', 'space']; // v3.12: en el Cielo y el Espacio no hay día ni noche que valga
   function isUnderground(region) {
     const b = region && region.biome;
     return (Array.isArray(b) ? b : [b]).some((x) => UNDERGROUND.includes(x));
@@ -174,6 +174,7 @@
   function eliteTitle(inst) {
     const fam = inst.family || [];
     const fem = A.Narrator && A.Narrator.isFem ? A.Narrator.isFem(inst.id) : false;
+    if (inst.category === 'boss') return fem ? 'suprema' : 'supremo'; // v3.12: los jefes también salen élite
     if (fam.includes('spirit')) return 'mayor';
     if (fam.includes('humanoid') || fam.includes('fey') || fam.includes('giant') || fam.includes('undead')) return fem ? 'campeona' : 'campeón';
     if (fam.includes('beast') || fam.includes('insect') || fam.includes('marine') || fam.includes('dragon')) return 'alfa';

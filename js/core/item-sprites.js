@@ -1035,6 +1035,7 @@
       return { shape: 'armor', p: { ...base, b: col[0], a: col[1], g: col[2] }, o: { kind: 'robe', stars: /celestial|archimago|mago/.test(t) } };
     }
     if (/acolchad/.test(t)) return { shape: 'armor', p: { ...base, b: '#c8b890', a: '#8a6a3a' }, o: { kind: 'tunic' } };
+    if (/valhir/.test(t)) return { shape: 'armor', p: { ...base, b: '#d8dce8', a: '#5a7aa8', g: '#7af0ff' }, o: { kind: 'leather', sheen: true } }; // v3.12: Volibear
     if (/^pieles/.test(t)) return { shape: 'armor', p: { ...base, b: '#8a6a4a', a: '#5a3a1a' }, o: { kind: 'leather' } };
     if (/tachonad/.test(t)) return { shape: 'armor', p: { ...base, b: '#7a4a2a', a: '#3a2a1a', m: '#c8c8d0' }, o: { kind: 'studded' } };
     if (/anillas/.test(t)) return { shape: 'armor', p: { ...base, b: '#8a929c', a: '#6a4a2a' }, o: { kind: 'chain' } };
@@ -1718,6 +1719,20 @@
       P.line([[4, 26], [9, 15], [15, 13], [20, 16], [24, 25]], 1.1, 0.8, 't');
       P.line([[9, 15], [8, 25]], 0.7, 0.7, 't'); P.line([[15, 13], [15, 24]], 0.7, 0.7, 't'); P.line([[20, 16], [21, 25]], 0.7, 0.7, 't');
       P.dot(27, 6, 3, 'y'); for (const [x, y] of [[5, 29], [12, 30], [28, 28]]) P.dot(x, y, 0.9, 'y');
+    } },
+    // ---------- v3.12: el Cielo y el Espacio ----------
+    'biome-sky': { p: { s: '#8ac8f0', s2: '#b8e0fa', c: '#ffffff', c2: '#dfe8f4', y: '#ffe070', y2: '#ffc030' }, d: (P) => {
+      P.ell(16, 16, 15, 14, 's'); P.ell(16, 12, 12, 8, 's2');
+      for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4; P.line([[16 + Math.cos(a) * 6.5, 11 + Math.sin(a) * 6.5], [16 + Math.cos(a) * 9.5, 11 + Math.sin(a) * 9.5]], 0.7, 0.4, 'y2'); }
+      P.ell(16, 11, 5, 5, 'y'); P.dot(16, 11, 2.2, 'c');
+      P.ell(9, 24, 7, 4, 'c2'); P.ell(16, 22, 6.5, 5, 'c'); P.ell(24, 24.5, 6.5, 3.8, 'c2'); P.ell(17, 25.5, 9, 3.4, 'c');
+    } },
+    'biome-space': { p: { k: '#0e0a24', k2: '#1e1650', st: '#ffffff', y: '#ffe070', p1: '#b07ad8', p2: '#7a4ab0', r: '#e0d0ff' }, d: (P) => {
+      P.ell(16, 16, 15, 14, 'k'); P.ell(11, 11, 8, 6, 'k2');
+      for (const [x, y] of [[6, 9], [24, 6], [27, 17], [9, 25], [20, 27], [14, 5], [5, 18]]) P.put(x, y, 'st');
+      P.put(22, 12, 'y'); P.put(11, 20, 'y');
+      P.ell(17, 17, 6.5, 6.5, 'p2'); P.ell(16, 16, 5.2, 5.2, 'p1');
+      P.line([[6.5, 21], [12, 18.5], [22, 15], [27.5, 12.5]], 0.6, 0.6, 'r');
     } },
     'biome-darkwood': { p: { b: '#2a3a4a', b2: '#1e2c3a', wd: '#2a1e18', e: '#ffd23f', m: '#c8d0e0' }, d: (P) => {
       P.rect(1, 27, 30, 3, 'b2'); P.dot(6, 6, 2.2, 'm');

@@ -320,6 +320,7 @@
       if (mana) out.push({ icon: 'spark', text: `+${mana} de maná máximo mientras la tengas puesta.` });
       const proc = A.ItemFx && A.ItemFx.weaponEffectLine ? A.ItemFx.weaponEffectLine(d) : null;
       if (proc) out.push({ icon: d.statusEffect.type, text: `${proc}.` });
+      for (const line of (A.ItemFx && A.ItemFx.weaponSpecialLines ? A.ItemFx.weaponSpecialLines(d) : [])) out.push({ icon: 'star', text: `${line.charAt(0).toUpperCase()}${line.slice(1)}.` }); // v3.12
       const armorNow = p.equipment.armor ? A.Data.getById('armors', p.equipment.armor) : null;
       const spd = speedWith(p, d, armorNow);
       const base = (p.stats && p.stats.speed) || 10;

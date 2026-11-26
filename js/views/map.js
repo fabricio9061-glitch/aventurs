@@ -17,9 +17,11 @@
   'use strict';
 
   // v2.1: lienzo más grande para 31 zonas · v3.11: más ancho, con las Tierras Altas al este
-  const W = 1820;
+  // v3.12: más ancho todavía: al este de las Tierras Altas, el Cielo, el Espacio y el Infierno profundo
+  const W = 2400;
   const H = 860;
   const OLD_W = 1280; // donde termina el reino de antes (ahí empieza la Bruma)
+  const HIGH_W = 1820; // donde terminan las Tierras Altas (ahí empiezan los tres reinos)
   const U = () => A.UI;
 
   let mainEl = null;
@@ -195,6 +197,10 @@
         out.push(`<path class="ink-grass" d="M ${x - 8} ${y + 4} q 8 -12 16 0 M ${x - 4} ${y + 4} l 0 -5 M ${x + 4} ${y + 4} l 0 -5"/>`);
       } else if (b === 'pirate') {
         out.push(`<path class="ink-wave" d="M ${x - 10} ${y + 4} l 20 0 l -4 5 l -12 0 Z M ${x} ${y + 4} l 0 -12 l 7 4 l -7 3"/>`);
+      } else if (b === 'sky') { // v3.12: nubes
+        out.push(`<path class="ink-cloud" d="M ${x - 10} ${y + 4} a 4 4 0 0 1 4 -5 a 5 5 0 0 1 9 -1 a 4 4 0 0 1 7 6 Z"/>`);
+      } else if (b === 'space') { // v3.12: estrellas
+        out.push(`<path class="ink-star" d="M ${x} ${y - 6} L ${x + 1.5} ${y - 1.5} L ${x + 6} ${y} L ${x + 1.5} ${y + 1.5} L ${x} ${y + 6} L ${x - 1.5} ${y + 1.5} L ${x - 6} ${y} L ${x - 1.5} ${y - 1.5} Z"/>`);
       } else if (b === 'hell' || b === 'lair') {
         out.push(`<path class="ink-fire" d="M ${x - 5} ${y + 5} q -2 -8 3 -12 q 0 6 4 6 q 2 -4 1 -7 q 6 6 2 13 Z"/>`);
       } else {
@@ -311,6 +317,62 @@
     return out;
   }
 
+  // ============================================================
+  // v3.12: los tres reinos (el Cielo arriba, el Espacio en el medio, el Infierno abajo)
+  //   Manchas de color sobre el pergamino, con bordes que ondulan, y su nombre.
+  // ============================================================
+  function realmsHtml() {
+    const x0 = HIGH_W + 8;
+    const stars = [];
+    const rnd = seeded(2401);
+    for (let i = 0; i < 46; i++) {
+      const x = x0 + 30 + rnd() * (W - x0 - 60);
+      const y = 312 + rnd() * 236;
+      const r = rnd() < 0.18 ? 1.6 : 0.9;
+      stars.push(`<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${r}"/>`);
+    }
+    const clouds = [[1880, 70], [2010, 40], [2170, 200], [2330, 60], [1990, 225]].map(([x, y]) =>
+      `<path d="M ${x - 26} ${y + 8} a 10 10 0 0 1 10 -12 a 13 13 0 0 1 23 -3 a 10 10 0 0 1 18 9 a 7 7 0 0 1 1 6 Z"/>`).join('');
+    const embers = [[1890, 805], [2010, 610], [2160, 820], [2300, 600], [2120, 640]].map(([x, y]) =>
+      `<path d="M ${x - 5} ${y + 5} q -2 -8 3 -12 q 0 6 4 6 q 2 -4 1 -7 q 6 6 2 13 Z"/>`).join('');
+    return `
+        <defs>
+          <linearGradient id="mp-sky" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#fff6d8" stop-opacity="0.85"/>
+            <stop offset="100%" stop-color="#cfe6f6" stop-opacity="0.55"/>
+          </linearGradient>
+          <linearGradient id="mp-space" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stop-color="#2a2450" stop-opacity="0.78"/>
+            <stop offset="100%" stop-color="#140f2a" stop-opacity="0.85"/>
+          </linearGradient>
+          <linearGradient id="mp-realm-fade" gradientUnits="userSpaceOnUse" x1="${x0}" y1="0" x2="${x0 + 110}" y2="0">
+            <stop offset="0%" stop-color="#fff" stop-opacity="0"/>
+            <stop offset="100%" stop-color="#fff" stop-opacity="1"/>
+          </linearGradient>
+          <linearGradient id="mp-hell" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#8a2a14" stop-opacity="0.5"/>
+            <stop offset="100%" stop-color="#4a0e08" stop-opacity="0.78"/>
+          </linearGradient>
+        </defs>
+        <mask id="mp-realm-mask" maskUnits="userSpaceOnUse" x="${x0}" y="0" width="${W - x0}" height="${H}">
+          <rect x="${x0}" y="0" width="${W - x0}" height="${H}" fill="url(#mp-realm-fade)"/>
+        </mask>
+        <g class="map-realms">
+          <g mask="url(#mp-realm-mask)">
+          <path class="realm-sky" d="M ${x0} 10 L ${W} 10 L ${W} 300 C ${W - 160} 290, ${x0 + 330} 318, ${x0} 296 Z" fill="url(#mp-sky)"/>
+          <path class="realm-space" d="M ${x0} 296 C ${x0 + 330} 318, ${W - 160} 290, ${W} 300 L ${W} 560 C ${W - 200} 548, ${x0 + 260} 574, ${x0} 556 Z" fill="url(#mp-space)"/>
+          <path class="realm-hell" d="M ${x0} 556 C ${x0 + 260} 574, ${W - 200} 548, ${W} 560 L ${W} ${H - 10} L ${x0} ${H - 10} Z" fill="url(#mp-hell)"/>
+          <g class="realm-clouds">${clouds}</g>
+          <g class="realm-stars">${stars.join('')}</g>
+          <g class="realm-embers">${embers}</g>
+          </g>
+          <text class="map-realm-title is-sky" x="${x0 + 290}" y="282" text-anchor="middle">El Cielo</text>
+          <text class="map-realm-title is-space" x="${x0 + 290}" y="540" text-anchor="middle">El Espacio</text>
+          <text class="map-realm-title is-hell" x="${x0 + 290}" y="${H - 22}" text-anchor="middle">El Infierno</text>
+        </g>
+        <path class="map-mist" d="M ${HIGH_W + 4} 20 C ${HIGH_W + 30} 220, ${HIGH_W - 14} 430, ${HIGH_W + 22} 640 S ${HIGH_W + 8} 800, ${HIGH_W + 18} ${H - 20}"/>`;
+  }
+
   function svgHtml() {
     const pos = layout();
     const { visited, known } = knowledge();
@@ -337,7 +399,10 @@
         const anyKnown = known.has(r.id) || known.has(c);
         if (!anyKnown) continue;
         const cls = isRoute ? 'is-route' : bothKnown ? (visited.has(r.id) && visited.has(c) ? 'is-walked' : 'is-known') : 'is-fog';
-        roads.push(`<path class="road ${cls}" d="${roadPath(a, b, key)}"/>`);
+        // v3.12: en el Espacio (fondo oscuro) los caminos van en tinta clara
+        const ob = A.Data.getById('regions', c);
+        const dark = r.biome === 'space' || (ob && ob.biome === 'space');
+        roads.push(`<path class="road ${cls}${dark ? ' in-space' : ''}" d="${roadPath(a, b, key)}"/>`);
       }
     }
 
@@ -401,9 +466,10 @@
         <path class="map-sea" d="M 0 690 C 120 660, 260 700, 380 730 S 600 660, 720 690 S 900 700, 1000 720 S 1180 700, 1280 735 S 1500 760, 1620 745 S ${W} 760, ${W} 770 L ${W} ${H} L 0 ${H} Z" fill="url(#mp-sea)"/>
         <path class="map-mist" d="M ${OLD_W + 10} 20 C ${OLD_W + 40} 200, ${OLD_W - 10} 420, ${OLD_W + 30} 640 S ${OLD_W + 20} 800, ${OLD_W + 30} ${H - 20}"/>
         <text class="map-region-title" x="${OLD_W + 270}" y="${H - 40}" text-anchor="middle">Tierras Altas</text>
+        ${realmsHtml()}
         <rect width="${W}" height="${H}" filter="url(#mp-grain)" opacity="0.9"/>
         <rect class="map-frame" x="8" y="8" width="${W - 16}" height="${H - 16}" rx="6"/>
-        <g class="map-compass" transform="translate(${W - 65} 805)">
+        <g class="map-compass" transform="translate(${HIGH_W - 65} 805)">
           <circle r="30"/>
           <path d="M 0 -26 L 6 0 L 0 26 L -6 0 Z" class="cp-a"/>
           <path d="M -26 0 L 0 6 L 26 0 L 0 -6 Z" class="cp-b"/>
@@ -842,8 +908,8 @@
       const narrow = (container.clientWidth || window.innerWidth) < 640;
       const here = narrow && selectedId ? layout()[selectedId] : null;
       if (here) {
-        const w = W * 0.62;
-        const h = H * 0.62;
+        const w = 1820 * 0.62; // v3.12: el mismo acercamiento de antes (el mapa ahora es más ancho)
+        const h = w * (H / W);
         view = { x: Math.max(0, Math.min(W - w, here.x - w / 2)), y: Math.max(0, Math.min(H - h, here.y - h / 2)), w, h };
       }
       render();
@@ -862,6 +928,8 @@
       if (mainEl) mainEl.innerHTML = '';
     },
     route,
+    // v3.12: el editor usa el mismo tamaño de mapa
+    W, H, OLD_W, HIGH_W,
   };
 
   A.Views = A.Views || {};

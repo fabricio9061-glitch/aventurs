@@ -42,7 +42,7 @@
           <div class="shell-brand">
             <span class="brand-icon">${A.UI ? A.UI.icon('swords', 26) : ''}</span>
             <span class="brand-name">Aventurs</span>
-            <span class="version-pill" title="Versión del juego">v3.11.5</span>
+            <span class="version-pill" title="Versión del juego">v3.12.0</span>
           </div>
           ${tabs.length > 1 ? `
             <nav class="shell-nav">
@@ -351,6 +351,9 @@
     if (slotName === 'weapon' && A.ItemFx && A.ItemFx.weaponEffectLine) {
       const proc = A.ItemFx.weaponEffectLine(equipped);
       if (proc) tip = `${stat}. ${proc}`;
+      // v3.12: lo único de las legendarias (Crematoria, Agonía de Escarcha, Martillo Maldito)
+      const extra = A.ItemFx.weaponSpecialLines ? A.ItemFx.weaponSpecialLines(equipped) : [];
+      if (extra.length) tip = `${tip || stat}. ${extra.join('. ')}`;
     }
     return `
       <button class="sb-eq ${RARITY_CLS[equipped.rarity] || ''}" ${dataAttr} title="${escH(label)}: ${escH(equipped.name)}${tip ? ` (${escH(tip)})` : ''}">

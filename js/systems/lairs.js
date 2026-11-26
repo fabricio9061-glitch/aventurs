@@ -76,13 +76,20 @@
     if (!chk.ok) return chk;
     const st = status(regionId);
     if (st.altar) for (const it of st.altar.items) A.State.removeItem(it.id, it.qty);
-    let group = [A.Encounter.spawnInstance(st.boss)];
+    const boss = A.Encounter.spawnInstance(st.boss);
+    // v3.12: a veces el jefe sale en su forma suprema (élite): más fuerte, dorado y con mejor botín
+    const EL = A.Balance && A.Balance.ELITE;
+    const supreme = !!(EL && A.Encounter.makeElite && Math.random() < (EL.chanceBoss || 0));
+    if (supreme) A.Encounter.makeElite(boss);
+    let group = [boss];
     if (A.Combat && A.Combat.prepareGroup) group = A.Combat.prepareGroup(group);
     const say = st.altar
       ? `Ponés las ofrendas en ${st.altar.name.toLowerCase()}. El suelo tiembla… ¡${st.boss.name} aparece!`
       : `Entrás a ${st.region.name}. ${st.boss.name} te ve y se levanta.`;
-    A.Combat.start({ enemies: group, lair: st.region.id, fromTravel: false, opening: [{ type: 'note', say, tone: 'bad' }] });
-    return { ok: true };
+    const opening = [{ type: 'note', say, tone: 'bad' }];
+    if (supreme) opening.push({ type: 'note', say: `¡Brilla como el oro! Es ${boss.displayName}: su forma suprema, más fuerte que nunca (y con mejor botín).`, tone: 'bad' });
+    A.Combat.start({ enemies: group, lair: st.region.id, fromTravel: false, opening });
+    return { ok: true, supreme };
   }
 
   /** Para el mapa y el bestiario: la guarida de un jefe (o null). */

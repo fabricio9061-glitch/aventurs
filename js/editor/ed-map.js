@@ -14,10 +14,82 @@
   const Ed = (A.Ed = A.Ed || {});
   const { esc, clone, icon } = Ed.util;
 
-  const W = 1280;
-  const H = 860;
+  // v3.12: el mismo tamaño que el mapa del juego (con las Tierras Altas y los tres reinos)
+  const GM = (A.Views && A.Views.Map) || {};
+  const W = GM.W || 2400;
+  const H = GM.H || 860;
+  const OLD_W = GM.OLD_W || 1280;
+  const HIGH_W = GM.HIGH_W || 1820;
   const SIDE_OFF = { t: [0, -34], b: [0, 44], l: [-30, 6], r: [30, 6] };
   const ANCHOR = { t: 'middle', b: 'middle', l: 'end', r: 'start' };
+
+  // ---------- v3.12: nombres que no se pisan (como en el mapa del juego) ----------
+  // Cada nombre prueba varios lados alrededor de su lugar y se queda con el que menos tapa
+  // a otros nombres y a otros lugares. Primero pueblos y zonas, después las guaridas.
+  const SIDES = ['b', 't', 'r', 'l', 'br', 'tr', 'bl', 'tl'];
+  const FS = 17;
+  let mctx = null;
+  const wCache = new Map();
+  function textW(txt) {
+    if (wCache.has(txt)) return wCache.get(txt);
+    let w = String(txt).length * FS * 0.66;
+    try {
+      mctx = mctx || document.createElement('canvas').getContext('2d');
+      const fam = (getComputedStyle(document.documentElement).getPropertyValue('--font-display') || '').trim() || 'Cinzel, Georgia, serif';
+      mctx.font = `700 ${FS}px ${fam}`;
+      w = mctx.measureText(String(txt)).width;
+    } catch (e) { /* sin canvas: queda el estimado */ }
+    if (!document.fonts || document.fonts.status === 'loaded') wCache.set(txt, w);
+    return w;
+  }
+  function radiusOf(r) { return r.type === 'lair' ? 17 : r.type !== 'combat' ? 25 : 21; }
+  function labelBox(p, side, R, w) {
+    const asc = FS * 0.78, desc = FS * 0.24, d = R + 6;
+    let x, y, anchor;
+    switch (side) {
+      case 't': x = p.x; y = p.y - d - desc - 1; anchor = 'middle'; break;
+      case 'r': x = p.x + d; y = p.y + FS * 0.32; anchor = 'start'; break;
+      case 'l': x = p.x - d; y = p.y + FS * 0.32; anchor = 'end'; break;
+      case 'tr': x = p.x + R * 0.75; y = p.y - R * 0.75 - 3; anchor = 'start'; break;
+      case 'tl': x = p.x - R * 0.75; y = p.y - R * 0.75 - 3; anchor = 'end'; break;
+      case 'br': x = p.x + R * 0.75; y = p.y + R * 0.75 + asc + 1; anchor = 'start'; break;
+      case 'bl': x = p.x - R * 0.75; y = p.y + R * 0.75 + asc + 1; anchor = 'end'; break;
+      default: x = p.x; y = p.y + d + asc; anchor = 'middle'; break;
+    }
+    const x0 = anchor === 'middle' ? x - w / 2 : anchor === 'start' ? x : x - w;
+    return { x, y, anchor, side, box: [x0 - 3, y - asc - 2, x0 + w + 3, y + desc + 3] };
+  }
+  const overlap = (a, b) => Math.max(0, Math.min(a[2], b[2]) - Math.max(a[0], b[0])) * Math.max(0, Math.min(a[3], b[3]) - Math.max(a[1], b[1]));
+  function placeLabels(regions) {
+    const discs = [];
+    for (const r of regions) {
+      const p = posOf(r); const R = radiusOf(r) + 2;
+      discs.push({ id: r.id, box: [p.x - R, p.y - R, p.x + R, p.y + R] });
+      if (r.type === 'combat' || r.type === 'lair') discs.push({ id: r.id, badge: true, box: [p.x + 3, p.y - 29, p.x + 29, p.y - 3] }); // el nivel (tampoco se tapa el propio)
+    }
+    const out = {};
+    const placed = [];
+    const order = regions.slice().sort((a, b) => (a.type === 'lair' ? 1 : 0) - (b.type === 'lair' ? 1 : 0));
+    for (const r of order) {
+      const p = posOf(r);
+      const R = radiusOf(r);
+      const w = textW(r.name);
+      const pref = SIDE_OFF[r.labelAt] ? r.labelAt : 'b';
+      const sides = [pref].concat(SIDES.filter((x) => x !== pref));
+      let best = null;
+      sides.forEach((side, rank) => {
+        const c = labelBox(p, side, R, w);
+        let score = rank * (rank < 4 ? 30 : 45);
+        for (const b of placed) score += overlap(c.box, b) * 4;
+        for (const d of discs) if (d.id !== r.id || d.badge) score += overlap(c.box, d.box) * 3;
+        score += (Math.max(0, 8 - c.box[0]) + Math.max(0, c.box[2] - (W - 8)) + Math.max(0, 8 - c.box[1]) + Math.max(0, c.box[3] - (H - 8))) * 60;
+        if (!best || score < best.score) best = Object.assign(c, { score });
+      });
+      out[r.id] = best;
+      placed.push(best.box);
+    }
+    return out;
+  }
 
   function posOf(r) { return r.pos || { x: W / 2, y: H / 2 }; }
 
@@ -62,18 +134,21 @@
       }
     }
     const linked = new Set(sel ? sel.connections || [] : []);
+    const labels = placeLabels(regions); // v3.12
     const nodes = regions.map((r) => {
       const p = posOf(r);
-      const side = SIDE_OFF[r.labelAt] ? r.labelAt : 'b';
-      const [dx, dy] = SIDE_OFF[side];
-      const town = r.type !== 'combat';
-      const cls = [town ? 'is-town' : '', sel && sel.id === r.id ? 'is-sel' : '', linked.has(r.id) ? 'is-linked' : ''].join(' ');
-      const url = A.ItemSprites ? A.ItemSprites.iconUrl(`biome-${r.biome}`) || A.ItemSprites.iconUrl('map') : '';
+      const lab = labels[r.id] || labelBox(p, 'b', radiusOf(r), 0);
+      const lair = r.type === 'lair';
+      const town = r.type !== 'combat' && !lair;
+      const R = radiusOf(r);
+      const cls = [town ? 'is-town' : '', lair ? 'is-lair' : '', sel && sel.id === r.id ? 'is-sel' : '', linked.has(r.id) ? 'is-linked' : ''].join(' ');
+      const url = lair && r.boss && A.Sprites ? A.Sprites.dataUrl(r.boss) : A.ItemSprites ? A.ItemSprites.iconUrl(`biome-${r.biome}`) || A.ItemSprites.iconUrl('map') : '';
+      const img = lair ? 13 : 16;
       return `<g class="ed-node ${cls}" data-node="${esc(r.id)}" transform="translate(${p.x} ${p.y})">
-        <circle r="${town ? 25 : 21}" class="ed-node-ring"/>
-        ${url ? `<image href="${url}" x="-16" y="-16" width="32" height="32" style="image-rendering:pixelated"/>` : ''}
-        <text x="${dx}" y="${dy}" text-anchor="${ANCHOR[side]}" class="ed-node-label">${esc(r.name)}</text>
-        ${town ? '' : `<g class="ed-node-badge" transform="translate(17 -17)"><circle r="10.5"/><text x="0" y="4.5" text-anchor="middle">${Ed.schema.lvlOf(r)}</text></g>`}
+        <circle r="${R}" class="ed-node-ring"/>
+        ${url ? `<image href="${url}" x="-${img}" y="-${img}" width="${img * 2}" height="${img * 2}" style="image-rendering:pixelated"/>` : ''}
+        <text x="${(lab.x - p.x).toFixed(1)}" y="${(lab.y - p.y).toFixed(1)}" text-anchor="${lab.anchor}" class="ed-node-label">${esc(r.name)}</text>
+        ${town ? '' : `<g class="ed-node-badge" transform="translate(${lair ? 14 : 17} ${lair ? -14 : -17})"><circle r="10.5"/><text x="0" y="4.5" text-anchor="middle">${Ed.schema.lvlOf(r)}</text></g>`}
       </g>`;
     }).join('');
 
@@ -101,6 +176,7 @@
             </defs>
             <rect x="${-W}" y="${-H}" width="${W * 3}" height="${H * 3}" fill="#cdb07a" class="ed-map-bg ed-map-outside"/>
             <rect x="0" y="0" width="${W}" height="${H}" rx="26" fill="url(#edParch)" class="ed-map-bg"/>
+            ${regionsBg()}
             <g class="ed-map-roads">${roads.join('')}</g>
             <g class="ed-map-nodes">${nodes}</g>
           </svg>
@@ -108,6 +184,21 @@
         ${sideCard(S, sel)}
       </div>
     </div>`;
+  }
+
+  /** v3.12: dónde empieza cada parte del mundo (líneas suaves y sus nombres, como en el mapa del juego). */
+  function regionsBg() {
+    const line = (x) => `<path class="ed-map-mist" d="M ${x} 20 C ${x + 30} 220, ${x - 14} 430, ${x + 22} 640 S ${x + 8} 800, ${x + 18} ${H - 20}"/>`;
+    const t = (x, y, txt, cls) => `<text class="ed-map-title ${cls || ''}" x="${x}" y="${y}" text-anchor="middle">${esc(txt)}</text>`;
+    const xr = HIGH_W + 8;
+    return `<g class="ed-map-areas">
+      <path class="ed-realm is-sky" d="M ${xr} 10 L ${W} 10 L ${W} 300 C ${W - 160} 290, ${xr + 330} 318, ${xr} 296 Z"/>
+      <path class="ed-realm is-space" d="M ${xr} 296 C ${xr + 330} 318, ${W - 160} 290, ${W} 300 L ${W} 560 C ${W - 200} 548, ${xr + 260} 574, ${xr} 556 Z"/>
+      <path class="ed-realm is-hell" d="M ${xr} 556 C ${xr + 260} 574, ${W - 200} 548, ${W} 560 L ${W} ${H - 10} L ${xr} ${H - 10} Z"/>
+      ${line(OLD_W + 10)}${line(HIGH_W + 4)}
+      ${t(OLD_W + 270, H - 40, 'Tierras Altas')}
+      ${t(xr + 290, 282, 'El Cielo', 'is-sky')}${t(xr + 290, 540, 'El Espacio', 'is-space')}${t(xr + 290, H - 22, 'El Infierno', 'is-hell')}
+    </g>`;
   }
 
   function sideCard(S, r) {

@@ -663,7 +663,7 @@
     if (!d) return;
     const here = new Set(Ed.panels.creaturesIn(d.id).map((e) => e.id));
     const t0 = Array.isArray(d.tier) ? d.tier[0] : 1;
-    const t1 = Array.isArray(d.tier) ? d.tier[1] : 10;
+    const t1 = Array.isArray(d.tier) ? d.tier[1] : ((A.Progression && A.Progression.MAX_LEVEL) || 25);
     const options = A.Data.enemies
       .filter((e) => !here.has(e.id))
       .sort((a, b) => Math.abs(a.tier - (t0 + t1) / 2) - Math.abs(b.tier - (t0 + t1) / 2) || a.tier - b.tier)

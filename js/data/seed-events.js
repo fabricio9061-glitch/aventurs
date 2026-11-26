@@ -675,6 +675,9 @@
     darkwood: ['entre troncos negros', 'bajo un árbol que parece mirarte', 'en un claro sin luz'],
     dream: ['entre flores que brillan', 'junto a un árbol de hojas violetas', 'en un claro lleno de luces'],
     bloodwood: ['entre rosales rojos', 'junto a una tumba de mármol', 'bajo un sauce sin hojas'],
+    // v3.12
+    sky: ['sobre una nube firme', 'junto a una columna de luz', 'bajo un arco de oro'],
+    space: ['sobre una roca que flota', 'junto a los restos de una nave', 'en el borde de un cráter'],
   };
 
   // ============================================================

@@ -505,7 +505,23 @@
       { itemId: 'fragmento_lava',  weight: 35, qty: [1, 2], msg: 'El suelo escupe trozos de roca caliente.' },
       { itemId: 'gema_ignea',      weight: 25, qty: [1, 1], msg: 'Una gema ardiente entre cenizas.' },
       { itemId: 'obsidiana',       weight: 20, qty: [1, 2], msg: 'Obsidiana negra como tinta.' },
-      { itemId: 'mat_cola_diablillo', weight: 20, qty: [1, 1], msg: 'Una cola arrancada en una pelea ajena.' },
+      { itemId: 'mat_cola_diablillo', weight: 20, qty: [1, 1], maxTier: 20, msg: 'Una cola arrancada en una pelea ajena.' },
+      // v3.12: en el Infierno profundo (nivel 21 o más)
+      { itemId: 'mat_hierro_infernal', weight: 20, qty: [1, 1], minTier: 21, msg: 'Un trozo de hierro al rojo, tirado entre las brasas. Todavía quema.' },
+      { itemId: 'mat_esencia_pecado', weight: 20, qty: [1, 1], minTier: 21, msg: 'Un frasquito oscuro rodó hasta tus pies. Adentro algo se mueve.' },
+    ],
+    // v3.12: el Cielo y el Espacio
+    sky: [
+      { itemId: 'mat_pluma_angel', weight: 25, qty: [1, 1], msg: 'Una pluma blanca baja girando y se te posa en la mano.' },
+      { itemId: 'mat_luz_sagrada', weight: 15, qty: [1, 1], msg: 'Un poco de luz quedó pegada a una nube. La guardás en un frasco.' },
+      { itemId: 'cristal_mana',    weight: 30, qty: [1, 2], msg: 'Cristales de maná que crecen en las nubes como hongos.' },
+      { itemId: 'polvo_arcano',    weight: 30, qty: [1, 3], msg: 'Polvo dorado que cae del cielo más alto.' },
+    ],
+    space: [
+      { itemId: 'mat_metal_estelar', weight: 25, qty: [1, 1], msg: 'Un pedazo de metal que no se parece a nada de tu mundo.' },
+      { itemId: 'mat_cristal_astral', weight: 15, qty: [1, 1], msg: 'Un cristal con estrellas adentro, flotando a la altura de tu cara.' },
+      { itemId: 'fragmento_cuarzo', weight: 30, qty: [1, 2], msg: 'Piedras de la luna rota, brillantes como vidrio.' },
+      { itemId: 'cristal_mana',     weight: 30, qty: [1, 2], msg: 'Cristales de maná que zumban en la oscuridad.' },
     ],
     ruins: [
       { itemId: 'fragmento_runa',     weight: 35, qty: [1, 1], msg: 'Una runa rota entre los escombros.' },
@@ -546,7 +562,9 @@
    */
   function resolveBiomeLoot(region, opts = {}) {
     const biome = region ? region.biome : 'plains';
-    const pool = BIOME_LOOT_POOLS[biome];
+    // v3.12: algunas cosas salen solo en las zonas de cierto nivel (el hierro infernal, en el Infierno profundo)
+    const lvl = region && Array.isArray(region.tier) ? region.tier[0] : 1;
+    const pool = (BIOME_LOOT_POOLS[biome] || []).filter((e) => (!e.minTier || lvl >= e.minTier) && (!e.maxTier || lvl <= e.maxTier));
     if (!pool || pool.length === 0) return null;
 
     // Pick weighted del pool
@@ -783,6 +801,19 @@
         { text: 'El suelo vibra cada tanto. Acompasado.', icon: '🪨' },
         { text: 'Una flor crece sobre lava enfriada. No debería.', icon: '🌺' },
         { text: 'El aire huele a azufre y a algo vivo.', icon: '🔥' },
+      ],
+      // v3.12: el Cielo y el Espacio
+      sky: [
+        { text: 'Las nubes son firmes como el suelo. Igual mirás dónde pisás.', icon: '' },
+        { text: 'Una música suena lejos. No hay nadie tocando.', icon: '' },
+        { text: 'La luz no hace sombra. Te sentís observado.', icon: '' },
+        { text: 'Una pluma blanca baja girando y se apaga antes de tocar el suelo.', icon: '' },
+      ],
+      space: [
+        { text: 'No hay aire, pero respirás. Mejor no preguntar cómo.', icon: '' },
+        { text: 'El mundo se ve allá abajo, chiquito y azul.', icon: '' },
+        { text: 'Una luz cruza el cielo negro y frena de golpe.', icon: '' },
+        { text: 'Un zumbido viene de todos lados a la vez.', icon: '' },
       ],
       hell: [
         { text: 'Algo recuerda tu nombre antes de que lo digas.', icon: '👁️' },

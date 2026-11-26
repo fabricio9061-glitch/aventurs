@@ -1270,3 +1270,27 @@
 .encounter-actions-v2 .is-voted { box-shadow: 0 0 0 3px rgba(58, 122, 42, 0.55); }
 .encounter-actions-v2 .road-votes { margin-left: 6px; }
 .road-vote > span { flex: 1 1 180px; min-width: 0; }
+
+/* ============================================================
+   49. v3.12: el Cielo, el Espacio y el Infierno profundo en el mapa;
+       jefes en su forma suprema (dorados)
+   ============================================================ */
+.map2-svg .map-realms { pointer-events: none; }
+.map2-svg .realm-clouds path { fill: rgba(255, 255, 255, 0.75); stroke: rgba(160, 190, 220, 0.6); stroke-width: 1.2; }
+.map2-svg .realm-stars circle { fill: rgba(255, 255, 255, 0.85); }
+.map2-svg .realm-embers path { fill: rgba(255, 130, 40, 0.35); stroke: rgba(255, 170, 60, 0.45); stroke-width: 1; }
+.map2-svg .map-realm-title { font-family: var(--font-display, serif); font-size: 30px; letter-spacing: 0.22em; text-transform: uppercase; pointer-events: none; }
+.map2-svg .map-realm-title.is-sky { fill: rgba(150, 110, 30, 0.45); }
+.map2-svg .map-realm-title.is-space { fill: rgba(220, 210, 255, 0.42); }
+.map2-svg .map-realm-title.is-hell { fill: rgba(255, 190, 140, 0.42); }
+.map-decor .ink-cloud { fill: rgba(255, 255, 255, 0.55); stroke: rgba(120, 150, 190, 0.5); }
+.map-decor .ink-star { fill: rgba(255, 240, 180, 0.6); stroke: rgba(255, 255, 255, 0.5); }
+/* en el Espacio (fondo oscuro) los caminos de tinta se ven claros */
+.lair-supreme { display: flex; align-items: center; gap: 6px; margin: 6px 0 0; font-size: 13px; color: #8a6a10; }
+.lair-supreme b { color: #6a4a00; }
+.map2-svg .road.in-space.is-known { stroke: rgba(220, 210, 255, 0.55); }
+.map2-svg .road.in-space.is-walked { stroke: rgba(230, 220, 255, 0.8); }
+.map2-svg .road.in-space.is-fog { stroke: rgba(220, 210, 255, 0.25); }
+/* v3.12: en grupo, el invitado también puede dar la vuelta: la nota arriba, los botones abajo */
+.travel-actions-v2.is-follow { flex-wrap: wrap; gap: 10px 14px; }
+.travel-actions-v2.is-follow .travel-follow-note { flex: 1 1 100%; justify-content: center; text-align: center; }

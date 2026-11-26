@@ -51,6 +51,16 @@
     furia: { kind: 'passive', name: 'Furia', icon: 'fist', text: 'Con la mitad de la vida o menos, pega un 25% más fuerte.' },
     regeneracion: { kind: 'passive', name: 'Regeneración', icon: 'heart', text: 'Recupera vida al empezar cada turno (hasta un cuarto de su vida por pelea), salvo que esté en llamas.' },
     no_muerto: { kind: 'passive', name: 'No muerto', icon: 'skull', text: 'No sangra, no se envenena y no siente miedo.', immune: ['bleed', 'poison', 'fear'] },
+    // v3.12: criaturas nuevas (Abismo Marino, Infierno, Cielo, Espacio)
+    sumergirse: { kind: 'passive', name: 'Sumergirse', icon: 'biome-abyss', text: 'Después de atacar se hunde: hasta su próximo turno no se le puede pegar (si queda sola, no puede).' },
+    estallido: { kind: 'passive', name: 'Estallido', icon: 'fire', text: 'Al caer, estalla en llamas: daño a todos (con agilidad, la mitad) y a veces fuego. No llega a matar a nadie.' },
+    dividirse: { kind: 'passive', name: 'Dividirse', icon: 'skulls', text: 'La primera vez que cae, se parte en dos más chicas (cada una con un tercio de su vida).' },
+    escudo_fe: { kind: 'passive', name: 'Escudo de fe', icon: 'shield', text: 'Un escudo de luz frena el daño de los primeros golpes y hechizos, hasta que se rompe (aguanta más cuanto más fuerte es la criatura).' },
+    campo_fuerza: { kind: 'passive', name: 'Campo de fuerza', icon: 'shield', text: 'Un campo que zumba frena el daño de los primeros golpes y hechizos, hasta que se rompe (aguanta más cuanto más fuerte es la criatura).' },
+    regeneracion_divina: { kind: 'passive', name: 'Regeneración divina', icon: 'heart', text: 'Recupera vida al empezar cada turno, y el fuego no la frena (hasta la mitad de su vida por pelea; los jefes, un tercio).' },
+    pacto_sangre: { kind: 'passive', name: 'Pacto de sangre', icon: 'bleed', text: 'Se queda con un tercio del daño que hace con sus golpes.' },
+    escudo_tormenta: { kind: 'passive', name: 'Escudo de rayos', icon: 'spark', text: 'Un escudo de rayos que zumba frena el daño de los primeros golpes y hechizos, hasta que se rompe (aguanta más cuanto más fuerte es la criatura).' },
+    escudo_oro: { kind: 'passive', name: 'Escudo de monedas', icon: 'coins', text: 'Una pared de monedas frena el daño de los primeros golpes y hechizos, hasta que se rompe (aguanta más cuanto más fuerte es la criatura).' },
     // v3.11.3: Alamuerte
     placas_adamantita: { kind: 'passive', name: 'Placas de adamantita', icon: 'shield', text: 'Mientras le quede más de la mitad de la vida, sus placas de metal le sacan 4 a cada golpe de arma (la magia entra entera). Con la mitad de la vida se le caen.' },
     constructo: { kind: 'passive', name: 'Constructo', icon: 'gear', text: 'No sangra, no se envenena, no se asusta y no se encandila.', immune: ['bleed', 'poison', 'fear', 'blind'] },
@@ -410,14 +420,86 @@
       kind: 'active', name: 'Invocar a tres', icon: 'skulls', act: 'summon', once: true, count: 3,
       text: 'Una vez por pelea, llama a tres aliados (en grupo vienen más).',
     },
+    // v3.12: llega uno solo (más chico y más flojo) y una sola vez por pelea para toda la manada;
+    //        el que llega no puede llamar a otros (antes llegaban dos por lobo, más uno por cada héroe de más)
     llamar_manada: {
-      kind: 'active', name: 'Llamar a la manada', icon: 'paw', act: 'summon', once: true, count: 2, pack: true,
-      text: 'Una vez por pelea, aúlla y llegan dos de los suyos, más chicos (en grupo vienen más).',
+      kind: 'active', name: 'Llamar a la manada', icon: 'paw', act: 'summon', once: true, count: 1, pack: true,
+      text: 'Una vez por pelea (una sola vez para toda la manada), aúlla y llega uno de los suyos, más chico y más flojo. El que llega no puede llamar a otros.',
     },
     // v3.10: únicas de jefe
     enfurecer: {
       kind: 'passive', name: 'Furia de jefe', icon: 'fire',
       text: 'Cuando le queda la mitad de la vida, se enfurece: pega un 20% más fuerte el resto de la pelea.',
+    },
+    // v3.12: activas nuevas
+    rompecielos: { // Volibear
+      kind: 'active', name: 'Rompecielos', icon: 'spark', act: 'bolt', cd: 3, mult: 1.3, save: 'agilidad',
+      bolt: { element: 'shock', status: 'shock', turns: 2, use: '{E} levanta una garra y un rayo parte el cielo en dos.', fail: 'El rayo te cae encima: {d} de daño.', own: '' },
+      text: 'Hace caer un rayo: resistí con agilidad para recibir la mitad; si no, a veces te electriza.',
+    },
+    caida_cielo: { // Aurelion Sol
+      kind: 'active', name: 'Caída del cielo', icon: 'stars', act: 'breath', cd: 4, mult: 0.95,
+      element: 'fire', status: 'prone', turns: 1, save: 'agilidad',
+      text: 'Hace llover estrellas sobre todos: daño (con agilidad, la mitad) y a veces te tira al suelo.',
+      use: ['{E} ruge y el cielo se abre: caen estrellas encendidas.'],
+      fail: 'Una estrella te aplasta contra el suelo: {d} de daño.', resist: 'Te tirás a un costado y la estrella solo te quema: {d} de daño.',
+      pet: 'Una estrella cae sobre {p}: {d} de daño.',
+    },
+    aliento_sueno: { // Ysera
+      kind: 'active', name: 'Aliento del sueño', icon: 'breath', act: 'breath', cd: 5, mult: 0.9,
+      element: 'poison', status: 'stun', turns: 1, save: 'ingenio',
+      text: 'Una niebla verde y dulce: daño a todos (con ingenio, la mitad) y a veces el que no la resiste se duerme un turno.',
+      use: ['{E} abre la boca y sale una niebla verde, dulce y tibia, que lo tapa todo.'],
+      fail: 'Respirás la niebla y se te cierran los ojos: {d} de daño.', resist: 'Te tapás la boca y aguantás despierto: {d} de daño.',
+      pet: 'La niebla envuelve a {p}: {d} de daño.',
+    },
+    telepatia: {
+      kind: 'active', name: 'Telepatía', icon: 'eye', act: 'debuff', cd: 4, save: 'ingenio', status: 'fear', turns: 2,
+      text: 'Te habla dentro de la cabeza: resistí con ingenio o te da miedo.',
+      use: ['{E} te mira fijo y escuchás su voz dentro de tu cabeza.'],
+      fail: 'La voz te dice que no vas a salir de acá, y le creés.', resist: 'Pensás en otra cosa bien fuerte y la voz se va.',
+    },
+    bostezo: {
+      kind: 'active', name: 'Bostezo', icon: 'moon', act: 'debuff', cd: 4, save: 'ingenio', status: 'stun', turns: 1,
+      text: 'Un bostezo que contagia: resistí con ingenio o te dormís un turno.',
+      use: ['{E} bosteza tan largo y tan hondo que el aire se pone pesado.'],
+      fail: 'Se te cierran los ojos solos: perdés el próximo turno.', resist: 'Te pellizcás el brazo y seguís despierto.',
+    },
+    curar_aliados: {
+      kind: 'active', name: 'Sanar', icon: 'heal', act: 'healAlly', cd: 3, amount: 0.25,
+      text: 'Cura al más herido de los suyos (un cuarto de su vida).',
+    },
+    gracia_sol: {
+      kind: 'active', name: 'Gracia del sol', icon: 'sun', act: 'solar', cd: 4, mult: 0.9, heal: 0.08,
+      element: 'holy', status: 'blind', turns: 2, save: 'agilidad',
+      text: 'Brilla como el sol: daño a todos (con agilidad, la mitad; si no, quedás ciego) y se cura un poco.',
+      use: ['{E} se ríe y brilla como el sol del mediodía.'],
+      fail: 'La luz te quema los ojos: {d} de daño.', resist: 'Te tapás los ojos a tiempo: {d} de daño.',
+      pet: 'La luz alcanza a {p}: {d} de daño.',
+    },
+    juicio: {
+      kind: 'active', name: 'Juicio', icon: 'sun', act: 'bolt', cd: 3, mult: 1.3, save: 'ingenio',
+      bolt: { element: 'holy', status: 'blind', turns: 1, use: '{E} levanta la mano y cae una columna de luz.', fail: 'La luz te aplasta: {d} de daño.', own: '' },
+      text: 'Una columna de luz: resistí con ingenio para recibir la mitad; si no, a veces te ciega.',
+    },
+    fuego_infernal: {
+      kind: 'active', name: 'Fuego del infierno', icon: 'breath', act: 'breath', cd: 4, mult: 1.1,
+      element: 'fire', status: 'fire', turns: 3, save: 'agilidad',
+      text: 'Llueve fuego del infierno: daño a todos (con agilidad, la mitad) y fuego por tres turnos.',
+      use: ['{E} abre los brazos y del techo llueve fuego.'],
+      fail: 'El fuego te cae encima: {d} de daño.', resist: 'Te cubrís y el fuego solo te roza: {d} de daño.',
+      pet: 'El fuego alcanza a {p}: {d} de daño.',
+    },
+    abduccion: {
+      kind: 'active', name: 'Abducción', icon: 'spark', act: 'debuff', cd: 4, save: 'fuerza', status: 'stun', turns: 1,
+      text: 'Un rayo de luz te levanta del suelo: resistí con fuerza o perdés tu próximo turno.',
+      use: ['{E} apunta con un aparato y una luz verde te levanta del suelo.'],
+      fail: 'Flotás sin poder hacer nada: perdés tu próximo turno.', resist: 'Te agarrás al suelo y no te lleva.',
+    },
+    rayo_desintegrador: {
+      kind: 'active', name: 'Rayo desintegrador', icon: 'spark', act: 'bolt', cd: 3, mult: 1.25, save: 'agilidad',
+      bolt: { element: 'shock', status: 'shock', turns: 1, use: '{E} dispara un rayo que deshace lo que toca.', fail: 'El rayo te atraviesa: {d} de daño.', own: '' },
+      text: 'Un rayo que deshace lo que toca: resistí con agilidad para recibir la mitad.',
     },
     // v3.11.3: Alamuerte, el más fuerte de los dragones
     cataclismo: {
@@ -512,13 +594,16 @@
     const raw = SUMMONS[x.id] || (data && data.summons) || null;
     const base = typeof raw === 'string' ? { id: raw, count: 1 } : raw ? { ...raw } : { id: x.id, count: 1, weak: true };
     if (sk && sk.count) base.count = sk.count;
-    if (sk && sk.pack) { base.id = x.id; base.weak = true; }
+    if (sk && sk.pack) { base.id = x.id; base.weak = true; base.count = 1; return base; } // v3.12: la manada, uno solo (también en grupo)
+    const who = A.Data && A.Data.getById ? A.Data.getById('enemies', base.id) : null;
+    if (who && who.miniBoss) { base.count = 1; return base; } // v3.12: Alafeliz hay una sola (Ysera la llama también en grupo)
     // en grupo vienen más (uno más por cada héroe de más, hasta 4)
     const heroes = A.Party && A.Party.combatHeroes ? (A.Party.combatHeroes() || []).length : 1;
     if (heroes > 1) base.count = Math.min(4, (base.count || 1) + heroes - 1);
     return base;
   }
   const SUMMON_LINES = {
+    ysera: '{E} canta una canción muy vieja y {s} llega volando desde el Sueño Esmeralda.', // v3.12
     cthulhu: '{E} murmura desde el fondo del mar y {s} sube a la superficie.',
     kyubi: '{E} sopla sobre unas hojas y las hojas se vuelven {s}.',
     nigromante: '{E} alza los brazos y {s} sale de la tierra.',
@@ -679,6 +764,15 @@
    * Devuelve -1 si el fuego la frena, 0 si no se regenera.
    */
   function regenOf(x) {
+    // v3.12: Regeneración divina: 6% por turno (3% si es jefe), el fuego no la frena,
+    //        hasta la mitad de su vida por pelea (un tercio si es jefe)
+    if (has(x, 'regeneracion_divina')) {
+      const boss = x.category === 'boss';
+      const max = (isPet(x) ? x.maxHealth : x.maxHp) || 0;
+      const left = Math.round(max * (boss ? 0.3 : 0.5)) - (x._regenUsed || 0);
+      if (left <= 0) return 0;
+      return Math.min(left, Math.max(1, Math.round(max * (boss ? 0.03 : 0.06))));
+    }
     if (!has(x, 'regeneracion')) return 0;
     if ((x.effects || []).some((e) => e.type === 'fire')) return -1; // frenada
     const max = (isPet(x) ? x.maxHealth : x.maxHp) || 0;
@@ -687,7 +781,7 @@
     return Math.min(left, Math.max(1, Math.round(max * (x.category === 'boss' ? 0.015 : 0.03))));
   }
 
-  function lifesteal(x) { return has(x, 'sed_sangre') ? 0.25 : 0; }
+  function lifesteal(x) { return has(x, 'pacto_sangre') ? 0.33 : has(x, 'sed_sangre') ? 0.25 : 0; }
 
   function poisonBoost(x) { return has(x, 'venenoso'); }
 
@@ -747,6 +841,28 @@
 
   /** El primer golpe de arma le hace la mitad (Caparazón / Gelatinoso). Devuelve { dmg, skill }. */
   const PLATES = 4; // v3.11.3: lo que frenan las placas de Alamuerte
+  /** v3.12: cuánto aguanta el escudo de fe / campo de fuerza / escudo de monedas (por nivel y categoría). */
+  function shieldOf(x) {
+    const k = ({ weak: 0.5, normal: 0.75, strong: 1, boss: 1.5 })[x.category] || 0.75;
+    return Math.round((x.tier || 1) * k);
+  }
+
+  /**
+   * v3.12: el escudo de algunas criaturas (de fe, de fuerza, de monedas) frena el daño de golpes y
+   * hechizos hasta romperse. Devuelve { dmg, skill } (skill: el escudo, o "<escudo>_roto" si se rompió).
+   */
+  const SHIELDS = ['escudo_fe', 'campo_fuerza', 'escudo_oro', 'escudo_tormenta'];
+  function shieldAbsorb(target, dmg) {
+    const id = target ? SHIELDS.find((s) => has(target, s)) : null;
+    if (!id) return { dmg, skill: null };
+    if (target._shield == null) target._shield = shieldOf(target);
+    if (!(target._shield > 0)) return { dmg, skill: null };
+    const absorbed = Math.min(target._shield, Math.max(0, dmg - 1));
+    if (absorbed <= 0) return { dmg, skill: null };
+    target._shield -= absorbed;
+    return { dmg: dmg - absorbed, skill: target._shield > 0 ? id : `${id}_roto` };
+  }
+
   function softenHit(target, dmg) {
     if (!target) return { dmg, skill: null };
     let skill = null;
@@ -765,6 +881,9 @@
       if (nd < dmg && !skill && !target._hideSaid) { target._hideSaid = true; skill = 'piel_gruesa'; }
       dmg = nd;
     }
+    // v3.12: Escudo de fe / Campo de fuerza / Escudo de monedas: frena el daño hasta romperse
+    const sh = shieldAbsorb(target, dmg);
+    if (sh.skill) { dmg = sh.dmg; if (!skill) skill = sh.skill; }
     // v3.11.3: Placas de adamantita (Alamuerte): -4 a cada golpe de arma mientras tenga más de la mitad de la vida
     if (has(target, 'placas_adamantita') && (target.hp || 0) > (target.maxHp || 0) / 2) {
       const nd = Math.max(1, dmg - PLATES);
@@ -923,9 +1042,13 @@
         if (!spec.id || !A.Data.getById('enemies', spec.id)) return 0;
         if (!SUMMONS[x.id] && !(A.Data.getById('enemies', x.id) || {}).summons && !sk.pack && !sk.count) return 0; // "Invocar" a secas, solo los que tienen a quién llamar
         if (x.summoned) return 0; // una invocada no invoca
+        // v3.12: la manada aúlla una sola vez por pelea (si ya aulló otro lobo, este no)
+        if (sk.pack) { const c = A.State.combat; if (c && (c._packCalled || {})[x.id]) return 0; }
         return k.alive().length < 3 ? 1.5 : 0;
       }
       case 'sweep': return p && p.pet && p.pet.health > 0 ? 1.5 : 1;
+      // v3.12: curar a los suyos solo si alguno está bastante herido
+      case 'healAlly': return k.alive().some((e) => e.hp > 0 && e.hp <= e.maxHp * 0.6) ? 2.5 : 0;
       default: break;
     }
     if (sk.steal) {
@@ -1126,9 +1249,25 @@
       });
     },
 
+    // v3.12: cura al más herido de los suyos (puede ser ella misma)
+    healAlly(sk, x, k) {
+      const hurtOnes = k.alive().filter((e) => e.hp > 0 && e.hp < e.maxHp).sort((a, b) => (a.hp / a.maxHp) - (b.hp / b.maxHp));
+      const who = hurtOnes[0] || x;
+      const n = Math.max(1, Math.round(who.maxHp * (sk.amount || 0.25)));
+      const say = who === x ? healLine(x) : fill(`{E} pone las manos sobre ${noun(who)} y le cierra las heridas.`, x);
+      k.healEnemy(who, n, { say, cast: true, skill: sk.id });
+    },
+
+    // v3.12: Gracia del sol: luz a todos y se cura un poco
+    solar(sk, x, k) {
+      areaHit(sk, x, k, { element: sk.element, status: sk.status, turns: sk.turns, half: true });
+      if (x.hp > 0 && x.hp < x.maxHp && sk.heal) k.healEnemy(x, Math.max(1, Math.round(x.maxHp * sk.heal)), { say: fill('La luz vuelve a {e} y le cierra las heridas.', x), skill: sk.id });
+    },
+
     summon(sk, x, k) {
       // v3.10: puede llamar a varios (y la de nueve colas, kitsunes de cinco colas)
       const spec = summonSpec(x, sk);
+      if (sk.pack) { const c = A.State.combat; if (c) (c._packCalled = c._packCalled || {})[x.id] = true; } // v3.12: una vez por manada
       const made = [];
       for (let n = 0; n < (spec.count || 1); n++) {
         const inst = spec.id ? k.summon(x, spec.id, { tails: spec.tails, weak: spec.weak, hp: spec.hp }) : null;
@@ -1140,7 +1279,8 @@
       const fem = A.Narrator && A.Narrator.isFem ? A.Narrator.isFem(spec.id) : false;
       const one = (data ? data.name : made[0].name).replace(/^./, (ch) => ch.toLowerCase());
       const NUM = ['', '', 'dos', 'tres', 'cuatro'];
-      const s = made.length > 1 ? `${NUM[made.length] || made.length} ${one}${/[aeiou]$/i.test(one) ? 's' : 'es'}${spec.tails ? ` de ${['', '', '', '', '', 'cinco'][spec.tails] || spec.tails} colas` : ''}` : `${fem ? 'una' : 'un'} ${one}${spec.tails ? ` de ${spec.tails} colas` : ''}`;
+      const proper = A.Narrator && A.Narrator.isProper ? A.Narrator.isProper(spec.id) : false; // v3.12: "Alafeliz", no "una alafeliz"
+      const s = proper && made.length === 1 ? (data ? data.name : made[0].name) : made.length > 1 ? `${NUM[made.length] || made.length} ${one}${/[aeiou]$/i.test(one) ? 's' : 'es'}${spec.tails ? ` de ${['', '', '', '', '', 'cinco'][spec.tails] || spec.tails} colas` : ''}` : `${fem ? 'una' : 'un'} ${one}${spec.tails ? ` de ${spec.tails} colas` : ''}`;
       for (const inst of made) {
         k.log('enemy', { text: `${x.displayName} invoca a ${inst.displayName}.`, fx: { kind: 'summon', actor: k.fxKey(x), target: k.fxKey(inst) } });
       }
@@ -1153,6 +1293,19 @@
   };
 
   /** Aliento o temblor: a vos (con tirada) y a tu mascota. v3.0: en grupo, a cada héroe con su mascota. */
+  /** v3.12: Estallido: al caer, la criatura explota y les pega a todos (con agilidad, la mitad). */
+  const BURST = {
+    id: 'estallido', name: 'Estallido', mult: 0.7, save: 'agilidad', element: 'fire', status: 'fire', turns: 2,
+    use: ['{E} estalla en llamas al caer.'],
+    fail: 'La explosión te alcanza: {d} de daño.', resist: 'Te tirás al suelo a tiempo: {d} de daño.', pet: 'La explosión alcanza a {p}: {d} de daño.',
+  };
+  function deathBurst(x) {
+    const k = kit();
+    if (!k || !x || !has(x, 'estallido')) return false;
+    areaHit(BURST, x, k, { element: BURST.element, status: BURST.status, turns: BURST.turns, half: true, fromDead: true, noKill: true });
+    return true;
+  }
+
   function areaHit(sk, x, k, o) {
     k.log('enemy', { text: `${x.displayName} usa ${sk.name}.`, fx: { kind: 'cast', actor: k.fxKey(x), element: o.element || undefined, skill: sk.id }, say: { text: fill(sk.use, x), tone: 'bad' } });
     const base = k.rollDamage(x, { mult: sk.mult || 1 });
@@ -1160,7 +1313,7 @@
     const hitOne = () => {
       const p = A.State.player;
       const pet = p.pet && p.pet.health > 0 ? p.pet : null;
-      if (x.hp <= 0 || p.hp <= 0) return;
+      if ((x.hp <= 0 && !o.fromDead) || p.hp <= 0) return;
       // Vos
       const ok = k.save(x, sk.save, { label: sk.name, resist: o.half ? '' : sk.resist, fail: '' });
       if (ok && !o.half) {
@@ -1168,7 +1321,9 @@
       } else {
         const armor = k.playerStats().armor || 0;
         const raw = ok ? Math.floor(base / 2) : base;
-        const dmg = Math.max(1, raw - (o.half ? Math.floor(armor / 2) : armor));
+        let dmg = Math.max(1, raw - (o.half ? Math.floor(armor / 2) : armor));
+        if (o.noKill) dmg = Math.min(dmg, Math.max(0, p.hp - 1)); // v3.12: el estallido no te mata (te deja con 1)
+        if (dmg <= 0) return;
         const got = k.hurtPlayer(x, dmg, { element: o.element, say: ok ? sk.resist : sk.fail });
         if (!ok && got > 0 && p.hp > 0 && o.status && (!o.half || Math.random() < 0.5)) k.status(p, o.status, { turns: o.turns, value, source: x.id });
       }
@@ -1177,7 +1332,9 @@
         const lucky = Math.random() < 0.5;
         const raw = lucky && o.half ? Math.floor(base / 2) : base;
         if (lucky && !o.half) return;
-        const dmg = Math.max(1, raw - (o.half ? Math.floor((pet.armor || 0) / 2) : pet.armor || 0));
+        let dmg = Math.max(1, raw - (o.half ? Math.floor((pet.armor || 0) / 2) : pet.armor || 0));
+        if (o.noKill) dmg = Math.min(dmg, Math.max(0, pet.health - 1));
+        if (dmg <= 0) return;
         k.hurtPet(x, dmg, { element: o.element, say: sk.pet });
         if (!lucky && pet.health > 0 && o.status) k.status(pet, o.status, { turns: o.turns, value, source: x.id });
       }
@@ -1310,6 +1467,7 @@
     get, info, all, idsOf, has, listFor,
     petDodge, petReactions, // v3.9
     statMods, damageMult, bonusDamage, immune, regenOf, lifesteal, poisonBoost,
+    deathBurst, shieldAbsorb, // v3.12
     tailsOf, growTails, TAILS_MAX,
     dodgeHit, softenHit, reactions, tryRevive,
     saveDC, valueFor, fill, noun,

@@ -70,7 +70,7 @@
   function regionCreatures(d) {
     const list = creaturesIn(d.id).sort((a, b) => a.tier - b.tier);
     const t0 = Array.isArray(d.tier) ? d.tier[0] : 1;
-    const t1 = Array.isArray(d.tier) ? d.tier[1] : 10;
+    const t1 = Array.isArray(d.tier) ? d.tier[1] : ((A.Progression && A.Progression.MAX_LEVEL) || 25);
     const rows = list.map((e) => {
       const fits = e.tier >= t0 && e.tier <= t1;
       return `<div class="ed-mini-row ${fits ? '' : 'is-bad'}">

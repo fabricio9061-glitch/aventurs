@@ -65,6 +65,11 @@ aventurs/
     ├── hordas.js           Cada raza contra grupos de criaturas (v3.9)
     ├── jefes.js            Cada jefe contra un guerrero, un híbrido y un mago (v3.10)
     └── grupo.js            Peleas de 2 a 4 héroes juntos, con el motor de verdad (v3.11)
+
+  js/data/seed-v311.js, seed-v311-alto.js  Guaridas, altares y las Tierras Altas (v3.11)
+  js/data/seed-v312.js                     El Cielo, el Espacio y el Infierno profundo, zonas llenas,
+                                           equipo del 21 al 25 y las armas legendarias (v3.12)
+  js/data/seed-jefes-medidos.js            Lo que mide tools/jefes.js --datos (lo muestra el editor)
 ```
 
 ## Correr local
@@ -88,8 +93,9 @@ node tools/simulador.js economia   # monedas, XP y precios
 node tools/simulador.js viaje      # pasos y niveles del mapa
 ```
 
-Pruebas de equilibrio (v3.1): ocho pruebas por raza (1 contra 1, rachas en los niveles 1, 3, 6, 10, 15 y 20
-—las dos últimas desde la v3.11— y peleas contra parejas), con semillas fijas para comparar antes y después de un cambio:
+Pruebas de equilibrio (v3.1): nueve pruebas por raza (1 contra 1, rachas en los niveles 1, 3, 6, 10, 15, 20 y 25
+—las de 15 y 20 desde la v3.11, la de 25 desde la v3.12— y peleas contra parejas), con semillas fijas para comparar
+antes y después de un cambio:
 
 ```powershell
 node tools/equilibrio.js                        # las 18 razas (unos minutos)
@@ -100,8 +106,8 @@ node tools/equilibrio.js --comparar=antes.json  # muestra cuánto cambió cada n
 ```
 
 Contra grupos (v3.9): cada raza contra 1, 3, 5 y 8 criaturas iguales en los niveles 1, 5 y 10 (y contra 3 y 5
-en el 15 y el 20 desde la v3.11), con victorias, rondas, vida que queda y cuántas veces se nota la pasiva y el
-hechizo de nacimiento:
+en el 15, el 20 y el 25 desde la v3.11 y la v3.12), con victorias, rondas, vida que queda y cuántas veces se nota
+la pasiva y el hechizo de nacimiento:
 
 ```powershell
 node tools/hordas.js                          # las 18 razas (unos 2 minutos)
@@ -111,10 +117,10 @@ node tools/hordas.js --comparar=antes.json    # muestra cuánto cambió
 ```
 
 Contra jefes (v3.10): cada jefe contra un guerrero, un híbrido y un mago de su nivel y de dos niveles más
-(sin pasar del 20):
+(sin pasar del tope, que desde la v3.12 es 25):
 
 ```powershell
-node tools/jefes.js                      # los 22 jefes (unos minutos)
+node tools/jefes.js                      # los 26 jefes (unos minutos)
 node tools/jefes.js --jefes=kyubi,kraken # solo esos
 node tools/jefes.js --datos              # y guarda lo medido para el editor (js/data/seed-jefes-medidos.js)
 ```
@@ -131,11 +137,11 @@ node tools/grupo.js --heroes=orco,humano,gnomo,angel --criaturas=lobo_bruma*3 --
 
 - **18 razas** parejas, cada una con su pasiva y su arma (ver *Razas y pasivas*); las 12 que usan
   magia nacen con su propio hechizo
-- **67 lugares** ordenados por nivel (1 a 20): 36 de combate, 9 pueblos (6 con criaturas en el camino)
-  y **22 guaridas de jefe** (v3.11)
-- **160 criaturas** (22 jefes, 34 domables), cada una con su zona propia
-- **112 armas**, **55 armaduras**, **291 objetos**; todo con rareza (común a legendario)
-- **50 hechizos**, **116 recetas**, **18 habitantes**
+- **81 lugares** ordenados por nivel (1 a 25): 45 de combate, 9 pueblos (6 con criaturas en el camino)
+  y **27 guaridas de jefe** (v3.11; v3.12: el Cielo, el Espacio, el Infierno profundo, el Sueño Esmeralda y la Cumbre de la Tormenta)
+- **211 criaturas** (27 jefes, 34 domables), cada una con su zona propia
+- **140 armas**, **68 armaduras**, **298 objetos**; todo con rareza (común a legendario)
+- **55 hechizos**, **137 recetas**, **18 habitantes**
 - **47 misiones** (18 de la historia principal) y **86 escenas** para explorar (12 solo para grupos)
 
 ## Reglas (v1.8.0)
@@ -271,6 +277,138 @@ Explorar siempre hace pasar algo (`js/systems/explore.js` + `js/data/seed-events
   se cuentan con ×N).
 - En el celular, una franja arriba con vida, maná, comida y dinero.
 - Sin emojis en el juego (desde la v2.2, tampoco en el editor).
+
+## Versión 3.12.0: el Cielo, el Espacio y el Infierno profundo (hasta el nivel 25)
+
+**El tope sube a 25.** Al este de las Tierras Altas hay tres reinos nuevos, sin pueblos: todo lo que vive ahí es enemigo.
+Ninguno es "el jefe final": el juego va a seguir creciendo.
+
+| Reino | Se llega desde | Lugares (nivel) | Quién vive ahí | Jefe (nivel 25) |
+|---|---|---|---|---|
+| **El Cielo** | Cumbre del Mundo | Puertas del Cielo (21-22) · Salones de la Luz (23-24) · El Empíreo (24-25) | Los nueve coros, en sus tres jerarquías: Ángeles, Arcángeles y Principados; Potestades, Virtudes y Dominaciones; Tronos, Querubines y Serafines | **Dios**, en la Cuna del Sol: un bebé con todo el poder del sol. No "cae": si lo aguantás, te aprueba |
+| **El Espacio** | Cumbre del Mundo | Camino de las Estrellas (21-22) · La Luna Rota (22-24) · La Nave Nodriza (24-25) | Alienígenas grises, drones, medusas estelares, larvas y soldados de la colmena, el cazador estelar, gusanos lunares, robots centinela y el comandante gris | **La Mente Colmena**, en el Núcleo de la Colmena |
+| **El Infierno profundo** | El Fin del Mundo | Río Estigia (21-22) · Círculo de los Pecados (22-24) · Ciudad de Dite (24-25) | El Cancerbero (tres cabezas), el barquero del Estigia y los siete pecados (pereza, gula, avaricia, envidia, lujuria, ira y soberbia) | **Satanás**, en su trono |
+
+- **En el mapa**: el mundo es más ancho; los tres reinos se ven pintados (cielo claro con nubes, espacio negro con
+  estrellas, infierno rojo con brasas) y cada uno con su nombre. En el Espacio los caminos van en tinta clara.
+- **Jefes en su forma suprema**: en su guarida, un jefe sale **dorado** una de cada diez veces ("Satanás supremo",
+  "La Mente Colmena suprema"): más vida, más daño y mejor botín. La ficha de la guarida lo avisa. Las élites comunes
+  también se ven doradas, con los ojos rojos.
+
+### Ysera, la dragona del Sueño Esmeralda (nivel 19)
+
+- **Ysera**: la dragona verde más antigua, Aspecto de los sueños, a quien la titán Eonar le dio poder para velar por la
+  naturaleza y cuidar el Sueño Esmeralda. Vive en **El Sueño Esmeralda**, una guarida nueva al lado del Bosque de los Sueños.
+- Su **Aliento del sueño** (niebla verde: daño a todos y a veces te duerme un turno), su polvo de sueño, su coletazo y su
+  regeneración; cuando la apurás, **llama a Alafeliz** (en grupo también viene una sola: Alafeliz hay una).
+- Suelta flores del sueño, escamas ancestrales, sangre de dragón, a veces un Elixir de vida y el **Báculo del Sueño Esmeralda**
+  (bastón legendario de mago). Alamuerte sigue siendo el más fuerte de los dragones.
+
+### Volibear, Aurelion Sol y el dragón anciano
+
+- **Volibear** (nivel 18): Valhir, la Tormenta Implacable, un semidiós antiguo del Norte, de la guerra y la tormenta, con
+  forma de oso blanco gigante. Vive en la **Cumbre de la Tormenta**, una guarida nueva arriba de la Tundra Eterna. Lo cubre un
+  **escudo de rayos** (frena los primeros golpes y hechizos hasta romperse), tira **Rompecielos** (un rayo que a veces te
+  electriza), aturde, muerde y, cuanto más lo lastimás, más fuerte pega. Suelta la **Piel de Valhir** (armadura legendaria).
+- **Aurelion Sol** (nivel 19): el dragón celestial que forja estrellas, azul de noche con corona de oro. Vive en la
+  **Cima Estelar** (la vieja cima del dragón anciano, sobre el Nido de Dragones). Su **Caída del cielo** hace llover
+  estrellas (daño a todos y a veces te tira al suelo); también escupe fuego y da coletazos. Suelta la **Hoja de las
+  Estrellas** (espada legendaria que a veces prende fuego). Alamuerte sigue siendo el más fuerte de los dragones.
+- **El dragón anciano ya no es jefe**: ahora es una criatura fuerte de nivel 19 que caza en la Cumbre del Mundo.
+  La misión principal *La sombra del dragón* ahora es contra **Alamuerte** (nivel 20; 4.000 de XP y 25.000 monedas).
+  Si la tenías empezada, ahora te pide a Alamuerte.
+- **Fondo del Volcán**: la zona pegada al Volcán que se llamaba "Infierno" ahora se llama así, para no confundirla con el
+  Infierno profundo.
+- **El mamut** ya no parece un oso: tiene trompa, colmillos y pelo largo.
+
+### Arreglos en grupo
+
+- **La manada de huargos**: con "Llamar a la manada" llegaban dos lobos por cada huargo, más uno por cada héroe de más
+  (en pareja, la pelea se llenaba de huargos jóvenes). Ahora llega **uno solo**, una sola vez por pelea para toda la manada,
+  más chico y **más flojo** (pega un 20% menos), y ese no puede llamar a otros.
+- **Dar la vuelta en el camino**: en grupo, el invitado solo veía "Avanzar". Ahora cualquiera del grupo puede **dar la vuelta**
+  (o seguir hacia el destino) a mitad de camino, como el anfitrión.
+
+### Zonas que estaban vacías
+
+| Zona | Antes | Ahora |
+|---|---|---|
+| Abismo Marino | solo el contemplador | Pez abisal, Medusa abisal, Calamar gigante, Cangrejo abisal, Sacerdote profundo (y la serpiente marina baja) |
+| Fondo del Volcán (antes "Infierno") | solo el caballero de la muerte | Sabueso infernal, Alma condenada, Demonio menor, Torturador (y el súcubo se muda acá) |
+| Nido de Dragones | 2 criaturas | Cultista del dragón, Dragón rojo (y el dragón joven vuelve) |
+| Pantano | — | Fuego fatuo (de noche), Sanguijuela gigante |
+| Puerto | águilas | Gaviota ladrona |
+| Catacumbas | — | Momia real (llama a sus momias) |
+| Cumbre del Mundo / Fin del Mundo | 3 criaturas cada una | Elemental del rayo / Eco del vacío |
+
+Se mudaron las que no tenían nada que ver: el contemplador queda en las Ruinas Perdidas, el caballero de la muerte en las
+Catacumbas y la Fortaleza Caída, el gólem en las Cuevas Ancestrales, el gólem de lava en el Volcán, el súcubo al Fondo del Volcán
+y el necrófago a las Ruinas de Antorcha, con los nigromantes (sube al nivel 5). El Puerto ya no tiene águilas.
+
+### Habilidades nuevas de las criaturas
+
+- **Sumergirse** (Calamar gigante): después de atacar se hunde y no se le puede pegar hasta su próximo turno (si queda sola, no puede).
+- **Estallido** (Demonio menor, Fuego fatuo, Medusa estelar, Elemental del rayo): al caer explota y les pega a todos. Nunca mata: te deja con 1.
+- **Dividirse** (Larva de la colmena, Eco del vacío): la primera vez que cae se parte en dos, cada una con un tercio de su vida.
+- **Escudo de fe / Campo de fuerza / Escudo de monedas / Escudo de rayos**: frenan el daño de los primeros golpes y hechizos hasta romperse.
+- **Regeneración divina** (Virtud, Dios): se cura cada turno y el fuego no la frena (con tope por pelea).
+- **Sanar** (Principado, Virtud, Sacerdote profundo, Cultista del dragón): cura al más herido de los suyos.
+- **Gracia del sol** (Serafín, Dios), **Juicio**, **Fuego del infierno**, **Pacto de sangre** (se queda con un tercio del daño),
+  **Telepatía** (miedo), **Abducción**, **Rayo desintegrador** y **Bostezo** (la pereza te duerme un turno).
+
+### Equipo, hechizos y pociones del 21 al 25
+
+- **Estelar** (21, épico): se vende en el Bastión del Alba. **Del crepúsculo** (23) y **eterno** (25): se forjan con
+  luz sagrada (Cielo), hierro infernal (Infierno) y metal estelar (Espacio); lo eterno, además, con esencia del vacío.
+- Seren enseña **Lanza de luz** (21), **Lluvia de estrellas** (22), **Curación divina** (23), **Llamas del infierno** (24)
+  y **Singularidad** (25). En el Bastión hay **pociones divinas** de vida y de maná; el **Elixir eterno** se prepara o lo sueltan los jefes.
+- Lo de los jefes: Crematoria y el Manto del sol (Dios), el Tridente infernal y la Coraza infernal (Satanás),
+  el Bastón de la colmena y el Traje de la colmena (la Mente Colmena).
+
+### Tres armas legendarias
+
+| Arma | Nivel | Quién la suelta | Lo suyo |
+|---|---|---|---|
+| **Agonía de Escarcha** | 15 | Rey de la Escarcha | Congela, y te devuelve como vida el 15% del daño que hacés |
+| **Martillo Maldito** | 20 | Titán | Electriza, y al pegar un rayo salta a otra criatura (10 de daño) |
+| **Crematoria** | 25 | Dios | Prende fuego, y hace +8 de daño contra no muertos y demonios |
+
+La tienda, el taller y la ficha del arma lo dicen en "Qué te da".
+
+### Economía
+
+- **Monedas**: hasta el nivel 10, igual que antes; arriba del 10 suben más despacio (×1,2 por nivel en vez de ×1,45).
+  El equipo y los hechizos siguen la misma curva, así que cada arma cuesta lo mismo en peleas en cualquier nivel.
+- **Botín**: las partes de criaturas valen según el nivel de la criatura más fácil que las suelta (nunca bajan). Los
+  materiales comunes que se venden o se usan desde el principio (metales, gemas, telas, cueros) no cambian.
+- Los materiales de los reinos valen mucho (metal estelar 1.200, esencia de pecado 1.500, luz sagrada y hierro infernal 2.500).
+
+### Editor
+
+- El mapa del editor tiene el mismo tamaño que el del juego (el pergamino ya no se corta donde terminaba el reino viejo),
+  con las Tierras Altas y los tres reinos marcados, y los nombres no se pisan (ni entre ellos ni con el nivel de cada lugar).
+  Las guaridas se ven con su jefe.
+- Los filtros y campos de nivel llegan hasta el 25 (antes, hasta el 10). Familias y rasgos nuevos con su nombre.
+- El dibujo de una criatura puede copiar a una raza de los héroes ("Como la raza: Ángel").
+
+### Equilibrio
+
+- **La IA del simulador** intentaba lanzar hechizos aunque estuviera silenciada, y la pelea no terminaba: los magos
+  aparecían perdiendo contra el Heraldo del vacío. Corregido: medido de verdad, los magos del 15 al 25 ganaban mucho
+  más que las otras clases (encadenaban peleas sin cansarse). Por eso, **el maná por turno de los magos deja de crecer
+  en el nivel 16** (llega a 4; el maná máximo sigue creciendo) y **desde el nivel 13 recuperan la mitad de maná al ganar**
+  (10% del máximo en vez de 20%).
+- Medido con `node tools/equilibrio.js --rapido` (guerrero / híbrido / mago, rachas de 5 peleas): nivel 10: 75 / 85 / 80 ·
+  nivel 15: 75 / 80 / 80 · nivel 20: 73 / 81 / 82 · **nivel 25: 73 / 77 / 81** (todas las distancias entre clases, dentro de lo pedido).
+  Las criaturas nuevas del 9-10 y del 19 se midieron una por una y se bajaron las que se pasaban (Torturador, Dragón rojo,
+  Sacerdote profundo, Elemental del rayo, Eco del vacío), igual que las más duras del 24-25 (Serafín, Querubín, Dominación…).
+- Jefes con `node tools/jefes.js` (guerrero / híbrido / mago, solos, a su nivel): Dios 55 / 10 / 18 · Satanás 52 / 17 / 25 ·
+  La Mente Colmena 35 / 17 / 33 · Ysera 57 / 28 / 28 · Volibear 67 / 28 / 50 · Aurelion Sol 53 / 23 / 33
+  (Alamuerte, para comparar: 47 / 10 / 20). Lo medido está en
+  `js/data/seed-jefes-medidos.js` y lo muestra el editor.
+- En pareja (orco + humano, sin pociones): Dios 28%, Satanás 35%, la Mente Colmena 45%, Ysera 28%, Volibear 68%,
+  Aurelion Sol 32% (el Devorador de Mundos: 35%; Alamuerte: 8%).
+- **Las dos computadoras tienen que actualizar** (el grupo pide la misma versión).
 
 ## Versión 3.11.5: ningún jefe con una versión común más fuerte
 

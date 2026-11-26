@@ -24,6 +24,7 @@
      nv10  5 peleas seguidas al nivel 10, criaturas de nivel 9 y 10 (1.000 rachas)
      nv15  v3.11: 5 peleas seguidas al nivel 15, criaturas de nivel 14 y 15 (500 rachas)
      nv20  v3.11: 5 peleas seguidas al nivel 20, criaturas de nivel 19 y 20 (500 rachas)
+     nv25  v3.12: 5 peleas seguidas al nivel 25, criaturas de nivel 24 y 25 (500 rachas)
    Sin descanso, pociones, mascota ni accesorios; con el mejor equipo común
    del nivel y todos los hechizos que la clase aprende hasta ahí. Sin jefes.
 
@@ -40,9 +41,9 @@ const fs = require('fs');
 const path = require('path');
 const S = require('./simulador.js');
 
-// v3.11: el tope subió a 20: también rachas al nivel 15 y al 20
-const PRUEBAS = ['d1', 'r1', 'r3', 'r6', 'p6', 'r10', 'r15', 'r20'];
-const NOMBRE = { d1: '1v1', r1: 'nv1', r3: 'nv3', r6: 'nv6', p6: 'par', r10: 'nv10', r15: 'nv15', r20: 'nv20' };
+// v3.11: el tope subió a 20: también rachas al nivel 15 y al 20 · v3.12: y al 25
+const PRUEBAS = ['d1', 'r1', 'r3', 'r6', 'p6', 'r10', 'r15', 'r20', 'r25'];
+const NOMBRE = { d1: '1v1', r1: 'nv1', r3: 'nv3', r6: 'nv6', p6: 'par', r10: 'nv10', r15: 'nv15', r20: 'nv20', r25: 'nv25' };
 const CLASES = { warrior: 'guerrero', hybrid: 'híbrido', mage: 'mago' };
 
 // ---------- Azar con semilla ----------
@@ -124,6 +125,7 @@ function medir({ razas = null, escala = 1, preparar = null, alTerminarRaza = nul
     x.r10 = racha('r10', r.id, 10, [9, 10], 1, cant(1000), 5);
     x.r15 = racha('r15', r.id, 15, [14, 15], 1, cant(500), 5);
     x.r20 = racha('r20', r.id, 20, [19, 20], 1, cant(500), 5);
+    x.r25 = racha('r25', r.id, 25, [24, 25], 1, cant(500), 5); // v3.12
     filas.push(x);
     if (alTerminarRaza) alTerminarRaza(x);
   }
@@ -152,7 +154,7 @@ function revisar(filas, { deClase = true } = {}) {
   const res = [];
   const clases = Object.keys(prom);
   if (deClase && clases.length > 1) {
-    const topes = { r3: 15, r6: 10, p6: 15, r10: 10, r15: 12, r20: 12 };
+    const topes = { r3: 15, r6: 10, p6: 15, r10: 10, r15: 12, r20: 12, r25: 12 };
     for (const k of Object.keys(topes)) {
       const v = clases.map((c) => prom[c][k]);
       const dist = Math.round((Math.max(...v) - Math.min(...v)) * 100);

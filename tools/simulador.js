@@ -158,6 +158,9 @@ function playerAI(G) {
   const alive = A.Combat.aliveEnemies();
   const P = A.Passives;
   const cost = (s) => (P ? P.spellCost(p, s, c) : s.manaCost);
+  // v3.12: silenciado no puede lanzar hechizos (antes la IA lo intentaba para siempre y la pelea no terminaba)
+  const canCast = p.hasMagic && !(p.effects || []).some((e) => e.type === 'silence')
+    && (!A.Balance.canCast || A.Balance.canCast(p).ok);
   // v3.10: la técnica de nacimiento del guerrero (una vez por pelea): las de área con 2 o más enemigos;
   // las demás, en el primer turno (como haría una persona)
   const tq = A.Combat.techniqueInfo ? A.Combat.techniqueInfo() : null;
@@ -181,7 +184,7 @@ function playerAI(G) {
   const danger = p.hp <= maxHit * 2 && p.hp < p.maxHp * 0.7;
   // v3.3: los hechizos con espera no siempre están listos
   const ready = (s) => !A.Combat.spellInfo || A.Combat.spellInfo(s.id).ready;
-  if (p.hasMagic && (p.hp < p.maxHp * 0.45 || danger)) {
+  if (canCast && (p.hp < p.maxHp * 0.45 || danger)) {
     const heal = A.Combat.availableSpells().find((s) => s.heal && p.mana >= cost(s) && ready(s));
     if (heal) { A.Combat.playerSpell(heal.id); return; }
   }
@@ -200,7 +203,7 @@ function playerAI(G) {
   // v3.1: como haría una persona, guarda maná para una Curación (si la sabe),
   // salvo que el hechizo termine la pelea o tenga a varios en el área.
   let best = null;
-  if (p.hasMagic) {
+  if (canCast) {
     const power = st.spellPower;
     const healSpell = A.Combat.availableSpells().find((s) => s.heal);
     const reserve = healSpell ? cost(healSpell) : 0;

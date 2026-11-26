@@ -342,50 +342,70 @@
       P.recolor(['b'], 'b~', (x, y) => inE(x, y, cx + dx * rx * 2, cy + dy * ry * 2, 1.2, 0.9)));
     if (o.back) ridge(P, xl + 3, xr - 2.5, (x) => cy - ry * Math.sqrt(Math.max(0, 1 - ((x - cx) / rx) ** 2)) + 0.3, o.back, o.back === 'bristles' ? 'h' : 'a');
     if (leg > 0) { drawLeg(fxp, lk, true); drawLeg(bxp, lk, false); }
-
-    // cabeza
-    const hr = o.head || 4;
-    const hx = xl + (o.headX != null ? o.headX : 1.3);
-    const hy = cy - ry * (o.headLow ? 0.05 : 0.5) - (o.neck || 0);
-    if (o.mane) P.ell(hx + 2.4, hy + 1.4, hr * (o.mane === 'lion' ? 1.45 : 1.2), hr * (o.mane === 'lion' ? 1.5 : 1.3), 'h');
-    if (o.neck) P.line([[xl + 3.6, cy - ry * 0.3], [hx + 1, hy + 0.6]], Math.min(ry * 0.8, hr * 0.85), hr * 0.72, 'b');
-    beastEars(P, hx, hy, hr, o, true);
-    P.ell(hx, hy, hr, hr * (o.headRy || 0.92), 'b');
-    beastEars(P, hx, hy, hr, o, false);
-
-    // hocico
-    const sl = o.snout != null ? o.snout : 3.5;
-    if (sl > 0) {
-      const sh = o.snoutH || Math.max(2.2, hr * 0.72);
-      const scx = hx - hr * 0.55 - sl / 2 + 0.6, scy = hy + hr * 0.28;
-      P.ell(scx, scy, sl / 2 + 0.8, sh / 2, 'b');
-      if (o.muzzle !== false) P.recolor(['b'], 'c', (x, y) => y > scy + 0.1 && inE(x, y, scx, scy, sl / 2 + 0.8, sh / 2));
-      const tipX = scx - sl / 2 - 0.8;
-      P.put(tipX + 0.35, scy - sh / 2 + 0.55, 'k');
-      const my = scy + 0.45;
-      for (let x = tipX + 1; x < scx + sl / 2; x += 1) P.put(x, my, 'o');
-      if (o.jaw === 'open' || o.fangs) { P.put(tipX + 1.2, my + 1, 't'); P.put(tipX + 3, my + 1, 't'); }
-      if (o.horns === 'tusks') { P.put(tipX + 1.4, my - 1, 't'); P.put(tipX + 1.4, my - 2, 't'); P.put(tipX + 0.4, my - 2.8, 't'); }
-    } else if (o.beak) {
-      // v3.7: pico de águila (grifo)
-      P.poly([[hx - hr + 0.6, hy - 0.8], [hx - hr - 3.4, hy + 0.4], [hx - hr - 2.6, hy + 2.4], [hx - hr - 1.6, hy + 1.2], [hx - hr + 0.6, hy + 1.8]], 'a');
-    } else {
-      P.put(hx - hr + 0.6, hy + hr * 0.3, 'k');
-      P.put(hx - hr + 1.6, hy + hr * 0.55, 'o');
+    // v3.12: pelo largo que cuelga de la panza (el mamut)
+    if (o.shaggy) {
+      for (let x = xl + 2; x < xr - 1; x += 1.6) {
+        const yb = cy + ry * Math.sqrt(Math.max(0, 1 - ((x - cx) / rx) ** 2)) - 0.6;
+        P.line([[x, yb], [x - 0.4, yb + 2.2 + ((x * 7) % 3) * 0.5]], 0.75, 0.45, 'b~');
+      }
     }
-    // ojo
-    const ex = hx - hr * 0.42, ey = hy - hr * 0.28;
-    if (o.eyePatch) P.ell(ex + 0.5, ey + 0.4, 1.5, 1.3, o.eyePatch); // v3.7: panda
-    if (o.eyes === 'glow') { P.put(ex, ey, 'e'); P.put(ex + 1, ey, 'e'); }
-    else { P.put(ex, ey, 'k'); P.put(ex + 1, ey, 'e'); if (hr >= 4.6) { P.put(ex, ey + 1, 'k'); P.put(ex + 1, ey + 1, 'e'); } }
-    // cuernos
-    if (o.horns === 'goat') P.line(bez([hx + 0.4, hy - hr * 0.75], [hx + 1, hy - hr - 3], [hx + 4.5, hy - hr - 3], [hx + 5.5, hy - hr * 0.2], 10), 1.0, 0.45, 'a');
-    if (o.horns === 'bull') P.line([[hx + 0.4, hy - hr * 0.7], [hx - 1.6, hy - hr - 1.2], [hx - 1, hy - hr - 3.2]], 0.9, 0.4, 'a');
-    // v3.7: el cuerno del unicornio, derecho hacia adelante, con la espiral marcada
-    if (o.horns === 'unicorn') {
-      const x0 = hx - hr * 0.35, y0 = hy - hr * 0.78, x1 = x0 - 2.6, y1 = y0 - 5.2;
-      P.line([[x0, y0], [x1, y1]], 0.95, 0.25, 'a');
-      for (let t = 0.25; t < 0.9; t += 0.25) P.put(x0 + (x1 - x0) * t, y0 + (y1 - y0) * t, 'c');
+
+    // cabeza (v3.12: hasta tres, como el Cancerbero: las de atrás, más arriba y más a la derecha)
+    const hr = o.head || 4;
+    const hx0 = xl + (o.headX != null ? o.headX : 1.3);
+    const hy0 = cy - ry * (o.headLow ? 0.05 : 0.5) - (o.neck || 0);
+    const nHeads = Math.max(1, Math.min(3, o.heads || 1));
+    const HEAD_OFF = nHeads === 3 ? [[2.5, -9], [7, -4.5], [0, 0]] : nHeads === 2 ? [[4.2, -6], [0, 0]] : [[0, 0]];
+    for (const [ox, oy] of HEAD_OFF) {
+      const hx = hx0 + ox, hy = hy0 + oy;
+      if (o.mane) P.ell(hx + 2.4, hy + 1.4, hr * (o.mane === 'lion' ? 1.45 : 1.2), hr * (o.mane === 'lion' ? 1.5 : 1.3), 'h');
+      if (o.neck) P.line([[xl + 3.6, cy - ry * 0.3], [hx + 1, hy + 0.6]], Math.min(ry * 0.8, hr * 0.85), hr * 0.72, 'b');
+      beastEars(P, hx, hy, hr, o, true);
+      P.ell(hx, hy, hr, hr * (o.headRy || 0.92), 'b');
+      beastEars(P, hx, hy, hr, o, false);
+
+      // hocico
+      const sl = o.snout != null ? o.snout : 3.5;
+      if (sl > 0) {
+        const sh = o.snoutH || Math.max(2.2, hr * 0.72);
+        const scx = hx - hr * 0.55 - sl / 2 + 0.6, scy = hy + hr * 0.28;
+        P.ell(scx, scy, sl / 2 + 0.8, sh / 2, 'b');
+        if (o.muzzle !== false) P.recolor(['b'], 'c', (x, y) => y > scy + 0.1 && inE(x, y, scx, scy, sl / 2 + 0.8, sh / 2));
+        const tipX = scx - sl / 2 - 0.8;
+        P.put(tipX + 0.35, scy - sh / 2 + 0.55, 'k');
+        const my = scy + 0.45;
+        for (let x = tipX + 1; x < scx + sl / 2; x += 1) P.put(x, my, 'o');
+        if (o.jaw === 'open' || o.fangs) { P.put(tipX + 1.2, my + 1, 't'); P.put(tipX + 3, my + 1, 't'); }
+        if (o.horns === 'tusks') { P.put(tipX + 1.4, my - 1, 't'); P.put(tipX + 1.4, my - 2, 't'); P.put(tipX + 0.4, my - 2.8, 't'); }
+      } else if (o.beak) {
+        // v3.7: pico de águila (grifo)
+        P.poly([[hx - hr + 0.6, hy - 0.8], [hx - hr - 3.4, hy + 0.4], [hx - hr - 2.6, hy + 2.4], [hx - hr - 1.6, hy + 1.2], [hx - hr + 0.6, hy + 1.8]], 'a');
+      } else {
+        P.put(hx - hr + 0.6, hy + hr * 0.3, 'k');
+        P.put(hx - hr + 1.6, hy + hr * 0.55, 'o');
+      }
+      // ojo
+      const ex = hx - hr * 0.42, ey = hy - hr * 0.28;
+      if (o.eyePatch) P.ell(ex + 0.5, ey + 0.4, 1.5, 1.3, o.eyePatch); // v3.7: panda
+      if (o.eyes === 'glow') { P.put(ex, ey, 'e'); P.put(ex + 1, ey, 'e'); }
+      else { P.put(ex, ey, 'k'); P.put(ex + 1, ey, 'e'); if (hr >= 4.6) { P.put(ex, ey + 1, 'k'); P.put(ex + 1, ey + 1, 'e'); } }
+      // cuernos
+      if (o.horns === 'goat') P.line(bez([hx + 0.4, hy - hr * 0.75], [hx + 1, hy - hr - 3], [hx + 4.5, hy - hr - 3], [hx + 5.5, hy - hr * 0.2], 10), 1.0, 0.45, 'a');
+      if (o.horns === 'bull') P.line([[hx + 0.4, hy - hr * 0.7], [hx - 1.6, hy - hr - 1.2], [hx - 1, hy - hr - 3.2]], 0.9, 0.4, 'a');
+      // v3.7: el cuerno del unicornio, derecho hacia adelante, con la espiral marcada
+      if (o.horns === 'unicorn') {
+        const x0 = hx - hr * 0.35, y0 = hy - hr * 0.78, x1 = x0 - 2.6, y1 = y0 - 5.2;
+        P.line([[x0, y0], [x1, y1]], 0.95, 0.25, 'a');
+        for (let t = 0.25; t < 0.9; t += 0.25) P.put(x0 + (x1 - x0) * t, y0 + (y1 - y0) * t, 'c');
+      }
+      // v3.12: trompa que cuelga hasta casi el suelo y colmillos curvos hacia adelante y arriba (el mamut)
+      if (o.trunk) {
+        P.line(bez([hx - hr * 0.55, hy + hr * 0.15], [hx - hr - 1.4, hy + hr * 0.8], [hx - hr - 1.8, hy + hr + 4.2], [hx - hr - 0.2, hy + hr + 5.6], 12), 1.9, 0.95, 'b');
+      }
+      if (o.tusks) {
+        P.line(bez([hx - hr * 0.25, hy + hr * 0.55], [hx - hr - 0.2, hy + hr + 2.4], [hx - hr - 3.6, hy + hr + 2], [hx - hr - 4, hy + hr * 0.1], 12), 1.05, 0.5, 't');
+      }
+          if (ox || oy) P.recolor(['b'], 'b~', (x, y) => inE(x, y, hx - 1, hy, hr + 2.5, hr + 1.2)); // las de atrás, más oscuras
     }
     if (o.wings === 'bat') batWingSide(P, cx - 1, cy - ry + 1.5, o.wingSize, false);
     if (o.wings === 'feather') featherWingSide(P, cx - 1, cy - ry + 1.5, o.wingSize, false);
@@ -1491,6 +1511,11 @@
     const e = enemy || {};
     const ov = (e.sprite && typeof e.sprite === 'object') ? e.sprite : {};
     let base = SPECIES[ov.t] || SPECIES[e.id] || (e.species && SPECIES[e.species]);
+    // v3.12: también una raza de los héroes como dibujo (ángel, infernal, alienígena, robot…)
+    if (ov.t && !SPECIES[ov.t] && HEROES[ov.t]) {
+      const h = HEROES[ov.t];
+      base = { plan: 'humanoid', o: { ...h.o, weapon: h.o.defaultWeapon || 'sword' }, p: h.p };
+    }
     if (!base) {
       const pf = planFor(e);
       base = { plan: pf.plan, o: pf.o, p: autoPalette(e) };
@@ -1505,12 +1530,20 @@
     if (ov.c) p[humanoid ? 'cl' : 'c'] = ov.c;
     if (ov.a) p.a = ov.a;
     if (ov.e) p.e = ov.e;
+    // v3.12: también alas, pelo, ropa y lo demás de la paleta (las criaturas nuevas del Cielo, el Espacio y el Infierno)
+    for (const [k, v] of Object.entries(ov)) if (!['t', 'b', 'c', 'a', 'e', 'tc'].includes(k) && typeof v === 'string' && /^#[0-9a-f]{6}$/i.test(v)) p[k] = v;
+    if (typeof ov.tc === 'string' && /^#[0-9a-f]{6}$/i.test(ov.tc)) p.t = ov.tc; // ("t" ya es el dibujo: el color de los dientes/huesos va como "tc")
     // v3.8: en combate, el kitsune muestra las colas que tiene ahora
     let o = base.o || {};
+    // v3.12: la forma también se puede cambiar (tamaño, alas, cuernos, arma…)
+    if (ov.o && typeof ov.o === 'object') o = { ...o, ...ov.o };
+    if (ov.s > 0) base = { ...base, s: ov.s };
     if (o.tails && e.tails > 0) o = { ...o, tails: Math.min(9, e.tails) };
     if (o.tails >= 9 && !ov.a) { p.a = '#3a8aff'; p.e = '#7ad8ff'; } // con nueve colas despierta: fuego azul en las puntas y los ojos
     // v3.9: una criatura brillante cambia de colores (gira el tono y brilla un poco más)
     if (e.shiny) for (const k of Object.keys(p)) if (typeof p[k] === 'string' && /^#[0-9a-f]{6}$/i.test(p[k])) p[k] = shinyHex(p[k]);
+    // v3.12: la élite (y los jefes en su forma suprema) se ve dorada, con los ojos rojos
+    if (e.elite) { for (const k of Object.keys(p)) if (typeof p[k] === 'string' && /^#[0-9a-f]{6}$/i.test(p[k])) p[k] = goldHex(p[k]); p.e = '#ff2a2a'; }
     return { plan: base.plan, s: base.s || 1, dx: base.dx || 0, o, p };
   }
 
@@ -1683,7 +1716,7 @@
     if (/lanza|tridente|pica/.test(t)) return 'spear';
     if (/guada[nñ]a/.test(t)) return 'scythe';
     if (/l[aá]ser|blaster|pistola/.test(t)) return 'gun';
-    if (/mandoble|matamuertos|excalibur/.test(t)) return 'bigsword';
+    if (/mandoble|matamuertos|excalibur|agon[ií]a|crematoria/.test(t)) return 'bigsword'; // v3.12: las legendarias
     return 'sword';
   }
 
@@ -1709,13 +1742,17 @@
     const generic = Object.keys(PLAN_LABELS).map((k) => ({ value: k, label: `Cuerpo: ${PLAN_LABELS[k]}` }));
     const copies = Object.keys(SPECIES).map((id) => ({ value: id, label: `Igual que: ${names[id] || id}` }))
       .sort((a, b) => a.label.localeCompare(b.label, 'es'));
-    return generic.concat(copies);
+    // v3.12: también como una raza de los héroes (ángel, infernal, alienígena…)
+    const raceName = (id) => (((A.Data && A.Data.getById && A.Data.getById('races', id)) || {}).name || id);
+    const races = Object.keys(HEROES).filter((id) => !SPECIES[id]).map((id) => ({ value: id, label: `Como la raza: ${raceName(id)}` }));
+    return generic.concat(copies, races);
   }
 
   function shapeLabel(enemy) {
     const e = enemy || {};
     const ov = e.sprite || {};
     if (ov.t && SPECIES[ov.t]) return `igual que ${((A.Data && A.Data.getById && A.Data.getById('enemies', ov.t)) || {}).name || ov.t}`;
+    if (ov.t && HEROES[ov.t]) return `como la raza ${(((A.Data && A.Data.getById && A.Data.getById('races', ov.t)) || {}).name || ov.t).toLowerCase()}`; // v3.12
     if (ov.t && PLANS[ov.t]) return PLAN_LABELS[ov.t];
     if (SPECIES[e.id]) return 'dibujo propio';
     return PLAN_LABELS[planFor(e).plan];
@@ -1741,6 +1778,15 @@
   }
 
   /** v3.9: el color de una criatura brillante: tono girado y un poco más vivo. */
+  /** v3.12: un color pasado a dorado según lo claro que es (del oro viejo al oro brillante). */
+  function goldHex(hex) {
+    const n = parseInt(hex.slice(1), 16);
+    const l = (0.299 * ((n >> 16) & 255) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255;
+    const lo = [96, 64, 12], hi = [255, 230, 130];
+    const k = Math.min(1, 0.12 + l * 1.1);
+    return '#' + lo.map((v, i) => Math.round(v + (hi[i] - v) * k).toString(16).padStart(2, '0')).join('');
+  }
+
   function shinyHex(hex) {
     const n = parseInt(hex.slice(1), 16);
     let r = (n >> 16) / 255, g = ((n >> 8) & 255) / 255, b = (n & 255) / 255;
