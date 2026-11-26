@@ -2,6 +2,14 @@
 
 La más nueva arriba. Cómo correr el juego y cómo está armado: [README.md](README.md).
 
+## Versión 3.19.2: la crónica se esconde a la derecha
+
+- En la pelea, **la crónica arranca escondida** y la arena y los botones usan todo el ancho (las criaturas se ven más grandes).
+- Para verla, tocá **la pestaña con la flecha** que está en el borde derecho, a media altura. La crónica sale desde la derecha, y con la misma flecha se vuelve a esconder.
+- Con la crónica escondida, la pestaña muestra **cuántas frases nuevas** hay.
+- El juego se acuerda si la dejaste abierta o cerrada.
+- En pantallas angostas (menos de 1100 de ancho) sigue como antes, abajo.
+
 ## Versión 3.19.1: el mapa, centrado y a todo lo alto
 
 - El mapa **siempre llena el recuadro**: se acabaron las franjas oscuras arriba y abajo, también al agrandar o achicar la ventana (o con el zoom del navegador).

@@ -11,7 +11,7 @@
 .cb-vs { background: none !important; border: 0 !important; box-shadow: none !important; }
 .combat-view.cb .cb-stage > .cb-narrator { display: none; }
 .combat-view.cb .cb-stage > .cb-arena { border-radius: 4px; border-bottom: 1px solid #4a3a26; }
-.cb-log-tools .cb-voice-btn { width: 30px; height: 30px; padding: 0; display: inline-flex; align-items: center; justify-content: center; }
+.cb-log-tools .cb-voice-btn { position: static !important; flex: none; width: 30px; height: 30px; padding: 0; display: inline-flex; align-items: center; justify-content: center; }
 .cb-log-tools .cb-voice-btn .px-sprite, .cb-log-tools .cb-voice-btn .px-icon { width: 18px; height: 18px; }
 
 /* ---------- Crónica por turnos ---------- */
@@ -184,4 +184,109 @@
 @media (prefers-reduced-motion: reduce) {
   .fx-pixel, .fx-shockwave, .cb-aura { display: none; }
   .cb-arena.fx-arena-crit { animation: none; }
+}
+
+/* ---------- v3.19.2: la crónica escondida a la derecha ----------
+   La arena y los botones usan todo el ancho. La crónica sale desde el borde
+   derecho al tocar la flecha (y se vuelve a esconder con la misma flecha). */
+@media (min-width: 1100px) {
+  .combat-view.cb.is-arena.log-drawer {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    grid-template-rows: auto minmax(0, 1fr) auto !important;
+    grid-template-areas: "head" "stage" "actions" !important;
+    column-gap: 0 !important;
+  }
+  .combat-view.cb.is-arena.log-drawer > .cb-header { grid-area: head; }
+  .combat-view.cb.is-arena.log-drawer > .cb-stage { grid-area: stage; display: flex; flex-direction: column; min-height: 0; }
+  .combat-view.cb.is-arena.log-drawer > .cb-stage > .cb-arena { flex: 1 1 auto; }
+  .combat-view.cb.is-arena.log-drawer > .cb-actions { grid-area: actions; align-self: end; }
+  .combat-view.cb.is-arena.log-drawer.is-crowded .cb-action-row { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+
+  /* El panel: pegado al borde derecho de la pantalla */
+  .combat-view.cb.is-arena.log-drawer > .cb-log {
+    position: fixed;
+    z-index: 40;
+    top: calc(var(--cb-top, 140px) + 4px);
+    bottom: 14px;
+    right: 0;
+    width: min(440px, 92vw);
+    min-height: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    border-radius: 12px 0 0 12px;
+    box-shadow: -10px 0 30px rgba(0, 0, 0, 0.45);
+    transform: translateX(102%);
+    visibility: hidden;
+    transition: transform 280ms cubic-bezier(.2, .8, .3, 1), visibility 0s linear 280ms;
+  }
+  .combat-view.cb.is-arena.log-drawer.is-log-open > .cb-log {
+    transform: none;
+    visibility: visible;
+    transition: transform 280ms cubic-bezier(.2, .8, .3, 1), visibility 0s;
+  }
+  .combat-view.cb.is-arena.log-drawer > .cb-log .combat-log-list { flex: 1 1 auto; min-height: 0; max-height: none; }
+  .combat-view.cb.is-arena.log-drawer > .cb-log .combat-log-header { flex-wrap: wrap; row-gap: 6px; }
+  .combat-view.cb.is-arena.log-drawer > .cb-log .cb-log-tools { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+
+  /* La pestaña con la flecha: a media altura, en el borde izquierdo del panel */
+  .combat-view.cb.is-arena.log-drawer > .cb-log-tab {
+    position: fixed;
+    z-index: 41;
+    top: 50%;
+    right: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    width: 34px;
+    padding: 12px 0;
+    transform: translateY(-50%);
+    border: 1px solid #b4955a;
+    border-right: 0;
+    border-radius: 10px 0 0 10px;
+    background: linear-gradient(180deg, #f6ebd0, #e4cf9f);
+    box-shadow: -4px 0 14px rgba(0, 0, 0, 0.4);
+    color: #4a3520;
+    cursor: pointer;
+    transition: right 280ms cubic-bezier(.2, .8, .3, 1), background 160ms ease;
+  }
+  .combat-view.cb.is-arena.log-drawer > .cb-log-tab:hover { background: linear-gradient(180deg, #fff6df, #ecd9ac); }
+  .combat-view.cb.is-arena.log-drawer.is-log-open > .cb-log-tab { right: min(440px, 92vw); }
+  .cb-log-tab-arrow {
+    width: 0;
+    height: 0;
+    border-top: 8px solid transparent;
+    border-bottom: 8px solid transparent;
+    border-right: 10px solid #6b4a1e;
+  }
+  .is-log-open > .cb-log-tab .cb-log-tab-arrow { border-right: 0; border-left: 10px solid #6b4a1e; }
+  .cb-log-tab-text {
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);
+    font-family: var(--font-display);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+  .cb-log-tab-new {
+    min-width: 20px;
+    height: 20px;
+    padding: 0 4px;
+    border-radius: 10px;
+    background: #b8432a;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 800;
+    line-height: 20px;
+    text-align: center;
+    animation: tab-new-pop 260ms ease-out;
+  }
+  .cb-log-tab-new[hidden] { display: none; }
+  @keyframes tab-new-pop { 0% { transform: scale(0.4); } 70% { transform: scale(1.2); } 100% { transform: scale(1); } }
+}
+@media (max-width: 1099px) {
+  .cb-log-tab { display: none; }
 }

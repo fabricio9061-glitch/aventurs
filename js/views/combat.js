@@ -51,6 +51,11 @@
   const SECTIONS = ['header', 'arena', 'narrator', 'actions', 'loghead', 'loglist'];
 
   const ROLLS_KEY = 'aventurs:combat-rolls';
+  // v3.19.2: la crónica se esconde a la derecha y se abre con la flecha del costado
+  const LOGOPEN_KEY = 'aventurs:combat-log-open';
+  let logOpen = (() => { try { return localStorage.getItem(LOGOPEN_KEY) === '1'; } catch (e) { return false; } })();
+  let logSeen = 0; // cuántas frases ya viste con la crónica abierta
+  function drawerMode() { return window.innerWidth >= 1100; }
   let showRolls = readRollsPref();
   function readRollsPref() { try { return localStorage.getItem(ROLLS_KEY) === '1'; } catch (e) { return false; } }
   function saveRollsPref(v) { try { localStorage.setItem(ROLLS_KEY, v ? '1' : '0'); } catch (e) { /* sin almacenamiento */ } }
@@ -174,6 +179,7 @@
           <div class="cb-stage">${secs.arena}${secs.narrator}</div>
           ${secs.actions}
           <section class="cb-log">${secs.loghead}${secs.loglist}</section>
+          <button type="button" class="cb-log-tab" data-combat-action="toggle-log" aria-label="Crónica del combate"><span class="cb-log-tab-arrow"></span><span class="cb-log-tab-text">Crónica</span><b class="cb-log-tab-new" hidden></b></button>
         </section>`;
       lastHtml = { ...secs };
       fitToScreen();
@@ -203,6 +209,19 @@
     // Si igual los botones quedan fuera de la pantalla, abajo hasta que termine esta pelea.
     const view = mainEl.querySelector('.combat-view.cb.is-arena');
     if (view) {
+      // v3.19.2: crónica escondida a la derecha (se abre con la flecha)
+      const drawer = drawerMode();
+      view.classList.toggle('log-drawer', drawer);
+      view.classList.toggle('is-log-open', drawer && logOpen);
+      const said = shown.filter((e) => e.say && e.say.text).length;
+      if (!drawer || logOpen) logSeen = said;
+      const tab = view.querySelector('.cb-log-tab');
+      if (tab) {
+        tab.title = logOpen ? 'Esconder la crónica' : 'Ver la crónica del combate';
+        const nb = tab.querySelector('.cb-log-tab-new');
+        const unseen = Math.max(0, said - logSeen);
+        if (nb) { nb.hidden = logOpen || !unseen; nb.textContent = unseen > 9 ? '9+' : String(unseen); }
+      }
       // v3.18.1: la crónica va al costado hasta 6 en la pelea (antes, hasta 3); si igual no entra, abajo
       const crowded = unitCount(c) > 6 || crowdedFor === c.id;
       view.classList.toggle('is-crowded', crowded);
@@ -217,12 +236,12 @@
           const fit = Math.floor((arenaEl.clientWidth - 44 - 70 - (n - 1) * 10) / n);
           if (fit < 136) { crowdedFor = c.id; view.classList.add('is-crowded'); view.style.removeProperty('--card-fit'); }
           else {
-            const cardW = Math.min(200, fit);
+            const cardW = Math.min(drawer ? 236 : 200, fit);
             view.style.setProperty('--card-fit', `${cardW}px`);
             // el dibujo, lo más grande que entre (a lo ancho de la tarjeta y a lo alto de la arena), en múltiplos de 32 para que el pixel art quede nítido
             const plate = arenaEl.querySelector('.cb-plate');
             const room = arenaEl.clientHeight - (plate ? plate.offsetHeight : 110) - 64;
-            const sp = Math.max(96, Math.floor(Math.min(cardW + 10, room, 224) / 32) * 32);
+            const sp = Math.max(96, Math.floor(Math.min(cardW + 10, room, drawer ? 256 : 224) / 32) * 32);
             view.style.setProperty('--sprite-fit', `${sp}px`);
           }
         }
@@ -1360,6 +1379,12 @@
     else if (action === 'spell') A.State.openModal('combat-spell');
     else if (action === 'item') A.State.openModal('combat-item');
     else if (action === 'show-full-log') A.State.openModal('combat-full-log');
+    else if (action === 'toggle-log') {
+      logOpen = !logOpen;
+      try { localStorage.setItem(LOGOPEN_KEY, logOpen ? '1' : '0'); } catch (e) { /* sin almacenamiento */ }
+      if (logOpen) { const list = mainEl.querySelector('[data-sec="loglist"]'); if (list) requestAnimationFrame(() => { list.scrollTop = list.scrollHeight; }); }
+      render();
+    }
     else if (action === 'tame') {
       const instanceId = el.dataset.tameInstanceId;
       if (instanceId && A.Combat.playerTame) { A.Combat.playerTame(instanceId); render(); }
