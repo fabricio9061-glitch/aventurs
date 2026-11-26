@@ -229,3 +229,33 @@
 @media (max-width: 1279px) {
   .shell-leftbar { display: none; }
 }
+
+/* ============================================================
+   v3.19.4: que todo se lea entero
+   ============================================================ */
+/* Tus números: de a tres por fila, con el nombre completo */
+.sb-stats { grid-auto-flow: row; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-auto-columns: auto; gap: 4px; }
+.sb-stat { padding: 3px 4px 3px; }
+.sb-stat-val { font-size: 14px; overflow: visible; text-overflow: clip; }
+.sb-stat-label { font-size: 9px; letter-spacing: 0.03em; overflow: visible; text-overflow: clip; }
+/* Equipo: el nombre en dos renglones, sin cortar palabras */
+.sb-eq-name { font-size: 10.5px; line-height: 1.15; -webkit-line-clamp: 2; line-clamp: 2; word-break: normal; overflow-wrap: anywhere; white-space: normal; text-align: center; }
+.sb-eq { min-height: 0; }
+/* La pasiva de la raza en un solo renglón */
+.sb-head .char-passive { white-space: nowrap; font-size: 11px; max-width: 100%; }
+.sb-head .char-passive span { white-space: nowrap; }
+
+/* Columna izquierda: la mascota sin el marco de afuera */
+@media (min-width: 1280px) {
+  .shell-leftbar .sb-left { background: none !important; border: 0 !important; box-shadow: none !important; border-radius: 0; overflow: visible; }
+  .shell-leftbar .sb-left > .sb-body { padding: 0 !important; gap: 8px; }
+  .shell-leftbar .sb-pet { margin: 0; border-radius: 12px; box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35); }
+  .shell-leftbar .sb-party { padding: 8px 10px; border-radius: 12px; background: linear-gradient(180deg, #f6ebd0, #ecdcb7); border: 1px solid #b4955a; box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35); }
+}
+
+/* Ficha del mapa: el nombre y "Estás acá" sin partirse raro */
+.map3-card .map2-card-name { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; font-size: clamp(19px, 1.5vw, 24px); line-height: 1.15; }
+.map2-here-tag { white-space: nowrap; flex: none; }
+
+/* v3.19.4: el título de las Tierras Altas, más chico para que no tape a nadie */
+.map2-svg .map-region-title.is-high { font-size: 28px; }

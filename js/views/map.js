@@ -502,7 +502,7 @@
         <rect width="${W}" height="${H}" fill="url(#mp-paper)"/>
         <path class="map-sea" d="M 0 690 C 120 660, 260 700, 380 730 S 600 660, 720 690 S 900 700, 1000 720 S 1180 700, 1280 735 S 1500 760, 1620 745 S ${W} 760, ${W} 770 L ${W} ${H} L 0 ${H} Z" fill="url(#mp-sea)"/>
         <path class="map-mist" d="M ${OLD_W + 10} 20 C ${OLD_W + 40} 200, ${OLD_W - 10} 420, ${OLD_W + 30} 640 S ${OLD_W + 20} 800, ${OLD_W + 30} ${H - 20}"/>
-        <text class="map-region-title" x="${OLD_W + 270}" y="${H - 40}" text-anchor="middle">Tierras Altas</text>
+        <text class="map-region-title is-high" x="1450" y="${H - 16}" text-anchor="middle">Tierras Altas</text>
         <text class="map-region-title is-low" x="560" y="${H - 28}" text-anchor="middle">Tierras Bajas</text>
         ${realmsHtml()}
         <rect width="${W}" height="${H}" filter="url(#mp-grain)" opacity="0.9"/>
@@ -814,12 +814,13 @@
   }
 
   function setView(v) {
+    // v3.19.4: nunca se ve afuera del papel (sin franjas oscuras): alejar llega hasta llenar el alto
     const minW = W / 3;
-    const maxW = Math.min(W * 1.15, (H * 1.15) / ASP);
+    const maxW = Math.min(W, H / ASP);
     const nw = Math.max(Math.min(minW, maxW), Math.min(maxW, v.w));
     const nh = nw * ASP;
-    const nx = Math.max(-W * 0.2, Math.min(W * 1.2 - nw, v.x));
-    const ny = Math.max(-H * 0.2, Math.min(H * 1.2 - nh, v.y));
+    const nx = Math.max(0, Math.min(W - nw, v.x));
+    const ny = Math.max(0, Math.min(H - nh, v.y));
     view = { x: nx, y: ny, w: nw, h: nh };
     const svg = mainEl && mainEl.querySelector('.map2-svg');
     if (svg) svg.setAttribute('viewBox', `${view.x} ${view.y} ${view.w} ${view.h}`);

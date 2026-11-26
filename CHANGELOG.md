@@ -2,6 +2,21 @@
 
 La más nueva arriba. Cómo correr el juego y cómo está armado: [README.md](README.md).
 
+## Versión 3.19.4: que todo se lea entero
+
+### Barra de la derecha
+- **Tus números** van de a tres por fila, con el nombre completo (Precisión, Daño, Defensa, Armadura, Velocidad, Magia) y el valor entero (ya no "2d...").
+- **El equipo** muestra el nombre en dos renglones ("Tabardo arcano", "Mochila arcana") en vez de cortarlo.
+- **La pasiva de la raza** ("Bendición divina") va en un solo renglón.
+
+### Columna de la izquierda
+- **La mascota y el grupo** van sin el marco grande de afuera.
+
+### Mapa
+- **Nunca muestra lo de afuera del papel:** se acabaron las franjas oscuras, también al alejar o arrastrar. Alejar llega hasta que el mapa llena el alto.
+- **"Tierras Altas"** se movió y achicó para que ningún jefe le quede encima.
+- En la ficha del lugar, **el nombre y "Estás acá"** ya no se parten raro.
+
 ## Versión 3.19.3: mascota y grupo a la izquierda (`css/pantalla.css`)
 
 - En pantallas anchas (desde 1280 de ancho), **la mascota y tu grupo van en una columna a la izquierda**. En el centro queda lo de siempre y a la derecha tu personaje, tus números, el equipo y la mochila, que ahora tiene más lugar.

@@ -46,7 +46,7 @@
           <div class="shell-brand">
             <span class="brand-icon">${A.UI ? A.UI.icon('swords', 26) : ''}</span>
             <span class="brand-name">Aventurs</span>
-            <span class="version-pill" title="Versión del juego">v3.19.3</span>
+            <span class="version-pill" title="Versión del juego">v3.19.4</span>
           </div>
           ${tabs.length > 1 ? `
             <nav class="shell-nav">
@@ -85,7 +85,7 @@
     chroniclesEl = rootEl.querySelector('#shell-chronicles');
 
     bindEvents();
-    // v3.19.3: al cruzar el ancho de la columna izquierda, se vuelve a armar la barra
+    // v3.19.4: al cruzar el ancho de la columna izquierda, se vuelve a armar la barra
     lastWide = leftWide();
     if (!wideHandler) { wideHandler = () => { const w = leftWide(); if (w !== lastWide) { lastWide = w; renderSidebar(); } }; window.addEventListener('resize', wideHandler); }
     renderSidebar();
@@ -240,7 +240,7 @@
     const foodLabel = `Comida${hunger ? ` (${hunger.label})` : ''}.${A.Survival && A.Survival.describeDiet ? ` ${A.Survival.describeDiet(p)}` : ''}`;
     const hungryTag = hunger && ['hungry', 'weak', 'starving'].includes(hunger.id);
 
-    // v3.19.3: en pantallas anchas la mascota y el grupo van en una columna a la izquierda
+    // v3.19.4: en pantallas anchas la mascota y el grupo van en una columna a la izquierda
     const partyHtml = A.Views.Party && A.Views.Party.sidebar ? A.Views.Party.sidebar() : (A.Views.Party ? A.Views.Party.allyCard() : '');
     const leftHtml = `${partyHtml || ''}${p.pet ? renderPetSidebar(p.pet) : ''}`;
     const useLeft = !!leftHtml.trim() && leftWide();
@@ -286,7 +286,7 @@
               ${st ? statChip('target', 'Precisión', `${st.attack >= 0 ? '+' : ''}${st.attack}`, 'Precisión: se suma al dado de 20 cuando atacás') : ''}
               ${statChip('swords', 'Daño', formatDamageDisplay(weapon, p.stats.damage), 'Daño: la vida que le sacás al enemigo cuando acertás (tu arma más tus bonus)')}
               ${st ? statChip('d20', 'Defensa', st.defense, 'Defensa: lo que un enemigo tiene que sacar (dado de 20 más su precisión) para pegarte') : ''}
-              ${statChip('shield', 'Armad.', st ? st.armor : (p.stats.armor || 0), 'Armadura: se resta a cada golpe que recibís')}
+              ${statChip('shield', 'Armadura', st ? st.armor : (p.stats.armor || 0), 'Armadura: se resta a cada golpe que recibís')}
               ${statChip('boot', 'Velocidad', st ? st.speed : p.stats.speed, speedTitle(p, st), st && st.weightPenalty > 0)}
               ${p.hasMagic && st ? statChip('arcane', 'Magia', `+${st.spellPower || 0}`, 'Magia: se suma al daño de tus hechizos') : ''}
             </div>
@@ -581,7 +581,7 @@
     `;
   }
 
-  /** v3.19.3: la columna de la izquierda solo cuando hay lugar (si no, la mascota y el grupo van a la derecha, como antes). */
+  /** v3.19.4: la columna de la izquierda solo cuando hay lugar (si no, la mascota y el grupo van a la derecha, como antes). */
   function leftWide() { return window.innerWidth >= 1280; }
   function bindSidebarEvents() {
     bindSideIn(sidebarEl);
