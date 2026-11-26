@@ -2,6 +2,32 @@
 
 La más nueva arriba. Cómo correr el juego y cómo está armado: [README.md](README.md).
 
+## Versión 3.19.7: tu personaje, con el estilo de la mascota
+
+- **El retrato va en un medallón redondo** con el nivel abajo ("Nv 9"), igual que la mascota.
+- **Vida, maná y comida de a una por renglón**, con barras más gruesas (la comida en verde), y **la experiencia al final**, dorada y con brillo.
+- La cabecera tiene un marco dorado finito y el nombre más grande.
+- **Tus números, el equipo y la mochila** tienen más relieve: fichas con brillo arriba y sombra abajo, los huecos vacíos de la mochila hundidos y el equipo con el color de su rareza.
+- Los títulos de cada parte llevan un rombito dorado y no se parten en dos renglones.
+- **El nombre del equipo se lee entero** (hasta tres renglones), por ejemplo "Orbe de regeneración".
+- La barra de experiencia de la mascota también brilla.
+
+## Versión 3.19.6: la experiencia de la mascota, abajo
+
+- La barra de experiencia de la mascota vuelve abajo, como tercera barra después de la vida y la comida (dorada, con los números).
+- El nivel ("Nv 8") pasa a una medalla dorada al pie del medallón del dibujo.
+- Las tres barras tienen el mismo largo.
+
+## Versión 3.19.5: la tarjeta de la mascota, nueva
+
+- **La experiencia va arriba:** una franja oscura con el nivel en una medalla dorada ("Nv 8"), la barra que brilla y los números (140/1850 XP).
+- **El dibujo en un medallón** redondo con borde dorado y una luz suave atrás; la mascota respira despacito.
+- **Nombre más grande**, con la especie al lado y lo que te da abajo.
+- **Vida y comida** con barras más gruesas (la comida ahora en verde) y **los botones de curar y dar de comer** al costado, más grandes y con relieve.
+- **Liberar** queda como una crucecita chiquita arriba a la derecha.
+- Con hambre el borde se pone rojizo; inconsciente, el dibujo se pone gris.
+- Se ve igual en la columna de la izquierda y, en pantallas más angostas, en la barra de la derecha.
+
 ## Versión 3.19.4: que todo se lea entero
 
 ### Barra de la derecha

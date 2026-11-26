@@ -46,7 +46,7 @@
           <div class="shell-brand">
             <span class="brand-icon">${A.UI ? A.UI.icon('swords', 26) : ''}</span>
             <span class="brand-name">Aventurs</span>
-            <span class="version-pill" title="Versión del juego">v3.19.4</span>
+            <span class="version-pill" title="Versión del juego">v3.19.7</span>
           </div>
           ${tabs.length > 1 ? `
             <nav class="shell-nav">
@@ -254,7 +254,7 @@
     sidebarEl.innerHTML = `
       <div class="sb ${compact ? 'is-party' : ''}">
         <header class="sb-head sb-type-${type}">
-          <div class="sb-portrait">${A.Sprites ? A.Sprites.heroFor(p, { size: 52 }) : ''}<span class="sb-level" title="Nivel ${p.level}">${p.level}</span></div>
+          <div class="sb-portrait">${A.Sprites ? A.Sprites.heroFor(p, { size: 52 }) : ''}<span class="sb-level" title="Nivel ${p.level}"><small>Nv</small>${p.level}</span></div>
           <div class="sb-id">
             <div class="sb-name">${escH(p.name)}</div>
             <div class="sb-sub">${escH(race ? race.name : '')} · ${TYPE_NAME[type] || ''}</div>
@@ -328,7 +328,7 @@
     return `<div class="sb-pv ${cls}" title="${escH(label)} ${cur}/${max}"><span class="sb-pv-ic">${ic(iconName, 12)}</span><span class="sb-pv-track"><span style="width:${pct(cur, max)}%"></span></span><span class="sb-pv-text num">${cur}<i>/${max}</i></span></div>`;
   }
 
-  /** Mascota (v3.17: más compacta): dibujo con su nivel, nombre, lo que te da, barras y botones. */
+  /** Mascota (v3.19.5): el nivel en el medallón, la experiencia abajo de vida y comida, barras y botones. */
   function renderPetSidebar(pet) {
     const lvl = pet.level || 1;
     const xp = pet.xp || 0;
@@ -341,22 +341,26 @@
     const species = A.Data.getById('enemies', pet.species);
     const speciesName = species && species.name !== pet.name ? species.name : '';
     return `
-      <section class="sb-pet ${isKO ? 'is-ko' : ''} ${hungry && !isKO ? 'is-hungry' : ''}">
-        <span class="sb-pet-sprite" title="${escH(pet.name)}, nivel ${lvl}. Experiencia ${xp}/${xpNeeded}">${A.Sprites ? A.Sprites.petHtml(pet, { size: 36 }) : ''}<i class="sb-pet-lv">${lvl}</i></span>
-        <div class="sb-pet-top">
-          <span class="sb-pet-name">${escH(pet.name)}${speciesName ? ` <small>${escH(speciesName)}</small>` : ''}</span>
-          ${petBondChip(A.State.player, pet)}
+      <section class="pet-card ${isKO ? 'is-ko' : ''} ${hungry && !isKO ? 'is-hungry' : ''}">
+        <div class="pc-main">
+          <span class="pc-medal"><span class="pc-sprite" title="${escH(pet.name)}, nivel ${lvl}">${A.Sprites ? A.Sprites.petHtml(pet, { size: 44 }) : ''}</span><i class="pc-lv" title="Nivel ${lvl}"><small>Nv</small>${lvl}</i></span>
+          <div class="pc-info">
+            <div class="pc-name"><span>${escH(pet.name)}</span>${speciesName ? `<small>${escH(speciesName)}</small>` : ''}</div>
+            ${petBondChip(A.State.player, pet)}
+          </div>
+          <button class="sb-pet-btn pc-release" data-pet-action="release" title="Liberarla (para poder domar otra)">${ic('close', 10)}</button>
         </div>
-        <div class="sb-pet-actions">
-          <button class="sb-pet-btn" data-pet-action="heal" title="${isKO ? 'Despertarla con una poción o una hierba de la vida' : 'Curarla con una poción'}">${ic('potion', 16)}</button>
-          <button class="sb-pet-btn ${hungry && !isKO ? 'is-alert' : ''}" data-pet-action="feed" title="Darle de comer${diet ? ` (come ${escH(diet.eats)})` : ''}" ${isKO ? 'disabled' : ''}>${ic('food', 16)}</button>
-          <button class="sb-pet-btn is-release" data-pet-action="release" title="Liberarla (para poder domar otra)">${ic('close', 12)}</button>
+        <div class="pc-foot">
+          <div class="pc-vitals">
+            ${petBar('is-hp', 'heart', isKO ? 'Inconsciente. Vida' : 'Vida', pet.health, pet.maxHealth)}
+            ${petBar('is-food', 'food', `Comida${diet ? ` (come ${diet.eats})` : ''}`, food, maxFood)}
+            <div class="sb-pv is-xp" title="Experiencia de ${escH(pet.name)}: ${xp} de ${xpNeeded} para subir al nivel ${lvl + 1}"><span class="sb-pv-ic">${ic('xp', 12)}</span><span class="sb-pv-track pc-xp-track"><span style="width:${pct(xp, xpNeeded)}%"></span></span><span class="sb-pv-text num">${xp}<i>/${xpNeeded}</i></span></div>
+          </div>
+          <div class="pc-actions">
+            <button class="sb-pet-btn" data-pet-action="heal" title="${isKO ? 'Despertarla con una poción o una hierba de la vida' : 'Curarla con una poción'}">${ic('potion', 16)}</button>
+            <button class="sb-pet-btn ${hungry && !isKO ? 'is-alert' : ''}" data-pet-action="feed" title="Darle de comer${diet ? ` (come ${escH(diet.eats)})` : ''}" ${isKO ? 'disabled' : ''}>${ic('food', 16)}</button>
+          </div>
         </div>
-        <div class="sb-pet-vitals">
-          ${petBar('is-hp', 'heart', isKO ? 'Inconsciente. Vida' : 'Vida', pet.health, pet.maxHealth)}
-          ${petBar('is-food', 'food', `Comida${diet ? ` (come ${diet.eats})` : ''}`, food, maxFood)}
-        </div>
-        <span class="sb-pet-xp" title="Experiencia de tu mascota: ${xp}/${xpNeeded}"><span style="width:${pct(xp, xpNeeded)}%"></span></span>
       </section>
     `;
   }

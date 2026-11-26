@@ -259,3 +259,314 @@
 
 /* v3.19.4: el título de las Tierras Altas, más chico para que no tape a nadie */
 .map2-svg .map-region-title.is-high { font-size: 28px; }
+
+/* ============================================================
+   v3.19.5: la tarjeta de la mascota, nueva
+   Arriba la experiencia con el nivel; el dibujo en un medallón;
+   abajo la vida y la comida, con los botones al costado.
+   ============================================================ */
+.pet-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 0 9px 9px;
+  border-radius: 12px;
+  border: 1px solid #b4955a;
+  background:
+    radial-gradient(120% 70% at 0% 0%, rgba(255, 255, 255, 0.55), transparent 60%),
+    linear-gradient(180deg, #fbf3de, #efdfb9);
+  box-shadow: inset 0 0 0 1px rgba(255, 250, 235, 0.7), 0 4px 12px rgba(40, 25, 10, 0.25);
+  overflow: hidden;
+  color: #3e2c18;
+}
+.shell-leftbar .pet-card { box-shadow: inset 0 0 0 1px rgba(255, 250, 235, 0.7), 0 6px 16px rgba(0, 0, 0, 0.35); }
+
+/* La experiencia, arriba de todo */
+.pc-xp {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 7px;
+  margin: 0 -9px;
+  padding: 5px 9px 5px 6px;
+  background: linear-gradient(180deg, #5a3f22, #3d2a16);
+  border-bottom: 1px solid #c9a24a;
+  color: #f6e6bf;
+}
+.pc-lv {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 2px;
+  padding: 1px 7px 1px 6px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #f2d27a, #c9a24a);
+  border: 1px solid #7a5a1c;
+  color: #3a2508;
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 16px;
+  box-shadow: 0 0 8px rgba(242, 210, 122, 0.35);
+}
+.pc-lv small { font-size: 9px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; opacity: 0.8; }
+.pc-xp-track {
+  position: relative;
+  height: 8px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.45);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.6);
+  overflow: hidden;
+}
+.pc-xp-track > span {
+  position: relative;
+  display: block;
+  height: 100%;
+  min-width: 3px;
+  border-radius: 4px;
+  background: linear-gradient(180deg, #ffe9a3, #e0b44a 55%, #b8862a);
+  box-shadow: 0 0 6px rgba(255, 220, 120, 0.6);
+  transition: width 400ms ease;
+  overflow: hidden;
+}
+.pc-xp-track > span::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(100deg, transparent 30%, rgba(255, 255, 255, 0.7) 50%, transparent 70%);
+  transform: translateX(-100%);
+  animation: pc-shine 3.2s ease-in-out infinite;
+}
+@keyframes pc-shine { 0%, 55% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
+.pc-xp-num { font-size: 10.5px; font-weight: 700; white-space: nowrap; }
+.pc-xp-num i { font-style: normal; font-weight: 500; color: #c9b083; }
+
+/* El dibujo y el nombre */
+.pc-main {
+  display: grid;
+  grid-template-columns: 54px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 9px;
+}
+.pc-sprite {
+  position: relative;
+  width: 54px;
+  height: 54px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 62%, #6a5032, #231910 72%);
+  border: 2px solid #c9a24a;
+  box-shadow: 0 0 0 2px #fbf3de, 0 0 0 3px #b4955a, 0 3px 8px rgba(0, 0, 0, 0.35), inset 0 -6px 12px rgba(0, 0, 0, 0.45);
+  overflow: hidden;
+}
+.pc-sprite::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 70%;
+  height: 70%;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 214, 130, 0.35), transparent 70%);
+}
+.pc-sprite > * { position: relative; }
+.pc-sprite img, .pc-sprite canvas, .pc-sprite .px-sprite { animation: pc-breathe 2.8s ease-in-out infinite; }
+@keyframes pc-breathe { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-2px); } }
+.pc-info { min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
+.pc-name { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 6px; min-width: 0; max-width: 100%; }
+.pc-name > span { font-family: var(--font-display); font-size: 16px; font-weight: 800; line-height: 1.1; color: #3a2610; overflow-wrap: anywhere; }
+.pc-name small { font-size: 10.5px; font-weight: 600; color: #8a6c3c; font-style: italic; }
+.pet-card .sb-pet-chip { max-width: 100%; }
+.pet-card .pc-release {
+  align-self: start;
+  width: 22px;
+  height: 22px;
+  margin-top: 2px;
+  border-radius: 50%;
+  background: none;
+  border-color: transparent;
+  opacity: 0.5;
+}
+.pet-card .pc-release:hover { opacity: 1; border-color: #a8894f; background: #fff6e0; }
+
+/* Vida, comida y los botones */
+.pc-foot {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 9px;
+  padding-top: 7px;
+  border-top: 1px dashed rgba(122, 90, 40, 0.35);
+}
+.pc-vitals { display: grid; gap: 5px; min-width: 0; }
+.pet-card .sb-pv { grid-template-columns: 14px minmax(0, 1fr) auto; gap: 6px; }
+.pet-card .sb-pv-track { height: 8px; border-radius: 4px; background: rgba(80, 55, 25, 0.22); box-shadow: inset 0 1px 2px rgba(60, 40, 15, 0.35); }
+.pet-card .sb-pv-track > span { border-radius: 4px; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35); }
+.pet-card .sb-pv.is-food .sb-pv-track > span { background: linear-gradient(90deg, #6f8a2a, #a8c04a); }
+.pc-actions { display: flex; gap: 5px; }
+.pet-card .pc-actions .sb-pet-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  background: linear-gradient(180deg, #fffaf0, #ecdab0);
+  box-shadow: 0 2px 0 #a8894f, 0 3px 6px rgba(60, 40, 15, 0.2);
+  transition: transform 120ms ease, box-shadow 120ms ease;
+}
+.pet-card .pc-actions .sb-pet-btn:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 3px 0 #a8894f, 0 5px 8px rgba(60, 40, 15, 0.25); }
+.pet-card .pc-actions .sb-pet-btn:active:not(:disabled) { transform: translateY(1px); box-shadow: 0 1px 0 #a8894f; }
+.pet-card .pc-actions .sb-pet-btn.is-alert { border-color: #c0502a; box-shadow: 0 2px 0 #a8432a, 0 0 0 3px rgba(192, 80, 42, 0.25); animation: fx-ending 1s ease-in-out infinite; }
+
+/* Con hambre o inconsciente */
+.pet-card.is-hungry { border-color: #cf8f78; }
+.pet-card.is-hungry .pc-sprite { border-color: #d0764e; }
+.pet-card.is-ko .pc-sprite { filter: grayscale(0.85) brightness(0.8); border-color: #8a7a62; }
+.pet-card.is-ko .pc-sprite img, .pet-card.is-ko .pc-sprite canvas, .pet-card.is-ko .pc-sprite .px-sprite { animation: none; }
+.pet-card.is-ko .pc-xp-track > span::after { animation: none; }
+@media (prefers-reduced-motion: reduce) {
+  .pc-xp-track > span::after, .pc-sprite img, .pc-sprite canvas, .pc-sprite .px-sprite { animation: none; }
+}
+/* v3.19.5: la experiencia abajo de vida y comida; el nivel en el medallón */
+.pet-card { padding: 10px 9px 9px; }
+.pc-medal { position: relative; width: 54px; height: 54px; }
+.pc-medal .pc-lv {
+  position: absolute;
+  left: 50%;
+  bottom: -7px;
+  transform: translateX(-50%);
+  z-index: 1;
+  font-style: normal;
+  font-size: 12px;
+  line-height: 14px;
+  padding: 1px 6px;
+  white-space: nowrap;
+}
+.pet-card .sb-pv.is-xp .pc-xp-track { height: 8px; background: rgba(80, 55, 25, 0.22); box-shadow: inset 0 1px 2px rgba(60, 40, 15, 0.35); }
+.pet-card .sb-pv.is-xp .pc-xp-track > span { background: linear-gradient(180deg, #ffe9a3, #e0b44a 55%, #b8862a); box-shadow: 0 0 5px rgba(224, 180, 74, 0.6); }
+.pet-card .sb-pv-text { min-width: 56px; text-align: right; }
+
+/* ============================================================
+   v3.19.7: tu personaje con el mismo estilo que la mascota
+   Retrato en medallón con el nivel abajo; vida, maná y comida
+   de a una por renglón y la experiencia al final; números,
+   equipo y mochila con más relieve.
+   ============================================================ */
+.sb { border-color: #8a6a32; box-shadow: inset 0 0 0 1px rgba(255, 249, 232, 0.55), 0 10px 26px rgba(0, 0, 0, 0.45); }
+
+/* Cabecera: un marco dorado finito adentro */
+.sb-head { padding: 11px 13px 11px; column-gap: 13px; border-bottom: 1px solid #c9a24a; box-shadow: inset 0 -1px 0 rgba(0, 0, 0, 0.4); }
+.sb-head::before {
+  content: "";
+  position: absolute;
+  inset: 4px;
+  border: 1px solid rgba(232, 196, 110, 0.22);
+  border-radius: 10px;
+  pointer-events: none;
+}
+.sb-head::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(90% 70% at 15% 0%, rgba(255, 230, 170, 0.12), transparent 60%);
+  pointer-events: none;
+}
+.sb-head > * { position: relative; z-index: 1; }
+
+/* El retrato, en medallón */
+.sb-head .sb-portrait {
+  width: 58px;
+  height: 58px;
+  align-items: center;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 62%, #6a5032, #231910 72%);
+  border: 2px solid #c9a24a;
+  box-shadow: 0 0 0 2px rgba(20, 14, 8, 0.8), 0 0 0 3px rgba(232, 196, 110, 0.55), 0 4px 10px rgba(0, 0, 0, 0.5), inset 0 -6px 12px rgba(0, 0, 0, 0.45);
+  margin-bottom: 6px;
+}
+.sb-head .sb-portrait > :not(.sb-level) { border-radius: 50%; overflow: hidden; }
+.sb-head .sb-level {
+  left: 50%;
+  right: auto;
+  bottom: -9px;
+  transform: translateX(-50%);
+  min-width: 0;
+  height: auto;
+  padding: 1px 6px;
+  gap: 2px;
+  align-items: baseline;
+  border-radius: 999px;
+  border: 1px solid #7a5a1c;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 14px;
+  white-space: nowrap;
+  box-shadow: 0 0 8px rgba(242, 210, 122, 0.35), 0 2px 4px rgba(0, 0, 0, 0.5);
+}
+.sb-head .sb-level small { font-size: 9px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; opacity: 0.8; }
+.sb-head .sb-name { font-size: 19px; text-shadow: 0 1px 0 rgba(0, 0, 0, 0.5); }
+
+/* Barras: de a una, y la experiencia al final */
+.sb-head .sb-vitals { display: grid; grid-template-columns: minmax(0, 1fr); row-gap: 5px; margin-top: 2px; padding-top: 8px; border-top: 1px dashed rgba(232, 196, 110, 0.25); }
+.sb-head .sb-vitals > .sb-vital.is-xp:nth-child(odd) { grid-column: auto; }
+.sb-head .sb-vital { grid-template-columns: 14px minmax(0, 1fr) auto; gap: 7px; }
+.sb-head .sb-vital-text { min-width: 64px; font-size: 11px; }
+.sb-head .sb-vital-track,
+.sb-head .sb-vital.is-xp .sb-vital-track {
+  height: 8px;
+  border-radius: 4px;
+  border: 0;
+  background: rgba(0, 0, 0, 0.5);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.7), 0 1px 0 rgba(255, 230, 170, 0.08);
+}
+.sb-head .sb-vital-track > span { border-radius: 4px; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3); }
+.sb-head .sb-vital.is-food .sb-vital-track > span { background: linear-gradient(90deg, #6f8a2a, #a8c04a); }
+.sb-head .sb-vital.is-xp .sb-vital-track > span {
+  position: relative;
+  overflow: hidden;
+  min-width: 3px;
+  background: linear-gradient(180deg, #ffe9a3, #e0b44a 55%, #b8862a);
+  box-shadow: 0 0 6px rgba(255, 220, 120, 0.55);
+}
+.sb-head .sb-vital.is-xp .sb-vital-track > span::after,
+.pet-card .sb-pv.is-xp .pc-xp-track > span::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(100deg, transparent 30%, rgba(255, 255, 255, 0.7) 50%, transparent 70%);
+  transform: translateX(-100%);
+  animation: pc-shine 3.2s ease-in-out infinite;
+}
+.pet-card .sb-pv.is-xp .pc-xp-track > span { position: relative; overflow: hidden; }
+
+/* Títulos de sección con un rombito */
+.sb-title::before { content: ""; flex: none; width: 6px; height: 6px; transform: rotate(45deg); background: #c9a24a; box-shadow: 0 0 0 1px rgba(122, 84, 16, 0.5); }
+
+/* Tus números: fichas con relieve */
+.sb-stat {
+  border-radius: 9px;
+  background: linear-gradient(180deg, #fffdf6, #f6ead0);
+  border: 1px solid #d2b984;
+  box-shadow: inset 0 1px 0 #fff, 0 2px 0 rgba(140, 105, 50, 0.22);
+  transition: transform 120ms ease, border-color 120ms ease;
+}
+.sb-stat:hover { transform: translateY(-1px); border-color: #a8833a; }
+.sb-stat-val { color: #3a2610; }
+
+/* Equipo: el nombre entero (hasta tres renglones) */
+.sb-eq { background: linear-gradient(180deg, #fffdf6, #f6ead0); box-shadow: inset 0 1px 0 #fff, 0 2px 0 rgba(140, 105, 50, 0.25); }
+.sb-eq.is-uncommon { background: linear-gradient(180deg, #fbfff4, #e6f0d2); }
+.sb-eq.is-rare { background: linear-gradient(180deg, #f8fbff, #dfe8f6); }
+.sb-eq.is-epic { background: linear-gradient(180deg, #fcf8ff, #ecdff6); }
+.sb-eq.is-legendary { background: linear-gradient(180deg, #fffaf0, #f8e4bc); }
+.sb-eq-name { -webkit-line-clamp: 3; line-clamp: 3; overflow-wrap: normal; word-break: normal; hyphens: auto; -webkit-hyphens: auto; letter-spacing: -0.01em; }
+
+/* Mochila: los huecos hundidos y las cosas con relieve */
+.sb-slot.is-empty { background: rgba(90, 60, 25, 0.08); border: 1px solid rgba(140, 105, 50, 0.22); box-shadow: inset 0 2px 4px rgba(90, 60, 25, 0.18); }
+.sb-slot.is-filled { background: linear-gradient(180deg, #fffdf6, #f6ead0); box-shadow: inset 0 1px 0 #fff, 0 2px 0 rgba(140, 105, 50, 0.28); }
+
+@media (prefers-reduced-motion: reduce) {
+  .sb-head .sb-vital.is-xp .sb-vital-track > span::after, .pet-card .sb-pv.is-xp .pc-xp-track > span::after { animation: none; }
+}
+.sb-title { white-space: nowrap; }
