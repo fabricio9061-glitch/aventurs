@@ -543,15 +543,15 @@
     `;
   }
 
-  // v3.13: la escuela de tu raza con su maestro: los tres poderes y qué te falta para cada uno
+  // v3.13: la escuela de tu raza con su maestro: sus poderes y qué te falta para cada uno
+  // v3.14: siete poderes (nacimiento, 5, 9, 13, 17, 21 y 25), con una prueba en el 9, el 17 y el 25
   function renderSchool(npc) {
     const p = player();
     const sc = A.Schools ? A.Schools.of(npc.school) : null;
     if (!sc || sc.race !== p.raceId) return `<p class="muted">Enseña a otra raza.</p>`;
     const rows = A.Schools.powers(p);
     const ic = (r) => (r.kind === 'spell' && A.ItemSprites ? A.ItemSprites.spellIcon(r.data, { size: 36 }) : U().icon(r.data.icon || 'swords', 36));
-    const trial = A.Quests ? A.Quests.get(sc.trial) : null;
-    const objTxt = trial && trial.objectives && trial.objectives[0] ? (trial.objectives[0].text || '') : '';
+    const objOf = (r) => { const q = r.trial && A.Quests ? A.Quests.get(r.trial) : null; return q && q.objectives && q.objectives[0] ? (q.objectives[0].text || '') : ''; };
     return `
       <div class="learn2 school2">
         <div class="school2-head">
@@ -577,8 +577,10 @@
           else if (r.state === 'trial') action = `<button class="btn-mini" data-npc2-tab="talk">Pedir la prueba</button>`;
           else if (r.state === 'doing') action = `<span class="cmp-badge">${U().icon('hourglass', 12)}<span>Prueba en curso</span></span>`;
           else if (r.state === 'ready') action = `<button class="btn-mini" data-npc2-tab="talk">Entregar la prueba</button>`;
+          const objTxt = objOf(r);
           const note = r.state === 'trial' ? `Para aprenderlo, ${npc.name} te pone una prueba: ${objTxt.toLowerCase()}.`
-            : r.state === 'doing' ? `Prueba: ${objTxt}. Después volvé acá.` : r.state === 'ready' ? '¡Cumpliste la prueba! Entregala y te lo enseña.' : '';
+            : r.state === 'doing' ? `Prueba: ${objTxt}. Después volvé acá.` : r.state === 'ready' ? '¡Cumpliste la prueba! Entregala y te lo enseña.'
+              : r.state === 'level' && !r.paid ? `Se aprende con una prueba de ${npc.name}.` : '';
           return `
             <div class="learn2-row school2-row ${r.state === 'known' ? 'is-known' : ''} is-${r.state}">
               <span class="learn2-icon">${ic(r)}</span>

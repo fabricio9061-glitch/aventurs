@@ -477,6 +477,10 @@
   // v3.11: más fuertes (pedido: "dales más dificultad a todos"). Medido con tools/jefes.js:
   // a su mismo nivel se les gana entre 1 y 7 de cada 10 veces según el jefe y la clase; con dos niveles más, casi siempre.
   const BOSS = { hp: 1.3, dmg: 1.12, rage: 1.25 }; // rage: cuánto más pega enfurecido (con la mitad de la vida)
+  // v3.14: por cada mascota que pelea contra un jefe, el jefe tiene esto de más (vida y daño)
+  const PET_BOSS = { hp: 0.5, dmg: 0.15 };
+  // v3.14: lo que se recupera de vida al ganar una pelea (el respiro)
+  const WIN_HEAL = 0.15;
 
   /**
    * v3.2: cómo se ponen las criaturas según cuántos héroes pelean juntos.
@@ -581,9 +585,26 @@
       return Math.round(base * (kind === 'armor' ? 1.2 : 1));
     },
 
-    /** Precio para aprender un hechizo con un NPC. */
+    /**
+     * v3.14: lo que cobra una tienda sobre el valor de cada cosa. Medido con lo que gana un jugador
+     * por nivel (peleas, escenas y misiones): un arma común de tu nivel costaba el 8% de lo que
+     * ganás en un nivel; ahora, un tercio. Vender sigue dando la mitad del valor (sin el recargo).
+     */
+    SHOP_MARKUP: { gear: 4, potion: 2, scroll: 2.5, food: 2.5, material: 3, other: 2.5 },
+    shopMarkup(item) {
+      const M = Economy.SHOP_MARKUP;
+      if (!item) return 1;
+      if (item.type === 'weapon' || item.type === 'armor' || item.damage != null || item.defense != null || item.subtype === 'accessory' || item.subtype === 'bag' || item.slots != null) return M.gear;
+      if (item.subtype === 'potion') return M.potion;
+      if (item.subtype === 'scroll' || item.subtype === 'scroll_spell') return M.scroll;
+      if (item.subtype === 'food') return M.food;
+      if (item.subtype === 'material') return M.material;
+      return M.other;
+    },
+
+    /** Precio para aprender un hechizo con un NPC (v3.14: los de escuela, con el recargo del equipo). */
     spellPrice(spell) {
-      return Math.max(30, Math.round(Economy.gearPrice((spell && spell.tier) || 1) * 1.5));
+      return Math.max(30, Math.round(Economy.gearPrice((spell && spell.tier) || 1) * 1.5 * Economy.SHOP_MARKUP.gear));
     },
 
     /** Valor máximo razonable de un material que suelta un enemigo de tier t. */
@@ -674,6 +695,8 @@
   A.Balance = {
     PARTY,
     BOSS,
+    PET_BOSS,
+    WIN_HEAL,
     partyScale,
     partyShare,
     MAX_LEVEL,

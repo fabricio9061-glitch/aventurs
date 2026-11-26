@@ -30,7 +30,7 @@
 (function (A) {
   'use strict';
 
-  const VERSION = 13;       // si cambian los mensajes o las reglas, sube y avisa "actualicen los dos" (v3.2: 4 · v3.3: 5 · v3.4: 6 · v3.8: 7 · v3.9: 8 · v3.10: 9 · v3.11: 10 · v3.11.1: 11 · v3.12: 12 · v3.13: 13)
+  const VERSION = 14;       // si cambian los mensajes o las reglas, sube y avisa "actualicen los dos" (v3.2: 4 · v3.3: 5 · v3.4: 6 · v3.8: 7 · v3.9: 8 · v3.10: 9 · v3.11: 10 · v3.11.1: 11 · v3.12: 12 · v3.13: 13 · v3.14: 14)
   const MAX_MEMBERS = 4;     // v3.2: hasta cuatro jugadores
   const SNAP_MS = 50;       // juntar cambios antes de mandar la foto
   const HERO_MS = 150;      // juntar cambios del invitado antes de mandarlos

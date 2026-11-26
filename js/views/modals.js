@@ -1224,6 +1224,16 @@
   /** v3.13: lo que hace en pocas palabras un hechizo de escuela que no es de daño. */
   function schoolMetaTxt(s) {
     if (!s || !s.schoolRank) return '';
+    // v3.14: lo que agregan los de daño
+    if (s.damage) {
+      if (s.lucky) return 'la mitad de las veces, el doble';
+      if (s.vsMarked) return 'el doble si tiene tu sello';
+      if (s.vsStatus) return 'más daño si ya tiene ese estado';
+      if (s.partyBuff || s.partyHeal) return 'y ayuda a tu grupo';
+      if (s.sleep) return 'y duerme a los enemigos';
+      return '';
+    }
+    if (s.partyHeal && s.partyBuff) return 'cura y protege a todo tu grupo';
     if (s.partyBuff) return 'a todo tu grupo';
     if (s.partyHeal) return 'cura a todo tu grupo';
     if (s.pact) return 'Frenesí en tu próximo turno (cuesta vida)';

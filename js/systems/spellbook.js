@@ -14,6 +14,8 @@
      Chispa, Llama, Rayo helado, Segundo aliento y 6 pergaminos de combate
      (Misil arcano, Quemar, Ojo de halcón, Fuerza arcana, Piel de piedra y
      Furia salvaje). Nunca los de área ni los de curar a otros.
+   - v3.14: nada de eso se aprende más: la magia es solo la de tu raza (la de
+     nacimiento y la de tu escuela, ver js/systems/schools.js).
    ============================================================ */
 
 (function (A) {
@@ -41,6 +43,8 @@
     if ((p.spells || []).includes(spell.id)) return { ok: false, why: 'Ya lo conocés.', known: true };
     const race = spell.racial || spell.race;
     if (race && typeof race === 'string' && race !== p.raceId) return { ok: false, why: 'Es un hechizo de otra raza.', racial: true };
+    // v3.14: la magia es de tu raza: los hechizos comunes ya no los enseña nadie
+    if (A.Schools && A.Schools.isOwnMagic && !A.Schools.isOwnMagic(p, spell)) return { ok: false, why: 'Ya no se enseña: tu magia es la de la escuela de tu raza.', retired: true };
     if (spell.hybridOnly && classOf(p) !== 'hybrid') return { ok: false, why: 'Solo los híbridos pueden aprenderlo.', hybridOnly: true };
     if (who(spell) === 'mage' && classOf(p) !== 'mage') return { ok: false, why: 'Solo los magos pueden aprenderlo.', mageOnly: true };
     // v3.3: los hechizos de los pergaminos piden su nivel

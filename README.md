@@ -278,6 +278,36 @@ Explorar siempre hace pasar algo (`js/systems/explore.js` + `js/data/seed-events
 - En el celular, una franja arriba con vida, maná, comida y dinero.
 - Sin emojis en el juego (desde la v2.2, tampoco en el editor).
 
+## Versión 3.14.0: la magia es de tu raza, escuelas hasta el 25 y precios de verdad
+
+### La magia es solo la de tu raza
+- Los sabios (Velrith, Sylveth y Seren) **ya no enseñan** hechizos comunes (Chispa, Bola de fuego, Meteoro, Curación...).
+- Los pergaminos se compran y se usan en la pelea, pero **ya no se aprenden**. Los Pergaminos de hechizo (Pergamino: Llama...) dejan de existir.
+- Lo que ya habías aprendido se quita **una sola vez** al cargar la partida: si salió de un pergamino, te devuelven el pergamino; si te lo enseñó un sabio, lo que pagaste. Te avisa la crónica.
+- Curarse con magia es de pocas razas: el **ángel** (nace con Manos de luz) y la **dríade** (Bálsamo de savia); el **vampiro** se cura chupando sangre. Los demás, con pociones.
+- Al ganar una pelea, magos e híbridos recuperan el 15% de su vida (un respiro): reemplaza a la Curación y al Segundo aliento que tenían todos.
+- Los hechizos de nacimiento crecen con vos (el dado sube en los niveles 5, 9, 13 y 17).
+
+### Escuelas hasta el nivel 25
+Cuatro poderes más por raza (48 hechizos y 24 técnicas): en el **13 y el 21** te los enseña tu maestro (se pagan); en el **17 y el 25**, con una prueba (36 misiones nuevas). Los magos tienen los hechizos grandes que antes daban los sabios; los híbridos, mejoras y hechizos medianos; los guerreros, técnicas.
+Los maestros del humano y del ángel se mudaron del Pueblo Inicial a la **Torre del Mago**.
+
+### Jefes contra mascotas
+Un jefe que pelea contra una mascota tiene **50% más de vida y pega 15% más** (por cada mascota) y lo avisa al empezar. Medido: con una kitsune, un ángel de nivel 9 le ganaba al Archimago el 85% de las veces (solo, 34%); ahora 63%.
+
+### Precios
+Las tiendas cobran más que lo que vale cada cosa (vender sigue dando la mitad del valor): equipo ×4, materiales ×3, pergaminos y comida ×2,5, pociones ×2. Las lecciones de la escuela también, como el equipo. Medido con lo que gana un jugador por nivel (peleas, escenas y misiones): un arma común de tu nivel costaba el 8% de lo que ganás en un nivel; ahora, un tercio.
+
+### Equilibrio (`node tools/equilibrio.js --rapido`, con una poción por racha)
+Desde esta versión las rachas arrancan con **una poción de curación de su nivel** (todos se curan con pociones; `--sin-pociones` mide como antes). Guerrero / híbrido / mago:
+
+| | nv6 | nv10 | nv15 | nv20 | nv25 |
+|---|---|---|---|---|---|
+| v3.13 | 91 / 86 / 88 | 93 / 92 / 91 | 96 / 93 / 92 | 90 / 92 / 91 | 94 / 95 / 92 |
+| v3.14 | 91 / 86 / 84 | 93 / 84 / 86 | 95 / 89 / 93 | 91 / 88 / 89 | 97 / 92 / 90 |
+
+El ángel y la dríade quedan arriba (se curan); el gnomo y el alienígena, abajo (dependen de las pociones).
+
 ## Versión 3.13.0: las escuelas de raza, un mundo con sentido y topes en la mochila
 
 ### Escuelas de raza (lo que faltaba del dossier, secciones 7 a 9)

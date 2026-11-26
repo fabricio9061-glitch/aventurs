@@ -28,6 +28,8 @@
 'use strict';
 const fs = require('fs');
 const S = require('./simulador.js');
+// v3.14: cada pelea con una poción de curación de su nivel (--sin-pociones: como antes)
+const POCIONES = !process.argv.includes('--sin-pociones');
 
 const PRUEBAS = [
   { id: 'n1x1', nivel: 1, n: 1, tiers: [2, 3] },
@@ -83,7 +85,7 @@ function medir({ razas = null, peleas = 300, preparar = null, alTerminar = null 
         G.GameMath.random = mulberry32(s);
         const elegir = mulberry32(s ^ 0x9E3779B9);
         const e = lista[Math.floor(elegir() * lista.length)];
-        S.newCharacter(G, r.id, { level: pr.nivel, noItems: true });
+        S.newCharacter(G, r.id, { level: pr.nivel, noItems: true, potions: POCIONES ? 1 : 0 }); // v3.14: con una poción
         // la pelea, mirando la crónica para contar la pasiva y el hechizo de nacimiento
         const enemies = Array(pr.n).fill(e.id).map((id) => S.spawn(G, id));
         A.Combat.start({ enemies });

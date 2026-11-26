@@ -144,6 +144,123 @@
         say: 'La luna te llena y saltás sobre tu presa.' },
     ],
   };
+  // ---------------------------------------------------------------
+  // v3.14: cuatro técnicas más por raza (nivel 13 y 21 con el maestro; 17 y 25 con una prueba).
+  // Más fuertes y con más espera: el guerrero no tenía magia de los sabios, así que
+  // no pierde nada; esto es lo que lo acompaña hasta el nivel 25.
+  // ---------------------------------------------------------------
+  const BRUTAL = [3, 3, 3, 4, 5];
+  const TEAR = [4, 4, 4, 5, 6];
+  const prone = (chance) => ({ type: 'prone', chance, turns: 1 });
+  DISC.enano.push(
+    { id: 'martillo_montana', rank: 13, name: 'Martillo de la montaña', icon: 'hammer', cd: 4, ai: 'always',
+      strike: { mult: 1.6, status: prone(0.4) },
+      text: () => `Un martillazo con toda la montaña detrás: un golpe al ${pct(1.6)} que puede voltear a tu blanco (40%).`,
+      say: 'Levantás el arma como un martillo de forja y la dejás caer con toda la montaña detrás.' },
+    { id: 'juramento_piedra', rank: 17, name: 'Juramento de piedra', icon: 'shield', cd: 6, ai: 'always',
+      strike: { mult: 1 }, buff: { turns: 3, mods: () => ({ armor: 5, dmgTaken: 0.2 }), allies: { armor: 2 } },
+      text: () => 'Jurás por tus ancestros: un golpe normal y, por 3 rondas, +5 de armadura y todo el daño que recibís baja un 20% (en grupo, tus compañeros +2 de armadura).',
+      say: 'Golpeás el escudo y jurás por tus ancestros: de acá no te mueve nadie.' },
+    { id: 'golpe_sismico', rank: 21, name: 'Golpe sísmico', icon: 'hammer', cd: 5, ai: 'area2',
+      sweep: { mult: 1, status: prone(0.4) },
+      text: () => 'Golpeás el suelo y tiembla todo: cada enemigo recibe tu daño entero (cada uno con su tirada) y puede caer (40%).',
+      say: 'Tu golpe parte el suelo y la onda alcanza a todos.' },
+    { id: 'rey_montana', rank: 25, name: 'Rey bajo la montaña', icon: 'crown', cd: 7, ai: 'always',
+      strike: { mult: 2 }, buff: { turns: 3, mods: () => ({ dmgTaken: 0.35, armor: 4, regen: 5 }) },
+      text: () => 'El rey bajo la montaña pega al doble y se vuelve piedra viva: por 3 rondas, el daño que recibís baja un 35%, +4 de armadura y recuperás 5 de vida por turno.',
+      say: 'Sos el rey bajo la montaña: golpeás, y la piedra misma te cubre.' },
+  );
+  DISC.orco.push(
+    { id: 'golpe_brutal', rank: 13, name: 'Golpe brutal', icon: 'swords', cd: 4, ai: 'always',
+      strike: { mult: 1.8 }, bleed: { value: (b) => BRUTAL[b], turns: 3 },
+      text: (b) => `Un golpe salvaje al ${pct(1.8)} que, si pega, deja a tu blanco sangrando (${BRUTAL[b]} por turno, 3 turnos).`,
+      say: 'Descargás un golpe brutal, sin pensar en nada más.' },
+    { id: 'sed_batalla', rank: 17, name: 'Sed de batalla', icon: 'warning', cd: 6, ai: 'always',
+      strike: { mult: 1.2 }, buff: { turns: 3, mods: () => ({ damage: 5, precision: 2 }) },
+      text: () => `Un golpe al ${pct(1.2)} y la sangre te hierve: por 3 rondas, +5 de daño y +2 de precisión.`,
+      say: 'La pelea te llama y tu sangre contesta: querés más.' },
+    { id: 'masacre', rank: 21, name: 'Masacre', icon: 'swords', cd: 5, ai: 'always',
+      random: { hits: 4, mult: 0.85 },
+      text: () => `Cuatro golpes a enemigos al azar, cada uno con su tirada y el ${pct(0.85)} del daño.`,
+      say: 'Te metés en el medio y repartís golpes para todos lados.' },
+    { id: 'caudillo_guerra', rank: 25, name: 'Caudillo de guerra', icon: 'crown', cd: 7, ai: 'always',
+      double: { n: 3, mult: 1 }, foes: { status: 'stagger', value: () => 4, turns: 2 },
+      text: () => 'Tres golpes seguidos con todo tu daño (si uno tumba a tu blanco, el siguiente va a otro), y tu grito deja a todos los enemigos desequilibrados (−4 de precisión en su próximo ataque).',
+      say: 'Gritás como un caudillo y cargás: tres golpes antes de que nadie reaccione.' },
+  );
+  DISC.robot.push(
+    { id: 'descarga_nucleo', rank: 13, name: 'Descarga de núcleo', icon: 'spark', cd: 4, ai: 'always',
+      strike: { mult: 1.4, status: { type: 'shock', chance: 0.7, turns: 2 } }, splash: { mult: 0.4, status: { type: 'shock', chance: 0.3, turns: 2 } },
+      text: () => `Tu núcleo descarga por el arma: tu blanco recibe un golpe al ${pct(1.4)} y casi siempre queda electrizado (70%); los demás, uno al ${pct(0.4)} (30%).`,
+      say: 'Desviás toda la energía del núcleo al arma.' },
+    { id: 'blindaje_reactivo', rank: 17, name: 'Blindaje reactivo', icon: 'shield', cd: 6, ai: 'always',
+      strike: { mult: 1 }, buff: { turns: 3, mods: () => ({ armor: 5, reflect: 0.3 }), touch: { status: 'shock', chance: 0.3, turns: 2, zap: () => 6 } },
+      text: () => 'Un golpe normal y tu blindaje se activa 3 rondas: +5 de armadura, el que te pega recibe el 30% del golpe y una descarga de 6 (y puede quedar electrizado).',
+      say: 'Las placas se reacomodan con un chasquido: blindaje reactivo en línea.' },
+    { id: 'protocolo_exterminio', rank: 21, name: 'Protocolo de exterminio', icon: 'target', cd: 5, ai: 'always',
+      strike: { mult: 2, prec: 5, vsStatus: { types: ['shock', 'blind', 'stun', 'prone'], mult: 3 } },
+      text: () => 'Un golpe calculado al milímetro: +5 de precisión y el doble de daño; contra un blanco electrizado, ciego, aturdido o en el suelo, el triple.',
+      say: 'OBJETIVO FIJADO. Ejecutás el protocolo.' },
+    { id: 'modo_guerra', rank: 25, name: 'Modo de guerra total', icon: 'swords', cd: 7, ai: 'always',
+      double: { n: 2, mult: 1.2 }, buff: { turns: 3, mods: () => ({ damage: 5, precision: 3, armor: 3 }) },
+      text: () => `Modo de guerra total: dos golpes al ${pct(1.2)} y, por 3 rondas, +5 de daño, +3 de precisión y +3 de armadura.`,
+      say: 'MODO DE GUERRA TOTAL. Todos los sistemas al máximo.' },
+  );
+  DISC.goliat.push(
+    { id: 'pisoton_titanico', rank: 13, name: 'Pisotón titánico', icon: 'hammer', cd: 4, ai: 'area2',
+      sweep: { mult: 0.8, status: prone(0.5) },
+      text: () => `Un pisotón que sacude el suelo: cada enemigo recibe un golpe al ${pct(0.8)} (cada uno con su tirada) y la mitad cae derribada.`,
+      say: 'Das un pisotón y el suelo salta bajo los pies de todos.' },
+    { id: 'fuerza_montana', rank: 17, name: 'Fuerza de la montaña', icon: 'hammer', cd: 6, ai: 'always',
+      strike: { mult: 1.3 }, buff: { turns: 3, mods: () => ({ damage: 5, armor: 3 }) },
+      text: () => `Un golpe al ${pct(1.3)} y la montaña te presta su fuerza: +5 de daño y +3 de armadura por 3 rondas.`,
+      say: 'Sentís el peso de la montaña en los brazos.' },
+    { id: 'lanzamiento_roca', rank: 21, name: 'Lanzamiento de roca', icon: 'hammer', cd: 5, ai: 'always',
+      strike: { mult: 2.2, prec: 2, status: prone(0.6) }, splash: { mult: 0.5 },
+      text: () => `Arrancás una roca y la tirás: tu blanco recibe un golpe al ${pct(2.2)} (+2 de precisión) y cae (60%); los demás, uno al ${pct(0.5)} por las piedras que saltan.`,
+      say: 'Arrancás una roca del suelo y la tirás con todo.' },
+    { id: 'terremoto', rank: 25, name: 'Terremoto', icon: 'hammer', cd: 7, ai: 'always',
+      sweep: { mult: 1.4, status: prone(0.6) },
+      text: () => `Hacés temblar el mundo: cada enemigo recibe un golpe al ${pct(1.4)} (cada uno con su tirada) y casi todos caen (60%).`,
+      say: 'Golpeás el suelo y el mundo entero tiembla.' },
+  );
+  DISC.minotauro.push(
+    { id: 'embestida_furiosa', rank: 13, name: 'Embestida furiosa', icon: 'swords', cd: 4, ai: 'always',
+      strike: { mult: 1.7, status: prone(0.5) }, cleave: { mult: 0.5 },
+      text: () => `Una embestida con todo: tu blanco recibe un golpe al ${pct(1.7)} y cae (50%); otro enemigo, uno al ${pct(0.5)}.`,
+      say: 'Bajás los cuernos y embestís con toda tu furia.' },
+    { id: 'furia_laberinto', rank: 17, name: 'Furia del laberinto', icon: 'warning', cd: 6, ai: 'always',
+      strike: { mult: 1.2 }, buff: { turns: 3, mods: () => ({ damage: 5, armor: 2 }) },
+      text: () => `Un golpe al ${pct(1.2)} y la furia del laberinto: +5 de daño y +2 de armadura por 3 rondas.`,
+      say: 'Bufás como en el laberinto, y la furia te llena.' },
+    { id: 'estampida', rank: 21, name: 'Estampida', icon: 'swords', cd: 5, ai: 'always',
+      random: { hits: 4, mult: 0.9, status: prone(0.3) },
+      text: () => `Cuatro cornadas a enemigos al azar, cada una con su tirada y el ${pct(0.9)} del daño; cada una puede derribar (30%).`,
+      say: 'Sos una estampida vos solo.' },
+    { id: 'rey_laberinto', rank: 25, name: 'Rey del laberinto', icon: 'crown', cd: 7, ai: 'always',
+      strike: { mult: 2.5, status: prone(0.6) }, cleave: { mult: 1 },
+      text: () => `La embestida del rey del laberinto: tu blanco recibe un golpe al ${pct(2.5)} y cae (60%), y otro enemigo recibe tu daño entero.`,
+      say: 'Cargás como el rey del laberinto: nada queda en pie a tu paso.' },
+  );
+  DISC.licantropo.push(
+    { id: 'desgarro', rank: 13, name: 'Desgarro', icon: 'paw', cd: 4, ai: 'always',
+      strike: { mult: 1.5 }, bleed: { value: (b) => TEAR[b], turns: 3 },
+      text: (b) => `Un zarpazo al ${pct(1.5)} que abre la carne: si pega, tu blanco sangra ${TEAR[b]} por turno (3 turnos).`,
+      say: 'Tus garras se hunden y desgarran.' },
+    { id: 'llamado_manada', rank: 17, name: 'Llamado de la manada', icon: 'paw', cd: 6, ai: 'always',
+      strike: { mult: 1.2 }, buff: { turns: 3, mods: () => ({ damage: 4, precision: 2 }), allies: { damage: 2 } },
+      text: () => `Un golpe al ${pct(1.2)} y llamás a la manada: por 3 rondas, +4 de daño y +2 de precisión (en grupo, tus compañeros +2 de daño).`,
+      say: 'Aullás y la manada entera te contesta.' },
+    { id: 'frenesi_lunar', rank: 21, name: 'Frenesí lunar', icon: 'moon', cd: 5, ai: 'always',
+      strike: { mult: 1 }, bleed: { value: () => 5, turns: 3 }, double: { n: 2, mult: 0.8 },
+      text: () => `Tres zarpazos seguidos: el primero hace sangrar (5 por turno) y los otros dos pegan al ${pct(0.8)}.`,
+      say: 'La luna te enloquece: zarpazo, zarpazo, zarpazo.' },
+    { id: 'alfa_manada', rank: 25, name: 'Alfa de la manada', icon: 'crown', cd: 7, ai: 'always',
+      strike: { mult: 2 }, bleed: { value: () => 8, turns: 3 }, chase: { mult: 1 }, buff: { turns: 3, mods: () => ({ damage: 4 }) },
+      text: () => `El salto del alfa: un golpe al ${pct(2)} que hace sangrar (8 por turno); si tu presa cae, saltás sobre otra con tu daño entero; y por 3 rondas, +4 de daño.`,
+      say: 'Sos el alfa: saltás primero y la manada te sigue.' },
+  );
+
   const DISC_BY_ID = {};
   for (const race of Object.keys(DISC)) for (const t of DISC[race]) DISC_BY_ID[t.id] = Object.assign(t, { race });
 

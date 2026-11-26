@@ -25,8 +25,13 @@
      nv15  v3.11: 5 peleas seguidas al nivel 15, criaturas de nivel 14 y 15 (500 rachas)
      nv20  v3.11: 5 peleas seguidas al nivel 20, criaturas de nivel 19 y 20 (500 rachas)
      nv25  v3.12: 5 peleas seguidas al nivel 25, criaturas de nivel 24 y 25 (500 rachas)
-   Sin descanso, pociones, mascota ni accesorios; con el mejor equipo común
-   del nivel y todos los hechizos que la clase aprende hasta ahí. Sin jefes.
+   Sin descanso, mascota ni accesorios; con el mejor equipo común del nivel y
+   todo lo que su escuela enseña hasta ahí. Sin jefes.
+   v3.14: con pociones. Desde que curarse con magia es de pocas razas (ángel,
+   dríade y, chupando sangre, el vampiro), todos se curan con pociones: cada
+   racha arranca con una poción de curación de su nivel (con tres, casi todas
+   las razas ganaban casi todas las rachas y la prueba ya no separaba nada).
+   --sin-pociones mide como antes.
 
    Metas (las mismas del documento de equilibrio):
      - La mejor y la peor clase no se separan más de 10 puntos en nv6 y nv10,
@@ -43,6 +48,8 @@ const S = require('./simulador.js');
 
 // v3.11: el tope subió a 20: también rachas al nivel 15 y al 20 · v3.12: y al 25
 const PRUEBAS = ['d1', 'r1', 'r3', 'r6', 'p6', 'r10', 'r15', 'r20', 'r25'];
+// v3.14: las rachas arrancan con pociones de curación (--sin-pociones: como antes)
+const POCIONES = !process.argv.includes('--sin-pociones');
 const NOMBRE = { d1: '1v1', r1: 'nv1', r3: 'nv3', r6: 'nv6', p6: 'par', r10: 'nv10', r15: 'nv15', r20: 'nv20', r25: 'nv25' };
 const CLASES = { warrior: 'guerrero', hybrid: 'híbrido', mage: 'mago' };
 
@@ -88,7 +95,7 @@ function medir({ razas = null, escala = 1, preparar = null, alTerminarRaza = nul
     let ganadas = 0;
     for (let n = 0; n < rachas; n++) {
       const elegir = fijarAzar(prueba, n);
-      S.newCharacter(G, raza, { level: nivel, noItems: true });
+      S.newCharacter(G, raza, { level: nivel, noItems: true, potions: POCIONES ? 1 : 0 });
       let f = 0;
       for (; f < largo; f++) {
         const e = lista[Math.floor(elegir() * lista.length)];
@@ -216,7 +223,7 @@ function principal() {
 
   console.log(`Aventurs · pruebas de equilibrio (escala ${escala}: ${Math.round(2000 * escala)} rachas al nivel 6, ${Math.round(1000 * escala)} en las demás)`);
   if (previo) console.log(`Comparando con ${args.comparar}: entre paréntesis, cuánto cambió cada número.`);
-  console.log('Los números son el porcentaje de rachas (o de peleas, en 1v1) que gana cada raza.\n');
+  console.log(`Los números son el porcentaje de rachas (o de peleas, en 1v1) que gana cada raza. ${POCIONES ? 'Cada racha con una poción de curación de su nivel.' : 'Sin pociones.'}\n`);
   console.log(encabezado(!!previo));
   const t0 = Date.now();
   const filas = medir({

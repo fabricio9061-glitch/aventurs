@@ -231,6 +231,28 @@
   }
 
   /**
+   * v3.14: un jefe que pelea contra mascotas se prepara: por cada mascota en pie, más vida y más daño
+   * (Balance.PET_BOSS). Medido con tools/jefes.js --mascota: con una mascota, el Archimago
+   * pasaba de 34% a 85% para un ángel de nivel 9. Devuelve { boss, n } o null.
+   */
+  function scaleBossForPets(instances, heroes) {
+    const n = (heroes || []).filter((h) => h && h.pet && h.pet.health > 0).length;
+    if (!n) return null;
+    const cfg = B().PET_BOSS || { hp: 0.5, dmg: 0.15 };
+    let boss = null;
+    for (const inst of instances) {
+      if (inst.category !== 'boss' || inst.summoned || inst._petScaled) continue;
+      inst._petScaled = n;
+      const ratio = inst.maxHp ? inst.hp / inst.maxHp : 1;
+      inst.maxHp = Math.max(1, Math.round((inst.maxHp || inst.hp) * (1 + cfg.hp * n)));
+      inst.hp = Math.max(1, Math.round(inst.maxHp * ratio));
+      inst.dmgMult = (inst.dmgMult || 1) * (1 + cfg.dmg * n);
+      boss = boss || inst;
+    }
+    return boss ? { boss, n } : null;
+  }
+
+  /**
    * v3.3: las criaturas de una pelea, ya preparadas para el grupo que va junto
    * (las que se suman y con más vida). Las escenas lo usan para decir exactamente
    * contra qué van a pelear; después Combat.start no las vuelve a tocar.
@@ -343,6 +365,8 @@
       }
     }
     if (party) { scaleForParty(instances, heroes.length); assignLabels(instances); }
+    // v3.14: los jefes cuentan a las mascotas (con una mascota al lado se ganaba casi siempre)
+    const petScaled = scaleBossForPets(instances, heroes);
 
     const initiative = [];
     for (const h of heroes) {
@@ -418,6 +442,10 @@
       }
     }
     addLog(combat, 'system', { text: `Orden por velocidad: ${combat.initiative.map((i) => `${i.name} (vel ${i.speed})`).join(' → ')}` });
+    if (petScaled) {
+      const pcts = B().PET_BOSS || { hp: 0.5, dmg: 0.15 };
+      addLog(combat, 'system', { text: `${petScaled.boss.displayName} también pelea contra ${petScaled.n === 1 ? 'tu mascota' : `${petScaled.n} mascotas`}: tiene ${Math.round(pcts.hp * petScaled.n * 100)}% más vida y pega ${Math.round(pcts.dmg * petScaled.n * 100)}% más.`, fx: { kind: 'note' }, say: { text: `${petScaled.boss.displayName} ve ${petScaled.n === 1 ? 'a tu mascota' : 'a las mascotas'} y se prepara para pelear contra todos.`, tone: 'bad' } });
+    }
     for (const tg of tieGroups) {
       addLog(combat, 'system', { text: `Empate de velocidad ${tg.speed}, desempate con D20: ${tg.members.map((m) => `${m.name}: ${m.tieRoll}`).join(', ')}` });
     }
@@ -1676,11 +1704,14 @@
       if (p.mana > before) addLog(c, 'system', { text: `Recuperás ${p.mana - before} de maná.`, fx: { kind: 'heal', actor: 'player', target: 'player', amount: 0, mana: p.mana - before, quiet: true } });
     }
     // v2.4: Amuleto vampírico: parte del daño vuelve como vida
-    const ls = A.Accessories ? A.Accessories.bonus(p, 'lifesteal') : 0;
-    if (ls > 0 && p.hp > 0 && p.hp < p.maxHp) {
+    // v3.14: también Sed insaciable y Señor de la noche (vampiro)
+    const lsAcc = A.Accessories ? A.Accessories.bonus(p, 'lifesteal') : 0;
+    const lsBuff = A.ItemFx ? (A.ItemFx.buffMods(p).lifesteal || 0) : 0;
+    const ls = lsAcc + lsBuff;
+    if (ls > 0 && finalDmg > 0 && p.hp > 0 && p.hp < p.maxHp) {
       const before = p.hp;
       A.State.healHp(Math.max(1, Math.round(finalDmg * ls)));
-      if (p.hp > before) addLog(c, 'system', { text: `Robo de vida: +${p.hp - before}.`, fx: { kind: 'heal', actor: 'player', target: 'player', amount: p.hp - before }, say: { text: `Tu amuleto bebe de la herida: recuperás ${p.hp - before} de vida.`, tone: 'good' } });
+      if (p.hp > before) addLog(c, 'system', { text: `Robo de vida: +${p.hp - before}.`, fx: { kind: 'heal', actor: 'player', target: 'player', amount: p.hp - before }, say: { text: lsBuff > lsAcc ? `Tu sed bebe de la herida: recuperás ${p.hp - before} de vida.` : `Tu amuleto bebe de la herida: recuperás ${p.hp - before} de vida.`, tone: 'good' } });
     }
     // v3.11: la descarga del Núcleo de sobrecarga salta a otra criatura (desde el nivel 5)
     if (core) {
@@ -1862,7 +1893,8 @@
 
     if (spell.heal) {
       // v2.1: la curación suma solo la mitad del poder mágico (si no, con maná que vuelve solo sería vida infinita)
-      let heal = A.Utils.rollDice(spell.heal) + Math.floor(power / 2);
+      // v3.14: las curaciones de nacimiento (ángel y dríade) crecen por tramo de nivel
+      let heal = A.Utils.rollDice(spell.bandHeal && SC() ? SC().val(spell.bandHeal, SC().band(p)) : spell.heal) + Math.floor(power / 2);
       // v3.9: Segundo aliento cura más cuanto más herido estás (se suma una parte de lo que te falta)
       if (spell.healMissing && (!ally || ally.self)) heal += Math.round(Math.max(0, p.maxHp - p.hp) * spell.healMissing);
       const boost = A.Accessories ? A.Accessories.bonus(p, 'heal') : 0; // v2.4: Cruz sagrada
@@ -1890,6 +1922,15 @@
         A.State.healHp(heal);
         addLog(c, 'player', { text: `Lanzaste ${spell.name} y recuperaste ${p.hp - before} de salud.`, fx: { kind: 'heal', actor: 'player', target: 'player', amount: p.hp - before, icon: '' }, ...(cleanTxt ? { say: { text: `Lanzás ${spell.name.toLowerCase()}: recuperás ${p.hp - before} de vida${cleanTxt.replace(' y le saca', ' y te saca')}.`, tone: 'good' } } : {}) });
       }
+      // v3.14: Bálsamo de savia: además cura un poco por turno (al héroe que curaste)
+      if (spell.hot && SC()) {
+        const who = ally && !ally.self ? (ally.kind === 'hero' || (!ally.kind && ally.ref && ally.ref.maxHp) ? ally.ref : null) : p;
+        if (who && who.hp > 0) {
+          const regen = SC().val(spell.hot.regen, SC().band(p));
+          schoolBuff(who, Object.assign({}, spell, { id: `${spell.id}:vida` }), { turns: spell.hot.turns || 2, stat: 'regen', mods: { regen } }, SC().band(p));
+          addLog(c, 'system', { text: `${spell.name}: +${regen} de vida por turno (${spell.hot.turns || 2} turnos).`, fx: { kind: 'note' } });
+        }
+      }
     } else if (spell.damage) {
       let targets = spell.area ? hittableEnemies() : [getTarget()].filter(Boolean);
       // v3.13: los de cadena (Tormenta conductora) empiezan por tu blanco
@@ -1903,6 +1944,9 @@
       const bonus = playerStats().attack + (B().SPELL_HIT || 2);
       const r = spell.sure ? null : attackRoll(bonus, 0, playerRollOpts(p));
       if (r && r.lucky) addLog(c, 'system', { text: 'Suerte: sacaste un 1 y el dado se vuelve a tirar.', fx: { kind: 'passive', passive: 'suerte' } });
+      // v3.14: Moneda al aire (mediano): a veces pega el doble (se tira una vez por hechizo)
+      const luckyHit = !!(spell.lucky && Math.random() < (spell.lucky.chance || 0.5));
+      if (spell.lucky) addLog(c, 'system', { text: luckyHit ? `¡Salió cara! ${spell.name} pega el doble.` : 'Salió ceca: pega normal.', fx: { kind: 'note' }, say: { text: luckyHit ? 'La moneda gira en el aire y cae de cara: ¡doble!' : 'La moneda cae de ceca. Igual pega.', tone: luckyHit ? 'crit' : 'neutral' } });
       let landed = 0;
       let drained = 0;
       targets.forEach((t, i) => {
@@ -1935,6 +1979,11 @@
         // v3.3: Cazador de sombras también con hechizos
         const shadowS = P() && P().shadowBonusVs ? P().shadowBonusVs(p, t) : 0;
         rawDmg += shadowS;
+        // v3.14: más daño contra lo que ya tiene un estado (Daga de sombra, Bobina de Tesla) o tu sello (Estocada sellada)
+        const vsS = spell.vsStatus && (t.effects || []).some((e) => spell.vsStatus.types.includes(e.type));
+        const vsM = spell.vsMarked && personalMark(c, p, t);
+        const dmgMult = (vsS ? spell.vsStatus.mult || 1.5 : 1) * (vsM ? spell.vsMarked : 1) * (luckyHit ? spell.lucky.mult || 2 : 1);
+        if (dmgMult !== 1) rawDmg = Math.max(1, Math.round(rawDmg * dmgMult));
         if (tcrit) rawDmg *= 2;
         rawDmg += flame; // v3.11: Llama interior, después del crítico
         // v3.13: Sello de cenizas: si ya se quemaba, la quemadura explota (daño de más) y se apaga
@@ -2016,6 +2065,8 @@
         A.State.healHp((Number(spell.selfHeal) || 0) + Math.floor(power / 2) + frenzyHeal);
         if (p.hp > before) addLog(c, 'system', { text: `${spell.name} te devuelve ${p.hp - before} de vida.`, fx: { kind: 'heal', actor: 'player', target: 'player', amount: p.hp - before } });
       }
+      // v3.14: hechizos de daño que además curan, mejoran o duermen (Corazón del bosque, El reino de los sueños)
+      if (isSchoolCast(spell) && !c.result && p.hp > 0) schoolCast(c, p, spell, { afterDamage: true });
     } else if (spell.effect && A.ItemFx) {
       // v3.3: los hechizos de los pergaminos que no son de daño hacen lo mismo que el pergamino
       const asItem = { id: spell.id, name: spell.name, subtype: 'spell', effect: { ...spell.effect, combat: true } };
@@ -2152,94 +2203,122 @@
     h.effects.push(buff);
     return buff;
   }
-  /** Los hechizos de escuela que no son de daño. Devuelve { ok, why }. */
-  function schoolCast(c, p, spell) {
+  /** El texto de una mejora: "+3 de armadura, +2 de precisión..." */
+  function buffParts(mods, touch, resist) {
+    const parts = [];
+    if (mods.armor) parts.push(`+${mods.armor} de armadura`);
+    if (mods.defense) parts.push(`+${mods.defense} de defensa`);
+    if (mods.precision) parts.push(`+${mods.precision} de precisión`);
+    if (mods.damage) parts.push(`+${mods.damage} de daño`);
+    if (mods.regen) parts.push(`+${mods.regen} de vida por turno`);
+    if (mods.lifesteal) parts.push(`el ${Math.round(mods.lifesteal * 100)}% del daño de tus golpes vuelve como vida`);
+    if (mods.reflect) parts.push(`el que te pega recibe el ${Math.round(mods.reflect * 100)}% del golpe`);
+    if (mods.dodgeNext) parts.push('el próximo golpe que te apunten falla');
+    if (mods.advantage) parts.push('tirás dos dados y te quedás con el mejor');
+    if (touch) parts.push('el que te toca se puede prender fuego');
+    if (resist) parts.push('el fuego no te toca');
+    return parts;
+  }
+  /**
+   * Los hechizos de escuela que no son de daño. Devuelve { ok, why }.
+   * v3.14: un hechizo puede tener varias partes (Avatar arcano: eco y mejora; Intervención
+   * divina: curación y armadura) y los de daño también pueden traer una (opts.afterDamage).
+   */
+  function schoolCast(c, p, spell, opts = {}) {
     const b = SC().band(p);
     const power = playerStats().spellPower || 0;
+    let ok = false;
+    let why = '';
+    const after = !!opts.afterDamage;
     if (spell.echo) {
-      schoolBuff(p, spell, { turns: spell.echo.turns || 4, stat: 'damage', echo: SC().val(spell.echo.dice, b) }, b);
-      addLog(c, 'player', { text: `Lanzaste ${spell.name}: tus golpes con arma sueltan un eco arcano (${SC().val(spell.echo.dice, b)}) por ${spell.echo.turns || 4} turnos.`, fx: { kind: 'buff', actor: 'player', target: 'player', label: spell.name, icon: 'spark' }, say: { text: 'Le cargás magia a tu arma: cada golpe que acierte va a resonar.', tone: 'good' } });
-      return { ok: true };
+      const dice = SC().val(spell.echo.dice, b);
+      schoolBuff(p, Object.assign({}, spell, { id: `${spell.id}:eco` }), { turns: spell.echo.turns || 4, stat: 'damage', echo: dice }, b);
+      addLog(c, 'player', { text: `Lanzaste ${spell.name}: tus golpes con arma sueltan un eco arcano (${dice}) por ${spell.echo.turns || 4} turnos.`, fx: { kind: 'buff', actor: 'player', target: 'player', label: spell.name, icon: 'spark' }, say: { text: 'Le cargás magia a tu arma: cada golpe que acierte va a resonar.', tone: 'good' } });
+      ok = true;
     }
     if (spell.buff) {
       const bf = schoolBuff(p, spell, spell.buff, b);
       if (spell.buff.resist) for (const t of spell.buff.resist) removeStatus(p, t);
-      const parts = [];
-      if (bf.mods.armor) parts.push(`+${bf.mods.armor} de armadura`);
-      if (bf.mods.defense) parts.push(`+${bf.mods.defense} de defensa`);
-      if (bf.mods.precision) parts.push(`+${bf.mods.precision} de precisión`);
-      if (bf.mods.reflect) parts.push(`el que te pega recibe el ${Math.round(bf.mods.reflect * 100)}% del golpe`);
-      if (bf.mods.dodgeNext) parts.push('el próximo golpe que te apunten falla');
-      if (bf.mods.advantage) parts.push('tirás dos dados y te quedás con el mejor');
-      if (bf.touch) parts.push('el que te toca se puede prender fuego');
-      if (spell.buff.resist) parts.push('el fuego no te toca');
+      const parts = buffParts(bf.mods, bf.touch, spell.buff.resist);
       const txt = parts.length ? `${parts.join(', ')} (${bf.turns} turnos)` : `${bf.turns} turnos`;
-      addLog(c, 'player', { text: `Lanzaste ${spell.name}: ${txt}.`, fx: { kind: 'buff', actor: 'player', target: 'player', label: spell.name, icon: spell.iconName || 'star' }, say: { text: `${spell.name}: ${txt}.`, tone: 'good' } });
-      return { ok: true };
-    }
-    if (spell.partyBuff) {
-      const who = heroesOf(c).filter((h) => h.hp > 0);
-      for (const h of who) schoolBuff(h, spell, spell.partyBuff, b);
-      const amt = SC().val(spell.partyBuff.mods.armor, b);
-      addLog(c, 'player', { text: `Lanzaste ${spell.name}: +${amt} de armadura ${who.length > 1 ? 'para todo el grupo' : ''} (${spell.partyBuff.turns || 3} turnos).`.replace('  ', ' '), fx: { kind: 'buff', actor: 'player', target: 'player', label: spell.name, icon: 'shield' }, say: { text: who.length > 1 ? `Un voto de luz cubre a todo tu grupo: +${amt} de armadura.` : `Un voto de luz te cubre: +${amt} de armadura.`, tone: 'good' } });
-      return { ok: true };
+      addLog(c, 'player', { text: `${ok || after ? spell.name : `Lanzaste ${spell.name}`}: ${txt}.`, fx: { kind: 'buff', actor: 'player', target: 'player', label: spell.name, icon: spell.iconName || 'star' }, say: { text: `${spell.name}: ${txt}.`, tone: 'good' } });
+      ok = true;
     }
     if (spell.partyHeal) {
       const cfg = spell.partyHeal;
       const regen = SC().val(cfg.regen, b);
       const healed = [];
+      const BAD = ['poison', 'bleed', 'fire', 'cold', 'curse'];
+      let cleaned = 0;
       for (const h of heroesOf(c)) {
         if (h.hp <= 0) continue;
         const n = A.Utils.rollDice(cfg.dice) + Math.floor(power / 2);
         const r = healAlly({ kind: 'hero', ref: h }, n);
         if (r.hp > 0) healed.push(`${h === p ? 'vos' : h.name} +${r.hp}`);
-        schoolBuff(h, spell, { turns: cfg.turns || 3, stat: 'regen', mods: { regen } }, b);
+        if (cfg.cleanse) { const n0 = (h.effects || []).length; h.effects = (h.effects || []).filter((e) => !BAD.includes(e.type)); cleaned += n0 - h.effects.length; }
+        schoolBuff(h, Object.assign({}, spell, { id: `${spell.id}:vida` }), { turns: cfg.turns || 3, stat: 'regen', mods: { regen } }, b);
       }
-      addLog(c, 'player', { text: `Lanzaste ${spell.name}${healed.length ? `: ${healed.join(', ')}` : ''}; y +${regen} de vida por turno (${cfg.turns || 3} turnos).`, fx: { kind: 'heal', actor: 'player', target: 'player', amount: 0 }, say: { text: `Un círculo de luz se abre bajo tus pies${heroesOf(c).length > 1 ? ' y los de tu grupo' : ''}: las heridas se cierran despacio.`, tone: 'good' } });
-      return { ok: true };
+      addLog(c, 'player', { text: `${ok || after ? spell.name : `Lanzaste ${spell.name}`}${healed.length ? `: ${healed.join(', ')}` : ''}; y +${regen} de vida por turno (${cfg.turns || 3} turnos)${cleaned ? '; se van los estados malos' : ''}.`, fx: { kind: 'heal', actor: 'player', target: 'player', amount: 0 }, say: { text: `Una luz cálida se abre bajo tus pies${heroesOf(c).length > 1 ? ' y los de tu grupo' : ''}: las heridas se cierran${cleaned ? ' y lo malo se va' : ''}.`, tone: 'good' } });
+      ok = true;
+    }
+    if (spell.partyBuff) {
+      const who = heroesOf(c).filter((h) => h.hp > 0);
+      let last = null;
+      for (const h of who) last = schoolBuff(h, spell, spell.partyBuff, b);
+      const parts = last ? buffParts(last.mods) : [];
+      const txt = `${parts.join(', ')}${who.length > 1 ? ' para todo el grupo' : ''} (${spell.partyBuff.turns || 3} turnos)`;
+      addLog(c, 'player', { text: `${ok || after ? spell.name : `Lanzaste ${spell.name}`}: ${txt}.`, fx: { kind: 'buff', actor: 'player', target: 'player', label: spell.name, icon: spell.iconName || 'shield' }, say: { text: who.length > 1 ? `${spell.name} cubre a todo tu grupo: ${parts.join(', ')}.` : `${spell.name} te cubre: ${parts.join(', ')}.`, tone: 'good' } });
+      ok = true;
     }
     if (spell.pact) {
-      if (!P() || !P().startFrenzy) return { ok: false, why: 'Tu sangre no responde.' };
-      const info = P().bloodInfo ? P().bloodInfo(c, p) : null;
-      if (info && (info.frenzy > 0 || info.pending)) return { ok: false, why: 'Ya estás en Frenesí (o empieza en tu próximo turno).' };
+      const info = P() && P().bloodInfo ? P().bloodInfo(c, p) : null;
       const cost = Math.max(1, Math.round(p.maxHp * (spell.pact.hpPct || 0.1)));
-      if (p.hp <= cost) return { ok: false, why: `${spell.name}: te falta vida para pagar el pacto.` };
-      A.State.damagePlayer(cost);
-      P().startFrenzy(c, p, spell.pact.extra || 0);
-      const turnsF = ((P().TUNE.colmillos || {}).turns || 2) + (spell.pact.extra || 0);
-      addLog(c, 'player', { text: `Lanzaste ${spell.name}: perdés ${cost} de vida y el Frenesí empieza en tu próximo turno (${turnsF} turnos).`, dmg: cost, fx: { kind: 'buff', actor: 'player', target: 'player', label: spell.name, icon: 'bleed' }, say: { text: `Te abrís una herida y tu sangre responde: en tu próximo turno, el Frenesí (${turnsF} turnos).`, tone: 'crit' } });
-      return { ok: true };
+      if (!P() || !P().startFrenzy) why = 'Tu sangre no responde.';
+      else if (info && (info.frenzy > 0 || info.pending)) why = 'Ya estás en Frenesí (o empieza en tu próximo turno).';
+      else if (p.hp <= cost) why = `${spell.name}: te falta vida para pagar el pacto.`;
+      else {
+        A.State.damagePlayer(cost);
+        P().startFrenzy(c, p, spell.pact.extra || 0);
+        const turnsF = ((P().TUNE.colmillos || {}).turns || 2) + (spell.pact.extra || 0);
+        addLog(c, 'player', { text: `Lanzaste ${spell.name}: perdés ${cost} de vida y el Frenesí empieza en tu próximo turno (${turnsF} turnos).`, dmg: cost, fx: { kind: 'buff', actor: 'player', target: 'player', label: spell.name, icon: 'bleed' }, say: { text: `Te abrís una herida y tu sangre responde: en tu próximo turno, el Frenesí (${turnsF} turnos).`, tone: 'crit' } });
+        ok = true;
+      }
     }
     if (spell.hex) { // Maldición de penumbra (elfo oscuro): maldice a tu blanco sin gastar el turno
       const t = getTarget();
-      if (!t) return { ok: false, why: 'No hay a quién maldecir.' };
-      const amt = SC().val(spell.hex.amount, b);
-      t.effects = t.effects || [];
-      const old = t.effects.find((e) => e.type === 'curse');
-      if (old) { old.turns = Math.max(old.turns, spell.hex.turns || 3); old.value = Math.max(old.value || 1, amt); }
-      else t.effects.push({ type: 'curse', turns: spell.hex.turns || 3, value: amt, source: spell.id });
-      const noun = A.Skills ? A.Skills.noun(t) : t.displayName;
-      addLog(c, 'player', { text: `Lanzaste ${spell.name}: ${t.displayName} queda maldito (−${amt} de precisión y defensa, ${spell.hex.turns || 3} turnos).`, fx: { kind: 'status', target: fxKey(t), effect: 'curse' }, say: { text: `Una sombra se le pega a ${noun}: pega peor y le pegás más fácil.`, tone: 'good' } });
-      return { ok: true };
+      if (!t) why = 'No hay a quién maldecir.';
+      else {
+        const amt = SC().val(spell.hex.amount, b);
+        t.effects = t.effects || [];
+        const old = t.effects.find((e) => e.type === 'curse');
+        if (old) { old.turns = Math.max(old.turns, spell.hex.turns || 3); old.value = Math.max(old.value || 1, amt); }
+        else t.effects.push({ type: 'curse', turns: spell.hex.turns || 3, value: amt, source: spell.id });
+        const noun = A.Skills ? A.Skills.noun(t) : t.displayName;
+        addLog(c, 'player', { text: `Lanzaste ${spell.name}: ${t.displayName} queda maldito (−${amt} de precisión y defensa, ${spell.hex.turns || 3} turnos).`, fx: { kind: 'status', target: fxKey(t), effect: 'curse' }, say: { text: `Una sombra se le pega a ${noun}: pega peor y le pegás más fácil.`, tone: 'good' } });
+        ok = true;
+      }
     }
     if (spell.sleep) {
       const foes = hittableEnemies();
-      if (!foes.length) return { ok: false, why: 'No hay a quién dormir.' };
-      let slept = 0;
-      addLog(c, 'player', { text: `Lanzaste ${spell.name}.`, fx: { kind: 'cast', actor: 'player', icon: '' }, say: { text: 'Un sueño suave se desparrama sobre tus enemigos.', tone: 'good' } });
-      for (const e of foes) {
-        if (e.category === 'boss') {
-          applyStatus(e, 'stagger', { turns: 2, value: spell.sleep.bossStagger || 3, source: spell.id });
-          addLog(c, 'system', { text: `${e.displayName} no se duerme, pero queda mareado (−${spell.sleep.bossStagger || 3} de precisión).`, fx: { kind: 'status', target: fxKey(e), effect: 'stagger' } });
-        } else if (Math.random() < (spell.sleep.chance || 0.5) && !(A.Skills && A.Skills.immune(e, 'stun'))) {
-          slept += 1;
-          stunTarget(c, e, 1, spell);
+      if (!foes.length) why = 'No hay a quién dormir.';
+      else {
+        let slept = 0;
+        if (!after) addLog(c, 'player', { text: `Lanzaste ${spell.name}.`, fx: { kind: 'cast', actor: 'player', icon: '' }, say: { text: 'Un sueño suave se desparrama sobre tus enemigos.', tone: 'good' } });
+        for (const e of foes) {
+          if (e.hp <= 0) continue;
+          if (e.category === 'boss') {
+            applyStatus(e, 'stagger', { turns: 2, value: spell.sleep.bossStagger || 3, source: spell.id });
+            addLog(c, 'system', { text: `${e.displayName} no se duerme, pero queda mareado (−${spell.sleep.bossStagger || 3} de precisión).`, fx: { kind: 'status', target: fxKey(e), effect: 'stagger' } });
+          } else if (Math.random() < (spell.sleep.chance || 0.5) && !(A.Skills && A.Skills.immune(e, 'stun'))) {
+            slept += 1;
+            stunTarget(c, e, 1, spell);
+          }
         }
+        if (!slept && !foes.some((e) => e.category === 'boss')) addLog(c, 'system', { text: 'Nadie se durmió.', fx: { kind: 'note' } });
+        ok = true;
       }
-      if (!slept && !foes.some((e) => e.category === 'boss')) addLog(c, 'system', { text: 'Nadie se durmió.', fx: { kind: 'note' } });
-      return { ok: true };
     }
-    return { ok: false, why: '' };
+    return ok ? { ok: true } : { ok: false, why };
   }
 
   /**
@@ -3163,6 +3242,16 @@
       const petXp = Math.floor(totalXp / 2);
       addLog(c, 'system', { text: `${pet.name} ganó ${petXp} XP.`, fx: { kind: 'reward', petXp } });
       for (const msg of A.Tame.addPetXp(pet, petXp)) addLog(c, 'system', { text: msg, fx: { kind: 'note' } });
+    }
+
+    // v3.14: después de ganar, un respiro: el que pelea con magia recupera parte de la vida
+    // (desde que curarse con magia es de pocas razas, sin esto magos e híbridos no aguantaban dos peleas seguidas)
+    // (solo magos e híbridos: los guerreros nunca se curaban con magia y ya aguantaban igual)
+    const breath = p.hasMagic && B().classOf && B().classOf(p) !== 'warrior' ? (B().WIN_HEAL || 0) : 0;
+    if (breath > 0 && p.hp > 0 && p.hp < p.maxHp) {
+      const before = p.hp;
+      A.State.healHp(Math.max(1, Math.round(p.maxHp * breath)));
+      if (p.hp > before) addLog(c, 'system', { text: `Un respiro después de la pelea: +${p.hp - before} de vida.`, fx: { kind: 'heal', actor: 'player', target: 'player', amount: p.hp - before } });
     }
 
     // Loot

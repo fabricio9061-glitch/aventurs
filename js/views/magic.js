@@ -118,7 +118,7 @@
           <div class="book">
             ${schoolHtml(p)}
             <div class="book-list">${techRows(p)}</div>
-            <p class="book-more dim">Las técnicas no gastan maná. En la pelea, el botón Técnicas (o el de tu técnica de nacimiento) las muestra con su espera.</p>
+            <p class="book-more dim">Las técnicas no gastan maná. Tu maestro te enseña una nueva en los niveles 5, 13 y 21, y te pone una prueba en el 9, el 17 y el 25. En la pelea, el botón Técnicas las muestra con su espera.</p>
           </div>`;
       }
       return `
@@ -134,10 +134,8 @@
       ? `En las peleas recuperás ${A.Balance.regenLabel(regen.turn)} de maná por turno${regen.turn % 1 ? ' (en promedio)' : ''} y ${Math.round(regen.win * 100)}% al ganar.`
       : 'Tu maná no vuelve solo en las peleas: pociones de maná o dormir.';
     const type = classOf(p);
-    // v3.4: los magos aprenden todo; los híbridos, pocos
-    const more = type === 'mage'
-      ? 'Más hechizos: algunos habitantes los enseñan y todos los pergaminos de hechizo se pueden aprender (en la mochila, tocá el pergamino y "Aprender").'
-      : 'Los híbridos aprenden pocos hechizos: Chispa, Llama, Rayo helado y Segundo aliento (con los maestros) y 6 pergaminos de combate: Misil arcano, Quemar, Ojo de halcón, Fuerza arcana, Piel de piedra y Furia salvaje. Todo lo demás es de magos.';
+    // v3.14: la magia es solo la de tu raza (nadie enseña hechizos comunes y los pergaminos no se aprenden)
+    const more = `Tu magia es la de tu raza: ${type === 'mage' ? 'tu maestra o tu maestro' : 'tu maestro'} te enseña un hechizo nuevo en los niveles 5, 13 y 21, y te pone una prueba en el 9, el 17 y el 25. Los pergaminos se usan en la pelea, pero ya no se aprenden.`;
     const cast = A.Balance && A.Balance.canCast ? A.Balance.canCast(p) : { ok: true };
     return `
       <div class="book">

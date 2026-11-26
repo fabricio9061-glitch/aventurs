@@ -90,6 +90,14 @@ function setLevel(G, p, level) {
   }
 }
 
+/** v3.14: la mejor poción de curación (de las que se venden) para ese nivel. */
+function bestPotion(G, level) {
+  const ids = ['pocion_curacion_menor', 'pocion_curacion', 'pocion_curacion_mayor', 'pocion_curacion_suprema', 'pocion_curacion_divina'];
+  let best = null;
+  for (const id of ids) { const it = G.A.Data.getById('items', id); if (it && (it.tier || 1) <= level) best = it; }
+  return best;
+}
+
 /** Equipo "comprado" acorde al nivel: el mejor arma/armadura común o poco común de tier <= nivel. */
 function gearForLevel(G, p) {
   const { A } = G;
@@ -127,6 +135,11 @@ function newCharacter(G, raceId, opts = {}) {
   if (opts.armor !== undefined) p.equipment.armor = opts.armor;
   if (opts.noItems) {
     p.inventory = p.inventory.filter((s) => s.itemId.startsWith('coin_'));
+  }
+  // v3.14: pociones de curación de su nivel (la mejor que se puede comprar): todos se curan con pociones
+  if (opts.potions > 0) {
+    const pot = bestPotion(G, p.level || 1);
+    if (pot) p.inventory.push({ itemId: pot.id, qty: opts.potions });
   }
   if (opts.pet) {
     p.pet = opts.pet(G);
@@ -224,7 +237,14 @@ function playerAI(G) {
       if (p.mana - cost(s) < reserve && !finishes && !(s.area && alive.length > 1)) continue;
       // v3.3: los hechizos de daño pueden fallar (y con 20 hacen el doble)
       const sHit = s.sure ? 1 : (A.Combat.spellInfo ? A.Combat.spellInfo(s.id).hit : 1);
-      const ev = (s.area ? each + others * (alive.length - 1) : each) * (s.sure ? 1 : sHit + 0.05);
+      // v3.14: lo que agregan los nuevos: Moneda al aire (a veces el doble), contra un estado o contra tu sello
+      let mult = 1;
+      if (s.lucky) mult *= 1 + (s.lucky.chance || 0.5) * ((s.lucky.mult || 2) - 1);
+      if (s.vsStatus && weakest && (weakest.effects || []).some((e) => s.vsStatus.types.includes(e.type))) mult *= s.vsStatus.mult || 1.5;
+      if (s.vsMarked && weakest && weakest.pmarks && Object.keys(weakest.pmarks).length) mult *= s.vsMarked;
+      // y los que además curan, mejoran o duermen valen un poco más
+      if (s.partyBuff || s.partyHeal || s.sleep || s.buff) mult *= 1.2;
+      const ev = (s.area ? each + others * (alive.length - 1) : each) * mult * (s.sure ? 1 : sHit + 0.05);
       if (!best || ev > best.ev) best = { s, ev };
     }
   }
@@ -514,4 +534,4 @@ if (require.main === module) {
   report(process.argv[2]);
 }
 
-module.exports = { createGame, newCharacter, runFight, spawn, reportRaces, setLevel, gearForLevel, playerAI };
+module.exports = { createGame, newCharacter, runFight, spawn, reportRaces, setLevel, gearForLevel, playerAI, bestPotion };

@@ -241,7 +241,7 @@
           </div>`;
   }
 
-  /** v3.13: la escuela (o disciplina) de la raza: qué aprende en los niveles 5 y 9. */
+  /** v3.13: la escuela (o disciplina) de la raza: qué aprende en los niveles 5 y 9 (v3.14: y cuatro más hasta el 25). */
   function schoolBox(race) {
     const sc = A.Schools ? A.Schools.of(race.id) : null;
     if (!sc) return '';
@@ -252,7 +252,7 @@
         <span class="cc-passive-body">
           <span class="cc-passive-label">${sc.kind === 'discipline' ? 'Disciplina' : 'Escuela'}</span>
           <span class="cc-passive-name">${esc(sc.name)}</span>
-          <span class="cc-passive-text">${esc(sc.about)} Nivel 5: ${esc(name(sc.r5))}. Nivel 9: ${esc(name(sc.r9))}.</span>
+          <span class="cc-passive-text">${esc(sc.about)} Nivel 5: ${esc(name(sc.r5))}. Nivel 9: ${esc(name(sc.r9))}.${sc.r25 ? ' Y cuatro más hasta el nivel 25.' : ''}</span>
         </span>
       </div>`;
   }
