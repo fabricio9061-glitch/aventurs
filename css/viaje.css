@@ -1,0 +1,93 @@
+/* ============================================================
+   Aventurs — Pantalla de viaje ordenada (v3.18.2)
+   El escenario (lo que pasa en el camino) y la bitácora miden lo
+   mismo de alto, lo de adentro va centrado y en columna, y el
+   encuentro ocupa todo el escenario con los botones abajo.
+   (Va al final: pisa medidas de game.css y theme.css.)
+   ============================================================ */
+
+/* Escenario y bitácora lado a lado, con el mismo alto */
+.travel-body-v2 { grid-template-columns: minmax(0, 1fr) 340px; align-items: stretch; }
+.travel-stage-v2 { min-width: 0; gap: 12px; min-height: 366px; }
+
+/* La bitácora toma el alto del escenario (no lo estira) y adentro hace scroll */
+@media (min-width: 901px) {
+  .travel-log-v2 { height: 0; min-height: 100%; max-height: none; box-sizing: border-box; overflow: hidden; }
+  .travel-log-list { min-height: 0; }
+}
+@media (max-width: 900px) {
+  .travel-log-v2 { max-height: 320px; }
+}
+
+/* ---------- Lo que pasa en el camino: centrado, en columna ---------- */
+.travel-stage-content {
+  flex-direction: column;
+  gap: 14px;
+  min-height: 300px;
+  padding: 20px 24px;
+}
+.travel-stage-card {
+  width: 100%;
+  max-width: 560px;
+  box-sizing: border-box;
+  padding: 18px 22px;
+  gap: 18px;
+}
+.travel-stage-card-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  flex: none;
+  border-radius: 12px;
+  background: rgba(120, 90, 40, 0.1);
+}
+.travel-stage-card-text { font-size: 15px; }
+
+/* "Avanzando rápido..." como una etiqueta chica debajo, no al costado */
+.travel-auto-indicator {
+  margin-top: 0;
+  padding: 4px 14px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+/* Botones de abajo: alineados con el escenario */
+.travel-actions-v2 { gap: 12px; }
+.travel-actions-v2 > .btn-ghost { flex: none; }
+
+/* ---------- Encuentro: ocupa el escenario entero ---------- */
+.travel-stage-v2 > .travel-encounter-v2 {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  box-sizing: border-box;
+  padding: 22px 24px;
+}
+.travel-encounter-v2 .encounter-header {
+  gap: 20px;
+  margin-bottom: 14px;
+  padding-bottom: 14px;
+}
+.travel-encounter-v2 .encounter-icon-big { min-width: 120px; min-height: 96px; padding: 8px 12px; }
+.travel-encounter-v2 .encounter-title-v2 { font-size: 20px; }
+.travel-encounter-v2 .encounter-desc-v2 { margin: 0 0 14px; }
+.travel-encounter-v2 .encounter-actions-v2 { margin-top: auto; gap: 10px; align-items: stretch; }
+.travel-encounter-v2 .encounter-actions-v2 > button { min-height: 48px; padding: 10px 22px; font-size: 15px; }
+.travel-encounter-v2 .encounter-actions-v2 > .encounter-btn-fight { flex: 1 1 0; justify-content: center; }
+.travel-encounter-v2 .encounter-actions-v2 > .encounter-btn-avoid { flex: none; }
+.travel-encounter-v2 .encounter-actions-v2 > .encounter-btn-tame { flex: 1 1 0; justify-content: center; }
+.travel-stage-v2 > .travel-encounter-v2 { align-items: stretch; }
+.travel-encounter-v2 .encounter-header { align-self: stretch; }
+.travel-encounter-v2 .encounter-icon-big { min-height: 110px; }
+
+/* Pantallas bajas: el escenario más bajo, para que no haya que bajar */
+@media (max-height: 780px) and (min-width: 901px) {
+  .travel-stage-v2 { min-height: 280px; }
+  .travel-stage-content { min-height: 214px; padding: 14px 20px; }
+  .travel-stage-v2 > .travel-encounter-v2 { padding: 16px 20px; }
+  .travel-encounter-v2 .encounter-header { margin-bottom: 10px; padding-bottom: 10px; }
+  .travel-encounter-v2 .encounter-icon-big { min-height: 90px; }
+}

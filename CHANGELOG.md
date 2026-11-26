@@ -2,6 +2,13 @@
 
 La más nueva arriba. Cómo correr el juego y cómo está armado: [README.md](README.md).
 
+## Versión 3.18.2: el viaje, ordenado (`css/viaje.css`)
+
+- **Lo que pasa en el camino y la bitácora miden lo mismo de alto.** La bitácora ya no estira la pantalla: si hay muchos sucesos, se baja adentro.
+- El hallazgo va **centrado**, y "Avanzando rápido..." es una etiqueta chica debajo (antes quedaba pegada al costado).
+- **El encuentro ocupa todo el lugar:** criaturas más grandes, el texto debajo del título (antes quedaba en una columnita) y los botones abajo, con Pelear bien grande.
+- En pantallas bajas todo entra sin bajar.
+
 ## Versión 3.18.1: la pelea, ordenada
 
 - **Todas las tarjetas miden lo mismo** y quedan alineadas: las habilidades de la criatura ahora van en una columnita al costado del dibujo, no debajo de los números.

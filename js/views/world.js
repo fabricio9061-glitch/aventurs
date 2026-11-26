@@ -599,7 +599,7 @@
   function encounterSprites(ev) {
     const list = (ev.enemies && ev.enemies.length) ? ev.enemies : [ev.enemyId];
     const shown = list.slice(0, 4);
-    const size = shown.length === 1 ? 72 : shown.length === 2 ? 56 : 44;
+    const size = shown.length === 1 ? 80 : shown.length === 2 ? 64 : 56;
     return shown.map((x) => enemySprite(x, size)).join('') + (list.length > 4 ? `<span class="encounter-more">+${list.length - 4}</span>` : '');
   }
 
