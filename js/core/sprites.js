@@ -834,6 +834,17 @@
     P.rect(11, 13, 2, 1, 'k'); P.rect(19, 13, 2, 1, 'k');
   }
 
+  /** v3.14: un solo brazo de tentáculo que sale del agua y se enrosca (los del Kraken). */
+  function planTentacleArm(P) {
+    const pts = bez([15, 31], [5, 22], [27, 15], [18, 6], 16);
+    P.line(pts, 4.6, 1.3, 'b');
+    P.line([[18, 6], [19.6, 3.6], [22.2, 3.8], [22.6, 6.2], [20.8, 7.4]], 1.0, 0.45, 'b');
+    pts.forEach(([x, y], i) => { if (i > 1 && i < 14 && i % 2 === 0) P.put(x + (i < 8 ? 1.6 : -1.3), y + 0.2, 'c'); });
+    P.recolor(['b'], 'c', (x, y) => ((Math.floor(x) * 7 + Math.floor(y) * 5) % 11 === 0));
+    P.ell(15, 30.6, 9, 1.5, 'c');
+    P.rect(7, 30, 2, 1, 'c'); P.rect(22, 30, 2, 1, 'c');
+  }
+
   function planFish(P) {
     P.poly([[24.5, 17], [30.5, 8.5], [29, 17], [30.5, 25]], 'b~');
     P.poly([[12.5, 12.6], [17.5, 5], [20, 12.6]], 'b');
@@ -1299,7 +1310,7 @@
     beast: planBeast, dragon: planDragon, bird: planBird, owl: planOwl, bat: planBat,
     spider: planSpider, scorpion: planScorpion, crab: planCrab, serpent: planSerpent,
     slime: planSlime, ghost: planGhost, elemental: planElemental, golem: planGolem,
-    tree: planTree, eye: planEye, tentacle: planTentacle, fish: planFish, turtle: planTurtle,
+    tree: planTree, eye: planEye, tentacle: planTentacle, tentacleArm: planTentacleArm, fish: planFish, turtle: planTurtle,
     humanoid: planHumanoid,
   };
 
@@ -1432,6 +1443,7 @@
     balrog: { plan: 'humanoid', p: { sk: '#3a1a10', cl: '#2a0a05', wg: '#4a1a0a', a: '#1a0a05', f: '#ff8020', h: '#2a0a05', e: '#ffdd00' }, o: { size: 'huge', horns: 'big', wings: 'bat', hair: 'flame', weapon: 'whip', fire: true, outfit: 'none', eyes: 'glow', mouth: 'fangs' } },
     dragon_anciano: { plan: 'dragon', p: { b: '#8a1a1a', c: '#e0a060', a: '#e8e0d0', wg: '#a02a20', e: '#ffdd00' }, o: { big: true } },
     kraken: { plan: 'tentacle', p: { b: '#6a2a4a', c: '#a04a7a', e: '#ffcc00' }, o: { big: true } },
+    tentaculo_kraken: { plan: 'tentacleArm', p: { b: '#5a2a5a', c: '#d08ad0' } },
     alamuerte: { plan: 'dragon', p: { b: '#2a2a2e', c: '#4a4a52', a: '#c0c0c0', wg: '#3a1a10', f: '#ff6010', e: '#ff4010' }, o: { big: true, lava: true } },
     titan: { plan: 'humanoid', p: { sk: '#d8c8a0', h: '#e8e0d0', cl: '#6a6a8a', m: '#d4af37', a: '#d4af37', wd: '#6a4a2a', g: '#80c0ff', e: '#80c0ff' }, o: { size: 'huge', outfit: 'armor', beard: 'long', hair: 'long', hat: 'crown', weapon: 'hammer', eyes: 'glow' } },
     tarrasca: { plan: 'turtle', p: { b: '#6a5a3a', c: '#4a3a2a', a: '#c0b090', e: '#ff3030' }, o: { spikes: true, horns: true, big: true, fangs: true } },
@@ -1734,7 +1746,7 @@
   const PLAN_LABELS = {
     beast: 'Bestia', dragon: 'Dragón', bird: 'Ave', owl: 'Búho', bat: 'Murciélago', spider: 'Araña', scorpion: 'Escorpión',
     crab: 'Cangrejo', serpent: 'Serpiente', slime: 'Limo', ghost: 'Fantasma', elemental: 'Elemental', golem: 'Gólem',
-    tree: 'Árbol', eye: 'Ojo flotante', tentacle: 'Pulpo', fish: 'Pez', turtle: 'Tortuga', humanoid: 'Humanoide',
+    tree: 'Árbol', eye: 'Ojo flotante', tentacle: 'Pulpo', tentacleArm: 'Tentáculo', fish: 'Pez', turtle: 'Tortuga', humanoid: 'Humanoide',
   };
 
   /** Opciones del selector "Forma": cuerpos genéricos + copiar la forma de otra criatura. */

@@ -292,6 +292,11 @@ Explorar siempre hace pasar algo (`js/systems/explore.js` + `js/data/seed-events
 Cuatro poderes más por raza (48 hechizos y 24 técnicas): en el **13 y el 21** te los enseña tu maestro (se pagan); en el **17 y el 25**, con una prueba (36 misiones nuevas). Los magos tienen los hechizos grandes que antes daban los sabios; los híbridos, mejoras y hechizos medianos; los guerreros, técnicas.
 Los maestros del humano y del ángel se mudaron del Pueblo Inicial a la **Torre del Mago**.
 
+### Calamar, tentáculos, mapa y fondos
+- El "Tentáculo" del mar abierto ahora se llama **Calamar** (y ya no suelta madera ni raíces, sino tinta). Los **Tentáculos del Kraken** tienen dibujo propio: un brazo que sale del agua y se enrosca.
+- El mapa llena **todo el alto** de la pantalla (antes era una franja): arranca centrado donde estás y se arrastra para los costados.
+- **Fondos de pelea** según el lugar: bosque, bosque oscuro o de sangre, campo, cueva, cripta, noche, pantano, costa, abismo, montaña, desierto, ruinas, torre arcana, volcán, infierno, sueño, cielo y espacio.
+
 ### Jefes contra mascotas
 Un jefe que pelea contra una mascota tiene **50% más de vida y pega 15% más** (por cada mascota) y lo avisa al empezar. Medido: con una kitsune, un ángel de nivel 9 le ganaba al Archimago el 85% de las veces (solo, 34%); ahora 63%.
 

@@ -27,6 +27,20 @@
   let mainEl = null;
   let selectedId = null;
   let view = { x: 0, y: 0, w: W, h: H };
+  // v3.14: el mapa llena también el alto de la pantalla (antes quedaba una franja con bandas arriba y abajo)
+  let ASP = H / W;
+  function containerAsp() {
+    const svg = mainEl && mainEl.querySelector('.map2-svg');
+    const r = svg ? svg.getBoundingClientRect() : null;
+    return r && r.width > 0 && r.height > 0 ? Math.max(H / W, r.height / r.width) : H / W;
+  }
+  /** La vista que llena el alto, centrada (a lo ancho) en x. */
+  function tallView(cx) {
+    ASP = containerAsp();
+    const h = H;
+    const w = Math.min(W, h / ASP);
+    return { x: Math.max(0, Math.min(W - w, (cx == null ? W / 2 : cx) - w / 2)), y: 0, w, h };
+  }
   let lastLabels = {}; // v3.11.1: dónde quedó cada nombre (para poner al compañero del otro lado)
   let escHandler = null;
   let drag = null;
@@ -783,9 +797,9 @@
 
   function setView(v) {
     const minW = W / 3;
-    const maxW = W * 1.15;
-    const nw = Math.max(minW, Math.min(maxW, v.w));
-    const nh = nw * (H / W);
+    const maxW = Math.min(W * 1.15, (H * 1.15) / ASP);
+    const nw = Math.max(Math.min(minW, maxW), Math.min(maxW, v.w));
+    const nh = nw * ASP;
     const nx = Math.max(-W * 0.2, Math.min(W * 1.2 - nw, v.x));
     const ny = Math.max(-H * 0.2, Math.min(H * 1.2 - nh, v.y));
     view = { x: nx, y: ny, w: nw, h: nh };
@@ -851,7 +865,7 @@
       mainEl.querySelector('[data-map-back]').addEventListener('click', closeMap);
       mainEl.querySelectorAll('[data-map-zoom]').forEach((b) => b.addEventListener('click', () => {
         const z = b.dataset.mapZoom;
-        if (z === 'fit') { setView({ x: 0, y: 0, w: W, h: H }); return; }
+        if (z === 'fit') { const here = selectedId ? layout()[selectedId] : null; setView(tallView(here ? here.x : null)); return; }
         zoomAt(z === 'in' ? 0.8 : 1.25, view.x + view.w / 2, view.y + view.h / 2);
       }));
     }
@@ -913,6 +927,10 @@
         view = { x: Math.max(0, Math.min(W - w, here.x - w / 2)), y: Math.max(0, Math.min(H - h, here.y - h / 2)), w, h };
       }
       render();
+      if (!here) { // v3.14: arranca llenando el alto, centrado en donde estás
+        const cur = selectedId ? layout()[selectedId] : null;
+        setView(tallView(cur ? cur.x : null));
+      }
       if (!escHandler) {
         escHandler = (e) => { if (e.key === 'Escape' && A.State.ui.showMap && !A.State.ui.openModal) closeMap(); };
         document.addEventListener('keydown', escHandler);

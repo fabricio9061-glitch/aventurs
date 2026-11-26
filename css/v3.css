@@ -1328,3 +1328,146 @@
 /* la escuela en la creación del personaje */
 .cc-passive.cc-school { margin-top: 8px; }
 .combat-spell-quick { color: #2a6a30; }
+
+/* ============================================================
+   51. v3.14: fondos de pelea según el lugar
+   Todo con degradados (sin imágenes): cielo, horizonte y siluetas.
+   Una sombra abajo mantiene las tarjetas legibles.
+   ============================================================ */
+.cb-arena[class*="bg-"] { box-shadow: inset 0 0 70px rgba(0, 0, 0, 0.55); }
+.cb-arena[class*="bg-"]::before {
+  content: ''; position: absolute; inset: 0; pointer-events: none; z-index: 0;
+  background: linear-gradient(180deg, transparent 45%, rgba(10, 8, 6, 0.55) 100%);
+}
+.cb-arena[class*="bg-"] > * { position: relative; z-index: 1; }
+.cb-arena.bg-bosque {
+  background:
+    radial-gradient(ellipse 18% 55% at 8% 62%, #1f3a22 60%, transparent 61%),
+    radial-gradient(ellipse 14% 48% at 24% 66%, #24452a 60%, transparent 61%),
+    radial-gradient(ellipse 16% 52% at 78% 64%, #20402a 60%, transparent 61%),
+    radial-gradient(ellipse 13% 45% at 94% 68%, #1b3420 60%, transparent 61%),
+    linear-gradient(180deg, #3d5a48 0%, #5d7a58 45%, #2f4a2a 62%, #2a3d1e 100%);
+}
+.cb-arena.bg-bosque-oscuro {
+  background:
+    radial-gradient(ellipse 16% 58% at 10% 60%, #111c16 60%, transparent 61%),
+    radial-gradient(ellipse 14% 50% at 30% 66%, #142219 60%, transparent 61%),
+    radial-gradient(ellipse 16% 55% at 80% 62%, #101a14 60%, transparent 61%),
+    radial-gradient(circle at 70% 18%, rgba(170, 200, 255, 0.25) 0 3%, transparent 4%),
+    linear-gradient(180deg, #1b2630 0%, #22302c 50%, #162016 62%, #121a10 100%);
+}
+.cb-arena.bg-bosque-sangre {
+  background:
+    radial-gradient(ellipse 16% 55% at 12% 62%, #3a1418 60%, transparent 61%),
+    radial-gradient(ellipse 15% 50% at 84% 64%, #3a1216 60%, transparent 61%),
+    linear-gradient(180deg, #4a1c22 0%, #6a2a2a 45%, #2e1214 62%, #22100e 100%);
+}
+.cb-arena.bg-campo {
+  background:
+    radial-gradient(circle at 82% 20%, rgba(255, 236, 170, 0.75) 0 4%, transparent 5%),
+    radial-gradient(ellipse 60% 22% at 25% 64%, #6a8a44 60%, transparent 61%),
+    radial-gradient(ellipse 55% 20% at 80% 66%, #5f7f3c 60%, transparent 61%),
+    linear-gradient(180deg, #7aa6c8 0%, #b8d2d8 48%, #6e8c46 60%, #4f6a30 100%);
+}
+.cb-arena.bg-cueva, .cb-arena.bg-cripta {
+  background:
+    radial-gradient(ellipse 40% 30% at 50% 0%, #0e0b09 60%, transparent 61%),
+    radial-gradient(ellipse 12% 30% at 6% 30%, #0f0c0a 60%, transparent 61%),
+    radial-gradient(ellipse 12% 30% at 94% 28%, #0f0c0a 60%, transparent 61%),
+    radial-gradient(ellipse 30% 30% at 50% 70%, rgba(255, 160, 70, 0.14), transparent 70%),
+    linear-gradient(180deg, #2a241f 0%, #3a3128 55%, #26201a 62%, #1c1712 100%);
+}
+.cb-arena.bg-cripta {
+  background:
+    repeating-linear-gradient(90deg, rgba(0, 0, 0, 0.25) 0 2px, transparent 2px 64px),
+    radial-gradient(ellipse 30% 30% at 50% 70%, rgba(120, 200, 140, 0.10), transparent 70%),
+    linear-gradient(180deg, #23252a 0%, #33363a 55%, #202226 62%, #16171a 100%);
+}
+.cb-arena.bg-noche {
+  background:
+    radial-gradient(circle at 78% 20%, #e8e6d8 0 4%, transparent 4.5%),
+    radial-gradient(circle at 78% 20%, rgba(232, 230, 216, 0.25) 0 9%, transparent 12%),
+    linear-gradient(90deg, transparent 0 10%, #15151c 10% 11.5%, transparent 11.5% 88%, #15151c 88% 89.5%, transparent 89.5%),
+    linear-gradient(180deg, #1c2235 0%, #2c3046 50%, #1e2018 62%, #15160f 100%);
+}
+.cb-arena.bg-pantano {
+  background:
+    radial-gradient(ellipse 14% 50% at 10% 60%, #2a3322 60%, transparent 61%),
+    radial-gradient(ellipse 13% 46% at 88% 62%, #263020 60%, transparent 61%),
+    radial-gradient(ellipse 70% 8% at 50% 75%, rgba(120, 150, 110, 0.25), transparent 70%),
+    linear-gradient(180deg, #48563e 0%, #6a7454 45%, #354030 62%, #2a3226 100%);
+}
+.cb-arena.bg-costa {
+  background:
+    radial-gradient(circle at 18% 22%, rgba(255, 240, 190, 0.8) 0 4%, transparent 5%),
+    linear-gradient(180deg, #78a8cc 0%, #b9d6e2 42%, #3e7a9a 46%, #2c5f7c 60%, #c9b07a 61%, #a88f5a 100%);
+}
+.cb-arena.bg-abismo {
+  background:
+    linear-gradient(100deg, transparent 0 28%, rgba(140, 200, 255, 0.10) 30% 36%, transparent 38% 60%, rgba(140, 200, 255, 0.08) 62% 66%, transparent 68%),
+    radial-gradient(circle at 20% 40%, rgba(180, 230, 255, 0.35) 0 0.6%, transparent 0.8%),
+    radial-gradient(circle at 70% 30%, rgba(180, 230, 255, 0.35) 0 0.5%, transparent 0.7%),
+    linear-gradient(180deg, #1c4a6a 0%, #12324c 50%, #0c2234 62%, #081826 100%);
+}
+.cb-arena.bg-montana {
+  background:
+    linear-gradient(135deg, transparent 0 40%, #6a7480 40% 41%, transparent 41%),
+    conic-gradient(from 135deg at 30% 30%, #5a6470 0 90deg, transparent 90deg),
+    conic-gradient(from 135deg at 72% 22%, #4e5864 0 90deg, transparent 90deg),
+    linear-gradient(180deg, #8aa2b8 0%, #c2ced6 40%, #5c6670 62%, #46505a 100%);
+}
+.cb-arena.bg-desierto {
+  background:
+    radial-gradient(circle at 80% 18%, rgba(255, 245, 200, 0.9) 0 5%, transparent 6%),
+    radial-gradient(ellipse 55% 18% at 25% 64%, #c9a25a 60%, transparent 61%),
+    radial-gradient(ellipse 50% 16% at 82% 66%, #bf9650 60%, transparent 61%),
+    linear-gradient(180deg, #e2b878 0%, #f0d6a0 46%, #c79c58 60%, #a8803e 100%);
+}
+.cb-arena.bg-ruinas, .cb-arena.bg-arcano {
+  background:
+    linear-gradient(90deg, transparent 0 8%, #4a4238 8% 12%, transparent 12% 22%, #4a4238 22% 25%, transparent 25% 75%, #4a4238 75% 78%, transparent 78% 88%, #4a4238 88% 92%, transparent 92%),
+    linear-gradient(180deg, #6a7088 0%, #9a96a0 48%, #4a4238 62%, #383028 100%);
+}
+.cb-arena.bg-arcano {
+  background:
+    radial-gradient(circle at 50% 30%, rgba(170, 130, 255, 0.30) 0 10%, transparent 30%),
+    linear-gradient(90deg, transparent 0 10%, #2e2648 10% 14%, transparent 14% 86%, #2e2648 86% 90%, transparent 90%),
+    linear-gradient(180deg, #2a2248 0%, #463a6e 50%, #241e36 62%, #1a1628 100%);
+}
+.cb-arena.bg-volcan, .cb-arena.bg-infierno {
+  background:
+    conic-gradient(from 140deg at 50% 18%, #3a1a10 0 80deg, transparent 80deg),
+    radial-gradient(ellipse 60% 20% at 50% 100%, rgba(255, 120, 30, 0.45), transparent 70%),
+    linear-gradient(180deg, #4a1a12 0%, #8a3418 45%, #2e140c 62%, #1e0c08 100%);
+}
+.cb-arena.bg-infierno {
+  background:
+    radial-gradient(ellipse 70% 25% at 50% 100%, rgba(255, 90, 20, 0.55), transparent 70%),
+    radial-gradient(circle at 20% 30%, rgba(255, 160, 60, 0.4) 0 0.6%, transparent 0.8%),
+    radial-gradient(circle at 75% 40%, rgba(255, 160, 60, 0.4) 0 0.5%, transparent 0.7%),
+    linear-gradient(180deg, #3a0c0c 0%, #6a1a12 50%, #2a0a08 62%, #1a0606 100%);
+}
+.cb-arena.bg-sueno {
+  background:
+    radial-gradient(circle at 20% 25%, rgba(255, 255, 255, 0.7) 0 0.4%, transparent 0.6%),
+    radial-gradient(circle at 60% 15%, rgba(255, 255, 255, 0.7) 0 0.4%, transparent 0.6%),
+    radial-gradient(circle at 85% 30%, rgba(255, 255, 255, 0.6) 0 0.4%, transparent 0.6%),
+    radial-gradient(ellipse 80% 30% at 50% 62%, rgba(140, 230, 170, 0.25), transparent 70%),
+    linear-gradient(180deg, #2e2450 0%, #4a3a78 48%, #2a3a3a 62%, #1e2a28 100%);
+}
+.cb-arena.bg-cielo {
+  background:
+    radial-gradient(ellipse 18% 8% at 20% 30%, rgba(255, 255, 255, 0.9) 60%, transparent 62%),
+    radial-gradient(ellipse 22% 9% at 70% 22%, rgba(255, 255, 255, 0.85) 60%, transparent 62%),
+    radial-gradient(ellipse 80% 16% at 50% 70%, #f4f0e4 60%, transparent 62%),
+    linear-gradient(180deg, #8ec0e8 0%, #cfe4f2 50%, #ece6d4 64%, #d8cfb8 100%);
+}
+.cb-arena.bg-espacio {
+  background:
+    radial-gradient(circle at 15% 20%, #fff 0 0.35%, transparent 0.5%),
+    radial-gradient(circle at 42% 12%, #fff 0 0.3%, transparent 0.45%),
+    radial-gradient(circle at 68% 28%, #fff 0 0.35%, transparent 0.5%),
+    radial-gradient(circle at 88% 14%, #fff 0 0.3%, transparent 0.45%),
+    radial-gradient(circle at 80% 22%, #c8c0b0 0 6%, transparent 6.5%),
+    linear-gradient(180deg, #0c0a1e 0%, #1c1638 55%, #3a3644 62%, #24222c 100%);
+}

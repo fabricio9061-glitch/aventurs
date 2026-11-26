@@ -400,4 +400,17 @@
     offer: 'En la Ciudad de Dite hay una arena donde pelea la ira en persona. Ganá dos peleas ahí y no va a quedar laberinto que no sea tuyo.', done: 'Rey del laberinto. Ya no tengo nada que enseñarte.' });
   T('licantropo', 25, { title: 'La última cacería', enemy: 'cancerbero', count: 3, plural: 'cancerberos', where: 'Río Estigia', goal: 'Derrotá cancerberos',
     offer: 'En el Río Estigia hay perros de tres cabezas que cuidan la puerta del infierno. Cazá a tres y vas a ser el alfa de cualquier manada.', done: 'Sos el alfa. La manada entera aúlla con vos.' });
+
+  // ---------------------------------------------------------------
+  // 7) El "Tentáculo" del mar abierto es un calamar (los tentáculos de verdad son los del Kraken)
+  // ---------------------------------------------------------------
+  const sq = byId(S.enemies, 'tentaculo');
+  if (sq) {
+    sq.name = 'Calamar';
+    sq.description = 'Un calamar de mar abierto, del tamaño de un bote. Te agarra con los brazos y no te suelta.';
+    sq.drops = (sq.drops || []).filter((d) => !['mat_madera', 'mat_raiz_arcana'].includes(d.itemId)); // madera y raíces no tenían sentido
+    if (!sq.drops.some((d) => d.itemId === 'mat_tinta_kraken')) sq.drops.push({ itemId: 'mat_tinta_kraken', chance: 0.3 });
+  }
+  const tk = byId(S.enemies, 'tentaculo_kraken');
+  if (tk) tk.sprite = Object.assign({}, tk.sprite || {}, { t: 'tentaculo_kraken' });
 })(window.Aventurs);

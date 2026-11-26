@@ -15,6 +15,24 @@
 (function (A) {
   'use strict';
 
+  // v3.14: el fondo de la pelea según dónde estás (bosque, cueva, mar, volcán, cielo...)
+  const BG_OF = {
+    forest: 'bosque', grove: 'bosque', darkwood: 'bosque-oscuro', bloodwood: 'bosque-sangre',
+    plains: 'campo', meadow: 'campo', hills: 'campo', village: 'campo',
+    cave: 'cueva', crypt: 'cripta', lair: 'cueva', graveyard: 'noche', gothic: 'noche',
+    swamp: 'pantano', coast: 'costa', pirate: 'costa', sea: 'costa', abyss: 'abismo',
+    mountain: 'montana', desert: 'desierto', ruins: 'ruinas', arcane: 'arcano',
+    volcano: 'volcan', hell: 'infierno', dream: 'sueno', sky: 'cielo', space: 'espacio',
+  };
+  function arenaBg() {
+    const w = A.State.world || {};
+    const t = A.State.traveling;
+    const id = (t && (t.toId || t.to || t.destination)) || w.regionId;
+    const r = id && A.Data.getById ? A.Data.getById('regions', id) : null;
+    const bg = r && BG_OF[r.biome];
+    return bg ? `bg-${bg}` : '';
+  }
+
   let mainEl = null;
   let unsubs = [];
   let resultTimer = null;
@@ -338,7 +356,7 @@
     }
 
     return `
-      <div class="cb-arena ${c.ambush ? 'is-ambush' : ''} ${c.party ? 'is-party' : ''} ${units >= 10 ? 'is-packed' : ''} units-${Math.min(units, 9)} enemies-${Math.min(n, 5)}" data-sec="arena">
+      <div class="cb-arena ${arenaBg()} ${c.ambush ? 'is-ambush' : ''} ${c.party ? 'is-party' : ''} ${units >= 10 ? 'is-packed' : ''} units-${Math.min(units, 9)} enemies-${Math.min(n, 5)}" data-sec="arena">
         <div class="cb-side cb-allies">
           ${allies}
         </div>
