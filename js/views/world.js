@@ -272,7 +272,7 @@
     if (!known) {
       return `
         <button class="creature-chip is-unknown" data-creature="${esc(e.id)}" title="Todavía no la viste">
-          <span class="creature-icon">${enemySprite(e, 32)}</span>
+          <span class="creature-icon">${A.Sprites ? A.Sprites.html(e, { size: 32, silhouette: true }) : ''}</span>
           <span>???</span>
         </button>`;
     }

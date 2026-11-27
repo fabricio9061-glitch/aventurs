@@ -1610,10 +1610,14 @@
     return `data:image/svg+xml;utf8,${encodeURIComponent(colsToSvg(cols))}`;
   }
 
-  function urlForSpec(spec) {
-    const key = JSON.stringify(spec);
+  // v3.21.4: la silueta se dibuja en el dibujo mismo (un filtro CSS
+  // la dejaba vacía en el iPhone).
+  function urlForSpec(spec, silhouette) {
+    const key = (silhouette ? 'sil:' : '') + JSON.stringify(spec);
     if (cache.has(key)) return cache.get(key);
-    const url = colsToUrl(renderCols(spec));
+    let cols = renderCols(spec);
+    if (silhouette) cols = cols.map((c) => (c ? '#76644a' : null));
+    const url = colsToUrl(cols);
     cache.set(key, url);
     return url;
   }
@@ -1641,7 +1645,7 @@
     const e = resolve(enemyOrId);
     if (!e) return '';
     const cls = [opts.flip ? 'is-flipped' : '', opts.cls || ''].filter(Boolean).join(' ');
-    return imgTag(urlForSpec(specFor(e)), opts.size || 48, cls);
+    return imgTag(urlForSpec(specFor(e), !!opts.silhouette), opts.size || 48, cls);
   }
 
   function svg(enemyOrId) {

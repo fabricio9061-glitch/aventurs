@@ -672,7 +672,7 @@
             const tl = ok && A.Encounter && A.Encounter.timeLabel ? A.Encounter.timeLabel(e) : '';
             return `
               <span class="map3-foe ${ok ? '' : 'is-unknown'}" title="${U().esc(ok ? `${e.name}${tl ? ` · ${tl}` : ''}` : 'Todavía no la viste')}">
-                ${A.Sprites ? A.Sprites.html(e, { size: 30 }) : ''}
+                ${A.Sprites ? A.Sprites.html(e, { size: 30, silhouette: !ok }) : ''}
                 ${tl ? `<span class="map3-foe-time">${U().icon(e.time === 'night' ? 'moon' : 'sun', 12)}</span>` : ''}
               </span>`;
           }).join('')}

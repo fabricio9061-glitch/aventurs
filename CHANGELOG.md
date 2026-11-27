@@ -2,6 +2,14 @@
 
 La más nueva arriba. Cómo correr el juego y cómo está armado: [README.md](README.md).
 
+## Versión 3.21.4: el juego en el celular
+
+- **La página entra en la pantalla:** la cabecera (Grupo, Diario, Menú) era más ancha que el teléfono, así que el celular achicaba todo y quedaba una franja oscura a la derecha. Ahora los botones van con su dibujo y el nombre chiquito abajo, y todo entra justo.
+- **Sin el personaje repetido:** arriba queda la franja con vida, maná, comida, plata y ahora también la experiencia (una rayita violeta abajo). La ficha de abajo ya no repite el retrato ni las barras: empieza con el nombre y sigue con tus números, el equipo y la mochila.
+- **La crónica de arriba:** en el celular muestra solo la última, con el texto entero en dos renglones (antes salían puntitos).
+- **Las criaturas "???":** la silueta se dibuja en el dibujo mismo; en el iPhone se veían vacías.
+- **Pequeñas cosas:** las chapitas del pueblo ya no quedan abajo del botón del sonido, y las pestañas del Diario entran en la pantalla.
+
 ## Versión 3.21.3: tienda ordenada, ficha del objeto nueva y mejoras más caras
 
 - **Tienda:** el dibujo de cada cosa queda centrado en su círculo, y las etiquetas "Te encanta", "Rinde poco" y "No come" van al lado del precio: ya no tapan el nombre.

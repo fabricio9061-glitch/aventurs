@@ -28,7 +28,8 @@ aventurs/
 │   ├── pelea2.css          Pelea más limpia: crónica por turnos y efectos nuevos (v3.19)
 │   ├── oficios.css         Herrero y cosas para lucirse (v3.20)
 │   ├── pueblo.css          La pantalla del lugar con el estilo de las tarjetas nuevas (v3.20.1)
-│   └── habitante.css       La ventana de cada habitante, más linda (v3.20.3)
+│   ├── habitante.css       La ventana de cada habitante, más linda (v3.20.3)
+│   └── celular.css         El juego en el celular: todo entra en la pantalla (v3.21.4)
 ├── js/
 │   ├── core/               utils, bus (pub/sub), balance (TODAS las fórmulas), sprites e item-sprites
 │   │                       (pixel art), data (carga los seeds + cambios del editor), accounts,

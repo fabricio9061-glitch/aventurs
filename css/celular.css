@@ -1,0 +1,65 @@
+
+/* ============================================================
+   v3.21.4: el juego en el celular.
+   - La página nunca más ancha que la pantalla (la cabecera era
+     más ancha y el teléfono achicaba todo).
+   - Arriba la franja con vida, maná, comida y experiencia; abajo
+     la ficha ya no repite el retrato ni las barras.
+   - La crónica de arriba muestra una sola entrada, entera.
+   ============================================================ */
+
+html, body { max-width: 100%; overflow-x: clip; }
+
+/* ---------- La franja de arriba: con la experiencia finita ---------- */
+.mob-xp { display: none; }
+@media (max-width: 900px) {
+  .mob-status { position: relative; overflow: hidden; padding-bottom: 11px; }
+  .mob-xp { display: block; position: absolute; left: 0; right: 0; bottom: 0; height: 4px; background: rgba(0, 0, 0, 0.12); }
+  .mob-xp > span { display: block; height: 100%; background: linear-gradient(90deg, #8a5ac8, #b48ae6); }
+  .mob-coins { align-self: flex-start; padding-top: 2px; }
+
+  /* la ficha de abajo: sin el retrato ni las barras (ya están arriba) */
+  .shell-sidebar .sb-head .sb-portrait,
+  .shell-sidebar .sb-head .sb-vitals { display: none; }
+  .shell-sidebar .sb-head { padding-top: 12px; padding-bottom: 12px; min-height: 0; }
+  .shell-sidebar .sb-head .sb-id { flex: 1; min-width: 0; }
+  .shell-sidebar .sb-head .sb-head-btns { margin-left: auto; justify-self: end; }
+}
+
+/* ---------- La cabecera entra en la pantalla ---------- */
+@media (max-width: 600px) {
+  .shell-header { gap: 6px; padding-left: 10px; padding-right: 8px; min-width: 0; }
+  .shell-brand { min-width: 0; flex-shrink: 1; gap: 6px; }
+  .shell-brand .brand-name { font-size: 16px; }
+  .shell-actions { flex-shrink: 0; gap: 0; margin-left: auto; }
+  .shell-actions .head-btn { display: inline-flex; flex-direction: column; align-items: center; gap: 1px; padding: 4px 7px; font-size: 10.5px; line-height: 1.1; min-width: 0; }
+  .shell-actions .head-btn svg, .shell-actions .head-btn .px-icon { width: 20px; height: 20px; }
+  .shell-actions .pt-head-btn .pt-dot { top: 2px; right: 4px; }
+}
+@media (max-width: 380px) {
+  .shell-brand .brand-name { display: none; }
+}
+
+/* ---------- La crónica de arriba: una sola, entera ---------- */
+@media (max-width: 600px) {
+  .chronicles-bar { gap: 8px; padding: 5px 8px; }
+  .chronicles-bar-label { padding-right: 6px; }
+  .chronicles-bar-label > span { display: none; }
+  .chronicle-bar-entry:not(:first-child) { display: none; }
+  .chronicle-bar-entry:first-child { max-width: none; white-space: normal; align-items: flex-start; }
+  .chronicle-bar-entry:first-child .chronicle-bar-text { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; line-height: 1.3; font-size: 11.5px; }
+  .chronicles-clock .clock-icon svg, .chronicles-clock .clock-icon .px-icon { width: 20px; height: 20px; }
+}
+
+/* ---------- La cabecera del pueblo: las chapitas no van abajo del botón del sonido ---------- */
+@media (max-width: 600px) {
+  .region2-info { min-width: 0; }
+  .region2-kicker { padding-right: 34px; }
+  .region2-tag { font-size: 10.5px; }
+}
+
+/* ---------- Pestañas de las ventanas: entran en la pantalla ---------- */
+@media (max-width: 600px) {
+  .npc2-tabs, .journal-tabs { overflow-x: auto; scrollbar-width: none; }
+  .journal-tabs .npc2-tab { padding: 8px 9px 10px; gap: 5px; flex: 1 1 auto; min-width: 0; }
+}

@@ -447,7 +447,7 @@
 .creature-list-row.is-unknown .px-sprite,
 .creature-modal.is-unknown .px-sprite,
 .bestiary-card.is-unknown .px-sprite,
-.map3-foe.is-unknown .px-sprite { filter: brightness(0) opacity(0.45); }
+.map3-foe.is-unknown .px-sprite { opacity: 0.85; }
 .creature-chip.is-unknown { color: var(--text-muted, #7a6a50); font-style: italic; }
 .creature-chip.is-off { opacity: 0.6; }
 .creature-chip .creature-time { display: inline-flex; margin-left: -2px; }

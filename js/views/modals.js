@@ -687,7 +687,7 @@
       return modalShell('???', `
         <div class="creature-modal is-unknown">
           <div class="creature-modal-header">
-            <div class="creature-modal-icon">${A.Sprites ? A.Sprites.html(e, { size: 80 }) : ''}</div>
+            <div class="creature-modal-icon">${A.Sprites ? A.Sprites.html(e, { size: 80, silhouette: true }) : ''}</div>
             <div>
               <div class="creature-modal-name">???</div>
               <div class="creature-modal-meta dim"><span class="pill pill-tier">Nivel ${e.tier}</span></div>
@@ -798,7 +798,7 @@
             const tl = known && A.Encounter && A.Encounter.timeLabel ? A.Encounter.timeLabel(e) : '';
             return `
             <button class="creature-list-row ${known ? '' : 'is-unknown'}" data-creature="${A.Utils.escapeHtml(e.id)}">
-              <span class="creature-list-icon">${A.Sprites ? A.Sprites.html(e, { size: 36 }) : ''}</span>
+              <span class="creature-list-icon">${A.Sprites ? A.Sprites.html(e, { size: 36, silhouette: !known }) : ''}</span>
               <span class="creature-list-info">
                 <span class="creature-list-name">${known ? A.Utils.escapeHtml(e.name) : '???'}</span>
                 <span class="creature-list-meta dim">

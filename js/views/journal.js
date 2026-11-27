@@ -165,7 +165,7 @@
     const meta = !known ? 'Sin descubrir' : bk && bk.killed ? `${bk.killed} ${bk.killed === 1 ? 'vencida' : 'vencidas'}` : 'Vista';
     return `
       <button class="bestiary-card ${known ? '' : 'is-unknown'} ${studied ? 'is-studied' : ''} ${e.category === 'boss' ? 'is-boss' : ''}" data-bestiary="${U().esc(e.id)}" title="${U().esc(known ? `${e.name}${tl ? ` · ${tl}` : ''}` : 'Todavía no la viste')}">
-        <span class="bestiary-sprite">${A.Sprites ? A.Sprites.html(e, { size: 48 }) : ''}</span>
+        <span class="bestiary-sprite">${A.Sprites ? A.Sprites.html(e, { size: 48, silhouette: !known }) : ''}</span>
         <span class="bestiary-name">${known ? U().esc(e.name) : '???'}</span>
         <span class="bestiary-meta">${meta}</span>
         ${tl ? `<span class="bestiary-time">${U().icon(e.time === 'night' ? 'moon' : 'sun', 14)}</span>` : ''}

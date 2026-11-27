@@ -46,7 +46,7 @@
           <div class="shell-brand">
             <span class="brand-icon">${A.UI ? A.UI.icon('swords', 26) : ''}</span>
             <span class="brand-name">Aventurs</span>
-            <span class="version-pill" title="Versión del juego">v3.21.3</span>
+            <span class="version-pill" title="Versión del juego">v3.21.4</span>
           </div>
           ${tabs.length > 1 ? `
             <nav class="shell-nav">
@@ -61,7 +61,7 @@
             <span class="pt-head-slot" id="pt-head-slot">${A.Views.Party ? A.Views.Party.headerButton() : ''}</span>
             <button class="btn-ghost head-btn" data-action="journal" title="Misiones y crónicas">${A.UI ? A.UI.icon('book', 18) : ''}<span>Diario</span></button>
             ${canEdit() ? '<button class="btn-ghost head-btn" data-action="editor">Editor</button>' : ''}
-            <button class="btn-ghost head-btn" data-action="menu">Menú</button>
+            <button class="btn-ghost head-btn" data-action="menu" title="Menú">${A.UI ? A.UI.icon('menu', 18) : ''}<span>Menú</span></button>
           </div>
         </header>
 
@@ -112,6 +112,13 @@
     return `<div class="char-passive" title="${A.Utils.escapeHtml(info.text)}">${ico}<span>${A.Utils.escapeHtml(info.name)}</span></div>`;
   }
 
+  /** v3.21.4: la experiencia, finita, abajo de todo en la franja del celular. */
+  function xpBar(p) {
+    const lo = xpForLevel(p.level), hi = xpForLevel(p.level + 1);
+    const span = Math.max(1, hi - lo), cur = Math.max(0, p.xp - lo);
+    return `<span class="mob-xp" title="Experiencia: ${cur} de ${span}"><span style="width:${pct(cur, span)}%"></span></span>`;
+  }
+
   /** v2.0: en el celular, una franja con lo esencial arriba de todo (la ficha completa queda abajo). */
   function renderMobStatus(p) {
     if (!mobStatusEl || !p) return;
@@ -125,6 +132,7 @@
           ${p.hasMagic ? `<span class="mob-stat">${A.UI ? A.UI.icon('spell', 14) : ''}<b class="num">${p.mana}/${p.maxMana}</b>${bar('is-mana', p.mana, p.maxMana)}</span>` : ''}
           <span class="mob-stat">${A.UI ? A.UI.icon('food', 14) : ''}<b class="num">${p.food || 0}</b></span>
         </span>
+        ${xpBar(p)}
       </span>
       <span class="mob-coins">${A.Currency.walletHtml ? A.Currency.walletHtml(14) : ''}</span>
     `;
