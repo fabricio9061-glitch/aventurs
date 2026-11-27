@@ -2,6 +2,10 @@
 
 La más nueva arriba. Cómo correr el juego y cómo está armado: [README.md](README.md).
 
+## Versión 3.21.5: que el celular se actualice
+
+- El celular se quedaba con la versión vieja guardada. Ahora cada versión le avisa al navegador que baje los archivos nuevos, así la tarjeta grande del personaje aparece arriba sin tener que borrar nada.
+
 ## Versión 3.21.4: el juego en el celular
 
 - **La página entra en la pantalla:** la cabecera (Grupo, Diario, Menú) era más ancha que el teléfono, así que el celular achicaba todo y quedaba una franja oscura a la derecha. Ahora los botones van con su dibujo y el nombre chiquito abajo, y todo entra justo.
