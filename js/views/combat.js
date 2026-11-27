@@ -250,6 +250,7 @@
       // v3.24.0: el jefe con escena, más grande (usa el alto que sobra arriba); presentación al empezar
       if (A.BossStage) {
         const arenaEl = view.querySelector('.cb-arena.has-scene');
+        if (arenaEl && view.classList.contains('is-crowded') && !arenaEl.classList.contains('is-stacked')) { arenaEl.classList.add('is-stacked'); fitArenaRows(view); }
         if (arenaEl) {
           A.BossStage.keepTime(c, arenaEl);
           const plate = arenaEl.querySelector('.cb-plate');
@@ -294,7 +295,7 @@
       return top < box.top + 2 || arenaEl.scrollHeight > arenaEl.clientHeight + 2;
     };
     arenaEl.classList.remove('is-tight', 'is-scroll', 'is-roomy');
-    if (!arenaEl.classList.contains('is-packed')) return;
+    if (!arenaEl.classList.contains('is-packed') && !arenaEl.classList.contains('is-stacked')) return;
     if (!over()) {
       // sobra mucho lugar (ej.: cayeron casi todos): los dibujos vuelven a crecer
       let top = Infinity;
@@ -516,9 +517,11 @@
     const bossCls = `${c.enemies.some((e) => e.category === 'boss') ? 'has-boss' : ''} ${lairs.length ? 'has-lair' : ''}`;
     // v3.24.0: cada jefe con su lugar (fondo, trono, criaturas alrededor…); ver js/views/jefes-escena.js
     const stageCls = A.BossStage ? A.BossStage.arenaCls(c) : '';
+    // v3.24.1: en grupo (más de una fila), el jefe va solo arriba, al medio, y sus criaturas abajo
+    const stackCls = stageCls && (unitCount(c) > 6 || crowdedFor === c.id) ? 'is-stacked' : '';
 
     return `
-      <div class="cb-arena ${arenaBg()} ${c.ambush ? 'is-ambush' : ''} ${c.party ? 'is-party' : ''} ${units >= 10 ? 'is-packed' : ''} ${bossCls} ${stageCls} units-${Math.min(units, 9)} enemies-${Math.min(n, 5)}" data-sec="arena">
+      <div class="cb-arena ${arenaBg()} ${c.ambush ? 'is-ambush' : ''} ${c.party ? 'is-party' : ''} ${units >= 10 ? 'is-packed' : ''} ${bossCls} ${stageCls} ${stackCls} units-${Math.min(units, 9)} enemies-${Math.min(n, 5)}" data-sec="arena">
         ${stageCls && A.BossStage ? A.BossStage.sceneHtml(c) : ''}
         <div class="cb-side cb-allies">
           ${allies}

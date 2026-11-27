@@ -270,7 +270,8 @@ arma o hechizo).
   agua, en un tanque…), sus criaturas a los costados / colgando / volando / como sombras, y cambios
   cuando se enfurece (`is-raged`) o le queda poca vida (`is-low`). Al empezar, una presentación con
   su nombre. Solo visual. `A.BossStage` en `js/views/jefes-escena.js` (tabla `STAGES` por jefe),
-  estilos en `css/jefes.css`; la hora de las animaciones sigue al redibujar (`--t`).
+  estilos en `css/jefes.css`; la hora de las animaciones sigue al redibujar (`--t`). En grupo
+  (más de 6 en la arena) la arena lleva `is-stacked`: el jefe solo arriba y sus criaturas abajo (v3.24.1).
 - **Narrador** (`js/systems/narrator.js`): cada acción se cuenta con una frase
   ("El lobo se lanza y te muerde: 5 de daño."), distinta según el arma, la criatura y
   el resultado. Aparece cuando cae el dado; hasta entonces no se adelanta ni la vida

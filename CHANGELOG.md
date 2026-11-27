@@ -2,6 +2,13 @@
 
 La más nueva arriba. Cómo correr el juego y cómo está armado: [README.md](README.md).
 
+## Versión 3.24.1: jefes en grupo
+
+- **Peleas de jefe en grupo de 3 o 4 (con mascotas):** el jefe va solo arriba, al medio y más grande, y sus criaturas abajo. Antes, con mucha gente, el jefe quedaba chiquito en una punta y las crías de la Reina Araña colgaban encima de las otras tarjetas.
+- Si sobra lugar arriba (jefe sin criaturas), el jefe crece; si no entra, se achica.
+- Probado con grupo de 4, todos con mascota, en la compu y en el celular.
+- Es solo para mirar: no cambian reglas.
+
 ## Versión 3.24.0: cada jefe con su propia pelea
 
 - **Los 26 jefes (además del Kraken) tienen su propia arena:** el lugar, cosas que se mueven en el fondo, cómo se para el jefe y dónde van sus criaturas. Algunos ejemplos:

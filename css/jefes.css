@@ -22,16 +22,16 @@
 .cb-scene i { position: absolute; display: block; font-style: normal; }
 
 /* el jefe con escena: más grande, usa el alto que sobra arriba */
-.combat-view.cb .cb-arena.has-scene:not(.is-packed) .cb-unit.is-stage-boss .cb-sprite { height: calc(var(--boss-fit, 160px) + 8px); }
-.combat-view.cb .cb-arena.has-scene:not(.is-packed) .cb-unit.is-stage-boss .cb-sprite > .px-sprite { --px-size: var(--boss-fit, 160px) !important; }
+.combat-view.cb .cb-arena.has-scene:not(.is-stacked) .cb-unit.is-stage-boss .cb-sprite { height: calc(var(--boss-fit, 160px) + 8px); }
+.combat-view.cb .cb-arena.has-scene:not(.is-stacked) .cb-unit.is-stage-boss .cb-sprite > .px-sprite { --px-size: var(--boss-fit, 160px) !important; }
 .cb-unit.is-stage-boss .cb-sprite { overflow: visible; }
 /* el dibujo del jefe es más ancho que su tarjeta: que no tape a sus criaturas */
-.combat-view.cb .cb-arena.has-scene:not(.is-packed) .cb-unit.is-stage-boss { margin-inline: clamp(0px, calc((var(--boss-fit, 160px) - var(--card-w, 184px)) / 2 - 6px), 90px); }
+.combat-view.cb .cb-arena.has-scene:not(.is-stacked) .cb-unit.is-stage-boss { margin-inline: clamp(0px, calc((var(--boss-fit, 160px) - var(--card-w, 184px)) / 2 - 6px), 90px); }
 /* las criaturas que cuelgan o vuelan, más chicas */
-.combat-view.cb .cb-arena.mode-hang:not(.is-packed) .cb-unit.is-minion .cb-sprite,
-.combat-view.cb .cb-arena.mode-float:not(.is-packed) .cb-unit.is-minion .cb-sprite { height: calc(var(--sprite-fit, 128px) * 0.7 + 8px); }
-.combat-view.cb .cb-arena.mode-hang:not(.is-packed) .cb-unit.is-minion .cb-sprite > .px-sprite,
-.combat-view.cb .cb-arena.mode-float:not(.is-packed) .cb-unit.is-minion .cb-sprite > .px-sprite { --px-size: calc(var(--sprite-fit, 128px) * 0.7) !important; }
+.combat-view.cb .cb-arena.mode-hang:not(.is-stacked) .cb-unit.is-minion .cb-sprite,
+.combat-view.cb .cb-arena.mode-float:not(.is-stacked) .cb-unit.is-minion .cb-sprite { height: calc(var(--sprite-fit, 128px) * 0.7 + 8px); }
+.combat-view.cb .cb-arena.mode-hang:not(.is-stacked) .cb-unit.is-minion .cb-sprite > .px-sprite,
+.combat-view.cb .cb-arena.mode-float:not(.is-stacked) .cb-unit.is-minion .cb-sprite > .px-sprite { --px-size: calc(var(--sprite-fit, 128px) * 0.7) !important; }
 .cb-unit.is-stage-boss .cb-sprite > .px-sprite { z-index: 1; }
 .cb-unit.is-stage-boss .bs-back,
 .cb-unit.is-stage-boss .bs-front { position: absolute; inset: 0; pointer-events: none; }
@@ -803,8 +803,8 @@
 }
 .stage-titan .sc-pebble { --drift: 0px; background: #6a6058; border-radius: 3px; width: calc(7px * var(--s)); height: calc(6px * var(--s)); animation-duration: calc(2.6s + var(--r) * 2s); opacity: 0; }
 .stage-titan.is-raged .sc-pebble { opacity: 0.9; }
-.combat-view.cb .cb-arena.stage-titan:not(.is-packed) .cb-unit.is-stage-boss .cb-sprite > .px-sprite { --px-size: calc(var(--boss-fit, 160px) * 1.25) !important; }
-.combat-view.cb .cb-arena.stage-titan:not(.is-packed) .cb-unit.is-stage-boss .cb-sprite { height: calc(var(--boss-fit, 160px) * 1.12); }
+.combat-view.cb .cb-arena.stage-titan:not(.is-stacked) .cb-unit.is-stage-boss .cb-sprite > .px-sprite { --px-size: calc(var(--boss-fit, 160px) * 1.25) !important; }
+.combat-view.cb .cb-arena.stage-titan:not(.is-stacked) .cb-unit.is-stage-boss .cb-sprite { height: calc(var(--boss-fit, 160px) * 1.12); }
 .cb-unit.is-stage-boss .bs-clouds {
   left: -60%; right: -60%; bottom: 8%; height: 34%;
   background:
@@ -1006,3 +1006,22 @@
   .stage-devorador .sc-vortex { left: 50%; top: 30%; }
   .cb-scene .sc-pillar { width: 14%; }
 }
+
+/* ---------- v3.24.1: grupos grandes (arena llena): el jefe solo arriba, al medio; sus criaturas abajo ---------- */
+.combat-view.cb .cb-arena.has-scene.is-stacked .cb-side.cb-enemies { align-self: end; }
+.combat-view.cb .cb-arena.has-scene.is-stacked .cb-unit.is-stage-boss {
+  order: -5;
+  margin-inline: max(0px, calc((100% - var(--card-w, 150px)) / 2));
+}
+.combat-view.cb .cb-arena.has-scene.is-stacked .cb-unit.is-minion.m-left,
+.combat-view.cb .cb-arena.has-scene.is-stacked .cb-unit.is-minion.m-right { order: 1; align-self: flex-end; margin-top: 0; }
+.cb-arena.has-scene.is-stacked.mode-hang .cb-unit.is-minion::before { height: 46px; }
+.combat-view.cb.is-arena .cb-arena.has-scene.is-stacked .cb-unit.is-stage-boss .cb-sprite { height: 168px; }
+.combat-view.cb.is-arena .cb-arena.has-scene.is-stacked .cb-side.cb-enemies { flex-wrap: wrap !important; }
+.combat-view.cb.is-arena .cb-arena.has-scene.is-stacked .cb-unit.is-stage-boss .cb-sprite > .px-sprite { --px-size: 160px !important; }
+.combat-view.cb.is-arena .cb-arena.has-scene.is-stacked.is-roomy .cb-unit.is-stage-boss .cb-sprite { height: 200px; }
+.combat-view.cb.is-arena .cb-arena.has-scene.is-stacked.is-roomy .cb-unit.is-stage-boss .cb-sprite > .px-sprite { --px-size: 192px !important; }
+.combat-view.cb.is-arena .cb-arena.has-scene.is-stacked.is-tight .cb-unit.is-stage-boss .cb-sprite { height: 104px; }
+.combat-view.cb.is-arena .cb-arena.has-scene.is-stacked.is-tight .cb-unit.is-stage-boss .cb-sprite > .px-sprite { --px-size: 96px !important; }
+.combat-view.cb.is-arena .cb-arena.has-scene.is-stacked:not(.is-packed).is-roomy .cb-unit.is-stage-boss .cb-sprite { height: 264px; }
+.combat-view.cb.is-arena .cb-arena.has-scene.is-stacked:not(.is-packed).is-roomy .cb-unit.is-stage-boss .cb-sprite > .px-sprite { --px-size: 256px !important; }
