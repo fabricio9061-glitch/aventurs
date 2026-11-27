@@ -437,12 +437,13 @@
   const FX_KIND = {
     bleed: 'is-dot', poison: 'is-dot', fire: 'is-dot', corrode: 'is-bad', noheal: 'is-bad', curse: 'is-bad', cold: 'is-bad', blind: 'is-bad',
     stun: 'is-ctrl', sleep: 'is-ctrl', fear: 'is-ctrl', grab: 'is-ctrl', prone: 'is-ctrl', silence: 'is-ctrl', shock: 'is-ctrl', stagger: 'is-ctrl', exposed: 'is-bad',
-    buff: 'is-good', rally: 'is-good', guard: 'is-good', fury: 'is-good',
+    buff: 'is-good', rally: 'is-good', guard: 'is-good', fury: 'is-good', vigor: 'is-good',
   };
   const FX_WHAT = {
     bleed: 'pierde vida en cada turno', poison: 'pierde vida en cada turno', fire: 'pierde vida en cada turno',
     cold: '−2 de defensa y −1 de precisión', blind: '−4 de precisión', shock: 'puede quedar aturdido',
     stun: 'pierde el turno', silence: 'no puede usar magia', noheal: 'se cura la mitad',
+    vigor: 'tiene más vida máxima; al terminar, esa vida de más se va',
   };
 
   /** v3.19: quemado, veneno, sangrado, frío o electrizado se ven sobre la criatura mientras duran. */
@@ -457,7 +458,8 @@
   function effectsHtml(effects) {
     const list = effects || [];
     if (!list.length) return '';
-    const max = list.length > 3 ? 2 : 3; // a la derecha va el dado: entran 3
+    // v3.21.7: bajan en dos filas al lado del dado (antes una sola fila se metía abajo del dado)
+    const max = list.length > 6 ? 5 : 6;
     const chips = list.slice(0, max).map((ef) => {
       // v2.4: mejoras de pociones y pergaminos, aturdido y maldición también se ven
       const ch = A.ItemFx ? A.ItemFx.chip(ef) : { icon: ef.type, label: A.Combat.effectLabel ? A.Combat.effectLabel(ef.type) : ef.type, cls: ef.type };
@@ -680,7 +682,7 @@
       cat, elite: !!e.elite, isTarget: isTarget && !dead, isActive, dead,
       name: shownName,
       title: dead ? `${e.displayName} (caído)` : `${e.displayName}: tocá para apuntarle${skills ? `\n\nHabilidades:\n${skills}` : ''}`,
-      badges: `${e.elite ? '' : `<span class="cb-badge" title="Nivel de peligro">Nv ${e.tier}</span>`}${catBadge}`,
+      badges: `${e.elite ? '' : `<span class="cb-badge is-lvl" title="Nivel ${e.tier}">Nv ${e.tier}</span>`}${catBadge}`,
       ribbon,
       sprite: A.Sprites ? A.Sprites.html(e, { size: 128 }) : '',
       hp, hpMax: e.maxHp, barCls: 'bar-enemy-hp',

@@ -482,3 +482,17 @@
   .cb-res-body { padding: 14px 14px 12px; }
   .cb-res2 .cb-chip { flex: 1 1 140px; }
 }
+
+/* ---------- v3.21.7: los estados no se meten abajo del dado ----------
+   Van en filas (hasta dos) a la izquierda del dado; si hay muchos, bajan a la segunda fila. */
+.cb-unit .cb-fx-row {
+  right: 40px;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  row-gap: 3px;
+}
+.cb-arena.is-packed .cb-unit .cb-fx-row { right: 32px; gap: 2px; }
+.cb-arena.is-packed .cb-unit .cb-fx { height: 18px; font-size: 10px; padding: 0 4px 0 2px; }
+.cb-arena.is-packed .cb-unit .cb-fx .px-sprite { width: 13px; height: 13px; }
+.cb-arena.is-packed .cb-unit .cb-fx b { min-width: 11px; height: 12px; line-height: 12px; }
+.cb-fx.effect-vigor { border-color: rgba(140, 230, 120, 0.85); }

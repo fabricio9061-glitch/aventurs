@@ -255,6 +255,7 @@
       // v2.5
       prone: 'derribado', fear: 'miedo', grab: 'atrapado', corrode: 'ácido',
       rally: 'envalentonado', guard: 'en guardia',
+      vigor: 'vigor', // v3.21.7
       // v3.11
       stagger: 'desequilibrado', exposed: 'expuesto',
       noheal: 'herida maldita', // v3.15
@@ -388,6 +389,12 @@
       if (ef.type === 'shock' && Math.random() < STUN_CHANCE) stunned = true;
       if (ef.type === 'stun') stunned = true; // v2.4: pergaminos que paralizan
       ef.turns -= 1;
+    }
+    // v3.21.7: se acabó el vigor: la vida máxima de más se va (y la vida no puede quedar arriba)
+    for (const ef of entity.effects) {
+      if (ef.type !== 'vigor' || ef.turns > 0 || !ef.value || entity.maxHp == null) continue;
+      entity.maxHp = Math.max(1, entity.maxHp - ef.value);
+      if (entity.hp > entity.maxHp) entity.hp = entity.maxHp;
     }
     entity.effects = entity.effects.filter((e) => e.type === 'buff' || e.turns > 0);
 

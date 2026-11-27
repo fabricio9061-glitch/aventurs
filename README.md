@@ -231,6 +231,11 @@ arma o hechizo).
 - **Tarjetas fijas**: todas las tarjetas miden lo mismo y tienen las mismas filas
   (nombre, vida, barra fina de maná o saciedad, ataque/defensa/daño/armadura). Los
   efectos (veneno, fuego…) van como íconos sobre el dibujo, así nunca agrandan la tarjeta.
+- **Nivel y estados en pelea (v3.21.7)**: todas las criaturas muestran su "Nv" en la tarjeta,
+  también con mucha gente en la pelea. Los estados van a la izquierda del dado de dificultad y,
+  si son muchos, bajan a una segunda fila (antes se metían abajo del dado).
+- **Vigor (v3.21.7)**: estado nuevo de las criaturas: vida máxima de más (y esa vida) por unos
+  turnos; al terminar, la vida de más se va. Habilidades `vigor` y `bendicion_vida` en `js/systems/skills.js`.
 - **Narrador** (`js/systems/narrator.js`): cada acción se cuenta con una frase
   ("El lobo se lanza y te muerde: 5 de daño."), distinta según el arma, la criatura y
   el resultado. Aparece cuando cae el dado; hasta entonces no se adelanta ni la vida

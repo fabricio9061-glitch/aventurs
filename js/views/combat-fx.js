@@ -971,13 +971,14 @@
       prone: 'Derribado', fear: 'Asustado', grab: 'Atrapado', corrode: 'Corroído', rally: '¡Envalentonado!', guard: 'En guardia',
       stagger: 'Desequilibrado', exposed: 'Expuesto', // v3.11
       noheal: 'Herida maldita', // v3.15
+      vigor: '¡Más vida!', // v3.21.7
       immune: 'Inmune', fury: '¡Furia!', steal: '¡Te roba!',
     })[type] || type;
   }
 
   /** v2.5: ícono del número flotante de cada estado. */
   function statusIcon(type) {
-    const map = { stun: 'hourglass', curse: 'skull', prone: 'arrow-down', fear: 'warning', grab: 'lock', corrode: 'poison', rally: 'arrow-up', guard: 'shield', immune: 'star', fury: 'fist', steal: 'coins', stagger: 'target', exposed: 'arrow-down', noheal: 'heart' };
+    const map = { stun: 'hourglass', curse: 'skull', prone: 'arrow-down', fear: 'warning', grab: 'lock', corrode: 'poison', rally: 'arrow-up', guard: 'shield', immune: 'star', fury: 'fist', steal: 'coins', stagger: 'target', exposed: 'arrow-down', noheal: 'heart', vigor: 'heart' };
     return map[type] || type;
   }
 

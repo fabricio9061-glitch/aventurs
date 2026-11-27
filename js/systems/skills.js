@@ -423,6 +423,17 @@
       text: 'Una vez por pelea: él y sus compañeros pegan con +1 de precisión y +1 de daño por 3 turnos.',
       use: ['{E} lanza un grito de guerra: sus compañeros se envalentonan.'], alone: ['{E} lanza un grito de guerra y se envalentona.'],
     },
+    // v3.21.7: vida máxima de más (y esa vida) por unos turnos; al terminar, la vida de más se va
+    vigor: {
+      kind: 'active', name: 'Vigor', icon: 'heart', act: 'vigor', once: true, pct: 0.2, turns: 4,
+      text: 'Una vez por pelea, cuando ya lo lastimaron: gana un quinto más de vida máxima (y esa vida) por 4 turnos.',
+      use: ['{E} ruge y se le hinchan los músculos: aguanta más.', '{E} aprieta los dientes y se planta: aguanta más.'],
+    },
+    bendicion_vida: {
+      kind: 'active', name: 'Bendición de vida', icon: 'heart', act: 'vigor', group: true, once: true, pct: 0.15, turns: 4,
+      text: 'Una vez por pelea: ella y sus compañeros ganan un poco más de vida máxima (y esa vida) por 4 turnos.',
+      use: ['{E} alza las manos y una luz verde envuelve a los suyos: aguantan más.'], alone: ['{E} se envuelve en una luz verde: aguanta más.'],
+    },
     invocar: {
       kind: 'active', name: 'Invocar', icon: 'skulls', act: 'summon', once: true,
       text: 'Una vez por pelea, llama a sus aliados para que lo ayuden (en grupo vienen más).',
@@ -1052,6 +1063,13 @@
         if (group.some((e) => e !== x && (e._used || {})[sk.id])) return 0;
         return 1.5;
       }
+      case 'vigor': {
+        // v3.21.7: no la gasta con la vida llena (la de grupo, si alguno de los suyos ya está herido)
+        const who = sk.group ? k.alive() : [x];
+        if (who.some((e) => (e.effects || []).some((f) => f.type === 'vigor'))) return 0;
+        if (!who.some((e) => e.hp < e.maxHp * 0.85)) return 0;
+        return sk.group && who.length > 1 ? 1.8 : 1.4;
+      }
       case 'summon': {
         // v3.10: invocaciones de varios (y las de manada, de su propia especie)
         const spec = summonSpec(x, sk);
@@ -1265,6 +1283,25 @@
           text: `${e.displayName} se envalentona (+1 de precisión y daño).`,
           fx: { kind: 'status', target: k.fxKey(e), effect: 'rally', skill: i === 0 ? sk.id : undefined, skillOn: i === 0 ? k.fxKey(x) : undefined },
           say: i === 0 ? { text: fill(alone ? sk.alone : sk.use, x), tone: 'bad' } : { text: '', tone: 'bad' },
+        });
+      });
+    },
+
+    // v3.21.7: vida máxima de más por unos turnos (ver A.Combat.startOfTurn: al terminar se va)
+    vigor(sk, x, k) {
+      const group = sk.group ? k.alive() : [x];
+      const alone = group.length <= 1;
+      group.forEach((e, i) => {
+        if (e.hp <= 0 || (e.effects || []).some((f) => f.type === 'vigor')) return;
+        const n = Math.max(2, Math.round(e.maxHp * (sk.pct || 0.2)));
+        e.effects = e.effects || [];
+        e.effects.push({ type: 'vigor', turns: sk.turns || 4, value: n, source: sk.id });
+        e.maxHp += n;
+        e.hp += n;
+        k.log('enemy', {
+          text: `${e.displayName} gana ${n} de vida máxima (${e.hp}/${e.maxHp}).`,
+          fx: { kind: 'status', target: k.fxKey(e), effect: 'vigor', skill: i === 0 ? sk.id : undefined, skillOn: i === 0 ? k.fxKey(x) : undefined },
+          say: i === 0 ? { text: fill(alone && sk.alone ? sk.alone : sk.use, x), tone: 'bad' } : { text: '', tone: 'bad' },
         });
       });
     },

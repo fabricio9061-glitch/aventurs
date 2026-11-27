@@ -2,6 +2,16 @@
 
 La más nueva arriba. Cómo correr el juego y cómo está armado: [README.md](README.md).
 
+## Versión 3.21.7: nivel de las criaturas y Vigor
+
+- **Nivel de las criaturas:** las tarjetas de los enemigos muestran su "Nv", igual que las de tus compañeros, también cuando hay mucha gente en la pelea (antes se escondía para que entrara el nombre).
+- **Estados sin tapar:** el veneno, el fuego y los demás van a la izquierda del dado de dificultad y, si son muchos, bajan a una segunda fila. Antes se metían abajo del dado. En el celular también.
+- **Vigor (estado nuevo):** la criatura gana vida máxima de más, y esa vida, por 4 turnos. Al terminar, la vida de más se va. Se ve como un corazón verde sobre la criatura.
+  - *Vigor* (una vez por pelea, cuando ya lo lastimaron): un quinto más de vida. Lo usan los guerreros grandes: Orco, Hobgoblin, Ogro, Minotauro, Ettin, Cíclope, Contramaestre, Capitán pirata, Caballero de la muerte y Titán.
+  - *Bendición de vida* (una vez por pelea): los curanderos se la dan a todo su grupo (un poco menos de vida cada uno). Dríade, Ciervo astral, Unicornio, Sacerdote profundo, Cultista del dragón, Gran sacerdote del dragón, Principado y Virtud.
+- Las herramientas de equilibrio (tools/) andan de nuevo con el ?v= de la versión.
+- Jugar en grupo: cambiaron las reglas, así que los dos tienen que tener esta versión.
+
 ## Versión 3.21.6: dónde vive tu maestro
 
 - **En la ficha:** al lado de la pasiva hay una chapita "Tu maestro: (lugar)". Tocándola se abre el mapa con esa zona elegida.

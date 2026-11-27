@@ -153,6 +153,7 @@
       corrode: { icon: 'poison', label: 'Ácido (−2 de armadura)' },
       rally: { icon: 'arrow-up', label: `Envalentonado (+${ef.value || 1} de precisión y daño)` },
       guard: { icon: 'shield', label: `En guardia (+${ef.value || 3} de defensa)` },
+      vigor: { icon: 'heart', label: `Vigor (+${ef.value || 0} de vida máxima)` }, // v3.21.7
       // v3.11: Embestida arrolladora y Polvo de hada
       stagger: { icon: 'target', label: `Desequilibrado (−${ef.value || 1} de precisión en su próximo ataque)` },
       exposed: { icon: 'arrow-down', label: `Expuesto (−${ef.value || 1} de defensa)` },

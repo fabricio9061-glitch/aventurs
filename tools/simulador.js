@@ -26,7 +26,7 @@ const MEJORA = MEJORA_ARG === 'tope' ? 'tope' : Number(MEJORA_ARG) || 0;
 // Orden de carga = mismo orden que index.html (sin vistas ni DOM)
 function scriptList() {
   const html = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
-  const all = [...html.matchAll(/<script src="([^"]+)"><\/script>/g)].map((m) => m[1]);
+  const all = [...html.matchAll(/<script src="([^"]+)"><\/script>/g)].map((m) => m[1].replace(/\?.*$/, '')); // v3.21.7: sin el ?v= del caché
   const skip = ['js/views/', 'js/editor/', 'js/vendor/', 'js/app.js', 'js/core/ui-recover.js', 'js/core/tag-input.js'];
   return all.filter((f) => !skip.some((s) => f.startsWith(s)));
 }
