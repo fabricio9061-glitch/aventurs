@@ -148,6 +148,13 @@
     return { frame, title };
   }
 
+  /** v3.21.8: la clase del marco (lk-xxx) de un héroe o de la ficha de un compañero ('' si no tiene). */
+  function frameCls(x) {
+    const l = x && x.look;
+    const id = l ? (typeof l.frame === 'string' ? l.frame : l.frame && l.frame.id) : null;
+    return id && FRAMES.some((f) => f.id === id) ? `lk-${id}` : '';
+  }
+
   /** Compra (si no la tenía) y se la pone; si ya la tenía puesta, se la saca. */
   function wear(kind, id) {
     const p = St().player;
@@ -174,6 +181,6 @@
 
   A.Oficios = {
     MAX, GEM, levelOf, bonusAt, capFor, bonusText, gearBonus, nextUpgrade, upgrade, nameWith, gemsHave,
-    FRAMES, TITLES, owned, lookOf, wear,
+    FRAMES, TITLES, owned, lookOf, frameCls, wear,
   };
 })(window.Aventurs);

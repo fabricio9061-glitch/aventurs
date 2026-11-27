@@ -236,6 +236,9 @@ arma o hechizo).
   si son muchos, bajan a una segunda fila (antes se metían abajo del dado).
 - **Vigor (v3.21.7)**: estado nuevo de las criaturas: vida máxima de más (y esa vida) por unos
   turnos; al terminar, la vida de más se va. Habilidades `vigor` y `bendicion_vida` en `js/systems/skills.js`.
+- **Marco para todos (v3.21.8)**: el marco que te comprás en "Lucirse" ahora lo ven tus compañeros:
+  en la lista del grupo, en la ventana del grupo, en la tarjeta de pelea (brillo del color del marco
+  abajo de los pies y borde de la tarjeta) y en la fila de turnos. `A.Oficios.frameCls(héroe o ficha)`.
 - **Narrador** (`js/systems/narrator.js`): cada acción se cuenta con una frase
   ("El lobo se lanza y te muerde: 5 de daño."), distinta según el arma, la criatura y
   el resultado. Aparece cuando cae el dado; hasta entonces no se adelanta ni la vida

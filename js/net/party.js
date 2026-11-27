@@ -1296,7 +1296,8 @@
     } else if (!P.together) {
       // v3.1: si cambió de lugar o avanzó el viaje, se avisa enseguida (para el mapa del compañero)
       const t = A.State.traveling;
-      const sig = `${A.State.world ? A.State.world.regionId : ''}|${t ? `${t.toId}:${t.currentStep}` : ''}`;
+      const lk = A.State.me() && A.State.me().look;
+      const sig = `${A.State.world ? A.State.world.regionId : ''}|${t ? `${t.toId}:${t.currentStep}` : ''}|${lk ? `${lk.frame}:${lk.title}` : ''}`; // v3.21.8: el marco también
       if (sig === statusSig && Date.now() - statusAt <= STATUS_MS) return;
       statusSig = sig;
       statusAt = Date.now();

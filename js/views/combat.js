@@ -350,7 +350,7 @@
       const h = c.party && a.hid ? heroOf(a.hid) : A.State.player;
       if (!h) return '';
       if (a.kind === 'pet') return h.pet ? `<span class="tq-face">${S.petHtml(h.pet, { size: 22 })}</span>` : '';
-      return `<span class="tq-face">${S.heroFor(h, { size: 22 })}</span>`;
+      return `<span class="tq-face ${A.Oficios && A.Oficios.frameCls ? A.Oficios.frameCls(h) : ''}">${S.heroFor(h, { size: 22 })}</span>`;
     } catch (e) { return ''; }
   }
 
@@ -510,7 +510,7 @@
       : '<div class="cb-subbar is-empty" aria-hidden="true"></div>';
     const tag = u.clickable ? 'button' : 'div';
     const cls = ['cb-unit', `is-${u.kind}`, u.cat ? `cat-${u.cat}` : '', u.elite ? 'is-elite' : '',
-      u.isActive ? 'is-active' : '', u.isTarget ? 'is-target' : '', u.dead ? 'is-dead' : '', u.ko ? 'is-ko' : ''].filter(Boolean).join(' ');
+      u.lk || '', u.isActive ? 'is-active' : '', u.isTarget ? 'is-target' : '', u.dead ? 'is-dead' : '', u.ko ? 'is-ko' : ''].filter(Boolean).join(' ');
     const attrs = [
       tag === 'button' ? 'type="button"' : '',
       `class="${cls}"`,
@@ -587,6 +587,7 @@
       name: p.name, title: `${p.name} · ${race ? race.name : ''} de nivel ${p.level}${o.ally ? ' (tu compañero)' : ''}`,
       badges: `${o.ally ? '<span class="cb-badge is-ally" title="Tu compañero">Aliado</span>' : ''}${shieldBadge}${raceBadge}${blessBadge}<span class="cb-badge is-gold">Nv ${p.level}</span>`,
       sprite: A.Sprites ? A.Sprites.heroFor(p, { size: 128 }) : '',
+      lk: A.Oficios && A.Oficios.frameCls ? A.Oficios.frameCls(p) : '', // v3.21.8: su marco
       hp, hpMax: p.maxHp, barCls: 'bar-hp',
       sub: p.hasMagic ? { cls: 'is-mana', cur: mana, max: p.maxMana, title: `Maná ${mana}/${p.maxMana}` } : null,
       effects: p.effects,

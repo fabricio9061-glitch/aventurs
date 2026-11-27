@@ -140,3 +140,18 @@
   .sb-head .sb-portrait.lk-estelar, .of-frame-art.lk-estelar { animation: none; }
 }
 .of-forge-wait { font-size: 12.5px; font-weight: 700; color: #9a5a1a; }
+
+/* ---------- v3.21.8: el marco también se ve en el grupo y en la pelea ---------- */
+.pt-member-hero[class*="lk-"],
+.ally-hero[class*="lk-"] {
+  border: 2px solid var(--lk);
+  box-shadow: 0 0 0 1px rgba(20, 14, 8, 0.8), 0 0 0 2px var(--lk2), 0 0 10px color-mix(in srgb, var(--lk) 60%, transparent);
+}
+.turn-queue-item .tq-face[class*="lk-"] { box-shadow: 0 0 0 2px var(--lk), 0 0 6px var(--lk2); }
+.cb-unit[class*="lk-"] .cb-shadow {
+  background: radial-gradient(ellipse at center, color-mix(in srgb, var(--lk2) 75%, transparent) 0%, color-mix(in srgb, var(--lk) 55%, transparent) 45%, transparent 72%);
+  box-shadow: 0 0 14px color-mix(in srgb, var(--lk) 70%, transparent);
+}
+.cb-unit[class*="lk-"]:not(.is-active):not(.is-target):not(.is-dead) .cb-plate { border-color: var(--lk); box-shadow: 0 0 0 1px var(--lk2), 0 0 10px color-mix(in srgb, var(--lk) 50%, transparent); }
+.pt-member-hero.lk-estelar, .ally-hero.lk-estelar { animation: lk-star 3s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { .pt-member-hero.lk-estelar, .ally-hero.lk-estelar { animation: none; } }

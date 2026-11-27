@@ -48,6 +48,7 @@
   // Ficha de un miembro
   // ============================================================
 
+  function lk(m) { return A.Oficios && A.Oficios.frameCls ? A.Oficios.frameCls(m) : ''; }
   function heroSprite(m, size) {
     if (!A.Sprites) return '';
     const w = m.weapon && A.Data ? A.Data.getById('weapons', m.weapon) : null;
@@ -65,7 +66,7 @@
     const pet = m.pet;
     return `
       <div class="pt-member ${isMe ? 'is-me' : ''} ${m.together ? 'is-together' : 'is-apart'}">
-        <span class="pt-member-hero">${heroSprite(m, 64)}</span>
+        <span class="pt-member-hero ${lk(liveOf(m))}">${heroSprite(m, 64)}</span>
         <div class="pt-member-main">
           <div class="pt-member-name">
             <b>${esc(m.name)}</b>
@@ -295,6 +296,7 @@
       name: h.name, level: h.level, raceId: h.raceId,
       hp: h.hp, maxHp: h.maxHp, mana: h.mana, maxMana: h.maxMana, hasMagic: !!h.hasMagic,
       weapon: h.equipment ? h.equipment.weapon : m.weapon,
+      look: h.look ? { frame: h.look.frame || null, title: h.look.title || null } : m.look, // v3.21.8: el marco al día
       pet: h.pet ? { name: h.pet.name, species: h.pet.species, health: h.pet.health, maxHealth: h.pet.maxHealth, level: h.pet.level || 1 } : null,
     });
   }
@@ -312,7 +314,7 @@
     const hpP = pct(m.hp, m.maxHp);
     return `
       <button class="sb-mate ${near ? 'is-near' : 'is-apart'} ${down ? 'is-down' : ''} ${hpP < 30 && !down ? 'is-low' : ''}" data-action="party" title="${esc(`${m.name}, nivel ${m.level || 1}. Vida ${m.hp}/${m.maxHp}${m.hasMagic ? `, maná ${m.mana}/${m.maxMana}` : ''}${pet ? `. ${pet.name}: ${pet.health}/${pet.maxHealth}` : ''}. ${where}.`)}">
-        <span class="sb-mate-face ${m.look && m.look.frame ? `lk-${esc(m.look.frame)}` : ''}">${heroSprite(m, 26)}<i class="sb-mate-lvl">${m.level || 1}</i></span>
+        <span class="sb-mate-face ${lk(m)}">${heroSprite(m, 26)}<i class="sb-mate-lvl">${m.level || 1}</i></span>
         <b class="sb-mate-name">${esc(m.name)}</b>
         <span class="sb-mate-bars">
           <span class="sb-mate-bar is-hp"><span style="width:${hpP}%"></span><em class="num">${down ? 'Caído' : `${m.hp}/${m.maxHp}`}</em></span>
@@ -360,7 +362,7 @@
     const together = P.isGuest() ? P.guestTogether() : m.together;
     return `
       <button class="ally-card ${together ? 'is-together' : 'is-apart'}" data-action="party" title="Tu grupo: tocá para ver más">
-        <span class="ally-hero">${heroSprite(m, 40)}<span class="ally-lvl">${m.level || 1}</span></span>
+        <span class="ally-hero ${lk(liveOf(m))}">${heroSprite(m, 40)}<span class="ally-lvl">${m.level || 1}</span></span>
         <span class="ally-main">
           <span class="ally-name">${esc(m.name)}${m.pet ? ` <span class="ally-pet">y ${esc(m.pet.name)}</span>` : ''}</span>
           <span class="ally-bars">
