@@ -1290,24 +1290,56 @@
       meta.sub += ` ${host} había huido: ahora seguís por tu cuenta.`;
     }
     const chips = rewardChips(c);
-    const foes = c.enemies.map((e) => `<span class="cb-result-foe ${e.hp <= 0 ? 'is-fallen' : ''}" title="${esc(e.displayName)}">${A.Sprites ? A.Sprites.html(e, { size: 64 }) : ''}</span>`).join('');
+    // v3.21.2: el campo de batalla: tu lado (héroes y mascotas) y las criaturas (las caídas, tiradas)
+    const foes = c.enemies.map((e) => `<span class="cb-result-foe ${e.hp <= 0 ? 'is-fallen' : ''}" title="${esc(e.displayName)}">${A.Sprites ? A.Sprites.html(e, { size: c.enemies.length > 3 ? 84 : 112 }) : ''}</span>`).join('');
+    const heroes = c.party && Array.isArray(c.heroIds) ? c.heroIds.map((id) => heroOf(id)).filter(Boolean) : [meHero || A.State.player].filter(Boolean);
+    const lost = r === 'defeat';
+    const us = heroes.map((h) => {
+      const down = lost || h.dead || (h.hp != null && h.hp <= 0);
+      const pet = h.pet && !h.pet.dead && A.Sprites && A.Sprites.petHtml ? `<span class="cb-res-unit is-pet ${down ? 'is-fallen' : ''}">${A.Sprites.petHtml(h.pet, { size: 72 })}</span>` : '';
+      return `<span class="cb-res-unit ${down ? 'is-fallen' : ''} ${h === meHero ? 'is-me' : ''}" title="${esc(h.name || '')}">${A.Sprites && A.Sprites.heroFor ? A.Sprites.heroFor(h, { size: heroes.length > 2 ? 100 : 132 }) : ''}</span>${pet}`;
+    }).join('');
+    const region = A.Data.getById('regions', A.State.world && A.State.world.regionId);
+    const night = A.Time && A.Time.isNight();
+    // la experiencia: cuánto falta para el próximo nivel
+    let xpHtml = '';
+    if (meHero && A.Progression && A.Progression.xpForLevel && !(meHero.level >= A.Progression.MAX_LEVEL)) {
+      const prev = A.Progression.xpForLevel(meHero.level);
+      const next = A.Progression.xpForLevel(meHero.level + 1);
+      const inLv = Math.max(0, (meHero.xp || 0) - prev);
+      const span = Math.max(1, next - prev);
+      xpHtml = `<div class="cb-res-xp" title="Experiencia: ${inLv} de ${span} para el nivel ${meHero.level + 1}">
+          <span class="cb-res-xp-lv">Nv ${meHero.level}</span>
+          <span class="cb-res-xp-track"><span style="width:${Math.min(100, Math.round((inLv / span) * 100))}%"></span></span>
+          <span class="cb-res-xp-text num">${inLv}<i>/${span} XP</i></span>
+        </div>`;
+    }
     // v3.1: el narrador cierra la pelea
     if (A.Voice && A.Voice.isOn()) A.Voice.say(`${meta.title.replace(/…$/, '.')} ${meta.sub}`);
 
     mainEl.innerHTML = `
-      <section class="combat-result cb-result is-${r} ${meHero && meHero.dead ? 'is-dead' : ''}">
+      <section class="combat-result cb-result cb-res2 is-${r} ${meHero && meHero.dead ? 'is-dead' : ''}">
         <div class="cb-result-card">
-          <div class="cb-result-icon">${icon(meta.icon, 64)}</div>
-          <h2 class="cb-result-title">${meta.title}</h2>
-          <p class="cb-result-sub">${esc(meta.sub)}</p>
-          ${rescueHtml}
-          <div class="cb-result-foes">${foes}</div>
-          ${chips.length ? `<div class="cb-rewards">${chips.join('')}</div>` : ''}
-          <button type="button" class="btn-primary cb-continue" data-combat-action="finish">Continuar</button>
-          <details class="cb-result-log" data-result-log>
-            <summary>Leer la crónica completa</summary>
-            <div class="combat-result-log">${chronicleHtml(c.log, { rolls: showRolls, combat: c })}</div>
-          </details>
+          <header class="cb-res-head ${night ? 'is-night' : 'is-day'} ${region ? `biome-${esc(region.biome)}` : ''}">
+            ${A.Scenes && region ? `<div class="cb-res-scene">${A.Scenes.html(region)}</div>` : ''}
+            <div class="cb-result-icon">${icon(meta.icon, 56)}</div>
+            <h2 class="cb-result-title">${meta.title}</h2>
+            <p class="cb-result-sub">${esc(meta.sub)}</p>
+            <div class="cb-res-field">
+              <div class="cb-res-side is-us">${us}</div>
+              <div class="cb-res-side is-them cb-result-foes">${foes}</div>
+            </div>
+          </header>
+          <div class="cb-res-body">
+            ${rescueHtml}
+            ${chips.length ? `<div class="cb-res-label">${lost ? 'Lo que pasó' : 'Lo que ganaste'}</div><div class="cb-rewards">${chips.join('')}</div>` : ''}
+            ${xpHtml}
+            <button type="button" class="btn-primary cb-continue" data-combat-action="finish">Continuar</button>
+            <details class="cb-result-log" data-result-log>
+              <summary>Leer la crónica completa</summary>
+              <div class="combat-result-log">${chronicleHtml(c.log, { rolls: showRolls, combat: c })}</div>
+            </details>
+          </div>
         </div>
       </section>`;
     // v3.9: al abrir la crónica, arranca en la última ronda

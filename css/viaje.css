@@ -406,6 +406,10 @@
 .tv-stage .travel-stage-card-text { color: #fff3d6; }
 .tv-stage .travel-auto-indicator { background: rgba(0, 0, 0, 0.35); border-color: rgba(232, 196, 110, 0.4); color: #f0d9a0; }
 .tv-stage .travel-actions-v2 > .btn-ghost { color: #f0d9a0; }
+/* v3.21.2: "Seguir hacia..." con nombres largos ya no se corta: se achica y baja de renglón */
+.tv-stage .travel-actions-v2 { flex-wrap: wrap; }
+.tv-stage .travel-actions-v2 > .btn-travel-step { flex: 1 1 220px; min-width: 0; }
+.tv-stage .travel-actions-v2 > .btn-ghost { flex: 0 1 auto; min-width: 0; max-width: 100%; white-space: normal; text-align: left; line-height: 1.25; }
 .tv-stage .travel-actions-v2 > .btn-ghost:hover { background: rgba(255, 236, 190, 0.1); }
 .tv-stage .travel-follow-note { color: #f0d9a0; }
 

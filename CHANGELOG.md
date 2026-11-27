@@ -2,6 +2,13 @@
 
 La más nueva arriba. Cómo correr el juego y cómo está armado: [README.md](README.md).
 
+## Versión 3.21.2: la pantalla del final de la pelea, más linda
+
+- **Arriba, una cabecera oscura** con el paisaje del lugar donde peleaste: el trofeo (o la calavera) en un medallón dorado con rayos de luz, y el título grande.
+- **El campo de batalla:** tu personaje (y tu mascota, y en grupo tus compañeros) parado y festejando de un lado; las criaturas caídas, grises, del otro. Si perdés, el que queda gris sos vos.
+- **Lo que ganaste** va en fichas con relieve (la rareza se ve en una rayita de color) y abajo, la barra de experiencia con lo que te falta para el próximo nivel.
+- **Viaje:** el botón "Seguir hacia..." ya no se corta con nombres largos (baja de renglón).
+
 ## Versión 3.21.1: la parte de abajo del viaje, a la altura de la cabecera
 
 - **El escenario es un panel oscuro** con el paisaje de la zona al fondo (de la que saliste hasta la mitad del camino, después la del destino). De noche se prenden las luces.
