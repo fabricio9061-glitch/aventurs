@@ -769,6 +769,7 @@
     }
     const scene = buildScene(region);
     if (!scene) return { ok: false };
+    ensureKeys(scene);
     noteSeen(scene);
     if (inGroup()) {
       scene.party = true;
@@ -779,6 +780,20 @@
     A.State.openModal('event', scene);
     A.State.persist();
     return { ok: true, scene };
+  }
+
+  /** v3.22.2: cada opción con un nombre fijo (key): al sacar "observar" las de abajo se corren,
+   *  y un click o voto que viajaba por número caía en la opción de al lado (comida, plata). */
+  function ensureKeys(sc) {
+    if (!sc || !Array.isArray(sc.options)) return sc;
+    sc.options.forEach((o, i) => { if (o && !o.key) o.key = `o${i}`; });
+    return sc;
+  }
+  /** Número de opción a partir de su key (o del número, si viene de una versión vieja). -1 si ya no está. */
+  function optionIndex(sc, ref) {
+    if (!sc || !Array.isArray(sc.options)) return -1;
+    if (typeof ref === 'string') return sc.options.findIndex((o) => o && o.key === ref);
+    return Number.isInteger(ref) && ref >= 0 && ref < sc.options.length ? ref : -1;
   }
 
   function current() {
@@ -878,9 +893,12 @@
   }
 
   /** Elegir una opción de la escena abierta (en grupo: votar). opts.force: no esperar al otro. */
-  function choose(idx, opts = {}) {
+  function choose(ref, opts = {}) {
     const sc = current();
     if (!sc || sc.stage !== 'choose') return null;
+    ensureKeys(sc);
+    const idx = optionIndex(sc, ref);
+    if (idx < 0) return null; // v3.22.2: la opción ya no está (se eligió sobre una lista vieja): no se elige otra
     const opt = sc.options[idx];
     if (!opt || optionBlocked(opt)) return null;
     const voters = votersOf(sc);
@@ -1000,11 +1018,14 @@
   function proceed() {
     const sc = current();
     if (!sc) { A.State.closeModal(); return; }
+    // v3.22.2: "Seguir" de dos compañeros (o un doble click): el segundo llega cuando ya se volvió a elegir
+    if (sc.stage !== 'result') return;
     const res = sc.result;
     // v3.1: después de observar se vuelve a elegir, con +2 a la tirada
     if (res && res.again) {
       sc.stage = 'choose';
       sc.result = null;
+      ensureKeys(sc);
       sc.options = sc.options.filter((o) => !o.observe);
       // v3.10: los votos eran por número de opción; al sacar "observar" quedaban apuntando a otra (se votaba sola)
       sc.votes = {};
@@ -1243,6 +1264,8 @@
     canExplore,
     explore,
     choose,
+    ensureKeys,
+    optionIndex,
     proceed,
     current,
     optionBlocked,

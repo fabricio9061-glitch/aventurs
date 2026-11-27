@@ -253,6 +253,12 @@ arma o hechizo).
   arena se desplaza (`is-scroll`); si sobra lugar, crecen (`is-roomy`). Arreglado: en pantallas bajas
   la caja del dibujo quedaba alta con el dibujo chico (dados flotando y la fila de arriba cortada).
   `fitArenaRows` y `fallenChip` en `js/views/combat.js`, estilos al final de `css/pelea2.css`.
+- **Arreglo de "Observarlos de lejos" en grupo (v3.22.2)**: al observar bien, se saca esa opción y
+  las de abajo se corren; un doble click o un voto que llegaba tarde (por número) caía en la opción
+  de al lado (tirarles comida, pagar). Ahora cada opción tiene un nombre fijo (`key`) y eso es lo que
+  se vota y viaja por la red; si la opción ya no está, no se elige nada. Después de que cambian las
+  opciones, los clicks esperan medio segundo, y el "Seguir" de dos compañeros ya no cierra la escena.
+  `ensureKeys`/`optionIndex` en `js/systems/explore.js`. Grupo: VERSION 19 (actualicen todos).
 - **Narrador** (`js/systems/narrator.js`): cada acción se cuenta con una frase
   ("El lobo se lanza y te muerde: 5 de daño."), distinta según el arma, la criatura y
   el resultado. Aparece cuando cae el dado; hasta entonces no se adelanta ni la vida

@@ -125,6 +125,7 @@
   }
 
   function optionsHtml(sc) {
+    if (A.Explore.ensureKeys) A.Explore.ensureKeys(sc);
     // v2.5: con muchas opciones van en dos columnas (entra todo sin bajar)
     const many = sc.options.length > 3;
     return `
@@ -137,7 +138,7 @@
             : o.needs && o.needs.food ? `<span class="ui-check is-cost">${U().icon('food', 16)}<span>${o.needs.food} de comida</span></span>`
             : needItem ? `<span class="ui-check is-cost">${A.ItemSprites ? A.ItemSprites.html(needItem.id, { size: 18 }) : ''}<span>Gastás 1</span></span>` : '';
           return `
-            <button class="scene-opt ${blocked ? 'is-blocked' : ''} ${sc.votes && sc.votes[myHid()] === i ? 'is-voted' : ''}" data-scene-opt="${i}" ${blocked ? 'disabled' : ''}>
+            <button class="scene-opt ${blocked ? 'is-blocked' : ''} ${sc.votes && sc.votes[myHid()] === i ? 'is-voted' : ''}" data-scene-opt="${U().esc(o.key || String(i))}" ${blocked ? 'disabled' : ''}>
               <span class="scene-opt-label">${U().esc(o.label)}${sc.party ? voteTags(sc, i) : ''}</span>
               ${o.hint ? `<span class="scene-opt-hint">${U().esc(o.hint)}</span>` : ''}
               <span class="scene-opt-meta">
@@ -269,13 +270,22 @@
   }
 
   let forceTimer = null;
+  // v3.22.2: si la lista de opciones cambió (o se pasó del resultado a elegir), los clicks
+  // esperan un momento: el segundo click de un doble click caía en la opción que quedó ahí
+  let lastOptsSig = '';
+  let armAt = 0;
   function bind(overlay, sc) {
     speak(sc);
+    const sig = sc && sc.stage === 'choose' ? `${sc.title}|${(sc.options || []).map((o) => o.key || o.label).join(',')}` : '';
+    if (sig && sig !== lastOptsSig) armAt = Date.now() + 450;
+    lastOptsSig = sig;
     overlay.querySelectorAll('[data-scene-opt]').forEach((b) => {
-      b.addEventListener('click', () => {
-        if (b.disabled) return;
+      b.addEventListener('click', (ev) => {
+        if (b.disabled || Date.now() < armAt) return;
+        if (ev && ev.detail > 1) return; // el segundo click de un doble click
         overlay.querySelectorAll('[data-scene-opt]').forEach((x) => { x.disabled = true; });
-        A.Explore.choose(Number(b.dataset.sceneOpt));
+        const ref = b.dataset.sceneOpt;
+        A.Explore.choose(/^\d+$/.test(ref) ? Number(ref) : ref);
       });
     });
     // v3.1: si el compañero no vota, a los 20 segundos se puede decidir sin esperar
@@ -287,12 +297,13 @@
       forceTimer = setTimeout(() => force.classList.remove('is-hidden'), wait);
       force.addEventListener('click', () => {
         const idx = sc.votes ? sc.votes[myHid()] : null;
-        if (idx != null) A.Explore.choose(idx, { force: true });
+        const o = idx != null ? sc.options[idx] : null;
+        if (o) A.Explore.choose(o.key || idx, { force: true });
       });
     }
     const next = overlay.querySelector('[data-scene-next]');
     if (next) {
-      next.addEventListener('click', () => A.Explore.proceed());
+      next.addEventListener('click', () => { if (next.disabled) return; next.disabled = true; A.Explore.proceed(); });
       setTimeout(() => { try { next.focus({ preventScroll: true }); } catch (e) {} }, 50);
     }
   }
