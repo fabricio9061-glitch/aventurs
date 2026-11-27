@@ -20,6 +20,21 @@
      los suyos; los escoltas se ponen delante del jefe herido.
    - Huir: las débiles (y las cobardes) que quedan solas y heridas a veces
      escapan. La que huye no deja botín (y da la mitad de experiencia).
+
+   v3.23: contra los que tienen mucha defensa o mucha armadura
+   - Te estudian: cada ronda que les esquivás les da +1 de precisión contra
+     vos (simples hasta +1, normales hasta +2, listas hasta +3). Cuando
+     aciertan pierden 1.
+   - Buscan el hueco: si tu armadura les para la mitad del golpe o más, el
+     próximo va a una juntura y no cuenta parte de tu armadura (simples un
+     cuarto, normales la mitad, listas tres cuartos).
+   - Te rodean: si sos duro de pegar y son varias, las que piensan (y las
+     manadas) se reparten los lados: +1 de precisión si queda otra en pie.
+   - Cambian de plan: si no te pueden pegar, usan más alientos, hechizos,
+     temblores, golpes que atraviesan y estados (lo que no depende de tu
+     defensa), y van contra tu mascota o el compañero más fácil.
+   - Las que piensan usan sus habilidades más seguido y se cubren cuando
+     están mal.
    ============================================================ */
 
 (function (A) {
@@ -37,6 +52,12 @@
   const FLEE = { chance: 0.35, below: 0.5 };
   // Pegarle a la mascota (en solitario): la base de siempre y lo que cambia
   const PET = { base: 0.30, finishPet: 0.55, finishHero: 0.12, healerPet: 0.5 };
+
+  // v3.23: estudiar (precisión máxima que ganan por iq) y buscar el hueco (parte de la armadura que no cuenta)
+  const STUDY = [1, 2, 3];
+  const GAP = [0.25, 0.5, 0.75];
+  const TOUGH_HIT = 0.5; // con menos chance que esto de pegarte, sos "duro"
+  const FLANK_HIT = 0.35; // te rodean si, de frente, te pegan menos que esto
 
   function dataOf(x) { return x ? A.Data.getById('enemies', x.id) || x : null; }
 
@@ -111,6 +132,10 @@
         if (r < 0.25) v *= 2;               // rematar
         v *= (avgArmor + 3) / (armors[i] + 3); // el de menos armadura
         if (n >= 2 && isHealer(h)) v *= 1.8;    // primero el que cura
+        // v3.23: el que puede pegarle (contra el de mucha defensa casi no gasta golpes)
+        const m = memo(x);
+        const hc = hitChance(enemyAtk(x) + Math.min(STUDY[n], m.miss[keyOfHero(h)] || 0), defOf(h));
+        v *= 0.25 + hc * (n >= 2 ? 1.5 : 1);
         return v;
       });
       const total = w.reduce((s, v) => s + v, 0);
@@ -152,6 +177,7 @@
     const p = A.State.player;
     const mine = ratio(x.hp, x.maxHp);
     const theirs = p ? ratio(p.hp, p.maxHp) : 1;
+    const hard = tough(A.State.combat, x); // v3.23: no te puede pegar bien
     const out = [];
     for (const o of opts) {
       const sk = o.sk;
@@ -170,6 +196,9 @@
         case 'summon': case 'rally':
           if (mine < 0.5) { w *= 2; if (n >= 2) urgent = true; }
           break;
+        case 'guard':
+          if (mine < 0.5) w *= 2; // v3.23: herida, se cubre
+          break;
         case 'debuff':
           if (sk.status === 'noheal' && p && isHealer(p)) { w *= 3; if (n >= 2) urgent = true; }
           else if (n >= 2 && CONTROL.includes(sk.status) && theirs > 0.5) w *= 2; // al más peligroso, cuando está entero
@@ -182,6 +211,8 @@
           if (sk.when === 'hurt') w *= 1.5;
           break;
       }
+      // v3.23: si no te puede pegar, lo que no depende de tu defensa
+      if (hard && bypasses(sk)) { w *= n >= 2 ? 3 : 2; if (n >= 2) urgent = true; }
       if (w > 0) out.push({ sk, w, urgent });
     }
     return out;
@@ -229,5 +260,121 @@
     return null;
   }
 
-  A.Tactics = { iq, pickHero, petChance, notePetTarget, adjust, beforeTurn, isHealer, FLEE, PET, HEALER_RACES };
+  // ============================================================
+  // v3.23: leer al rival (defensa y armadura altas)
+  // ============================================================
+
+  function keyOf(victim, toPet) {
+    const h = A.State.player;
+    const hid = h && A.State.hidOf ? A.State.hidOf(h) : 'yo';
+    return (toPet ? 'pet:' : '') + (hid || 'yo');
+  }
+  /** Hasta cuánto te estudia (los jefes, uno menos: ya pegan fuerte). */
+  function capOf(x) { return Math.max(1, STUDY[iq(x)] - (x.category === 'boss' ? 1 : 0)); }
+  function keyOfHero(h) { return (h && A.State.hidOf ? A.State.hidOf(h) : 'yo') || 'yo'; }
+  function memo(x) { return (x._ai = x._ai || { miss: {}, gap: {}, said: {} }); }
+  const Pe = () => A._pelea || {};
+  function enemyAtk(x) { try { return (Pe().enemyStats ? Pe().enemyStats(x).attack : x.attack) || 0; } catch (e) { return x.attack || 0; } }
+  function defOf(h) { try { return (B().playerCombatStats ? B().playerCombatStats(h).defense : 10) || 10; } catch (e) { return 10; } }
+  function petDef(pet) { try { return (Pe().petStats ? Pe().petStats(pet).defense : 10) || 10; } catch (e) { return 10; } }
+  /** Chance de pegar con un D20 (el 20 pega siempre, el 1 nunca). */
+  function hitChance(atk, def) { return Math.max(0.05, Math.min(0.95, (21 - (def - atk)) / 20)); }
+
+  /** ¿Le cuesta pegarle al héroe que tiene enfrente? (por la tirada o porque ya le paró golpes) */
+  function tough(c, x) {
+    const p = A.State.player;
+    if (!p || !x) return false;
+    const m = memo(x);
+    const k = keyOf(p, false);
+    if ((m.gap[k] || 0) > 0 || (m.miss[k] || 0) >= 2) return true;
+    return hitChance(enemyAtk(x) + (m.miss[k] || 0), defOf(p)) < TOUGH_HIT;
+  }
+
+  /** Lo que suma a un golpe: precisión por estudiarte y armadura que no cuenta. */
+  function strikeMods(c, x, toPet, multi) {
+    const out = { atk: 0, gap: 0 };
+    if (!x) return out;
+    const n = iq(x);
+    const m = memo(x);
+    const k = keyOf(null, toPet);
+    out.atk = Math.min(capOf(x), m.miss[k] || 0);
+    if (m.gap[k] && !multi) out.gap = GAP[n]; // los golpes seguidos (tres cabezas, ráfagas) no apuntan
+    // te rodean: si sos duro de pegar, los que piensan (y las manadas) se reparten los lados
+    if (c && !toPet && (n >= 1 || hunts(c, x)) && hitChance(enemyAtk(x), defOf(A.State.player)) < FLANK_HIT) {
+      const others = c.enemies.filter((e) => e !== x && e.hp > 0 && !e.submerged).length;
+      if (others > 0) { out.flank = 1; out.atk += 1; }
+    }
+    return out;
+  }
+
+  /** Después de un golpe: aprende de lo que pasó. info: { hit, dmg, raw, armor, toPet, gap } */
+  function afterStrike(c, x, info, k) {
+    if (!x || !info) return;
+    const n = iq(x);
+    const m = memo(x);
+    const key = keyOf(null, info.toPet);
+    const name = info.toPet ? 'pet' : 'hero';
+    if (!info.hit) {
+      const before = Math.min(STUDY[n], m.miss[key] || 0);
+      // una vez por ronda (la hidra con tres cabezas no aprende tres veces más rápido)
+      const rd = c ? c.round : 0;
+      m.seen = m.seen || {};
+      if (m.seen[key] === rd) return;
+      m.seen[key] = rd;
+      m.miss[key] = (m.miss[key] || 0) + 1;
+      const now = Math.min(STUDY[n], m.miss[key]);
+      if (now >= 2 && before < 2 && !m.said['study' + key] && k && x.hp > 0) {
+        m.said['study' + key] = true;
+        k.log('enemy', {
+          text: `${x.displayName} estudia cómo te movés (+${now} de precisión).`,
+          fx: { kind: 'note', actor: k.fxKey(x) },
+          say: { text: A.Skills.fill(name === 'pet' ? '{E} no le saca el ojo de encima a {p}: ya sabe para dónde salta.' : '{E} te estudia: ya adivina para dónde vas a esquivar.', x), tone: 'bad' },
+        });
+      }
+      return;
+    }
+    m.miss[key] = Math.max(0, Math.min(STUDY[n], m.miss[key] || 0) - 1); // no se olvida de golpe
+    if (info.gap) m.gap[key] = 0; // ya usó el hueco: lo tiene que volver a buscar
+    // la armadura le paró casi todo: busca el hueco para el próximo
+    if (info.armor > 0 && info.raw > 0 && info.dmg <= Math.max(1, info.raw * 0.5)) {
+      m.gap[key] = 1;
+      if (!m.said['gap' + key] && k && x.hp > 0) {
+        m.said['gap' + key] = true;
+        k.log('enemy', {
+          text: `${x.displayName} busca un hueco en la armadura.`,
+          fx: { kind: 'note', actor: k.fxKey(x) },
+          say: { text: A.Skills.fill(name === 'pet' ? '{E} ve que no le hace nada a {p} y busca dónde no la protege nada.' : '{E} ve que tu armadura aguanta y busca las junturas.', x), tone: 'bad' },
+        });
+      }
+    }
+  }
+
+  /** En solitario: ¿conviene más pegarle a la mascota? (devuelve un factor para la chance) */
+  function petEase(x, hero, pet) {
+    if (iq(x) < 1 || !pet) return 1;
+    const atk = enemyAtk(x);
+    const m = memo(x);
+    const hHero = hitChance(atk + (m.miss[keyOf(null, false)] || 0), defOf(hero));
+    const hPet = hitChance(atk, petDef(pet));
+    if (hHero < TOUGH_HIT && hPet > hHero + 0.15) return iq(x) >= 2 ? 1.8 : 1.4;
+    return 1;
+  }
+
+  /** Más ganas de usar habilidades: las que piensan, y contra los duros. */
+  function useBonus(c, x) {
+    const n = iq(x);
+    const boss = x.category === 'boss'; // los jefes ya usan las suyas seguido
+    return (boss ? 0 : n * 0.05) + (n >= 1 && tough(c, x) ? (boss ? 0.08 : 0.15) : 0);
+  }
+
+  /** Lo que no depende de tu defensa ni de tu armadura. */
+  function bypasses(sk) {
+    if (!sk) return false;
+    if (['breath', 'quake', 'bolt', 'debuff'].includes(sk.act)) return true;
+    if (sk.pierce) return true;
+    if (sk.onHit && sk.onHit.save) return true;
+    return false;
+  }
+
+  A.Tactics = { iq, pickHero, petChance, notePetTarget, adjust, beforeTurn, isHealer, FLEE, PET, HEALER_RACES, strikeMods, afterStrike, tough, petEase, useBonus, bypasses, hitChance, STUDY, GAP };
 })(window.Aventurs);

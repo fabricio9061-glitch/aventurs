@@ -60,7 +60,7 @@ aventurs/
 │   │   ├── combat-aliados.js   huir, la mascota y los aliados invocados
 │   │   ├── combat-enemigos.js  el turno de las criaturas
 │   │   ├── combat-final.js     victoria, derrota, botín, registro y la API (A.Combat)
-│   │   ├── tactics.js          cuán lista es cada criatura (a quién ataca, cuándo huye)
+│   │   ├── tactics.js          cuán lista es cada criatura (a quién ataca, cuándo huye, te estudia y busca el hueco: v3.23.1)
 │   │   ├── skills.js           habilidades de las criaturas
 │   │   ├── oficios.js          en qué gastar la plata: herrero +1 a +5 y lucirse (v3.20)
 │   │   ├── gente.js            gente en el camino: mercader ambulante, herido y bandidos (v3.21)

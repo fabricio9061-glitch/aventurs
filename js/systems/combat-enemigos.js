@@ -67,10 +67,18 @@
     if (opts.forcePet && !petUp) return { hit: false, toPet: false };
     // v3.15: según cuán lista es (rematar, ir contra la que cura, seguir a la manada)
     const petChance = petUp && A.Tactics ? A.Tactics.petChance(c, enemy, p, pet) : PET_TARGET_CHANCE;
-    const targetPet = opts.forcePet ? true : (!opts.forcePlayer && petUp && Math.random() < petChance);
+    // v3.23: si a vos no te puede pegar y a tu mascota sí, va más contra ella
+    const petEase = petUp && A.Tactics && A.Tactics.petEase ? A.Tactics.petEase(enemy, p, pet) : 1;
+    const targetPet = opts.forcePet ? true : (!opts.forcePlayer && petUp && Math.random() < Math.min(0.8, petChance * petEase));
     if (petUp && !opts.forcePet && !opts.forcePlayer && A.Tactics) A.Tactics.notePetTarget(c, enemy, targetPet);
     const es = enemyStats(enemy);
-    const atk = es.attack + (opts.atkMod || 0);
+    // v3.23: te estudia (precisión) y busca el hueco de la armadura (js/systems/tactics.js)
+    const learn = A.Tactics && A.Tactics.strikeMods ? A.Tactics.strikeMods(c, enemy, targetPet, !!opts.multi) : { atk: 0, gap: 0 };
+    const atk = es.attack + (opts.atkMod || 0) + learn.atk;
+    if (learn.flank && !c._flankSaid) {
+      c._flankSaid = true;
+      addLog(c, 'enemy', { text: `Las criaturas te rodean (+${learn.flank} de precisión).`, fx: { kind: 'note', actor: fxKey(enemy) }, say: { text: 'Como les cuesta pegarte de frente, se abren y te rodean: ahora te atacan por los costados.', tone: 'bad' } });
+    }
     let defense, armor, targetName;
     if (targetPet) {
       const ps = petStats(pet);
@@ -80,6 +88,8 @@
       defense = st.defense; armor = st.armor; targetName = p.name;
     }
     if (opts.pierce) armor = 0;
+    const fullArmor = armor;
+    if (learn.gap > 0 && armor > 0) armor = Math.max(0, armor - Math.ceil(armor * learn.gap));
     const r = attackRoll(atk, defense);
     // v3.11: lo que la desequilibró (Embestida arrolladora, Polvo de hada) le dura hasta este ataque
     if ((enemy.effects || []).some((e) => e.type === 'stagger')) removeStatus(enemy, 'stagger');
@@ -130,6 +140,7 @@
       else if (fortune && !r.fumble) missEntry.say = { text: `Das un paso al costado justo a tiempo: el golpe de ${E} pasa de largo.`, tone: 'good' };
       else if (sayFn && !r.fumble && !lucky) { const s = sayFn('miss', { toPet: targetPet }); if (s) missEntry.say = s; }
       addLog(c, 'enemy', missEntry);
+      if (A.Tactics && A.Tactics.afterStrike && !lucky && !unseen && !fortune) A.Tactics.afterStrike(c, enemy, { hit: false, toPet: targetPet }, kit);
       // v2.4: Brazalete de contraataque: cuando te fallan, a veces devolvés el golpe
       const counter = !targetPet && A.Accessories ? A.Accessories.bonus(p, 'counter') : 0;
       if (counter > 0 && p.hp > 0 && enemy.hp > 0 && !c.result && Math.random() < counter) {
@@ -141,6 +152,7 @@
     let rawDmg = rollEnemyDamage(enemy, { mult: opts.mult || 1 });
     if (r.crit) rawDmg *= 2;
     let finalDmg = mitigate(rawDmg, armor, r.crit);
+    const learnInfo = { hit: true, toPet: targetPet, raw: rawDmg, dmg: finalDmg, armor: fullArmor, gap: learn.gap > 0 && armor < fullArmor };
     let passive = null;
     let guard = null;
     let absorbed = 0;
@@ -173,6 +185,7 @@
       fx: { kind: 'attack', actor: fxKey(enemy), target: targetPet ? 'pet' : 'player' },
     };
     if (opts.label) hitEntry.text += ` (${opts.label})`;
+    if (learnInfo.gap) hitEntry.gap = fullArmor - armor;
     if (guard === 'invincible') hitEntry.say = { text: `${capE} te pega con todo, pero el golpe rebota: no te hace nada.`, tone: 'good' };
     else if (finalDmg === 0 && !absorbed) hitEntry.say = { text: targetPet ? `${capE} alcanza a ${A.Skills ? A.Skills.noun(pet) : pet.name}, pero no le hace nada.` : pickOne([`${capE} te alcanza, pero tu armadura para el golpe.`, `El golpe de ${A.Skills ? A.Skills.noun(enemy) : enemy.displayName} rebota en tu armadura: no te hace nada.`]), tone: 'good' }; // v3.9
     else if (sayFn) {
@@ -187,7 +200,12 @@
       hitEntry.softened = petSoft; // v3.9: el cartel de la pasiva sale sobre la mascota
       if (hitEntry.say && hitEntry.say.text && A.Narrator && A.Narrator.SOFT && A.Narrator.SOFT[petSoft]) hitEntry.say.text += A.Narrator.SOFT[petSoft];
     }
+    if (learnInfo.gap && finalDmg > 0 && guard !== 'invincible') {
+      if (hitEntry.say && hitEntry.say.text) hitEntry.say.text += ' Encontró un hueco en la armadura.';
+      else hitEntry.say = { text: `${capE} encuentra un hueco en ${targetPet ? 'la defensa de ' + pet.name : 'tu armadura'}: ${finalDmg} de daño.`, tone: r.crit ? 'crit' : 'bad' };
+    }
     addLog(c, 'enemy', hitEntry);
+    if (A.Tactics && A.Tactics.afterStrike) A.Tactics.afterStrike(c, enemy, learnInfo, kit);
     announceGuard(c, guard);
     if (!targetPet) maybeAnnounceFury(c, p);
     // v3.9: si la mascota tiene espinas o el cuerpo en llamas, el que le pega lo sufre

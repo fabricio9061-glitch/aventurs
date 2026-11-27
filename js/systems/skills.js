@@ -1114,7 +1114,7 @@
       const up = (k.heroes() || []).filter((h) => h.hp > 0);
       if (!up.length) break;
       const h = up[Math.floor(Math.random() * up.length)];
-      A.State.withHero(h, () => k.strike(x, { mult: sk.mult, skill: 'tres_cabezas' }));
+      A.State.withHero(h, () => k.strike(x, { mult: sk.mult, skill: 'tres_cabezas', multi: true }));
     }
     return true;
   }
@@ -1130,6 +1130,7 @@
     if (A.Tactics) opts = A.Tactics.adjust(x, opts, k);
     if (!opts.length) return heads ? headsAttack(x, k) : false;
     let chance = x.elite ? USE_CHANCE.elite : x.category === 'boss' ? USE_CHANCE.boss : USE_CHANCE.normal;
+    if (A.Tactics && A.Tactics.useBonus) chance = Math.min(0.85, chance + A.Tactics.useBonus(c, x)); // v3.23
     const urgent = opts.filter((o) => o.urgent);
     if (urgent.length) { chance = Math.max(chance, USE_CHANCE.urgent); opts = urgent; }
     // las fuertes, los jefes y la élite abren la pelea con su mejor golpe (aliento, aullido...)
@@ -1219,7 +1220,7 @@
       k.log('enemy', { text: `${x.displayName} usa ${sk.name}.`, fx: { kind: 'note', actor: k.fxKey(x), skill: sk.id }, say: { text: fill(sk.use, x), tone: 'bad' } });
       for (let i = 0; i < (sk.hits || 2); i++) {
         if (x.hp <= 0 || A.State.player.hp <= 0) break;
-        k.strike(x, { atkMod: sk.atk || 0, skill: sk.id });
+        k.strike(x, { atkMod: sk.atk || 0, skill: sk.id, multi: true });
       }
     },
 

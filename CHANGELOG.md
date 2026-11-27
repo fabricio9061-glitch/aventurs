@@ -2,6 +2,19 @@
 
 La más nueva arriba. Cómo correr el juego y cómo está armado: [README.md](README.md).
 
+## Versión 3.23.1: criaturas más inteligentes contra los que se defienden bien
+
+Antes, si tenías mucha defensa o mucha armadura, las criaturas seguían pegando igual y casi siempre fallaban o no te hacían nada. Ahora se dan cuenta y cambian:
+
+- **Te estudian:** cada ronda que les esquivás ganan +1 de precisión contra vos (los animales hasta +1, las que piensan un poco hasta +2, las listas y los magos hasta +3). Cuando te aciertan pierden 1. En la crónica sale "te estudia: ya adivina para dónde vas a esquivar".
+- **Buscan el hueco de la armadura:** si tu armadura les para la mitad del golpe o más, el próximo va a una juntura y no cuenta parte de tu armadura (un cuarto, la mitad o tres cuartos según cuán listas son).
+- **Te rodean:** si de frente casi no te pueden pegar y son varias, se abren y te atacan por los costados (+1 de precisión).
+- **Cambian de plan:** contra el que no le pueden pegar usan más alientos, hechizos, temblores, golpes que atraviesan la armadura y estados (lo que no depende de tu defensa). Las que piensan usan sus habilidades más seguido, y se cubren cuando están mal heridas.
+- **Van contra el más fácil:** si a vos no te pueden pegar, le pegan más a tu mascota; en grupo eligen al compañero al que sí le pueden acertar.
+- Los jefes te estudian un poco menos (ya pegan fuerte), y las ráfagas y las tres cabezas de la Hidra no buscan el hueco.
+- Cuánto más difícil (simulador): en las rachas de peleas, entre 2 y 12 puntos menos de victorias; con equipo muy bueno (más defensa y armadura), unos 5 puntos menos; contra muchas criaturas juntas, unos 10 a 20.
+- Jugar en grupo: cambiaron las reglas, así que los dos tienen que tener esta versión.
+
 ## Versión 3.23.0: escenas que siguen y puntos de explorar
 
 - **Historias en varios pasos:** muchas escenas ya no terminan en un click. Lo que elegís abre otro paso (subir la torre del mago piso por piso, seguir un mapa en una botella, rescatar a un chico perdido, escoltar una caravana, las tres pruebas del círculo de piedras...). 8 historias nuevas para ir solo y 4 para el grupo (un puente caído, el guardián de piedra, las fiestas del pueblo, un barco encallado). En grupo se vota en cada paso.
