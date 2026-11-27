@@ -32,6 +32,7 @@ aventurs/
 │   ├── inicio.css          "Nueva aventura" sin scroll en la compu (v3.22.3)
 │   ├── habitante.css       La ventana de cada habitante, más linda (v3.20.3)
 │   ├── eventos.css         La ventana de las escenas: paisaje, historia en pasos y lo que puede salir (v3.23)
+│   ├── kraken.css          El Kraken y sus tentáculos como una sola criatura en la pelea (v3.23.3)
 │   ├── celular.css         El juego en el celular: todo entra en la pantalla (v3.21.4)
 │   └── maestros.css        Dónde vive el maestro de tu raza (v3.21.6)
 ├── js/

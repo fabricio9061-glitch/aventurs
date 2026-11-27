@@ -8,134 +8,135 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=EB+Garamond:ital,wght@0,500;1,400;1,500&family=Inter:wght@400;500;600;700&display=swap">
-  <link rel="stylesheet" href="css/tokens.css?v=3.23.2">
-  <link rel="stylesheet" href="css/base.css?v=3.23.2">
-  <link rel="stylesheet" href="css/game.css?v=3.23.2">
-  <link rel="stylesheet" href="css/theme.css?v=3.23.2">
-  <link rel="stylesheet" href="css/v2.css?v=3.23.2">
-  <link rel="stylesheet" href="css/v3.css?v=3.23.2">
-  <link rel="stylesheet" href="css/editor2.css?v=3.23.2">
-  <link rel="stylesheet" href="css/efectos.css?v=3.23.2">
-  <link rel="stylesheet" href="css/pantalla.css?v=3.23.2">
-  <link rel="stylesheet" href="css/pelea.css?v=3.23.2">
-  <link rel="stylesheet" href="css/viaje.css?v=3.23.2">
-  <link rel="stylesheet" href="css/pelea2.css?v=3.23.2">
-  <link rel="stylesheet" href="css/ataques.css?v=3.23.2">
-  <link rel="stylesheet" href="css/oficios.css?v=3.23.2">
-  <link rel="stylesheet" href="css/pueblo.css?v=3.23.2">
-  <link rel="stylesheet" href="css/habitante.css?v=3.23.2">
-  <link rel="stylesheet" href="css/maestros.css?v=3.23.2">
-  <link rel="stylesheet" href="css/grupo.css?v=3.23.2">
-  <link rel="stylesheet" href="css/inicio.css?v=3.23.2">
-  <link rel="stylesheet" href="css/eventos.css?v=3.23.2">
-  <link rel="stylesheet" href="css/celular.css?v=3.23.2">
+  <link rel="stylesheet" href="css/tokens.css?v=3.23.3">
+  <link rel="stylesheet" href="css/base.css?v=3.23.3">
+  <link rel="stylesheet" href="css/game.css?v=3.23.3">
+  <link rel="stylesheet" href="css/theme.css?v=3.23.3">
+  <link rel="stylesheet" href="css/v2.css?v=3.23.3">
+  <link rel="stylesheet" href="css/v3.css?v=3.23.3">
+  <link rel="stylesheet" href="css/editor2.css?v=3.23.3">
+  <link rel="stylesheet" href="css/efectos.css?v=3.23.3">
+  <link rel="stylesheet" href="css/pantalla.css?v=3.23.3">
+  <link rel="stylesheet" href="css/pelea.css?v=3.23.3">
+  <link rel="stylesheet" href="css/viaje.css?v=3.23.3">
+  <link rel="stylesheet" href="css/pelea2.css?v=3.23.3">
+  <link rel="stylesheet" href="css/ataques.css?v=3.23.3">
+  <link rel="stylesheet" href="css/oficios.css?v=3.23.3">
+  <link rel="stylesheet" href="css/pueblo.css?v=3.23.3">
+  <link rel="stylesheet" href="css/habitante.css?v=3.23.3">
+  <link rel="stylesheet" href="css/maestros.css?v=3.23.3">
+  <link rel="stylesheet" href="css/grupo.css?v=3.23.3">
+  <link rel="stylesheet" href="css/inicio.css?v=3.23.3">
+  <link rel="stylesheet" href="css/eventos.css?v=3.23.3">
+  <link rel="stylesheet" href="css/kraken.css?v=3.23.3">
+  <link rel="stylesheet" href="css/celular.css?v=3.23.3">
 </head>
 <body>
   <div id="app"></div>
 
   <!-- Core: utils y bus primero -->
-  <script src="js/core/utils.js?v=3.23.2"></script>
-  <script src="js/core/bus.js?v=3.23.2"></script>
-  <script src="js/core/balance.js?v=3.23.2"></script>
-  <script src="js/core/sprites.js?v=3.23.2"></script>
-  <script src="js/core/item-sprites.js?v=3.23.2"></script>
+  <script src="js/core/utils.js?v=3.23.3"></script>
+  <script src="js/core/bus.js?v=3.23.3"></script>
+  <script src="js/core/balance.js?v=3.23.3"></script>
+  <script src="js/core/sprites.js?v=3.23.3"></script>
+  <script src="js/core/item-sprites.js?v=3.23.3"></script>
 
   <!-- Seeds: deben cargar antes que data.js (que los lee) -->
-  <script src="js/data/seed-races.js?v=3.23.2"></script>
-  <script src="js/data/seed-regions.js?v=3.23.2"></script>
-  <script src="js/data/seed-enemies.js?v=3.23.2"></script>
-  <script src="js/data/seed-weapons.js?v=3.23.2"></script>
-  <script src="js/data/seed-armors.js?v=3.23.2"></script>
-  <script src="js/data/seed-items.js?v=3.23.2"></script>
-  <script src="js/data/seed-spells.js?v=3.23.2"></script>
-  <script src="js/data/seed-recipes.js?v=3.23.2"></script>
-  <script src="js/data/seed-npcs.js?v=3.23.2"></script>
-  <script src="js/data/seed-bags.js?v=3.23.2"></script>
-  <script src="js/data/seed-events.js?v=3.23.2"></script>
-  <script src="js/data/seed-cadenas.js?v=3.23.2"></script>
-  <script src="js/data/seed-quests.js?v=3.23.2"></script>
-  <script src="js/data/seed-escuelas.js?v=3.23.2"></script>
-  <script src="js/data/seed-jefes-medidos.js?v=3.23.2"></script>
+  <script src="js/data/seed-races.js?v=3.23.3"></script>
+  <script src="js/data/seed-regions.js?v=3.23.3"></script>
+  <script src="js/data/seed-enemies.js?v=3.23.3"></script>
+  <script src="js/data/seed-weapons.js?v=3.23.3"></script>
+  <script src="js/data/seed-armors.js?v=3.23.3"></script>
+  <script src="js/data/seed-items.js?v=3.23.3"></script>
+  <script src="js/data/seed-spells.js?v=3.23.3"></script>
+  <script src="js/data/seed-recipes.js?v=3.23.3"></script>
+  <script src="js/data/seed-npcs.js?v=3.23.3"></script>
+  <script src="js/data/seed-bags.js?v=3.23.3"></script>
+  <script src="js/data/seed-events.js?v=3.23.3"></script>
+  <script src="js/data/seed-cadenas.js?v=3.23.3"></script>
+  <script src="js/data/seed-quests.js?v=3.23.3"></script>
+  <script src="js/data/seed-escuelas.js?v=3.23.3"></script>
+  <script src="js/data/seed-jefes-medidos.js?v=3.23.3"></script>
 
   <!-- Data loader y helpers automáticos -->
-  <script src="js/core/data.js?v=3.23.2"></script>
-  <script src="js/core/validate.js?v=3.23.2"></script>
-  <script src="js/core/accounts.js?v=3.23.2"></script>
-  <script src="js/core/state.js?v=3.23.2"></script>
-  <script src="js/core/ui-recover.js?v=3.23.2"></script>
-  <script src="js/core/time.js?v=3.23.2"></script>
-  <script src="js/core/voice.js?v=3.23.2"></script>
-  <script src="js/core/survival.js?v=3.23.2"></script>
+  <script src="js/core/data.js?v=3.23.3"></script>
+  <script src="js/core/validate.js?v=3.23.3"></script>
+  <script src="js/core/accounts.js?v=3.23.3"></script>
+  <script src="js/core/state.js?v=3.23.3"></script>
+  <script src="js/core/ui-recover.js?v=3.23.3"></script>
+  <script src="js/core/time.js?v=3.23.3"></script>
+  <script src="js/core/voice.js?v=3.23.3"></script>
+  <script src="js/core/survival.js?v=3.23.3"></script>
 
   <!-- Systems -->
-  <script src="js/systems/currency.js?v=3.23.2"></script>
-  <script src="js/systems/accessories.js?v=3.23.2"></script>
-  <script src="js/systems/itemfx.js?v=3.23.2"></script>
-  <script src="js/systems/inventory.js?v=3.23.2"></script>
-  <script src="js/systems/encounter.js?v=3.23.2"></script>
-  <script src="js/systems/passives.js?v=3.23.2"></script>
-  <script src="js/systems/techniques.js?v=3.23.2"></script>
-  <script src="js/systems/lairs.js?v=3.23.2"></script>
-  <script src="js/systems/narrator.js?v=3.23.2"></script>
-  <script src="js/systems/persp.js?v=3.23.2"></script>
-  <script src="js/systems/skills.js?v=3.23.2"></script>
-  <script src="js/systems/tactics.js?v=3.23.2"></script>
-  <script src="js/systems/combat.js?v=3.23.2"></script>
-  <script src="js/systems/combat-reglas.js?v=3.23.2"></script>
-  <script src="js/systems/combat-turnos.js?v=3.23.2"></script>
-  <script src="js/systems/combat-jugador.js?v=3.23.2"></script>
-  <script src="js/systems/combat-escuelas.js?v=3.23.2"></script>
-  <script src="js/systems/combat-aliados.js?v=3.23.2"></script>
-  <script src="js/systems/combat-enemigos.js?v=3.23.2"></script>
-  <script src="js/systems/combat-final.js?v=3.23.2"></script>
-  <script src="js/systems/travel.js?v=3.23.2"></script>
-  <script src="js/systems/gente.js?v=3.23.2"></script>
-  <script src="js/systems/tame.js?v=3.23.2"></script>
-  <script src="js/systems/explore.js?v=3.23.2"></script>
-  <script src="js/systems/quests.js?v=3.23.2"></script>
-  <script src="js/systems/bestiary.js?v=3.23.2"></script>
-  <script src="js/systems/crafting.js?v=3.23.2"></script>
-  <script src="js/systems/itemuses.js?v=3.23.2"></script>
-  <script src="js/systems/spellbook.js?v=3.23.2"></script>
-  <script src="js/systems/npc.js?v=3.23.2"></script>
-  <script src="js/systems/oficios.js?v=3.23.2"></script>
-  <script src="js/systems/schools.js?v=3.23.2"></script>
-  <script src="js/systems/death.js?v=3.23.2"></script>
+  <script src="js/systems/currency.js?v=3.23.3"></script>
+  <script src="js/systems/accessories.js?v=3.23.3"></script>
+  <script src="js/systems/itemfx.js?v=3.23.3"></script>
+  <script src="js/systems/inventory.js?v=3.23.3"></script>
+  <script src="js/systems/encounter.js?v=3.23.3"></script>
+  <script src="js/systems/passives.js?v=3.23.3"></script>
+  <script src="js/systems/techniques.js?v=3.23.3"></script>
+  <script src="js/systems/lairs.js?v=3.23.3"></script>
+  <script src="js/systems/narrator.js?v=3.23.3"></script>
+  <script src="js/systems/persp.js?v=3.23.3"></script>
+  <script src="js/systems/skills.js?v=3.23.3"></script>
+  <script src="js/systems/tactics.js?v=3.23.3"></script>
+  <script src="js/systems/combat.js?v=3.23.3"></script>
+  <script src="js/systems/combat-reglas.js?v=3.23.3"></script>
+  <script src="js/systems/combat-turnos.js?v=3.23.3"></script>
+  <script src="js/systems/combat-jugador.js?v=3.23.3"></script>
+  <script src="js/systems/combat-escuelas.js?v=3.23.3"></script>
+  <script src="js/systems/combat-aliados.js?v=3.23.3"></script>
+  <script src="js/systems/combat-enemigos.js?v=3.23.3"></script>
+  <script src="js/systems/combat-final.js?v=3.23.3"></script>
+  <script src="js/systems/travel.js?v=3.23.3"></script>
+  <script src="js/systems/gente.js?v=3.23.3"></script>
+  <script src="js/systems/tame.js?v=3.23.3"></script>
+  <script src="js/systems/explore.js?v=3.23.3"></script>
+  <script src="js/systems/quests.js?v=3.23.3"></script>
+  <script src="js/systems/bestiary.js?v=3.23.3"></script>
+  <script src="js/systems/crafting.js?v=3.23.3"></script>
+  <script src="js/systems/itemuses.js?v=3.23.3"></script>
+  <script src="js/systems/spellbook.js?v=3.23.3"></script>
+  <script src="js/systems/npc.js?v=3.23.3"></script>
+  <script src="js/systems/oficios.js?v=3.23.3"></script>
+  <script src="js/systems/schools.js?v=3.23.3"></script>
+  <script src="js/systems/death.js?v=3.23.3"></script>
 
   <!-- v3.0: jugar en grupo (conexión directa entre navegadores) -->
-  <script src="js/vendor/peerjs.min.js?v=3.23.2"></script>
-  <script src="js/net/link.js?v=3.23.2"></script>
-  <script src="js/net/party.js?v=3.23.2"></script>
+  <script src="js/vendor/peerjs.min.js?v=3.23.3"></script>
+  <script src="js/net/link.js?v=3.23.3"></script>
+  <script src="js/net/party.js?v=3.23.3"></script>
 
   <!-- Views -->
-  <script src="js/views/ui-kit.js?v=3.23.2"></script>
-  <script src="js/views/shell.js?v=3.23.2"></script>
-  <script src="js/views/character.js?v=3.23.2"></script>
-  <script src="js/views/escenas.js?v=3.23.2"></script>
-  <script src="js/views/world.js?v=3.23.2"></script>
-  <script src="js/views/inventory.js?v=3.23.2"></script>
-  <script src="js/views/magic.js?v=3.23.2"></script>
-  <script src="js/views/chronicles.js?v=3.23.2"></script>
-  <script src="js/views/combat-fx.js?v=3.23.2"></script>
-  <script src="js/views/combat.js?v=3.23.2"></script>
-  <script src="js/views/map.js?v=3.23.2"></script>
-  <script src="js/views/modals.js?v=3.23.2"></script>
-  <script src="js/views/event.js?v=3.23.2"></script>
-  <script src="js/views/npc.js?v=3.23.2"></script>
-  <script src="js/views/journal.js?v=3.23.2"></script>
-  <script src="js/views/party.js?v=3.23.2"></script>
-  <script src="js/views/login.js?v=3.23.2"></script>
+  <script src="js/views/ui-kit.js?v=3.23.3"></script>
+  <script src="js/views/shell.js?v=3.23.3"></script>
+  <script src="js/views/character.js?v=3.23.3"></script>
+  <script src="js/views/escenas.js?v=3.23.3"></script>
+  <script src="js/views/world.js?v=3.23.3"></script>
+  <script src="js/views/inventory.js?v=3.23.3"></script>
+  <script src="js/views/magic.js?v=3.23.3"></script>
+  <script src="js/views/chronicles.js?v=3.23.3"></script>
+  <script src="js/views/combat-fx.js?v=3.23.3"></script>
+  <script src="js/views/combat.js?v=3.23.3"></script>
+  <script src="js/views/map.js?v=3.23.3"></script>
+  <script src="js/views/modals.js?v=3.23.3"></script>
+  <script src="js/views/event.js?v=3.23.3"></script>
+  <script src="js/views/npc.js?v=3.23.3"></script>
+  <script src="js/views/journal.js?v=3.23.3"></script>
+  <script src="js/views/party.js?v=3.23.3"></script>
+  <script src="js/views/login.js?v=3.23.3"></script>
 
   <!-- Editor (v2.2) -->
-  <script src="js/editor/ed-core.js?v=3.23.2"></script>
-  <script src="js/editor/ed-fields.js?v=3.23.2"></script>
-  <script src="js/editor/ed-schema.js?v=3.23.2"></script>
-  <script src="js/editor/ed-panels.js?v=3.23.2"></script>
-  <script src="js/editor/ed-sim.js?v=3.23.2"></script>
-  <script src="js/editor/ed-map.js?v=3.23.2"></script>
-  <script src="js/editor/ed-view.js?v=3.23.2"></script>
+  <script src="js/editor/ed-core.js?v=3.23.3"></script>
+  <script src="js/editor/ed-fields.js?v=3.23.3"></script>
+  <script src="js/editor/ed-schema.js?v=3.23.3"></script>
+  <script src="js/editor/ed-panels.js?v=3.23.3"></script>
+  <script src="js/editor/ed-sim.js?v=3.23.3"></script>
+  <script src="js/editor/ed-map.js?v=3.23.3"></script>
+  <script src="js/editor/ed-view.js?v=3.23.3"></script>
 
   <!-- Bootstrap -->
-  <script src="js/app.js?v=3.23.2"></script>
+  <script src="js/app.js?v=3.23.3"></script>
 </body>
 </html>

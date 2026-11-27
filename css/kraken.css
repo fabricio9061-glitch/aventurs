@@ -1,0 +1,181 @@
+/* ============================================================
+   v3.23.3: el Kraken y sus tentáculos, como una sola criatura.
+   El Kraken va al medio (grande, medio tapado por el agua) y los brazos
+   salen del agua a los dos lados, en arco: los de cerca más arriba.
+   Las tarjetas de los brazos son chicas (letra y vida); el resto, al pasar por encima.
+   ============================================================ */
+
+.cb-arena .cb-lair {
+  --arm-w: 100px;
+  --arm-sp: 96px;
+  --boss-w: 196px;
+  --boss-sp: 224px;
+  --rise: 14px;
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 12px;
+  flex: 0 1 auto;
+  min-width: 0;
+}
+/* el pozo de agua oscura donde está metido todo el bicho */
+.cb-arena .cb-lair::before {
+  content: '';
+  position: absolute;
+  left: -2%;
+  right: -2%;
+  bottom: 18px;
+  height: 62%;
+  border-radius: 50%;
+  background:
+    radial-gradient(ellipse 50% 40% at 50% 62%, rgba(10, 30, 52, 0.55), transparent 72%),
+    radial-gradient(ellipse 48% 22% at 50% 72%, rgba(120, 190, 230, 0.16), transparent 70%);
+  pointer-events: none;
+  z-index: 0;
+}
+.cb-lair > * { position: relative; z-index: 1; }
+
+.cb-lair-arms {
+  display: grid;
+  grid-template-columns: repeat(var(--cols, 4), var(--arm-w));
+  gap: 6px 8px;
+  align-items: end;
+}
+.cb-lair-boss { display: flex; align-items: flex-end; }
+
+/* ---------- los brazos ---------- */
+.combat-view.cb .cb-arena .cb-lair .cb-unit.is-arm {
+  --card-w: var(--arm-w);
+  width: var(--arm-w);
+  flex: none;
+  margin-bottom: calc((var(--cols, 4) - 1 - var(--d, 0)) * var(--rise));
+}
+.combat-view.cb .cb-arena .cb-lair .cb-unit.is-arm .cb-sprite { height: calc(var(--arm-sp) + 6px); margin-bottom: -8px; }
+.combat-view.cb .cb-arena .cb-lair .cb-unit.is-arm .cb-sprite > .px-sprite { --px-size: var(--arm-sp) !important; }
+/* los de la izquierda, dados vuelta: se abren para los dos lados */
+.cb-lair-arms.is-left .cb-unit.is-arm .cb-sprite > .px-sprite { scale: -1 1; }
+.combat-view.cb .cb-arena .cb-lair .cb-unit.is-arm .cb-sprite .cb-dc { transform: scale(0.72); transform-origin: top right; }
+/* salen del agua: un anillo en la base en vez de sombra */
+.cb-lair .cb-unit.is-arm .cb-shadow,
+.cb-arm-gone i {
+  bottom: 2px;
+  width: 84%;
+  height: 14px;
+  border-radius: 50%;
+  background: radial-gradient(ellipse at center, rgba(14, 40, 64, 0.55) 30%, transparent 70%);
+  box-shadow: 0 0 0 2px rgba(190, 228, 255, 0.35);
+  animation: lair-ripple 2.8s ease-in-out infinite;
+}
+.cb-lair .cb-unit.is-arm:nth-child(2n) .cb-shadow { animation-delay: -1.3s; }
+@keyframes lair-ripple {
+  0%, 100% { box-shadow: 0 0 0 2px rgba(190, 228, 255, 0.35); }
+  50% { box-shadow: 0 0 0 5px rgba(190, 228, 255, 0.12); }
+}
+.cb-lair .cb-unit.is-arm.is-enemy.is-active .cb-shadow { box-shadow: 0 0 0 3px rgba(230, 90, 60, 0.6); }
+
+/* tarjeta chica: la letra y la vida */
+.combat-view.cb .cb-arena .cb-lair .cb-unit.is-arm .cb-plate { padding: 4px 6px 5px; gap: 3px; }
+.cb-lair .cb-unit.is-arm .cb-plate-head { height: 16px; justify-content: center; }
+.cb-lair .cb-unit.is-arm .cb-name {
+  font-size: 12px;
+  min-width: 20px;
+  text-align: center;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: rgba(90, 42, 90, 0.14);
+  color: #4a1c4a;
+  line-height: 16px;
+}
+.cb-lair .cb-unit.is-arm .cb-badges,
+.cb-lair .cb-unit.is-arm .cb-subbar,
+.cb-lair .cb-unit.is-arm .cb-stats,
+.cb-lair .cb-unit.is-arm .cb-ribbon { display: none; }
+.cb-lair .cb-unit.is-arm .cb-hp { height: 13px; gap: 4px; }
+.cb-lair .cb-unit.is-arm .cb-hp-num { min-width: 0; font-size: 11px; }
+.cb-lair .cb-unit.is-arm .cb-hp-num small { font-size: 9px; }
+.cb-lair .cb-unit.is-arm .cb-plate .bar { height: 7px; }
+.cb-lair .cb-unit.is-arm .cb-target-mark { top: -4px; }
+
+/* el brazo cortado: solo queda el agua moviéndose */
+.cb-arm-gone {
+  position: relative;
+  display: block;
+  width: var(--arm-w);
+  height: 26px;
+  margin-bottom: calc((var(--cols, 4) - 1 - var(--d, 0)) * var(--rise) + 50px);
+  opacity: 0.7;
+}
+.cb-arm-gone i { position: absolute; left: 50%; translate: -50% 0; }
+
+/* ---------- el Kraken, al medio ---------- */
+.combat-view.cb .cb-arena .cb-lair .cb-unit.is-lair-boss {
+  --card-w: var(--boss-w);
+  width: var(--boss-w);
+  flex: none;
+  margin-bottom: calc((var(--cols, 4) - 1) * var(--rise) * 0.5);
+}
+.combat-view.cb .cb-arena .cb-lair .cb-unit.is-lair-boss .cb-sprite { height: calc(var(--boss-sp) + 8px); }
+.combat-view.cb .cb-arena .cb-lair .cb-unit.is-lair-boss .cb-sprite > .px-sprite { --px-size: var(--boss-sp) !important; }
+/* bajo el agua: la mitad de abajo tapada por el agua (sin la transparencia de antes) */
+.cb-lair .cb-unit.is-lair-boss.is-submerged { opacity: 1; filter: none; }
+.cb-lair .cb-unit.is-lair-boss.is-submerged .cb-sprite { transform: translateY(18px); }
+.cb-lair .cb-unit.is-lair-boss.is-submerged .cb-sprite > .px-sprite { filter: saturate(0.6) brightness(0.8); }
+.cb-lair .cb-unit.is-lair-boss.is-submerged .cb-sprite::after {
+  content: '';
+  position: absolute;
+  z-index: 2;
+  left: -22%;
+  right: -22%;
+  bottom: 0;
+  height: 44%;
+  background:
+    repeating-linear-gradient(90deg, rgba(200, 236, 255, 0.5) 0 14px, rgba(200, 236, 255, 0.15) 14px 26px) top / 100% 3px no-repeat,
+    linear-gradient(180deg, rgba(46, 110, 150, 0.8), rgba(10, 34, 58, 0.95));
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 22%, #000 78%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 22%, #000 78%, transparent);
+  pointer-events: none;
+  animation: lair-swell 3.4s ease-in-out infinite;
+}
+@keyframes lair-swell { 0%, 100% { translate: 0 0; } 50% { translate: 0 -4px; } }
+.cb-lair .cb-unit.is-lair-boss.is-submerged .cb-plate { opacity: 0.85; }
+.cb-lair .cb-unit.is-lair-boss .cb-shadow { width: 110%; }
+
+/* con el nombre entero: el nivel ya se ve en el orden de turnos */
+.cb-lair .cb-unit.is-lair-boss.is-submerged .cb-badge.is-lvl { display: none; }
+
+/* ---------- menos lugar ---------- */
+@media (max-width: 1500px) {
+  .cb-arena .cb-lair { --arm-w: 84px; --arm-sp: 80px; --boss-w: 176px; --boss-sp: 176px; --rise: 12px; gap: 8px; }
+  .cb-lair-arms { gap: 6px; }
+}
+@media (min-width: 761px) and (max-width: 1180px) {
+  .cb-arena .cb-lair { --arm-w: 74px; --arm-sp: 64px; --boss-w: 150px; --boss-sp: 128px; --rise: 10px; }
+}
+.cb-arena.is-tight .cb-lair { --arm-sp: 56px; --boss-sp: 112px; --rise: 6px; }
+@media (min-width: 1501px) {
+  .cb-arena.is-roomy .cb-lair { --arm-sp: 112px; --boss-sp: 256px; --rise: 18px; }
+}
+
+/* ---------- celular: el Kraken arriba y los brazos abajo, de a cuatro ---------- */
+@media (max-width: 760px) {
+  .cb-arena .cb-lair {
+    --arm-w: auto;
+    --arm-sp: 56px;
+    --boss-w: min(200px, 60%);
+    --boss-sp: 128px;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 6px;
+    width: 100%;
+  }
+  .cb-arena .cb-lair::before { top: 0; bottom: auto; height: 260px; }
+  .cb-lair-boss { grid-column: 1 / -1; grid-row: 1; justify-content: center; margin-bottom: 6px; }
+  /* los brazos en orden (A B C D / E F G H), todos para el mismo lado */
+  .cb-lair-arms { display: contents; }
+  .cb-lair-arms.is-left .cb-unit.is-arm .cb-sprite > .px-sprite { scale: none; }
+  .combat-view.cb .cb-arena .cb-lair .cb-unit.is-arm { width: auto; max-width: none; margin-bottom: 0; }
+  .combat-view.cb .cb-arena .cb-lair .cb-unit.is-lair-boss { margin-bottom: 0; max-width: none; }
+  .cb-arm-gone { width: auto; margin-bottom: 40px; }
+  .cb-lair .cb-unit.is-arm .cb-hp-num small { display: none; }
+}

@@ -347,6 +347,16 @@
 
   /** v3.22.1: con mucha gente, los caídos no ocupan lugar en la arena (quedan contados arriba). */
   function pileDead(c) { return unitCount(c) >= 8; }
+  /** v3.23.3: jefes con brazos propios (el Kraken): mientras le quede uno en pie, van todos juntos. */
+  function lairsOf(c, snap) {
+    const out = [];
+    for (const boss of c.enemies || []) {
+      const arms = c.enemies.filter((e) => e.guardOf === boss.instanceId);
+      if (arms.length < 2 || !arms.some((t) => !isFallen(t, snap))) continue;
+      out.push({ boss, arms });
+    }
+    return out;
+  }
   function isFallen(e, snap) {
     const k = `enemy:${e.instanceId}`;
     const hp = snap && snap[k] != null ? snap[k] : e.hp;
@@ -463,9 +473,35 @@
     // v3.22.1: con mucha gente en la pelea, los caídos se van de la arena y quedan en una pila
     // (antes 13 tentáculos caídos ocupaban dos filas y la arena se partía en tres); se cuentan arriba, al lado de la ronda
     const pile = pileDead(c);
-    const cards = c.enemies.map((e, i) => (pile && isFallen(e, snap) ? ''
-      : enemyCard(e, i, e.instanceId === targetId && !frozen, cur && cur.kind === 'enemy' && cur.id === e.instanceId, shown))).join('');
-    const bossCls = c.enemies.some((e) => e.category === 'boss') ? 'has-boss' : '';
+    const card = (e, i, o) => enemyCard(e, i, e.instanceId === targetId && !frozen, cur && cur.kind === 'enemy' && cur.id === e.instanceId, shown, o);
+    // v3.23.3: el Kraken y sus tentáculos van juntos, como una sola criatura (él al medio, los brazos alrededor)
+    const lairs = lairsOf(c, snap);
+    const inLair = new Set();
+    for (const l of lairs) { inLair.add(l.boss.instanceId); for (const t of l.arms) inLair.add(t.instanceId); }
+    const lairHtml = lairs.map((l) => {
+      const idx = (e) => c.enemies.indexOf(e);
+      const half = Math.ceil(l.arms.length / 2);
+      const left = l.arms.slice(0, half);
+      const right = l.arms.slice(half);
+      const per = Math.max(left.length, right.length);
+      const cols = per > 4 ? Math.ceil(per / 2) : per;
+      const arm = (t, j, side) => {
+        // d: lejos del Kraken (0 = el más cerca); los de cerca se levantan más
+        const col = j % cols;
+        const d = side === 'l' ? cols - 1 - col : col;
+        if (isFallen(t, snap)) return `<span class="cb-arm-gone" style="--d:${d}" title="${esc(t.displayName)} (cortado)" aria-hidden="true"><i></i></span>`;
+        return card(t, idx(t), { arm: true, d });
+      };
+      return `
+        <div class="cb-lair" style="--cols:${cols}" data-lair="${esc(l.boss.instanceId)}">
+          <div class="cb-lair-arms is-left">${left.map((t, j) => arm(t, j, 'l')).join('')}</div>
+          <div class="cb-lair-boss">${card(l.boss, idx(l.boss), { lair: true })}</div>
+          <div class="cb-lair-arms is-right">${right.map((t, j) => arm(t, j, 'r')).join('')}</div>
+        </div>`;
+    }).join('');
+    const cards = lairHtml + c.enemies.map((e, i) => (inLair.has(e.instanceId) || (pile && isFallen(e, snap)) ? ''
+      : card(e, i))).join('');
+    const bossCls = `${c.enemies.some((e) => e.category === 'boss') ? 'has-boss' : ''} ${lairs.length ? 'has-lair' : ''}`;
 
     return `
       <div class="cb-arena ${arenaBg()} ${c.ambush ? 'is-ambush' : ''} ${c.party ? 'is-party' : ''} ${units >= 10 ? 'is-packed' : ''} ${bossCls} units-${Math.min(units, 9)} enemies-${Math.min(n, 5)}" data-sec="arena">
@@ -575,7 +611,7 @@
       `class="${cls}"`,
       `data-fx-key="${esc(u.key)}"`,
       u.targetId ? `data-target="${esc(u.targetId)}"` : '',
-      `style="--i:${u.i || 0}"`,
+      `style="--i:${u.i || 0}${u.d != null ? `;--d:${u.d}` : ''}"`,
       u.dead && tag === 'button' ? 'disabled' : '',
       `title="${esc(u.title || u.name)}"`,
     ].filter(Boolean).join(' ');
@@ -714,7 +750,7 @@
     });
   }
 
-  function enemyCard(e, idx, isTarget, isActive, shown) {
+  function enemyCard(e, idx, isTarget, isActive, shown, o = {}) {
     const key = `enemy:${e.instanceId}`;
     const hp = shown(key, e.hp);
     const dying = Fx() && Fx().isDying(key);
@@ -738,10 +774,12 @@
     // v2.5: envalentonado (+daño) o con miedo (-daño): se suma al dado ("2d4+1" -> "2d4+2")
     const dmgTxt = withFlat(String(e.damage || '1d3').replace(/\s+/g, ''), -(fx.damagePenalty || 0));
     return unitCard({
-      kind: e.submerged ? 'enemy is-submerged' : 'enemy', key, targetId: e.instanceId, clickable: !e.submerged, i: idx + 2,
+      kind: `${e.submerged ? 'enemy is-submerged' : 'enemy'}${o.arm ? ' is-arm' : ''}${o.lair ? ' is-lair-boss' : ''}`,
+      key, targetId: e.instanceId, clickable: !e.submerged, i: idx + 2, d: o.d,
       cat, elite: !!e.elite, isTarget: isTarget && !dead, isActive, dead,
-      name: shownName,
-      title: dead ? `${e.displayName} (caído)` : `${e.displayName}: tocá para apuntarle${skills ? `\n\nHabilidades:\n${skills}` : ''}`,
+      // v3.23.3: los brazos del Kraken, con su letra nomás (el resto, al pasar por encima)
+      name: o.arm ? (e.label || shownName) : shownName,
+      title: dead ? `${e.displayName} (caído)` : `${e.displayName}: tocá para apuntarle${o.arm ? `\nPrecisión +${now.attack} · Daño ${dmgTxt} · Armadura ${now.armor} · Velocidad ${e.speed || 10}` : ''}${skills ? `\n\nHabilidades:\n${skills}` : ''}`,
       badges: `${e.elite ? '' : `<span class="cb-badge is-lvl" title="Nivel ${e.tier}">Nv ${e.tier}</span>`}${catBadge}`,
       ribbon,
       sprite: A.Sprites ? A.Sprites.html(e, { size: 128 }) : '',

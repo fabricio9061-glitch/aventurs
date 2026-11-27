@@ -2,6 +2,15 @@
 
 La más nueva arriba. Cómo correr el juego y cómo está armado: [README.md](README.md).
 
+## Versión 3.23.3: el Kraken es una sola criatura
+
+- **El Kraken y sus tentáculos van juntos:** el Kraken queda al medio, grande y medio tapado por el agua, y los tentáculos salen del agua a los dos lados, en arco (los de cerca, más arriba). Antes cada tentáculo era una tarjeta suelta en fila.
+- **Tarjetas chicas para los tentáculos:** su letra y su vida. Precisión, daño, armadura y velocidad salen al pasar el mouse por encima. Se apuntan igual, tocándolos.
+- **Tentáculo cortado:** queda solo el agua moviéndose en su lugar, así los otros no se corren.
+- **En el celular:** el Kraken arriba y los tentáculos abajo, de a cuatro por fila (A B C D / E F G H).
+- Cuando cortás todos y sale a la superficie, se ve como antes (grande, como cualquier jefe).
+- No cambian reglas: no hace falta que el grupo actualice a la vez (igual conviene).
+
 ## Versión 3.23.2: los efectos se acumulan
 
 - **Todos los efectos se acumulan:** si a alguien le volvés a poner el mismo efecto, suma una carga (hasta 3). Se ve en la chapita como x2 o x3, y la crónica lo cuenta ("sufre veneno (x2)").
