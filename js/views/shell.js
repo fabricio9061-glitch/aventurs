@@ -46,7 +46,7 @@
           <div class="shell-brand">
             <span class="brand-icon">${A.UI ? A.UI.icon('swords', 26) : ''}</span>
             <span class="brand-name">Aventurs</span>
-            <span class="version-pill" title="Versión del juego">v3.21.5</span>
+            <span class="version-pill" title="Versión del juego">v3.21.6</span>
           </div>
           ${tabs.length > 1 ? `
             <nav class="shell-nav">
@@ -85,6 +85,7 @@
     chroniclesEl = rootEl.querySelector('#shell-chronicles');
 
     bindEvents();
+    bindMasterClicks();
     // v3.19.4: al cruzar el ancho de la columna izquierda, se vuelve a armar la barra
     lastWide = wideKey();
     if (!wideHandler) { wideHandler = () => { const w = wideKey(); if (w !== lastWide) { lastWide = w; renderSidebar(); } }; window.addEventListener('resize', wideHandler); }
@@ -94,6 +95,26 @@
   }
 
   /** v3.0: el editor es solo de la cuenta del dueño (ver js/core/accounts.js). */
+  /** v3.21.6: abre el mapa con la zona de tu maestro elegida. */
+  function findMaster() {
+    const p = A.State.player;
+    const mw = p && A.Schools && A.Schools.whereMaster ? A.Schools.whereMaster(p.raceId) : null;
+    if (!mw || !mw.region) return;
+    if (A.State.combat || A.State.traveling) { if (A.Views.Party && A.Views.Party.toast) A.Views.Party.toast(`${mw.fem ? 'Tu maestra' : 'Tu maestro'}, ${mw.npc.name}, vive en ${mw.region.name}.`); return; }
+    if (A.State.ui.openModal && A.State.closeModal) A.State.closeModal();
+    A.State.ui.mapFocus = mw.region.id;
+    A.State.ui.showMap = true;
+    A.Bus.emit('view:changed');
+  }
+
+  // v3.21.6: cualquier botón "Ver en el mapa" de tu maestro (hechizos, diario)
+  let masterClickBound = false;
+  function bindMasterClicks() {
+    if (masterClickBound) return;
+    masterClickBound = true;
+    document.addEventListener('click', (e) => { if (e.target.closest && e.target.closest('[data-find-master]')) findMaster(); });
+  }
+
   function canEdit() { return !A.Accounts || !A.Accounts.canEdit || A.Accounts.canEdit(); }
 
   /** v3.0: el botón del grupo (con su puntito) se redibuja solo. */
@@ -102,6 +123,14 @@
     if (!slot || !A.Views.Party) return;
     slot.innerHTML = A.Views.Party.headerButton();
     slot.querySelectorAll('[data-action]').forEach((btn) => btn.addEventListener('click', () => handleAction(btn.dataset.action)));
+  }
+
+  /** v3.21.6: dónde vive tu maestro (te lleva al mapa). */
+  function masterChip(p) {
+    const mw = A.Schools && A.Schools.whereMaster ? A.Schools.whereMaster(p.raceId) : null;
+    if (!mw || !mw.region) return '';
+    const who = mw.fem ? 'Tu maestra' : 'Tu maestro';
+    return `<button class="char-master" data-action="find-master" title="${A.Utils.escapeHtml(`${who}: ${mw.npc.name}, en ${mw.region.name}. Tocá para verlo en el mapa.`)}">${A.UI ? A.UI.icon('pin', 14) : ''}<span>${who}: ${A.Utils.escapeHtml(mw.region.name)}</span></button>`;
   }
 
   /** v1.9.2: la pasiva de la raza, con su ícono y la explicación al pasar el mouse. */
@@ -273,7 +302,7 @@
             <div class="sb-name">${escH(p.name)}</div>
             ${look.title ? `<div class="sb-cos-title">${escH(look.title.text)}</div>` : ''}
             <div class="sb-sub">${escH(race ? race.name : '')} · ${TYPE_NAME[type] || ''}</div>
-            ${passiveLine(p)}
+            <div class="sb-chips">${passiveLine(p)}${masterChip(p)}</div>
           </div>
           <div class="sb-head-btns">
             ${p.hasMagic ? `<button class="sb-magic" data-action="open-magic" title="Tus hechizos">${ic('spell', 20)}</button>` : (A.Techniques && A.Techniques.of(p) ? `<button class="sb-magic" data-action="open-magic" title="Tus técnicas">${ic('swords', 20)}</button>` : '')}
@@ -695,6 +724,7 @@
     else if (action === 'rules') A.State.openModal('rules');
     else if (action === 'menu') A.State.openModal('menu');
     else if (action === 'open-magic') A.State.openModal('magic');
+    else if (action === 'find-master') findMaster();
     else if (action === 'open-explore') A.State.openModal('explore-stats');
     else if (action === 'open-chronicles') A.State.openModal('journal', { tab: 'chronicles' });
     else if (action === 'journal') A.State.openModal('journal', { tab: 'quests' });

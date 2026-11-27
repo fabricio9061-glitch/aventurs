@@ -35,6 +35,12 @@
   function forPlayer(p) { return p ? of(p.raceId) : null; }
   function isMaster(npc) { return !!(npc && npc.school && of(npc.school)); }
   function masterOf(raceId) { const s = of(raceId); return s ? A.Data.getById('npcs', s.master) : null; }
+  /** v3.21.6: dónde vive el maestro de una raza: { school, npc, region, fem }. */
+  function whereMaster(raceId) {
+    const s = of(raceId); const npc = s ? A.Data.getById('npcs', s.master) : null;
+    if (!npc) return null;
+    return { school: s, npc, region: A.Data.getById('regions', npc.region) || null, fem: /^Maestra/.test(npc.roleName || '') };
+  }
 
   /** Tramo de nivel (el mismo de las pasivas): 1-4 · 5-8 · 9-12 · 13-16 · 17+ */
   function band(p) { return A.Passives && A.Passives.band ? A.Passives.band(p) : 0; }
@@ -292,5 +298,5 @@
     });
   }
 
-  A.Schools = { RANKS, PAID, isPaid, trialOf, list, of, forPlayer, isMaster, masterOf, band, val, diceOf, chainOf, powerOf, knows, powers, nextStep, canLearnAt, teach, learnAt, priceOf, migrateMagic, isOwnMagic };
+  A.Schools = { RANKS, PAID, isPaid, trialOf, list, of, forPlayer, isMaster, masterOf, whereMaster, band, val, diceOf, chainOf, powerOf, knows, powers, nextStep, canLearnAt, teach, learnAt, priceOf, migrateMagic, isOwnMagic };
 })(window.Aventurs);

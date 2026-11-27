@@ -1,0 +1,66 @@
+
+/* ============================================================
+   v3.21.6: dónde vive el maestro de tu raza.
+   En la ficha (chapita que lleva al mapa), en Tus hechizos o
+   Tus técnicas, en el Diario y marcado en el mapa.
+   ============================================================ */
+
+/* ---------- Ficha: la chapita al lado de la pasiva ---------- */
+.sb-chips { display: flex; flex-wrap: wrap; gap: 4px 6px; margin-top: 3px; }
+.sb-chips .char-passive { margin-top: 0; }
+.char-master {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 1px 9px 1px 4px; border-radius: 999px;
+  border: 1px solid rgba(232, 196, 110, 0.55);
+  background: rgba(255, 240, 200, 0.12);
+  color: #f0d9a0; font-size: 11.5px; font-weight: 600; white-space: nowrap; cursor: pointer;
+}
+.char-master:hover { background: rgba(255, 240, 200, 0.22); }
+.char-master .px-icon, .char-master img { width: 14px; height: 14px; }
+
+/* ---------- Tus hechizos / Tus técnicas ---------- */
+.book-master {
+  display: flex; align-items: center; gap: 12px; margin-top: 4px; padding: 10px 12px;
+  border-radius: 12px; border: 1px solid #c9a24a;
+  background: linear-gradient(180deg, #fff8e4, #f3e2b8);
+  box-shadow: inset 0 1px 0 #fff;
+}
+.book-master-face, .journal-master-face {
+  flex: none; width: 52px; height: 52px; border-radius: 50%; display: flex; align-items: flex-end; justify-content: center; overflow: hidden;
+  background: radial-gradient(circle at 50% 40%, #4a3a2a, #1f160e 75%);
+  box-shadow: 0 0 0 2px #fbf3de, 0 0 0 3px #c9a24a;
+}
+.book-master-text { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.25; color: #3a2a18; }
+.book-master-text small { font-size: 10.5px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #8a6a34; }
+.book-master-text b { font-size: 15px; }
+.book-master-text span { font-size: 13px; color: #5a4428; }
+.book-master .btn-sm, .journal-master .btn-sm { flex: none; display: inline-flex; align-items: center; gap: 5px; }
+
+/* ---------- Diario ---------- */
+.journal-master { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 12px; background: #fbefc8; border: 1px dashed #c9a24a; color: #3a2a12; }
+.journal-master-text { flex: 1; min-width: 0; font-size: 13.5px; line-height: 1.4; }
+.journal-masters { margin-top: 8px; }
+.journal-masters > summary { cursor: pointer; font-weight: 600; color: #7a5410; font-size: 13.5px; padding: 4px 0; }
+.journal-masters-list { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 2px; }
+.journal-masters-list li {
+  display: grid; grid-template-columns: 96px minmax(0, 1fr) auto; gap: 10px; align-items: baseline;
+  padding: 5px 10px; border-radius: 8px; font-size: 13px; color: #3a2a18;
+}
+.journal-masters-list li:nth-child(odd) { background: rgba(201, 162, 74, 0.1); }
+.journal-masters-list li.is-mine { background: #fbe7b0; box-shadow: inset 0 0 0 1px #c9a24a; }
+.journal-masters-list em { font-style: normal; color: #7a5a2a; text-align: right; }
+
+/* ---------- Mapa ---------- */
+.node-master circle { fill: #2a1d12; stroke: #e8c46e; stroke-width: 2; }
+.map3-master { display: flex; align-items: center; gap: 10px; margin: 8px 0; padding: 8px 10px; border-radius: 10px; background: #fbefc8; border: 1px solid #c9a24a; font-size: 13.5px; color: #3a2a12; }
+.map3-master .px-sprite { flex: none; border-radius: 50%; background: radial-gradient(circle at 50% 40%, #4a3a2a, #1f160e 75%); }
+
+@media (max-width: 600px) {
+  .book-master, .journal-master { flex-wrap: wrap; }
+  .book-master .btn-sm, .journal-master .btn-sm { width: 100%; justify-content: center; }
+  .journal-masters-list li { grid-template-columns: 78px minmax(0, 1fr); }
+  .journal-masters-list em { grid-column: 2; text-align: left; font-size: 12px; }
+}
+.node.is-fog .node-master circle { animation: node-master-pulse 2s ease-in-out infinite; }
+@keyframes node-master-pulse { 0%, 100% { stroke-width: 2; } 50% { stroke-width: 4; } }
+@media (prefers-reduced-motion: reduce) { .node.is-fog .node-master circle { animation: none; } }

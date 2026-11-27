@@ -85,7 +85,11 @@
               <span class="book-step-st">${r.state === 'known' ? icon('check', 12) : r.state === 'level' ? icon('lock', 12) : ''}${esc(r.state === 'level' ? `Se abre en el nivel ${r.rank}` : stateTxt(r.state, fem))}</span>
             </div>`).join('')}
         </div>
-        ${master ? `<p class="book-school-where dim">${fem ? 'Tu maestra' : 'Tu maestro'}: ${esc(master.name)}, en ${esc(regionName(master.region))}.</p>` : ''}
+        ${master ? `<div class="book-master">
+          <span class="book-master-face">${A.Sprites && A.Sprites.npcHtml ? A.Sprites.npcHtml(master, { size: 44 }) : ''}</span>
+          <span class="book-master-text"><small>${fem ? 'Tu maestra' : 'Tu maestro'}</small><b>${esc(master.name)}</b><span>Vive en ${esc(regionName(master.region))}</span></span>
+          <button class="btn-secondary btn-sm" data-find-master>${icon('pin', 14)}<span>Ver en el mapa</span></button>
+        </div>` : ''}
       </div>`;
   }
   /** Las técnicas del guerrero (la de nacimiento y las de su disciplina que ya sabe). */

@@ -61,6 +61,30 @@
     `;
   }
 
+  /** v3.21.6: tu maestro y dónde vive cada maestro de raza. */
+  function mastersSec() {
+    const S = A.Schools;
+    const p = A.State.player;
+    if (!S || !S.whereMaster || !p) return '';
+    const mine = S.whereMaster(p.raceId);
+    const all = S.list().map((s) => ({ race: A.Data.getById('races', s.race), w: S.whereMaster(s.race) })).filter((x) => x.w && x.race);
+    const rows = all.map(({ race, w }) => `
+          <li class="${race.id === p.raceId ? 'is-mine' : ''}"><b>${U().esc(race.name)}</b><span>${U().esc(w.npc.name)}</span><em>${U().esc(w.region ? w.region.name : '?')}</em></li>`).join('');
+    return `
+      <section class="journal-sec">
+        <h3 class="journal-h">Maestros de raza</h3>
+        ${mine ? `<div class="journal-master">
+          <span class="journal-master-face">${A.Sprites && A.Sprites.npcHtml ? A.Sprites.npcHtml(mine.npc, { size: 40 }) : ''}</span>
+          <span class="journal-master-text">${mine.fem ? 'Tu maestra' : 'Tu maestro'} es <b>${U().esc(mine.npc.name)}</b> y vive en <b>${U().esc(mine.region ? mine.region.name : '?')}</b>. Te enseña ${mine.school.kind === 'discipline' ? 'técnicas' : 'hechizos'} nuevos en los niveles 5, 13 y 21, y te pone una prueba en el 9, el 17 y el 25.</span>
+          <button class="btn-secondary btn-sm" data-find-master>${U().icon('pin', 14)}<span>Ver en el mapa</span></button>
+        </div>` : ''}
+        <details class="journal-masters">
+          <summary>Dónde vive cada maestro</summary>
+          <ul class="journal-masters-list">${rows}</ul>
+        </details>
+      </section>`;
+  }
+
   function renderQuests() {
     if (!A.Quests) return '';
     const active = A.Quests.activeList();
@@ -91,6 +115,7 @@
         <h3 class="journal-h">Historia principal</h3>
         ${main.map(questBlock).join('') || start || '<p class="journal-empty">Por ahora, nada. Hablá con la gente de los pueblos.</p>'}
       </section>
+      ${mastersSec()}
       <section class="journal-sec">
         <h3 class="journal-h">Encargos</h3>
         ${side.map(questBlock).join('') || '<p class="journal-empty">No tenés encargos. Los que tienen algo para vos llevan un signo de exclamación dorado.</p>'}

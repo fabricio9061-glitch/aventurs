@@ -443,6 +443,8 @@
       }
     }
 
+    const mw = A.Schools && A.Schools.whereMaster && A.State.player ? A.Schools.whereMaster(A.State.player.raceId) : null;
+    const masterReg = mw && mw.region ? mw.region.id : null;
     const nodes = regions.map((r) => {
       const p = pos[r.id];
       const isFog = !known.has(r.id);
@@ -470,6 +472,7 @@
           ${isFog ? `<text class="node-q" y="${lair ? 6 : 8}" text-anchor="middle">?</text>` : lair && A.Sprites ? `<image href="${A.Sprites.dataUrl(r.boss)}" x="-13" y="-13" width="26" height="26" class="node-img"/>` : `<image href="${iconUrl}" x="-16" y="-16" width="32" height="32" class="node-img"/>`}
           ${lair && !isFog && A.ItemSprites ? `<g class="node-crown" transform="translate(${lockUrl ? -13 : 13} -14)"><circle r="8"/><image href="${A.ItemSprites.iconUrl('crown')}" x="-6" y="-6" width="12" height="12"/></g>` : ''}
           ${lockUrl ? `<g class="node-lock" transform="translate(${lair ? 13 : 17} ${lair ? -13 : -17})"><circle r="${lair ? 8 : 10}"/><image href="${lockUrl}" x="${lair ? -6 : -8}" y="${lair ? -6 : -8}" width="${lair ? 12 : 16}" height="${lair ? 12 : 16}"/></g>` : ''}
+          ${r.id === masterReg && A.ItemSprites ? `<g class="node-master" transform="translate(-19 19)"><title>${U().esc(`Acá vive ${mw.fem ? 'tu maestra' : 'tu maestro'}`)}</title><circle r="13"/><image href="${A.ItemSprites.iconUrl(mw.school.kind === 'discipline' ? 'swords' : 'book')}" x="-9" y="-9" width="18" height="18"/></g>` : ''}
           ${isFog ? '' : `<text class="node-label" x="${(lab.x - p.x).toFixed(1)}" y="${(lab.y - p.y).toFixed(1)}" text-anchor="${lab.anchor}">${U().esc(r.name)}</text>`}
           ${!isFog && (locked || !visited.has(r.id)) && minLevel(r) > 1 ? `<text class="node-lvl" x="${(lab.x - p.x).toFixed(1)}" y="${((lab.lvlY != null ? lab.lvlY : lab.y + (p.label === 't' ? -15 : 14)) - p.y).toFixed(1)}" text-anchor="${lab.anchor}">Nivel ${minLevel(r)}</text>` : ''}
         </g>`;
@@ -562,6 +565,15 @@
   }
 
   /** Líneas de los compañeros para la ficha de una zona. */
+  /** v3.21.6: acá vive el maestro de tu raza. */
+  function masterLine(id) {
+    const p = A.State.player;
+    const mw = p && A.Schools && A.Schools.whereMaster ? A.Schools.whereMaster(p.raceId) : null;
+    if (!mw || !mw.region || mw.region.id !== id) return '';
+    const face = A.Sprites && A.Sprites.npcHtml ? A.Sprites.npcHtml(mw.npc, { size: 30 }) : '';
+    return `<p class="map3-master">${face}<span>Acá vive ${mw.fem ? 'tu maestra' : 'tu maestro'}: <b>${U().esc(mw.npc.name)}</b>. ${mw.fem ? 'Ella' : 'Él'} te enseña ${mw.school.kind === 'discipline' ? 'las técnicas' : 'la magia'} de tu raza.</span></p>`;
+  }
+
   function allyLine(id) {
     return mates().map((m) => {
       const t = m.traveling;
@@ -691,6 +703,21 @@
     const cur = A.Data.getById('regions', here);
     if (!r || !cur) return '';
     const { known, visited } = knowledge();
+    if (!known.has(id) && masterLine(id)) {
+      // v3.21.6: la zona de tu maestro se ve aunque no hayas llegado
+      return `
+        <div class="map2-card map3-card is-fog-master">
+          <div class="map3-top">
+            <span class="map2-card-icon">${U().biomeIcon(r, 40)}</span>
+            <div class="map3-top-text">
+              <div class="map2-card-name">${U().esc(r.name)}</div>
+              <div class="map2-card-pills"><span class="pill pill-tier">Nivel ${minLevel(r)}+</span><span class="map2-meta">Todavía no llegaste</span></div>
+            </div>
+          </div>
+          ${masterLine(id)}
+          <p class="map2-card-desc">Seguí los caminos para llegar. Está marcada en el mapa con el libro dorado.</p>
+        </div>`;
+    }
     if (!known.has(id)) {
       return `
         <div class="map2-card is-fog">
@@ -741,6 +768,7 @@
         </div>
         <p class="map2-card-desc">${U().esc(r.description || '')}</p>
         ${allyLine(id)}
+        ${masterLine(id)}
         ${(() => { const w = reqs.find((q) => q.warn); return w ? `<p class="map3-warn">${U().icon('skull', 16)}<span>${U().esc(w.hint)}</span></p>` : ''; })()}
         ${locked ? `<ul class="map2-reqs">${reqs.map((q) => `<li class="${q.met ? 'is-met' : ''}">${U().icon(q.met ? 'check' : 'lock', 14)}<span>${U().esc(q.label)}${q.current != null && q.target != null && !q.met ? ` (${q.current}/${q.target})` : ''}</span></li>`).join('')}</ul>` : ''}
         ${action}
@@ -936,7 +964,8 @@
   const MapView = {
     mount(container) {
       mainEl = container;
-      selectedId = A.State.world ? A.State.world.regionId : null;
+      selectedId = A.State.ui.mapFocus || (A.State.world ? A.State.world.regionId : null);
+      A.State.ui.mapFocus = null; // v3.21.6: "Ver en el mapa" (tu maestro)
       // En pantallas chicas arranca acercado a donde estás
       view = { x: 0, y: 0, w: W, h: H };
       userMoved = false;

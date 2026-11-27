@@ -2,6 +2,13 @@
 
 La más nueva arriba. Cómo correr el juego y cómo está armado: [README.md](README.md).
 
+## Versión 3.21.6: dónde vive tu maestro
+
+- **En la ficha:** al lado de la pasiva hay una chapita "Tu maestro: (lugar)". Tocándola se abre el mapa con esa zona elegida.
+- **En Tus hechizos / Tus técnicas:** una tarjeta con la cara de tu maestro, su nombre, dónde vive y el botón "Ver en el mapa".
+- **En el Diario (Misiones):** "Maestros de raza" con el tuyo arriba y la lista de los 18 (raza, maestro y lugar).
+- **En el mapa:** la zona de tu maestro lleva un libro dorado (espadas si tu raza aprende técnicas). Aunque todavía no hayas llegado, se ve su nombre, el nivel y quién vive ahí.
+
 ## Versión 3.21.5: que el celular se actualice
 
 - El celular se quedaba con la versión vieja guardada. Ahora cada versión le avisa al navegador que baje los archivos nuevos, así la tarjeta grande del personaje aparece arriba sin tener que borrar nada.
