@@ -2,6 +2,13 @@
 
 La más nueva arriba. Cómo correr el juego y cómo está armado: [README.md](README.md).
 
+## Versión 3.21.1: la parte de abajo del viaje, a la altura de la cabecera
+
+- **El escenario es un panel oscuro** con el paisaje de la zona al fondo (de la que saliste hasta la mitad del camino, después la del destino). De noche se prenden las luces.
+- **Las criaturas salen grandes y paradas en el suelo**, con su sombra y respirando. El título del encuentro va arriba y los botones abajo.
+- La gente del camino (mercader, herido, bandidos) también aparece parada en el escenario; lo que dicen va en un globo.
+- **La bitácora ahora es un diario de viaje:** una línea de tiempo con el paso en que pasó cada cosa, un círculo de color según qué fue (criatura, hallazgo, peligro, gente) y lo último resaltado. Abajo de todo, de dónde saliste.
+
 ## Versión 3.21.0: gente en el camino (`js/systems/gente.js`)
 
 Viajando, a veces te cruzás con alguien y tenés que decidir qué hacer. El viaje no sigue (ni se puede dar la vuelta) hasta que elijas.

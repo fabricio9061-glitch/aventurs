@@ -430,18 +430,19 @@
         </header>
 
         <div class="travel-body-v2">
-          <main class="travel-stage-v2">
+          <main class="travel-stage-v2 tv-stage ${A.Time && A.Time.isNight() ? 'is-night' : 'is-day'} ${pending || meeting ? 'has-scene' : ''}">
+            ${A.Scenes ? `<div class="tv-stage-scene">${A.Scenes.html(pctNum >= 50 ? toR : fromR)}</div>` : ''}
             ${meeting ? renderPeople(lastEvent) : guestFollows() ? renderFollowStage(t, lastEvent, pending) : pending ? renderEncounter(lastEvent) : renderTravelStage(t, lastEvent)}
           </main>
           <aside class="travel-log-v2">
             <div class="travel-log-header">
-              <span class="travel-log-title">${icon('book', 16)} Bitácora</span>
-              <span class="travel-log-count dim">${t.events.length} evento${t.events.length === 1 ? '' : 's'}</span>
+              <span class="travel-log-title">${icon('book', 16)} Diario de viaje</span>
+              <span class="travel-log-count dim">${t.events.length} ${t.events.length === 1 ? 'suceso' : 'sucesos'}</span>
             </div>
             <div class="travel-log-list">
               ${t.events.length === 0
-                ? `<div class="travel-log-empty muted">Acabás de salir. Avanzá para empezar la bitácora.</div>`
-                : t.events.slice().reverse().map(eventLogRow).join('')}
+                ? `<div class="travel-log-empty muted">Acabás de salir de ${esc(fromR ? fromR.name : 'tu lugar')}. Lo que pase en el camino se anota acá.</div>`
+                : t.events.slice().reverse().map(eventLogRow).join('') + `<div class="travel-log-row is-start"><span class="travel-log-icon">${A.UI ? A.UI.biomeIcon(fromR, 20) : ''}</span><span class="travel-log-text">Saliste de ${esc(fromR ? fromR.name : 'tu lugar')}.</span></div>`}
             </div>
           </aside>
         </div>
@@ -553,7 +554,7 @@
     const lk = G.look(ev);
     const evKey = `people|${ev.who}|${(A.State.traveling && A.State.traveling.currentStep) || 0}`;
     if (evKey !== spokenEv && A.Voice && A.Voice.isOn()) { spokenEv = evKey; A.Voice.say(`${lk.title}. ${lk.say}`); }
-    const face = lk.enemy ? encounterSprites(ev) : (A.Sprites && A.Sprites.npcHtml ? A.Sprites.npcHtml(lk.npc, { size: 80 }) : '');
+    const face = lk.enemy ? encounterSprites(ev) : (A.Sprites && A.Sprites.npcHtml ? A.Sprites.npcHtml(lk.npc, { size: 112 }) : '');
     const opts = G.options(ev);
     const offers = opts.filter((o) => o.item);
     const acts = opts.filter((o) => !o.item);
@@ -632,10 +633,11 @@
   }
 
   function eventLogRow(e) {
+    const tone = { creature: 'is-creature', people: 'is-people', minor_loot: 'is-loot', biome_loot: 'is-loot', treasure: 'is-loot', find: 'is-loot', damage: 'is-danger', event_damage: 'is-danger', heal: 'is-heal', event_heal: 'is-heal' }[e.kind] || '';
     return `
-      <div class="travel-log-row">
+      <div class="travel-log-row ${tone}">
         <span class="travel-log-icon">${eventIcon(e, 20)}</span>
-        <span class="travel-log-text">${esc(e.text || '...')}</span>
+        <span class="travel-log-text">${e.step ? `<span class="travel-log-step">Paso ${e.step}</span>` : ''}${esc(e.text || '...')}</span>
       </div>
     `;
   }
@@ -648,7 +650,7 @@
   function encounterSprites(ev) {
     const list = (ev.enemies && ev.enemies.length) ? ev.enemies : [ev.enemyId];
     const shown = list.slice(0, 4);
-    const size = shown.length === 1 ? 80 : shown.length === 2 ? 64 : 56;
+    const size = shown.length === 1 ? 120 : shown.length === 2 ? 104 : shown.length === 3 ? 92 : 80; // v3.21.1: más grandes, paradas en el suelo
     return shown.map((x) => enemySprite(x, size)).join('') + (list.length > 4 ? `<span class="encounter-more">+${list.length - 4}</span>` : '');
   }
 

@@ -272,6 +272,7 @@
     if (!arrived) {
       event = resolveEvent();
       if (event) {
+        if (event.step == null) event.step = t.currentStep; // v3.21.1: el diario muestra en qué paso pasó
         t.events.push(event);
         A.Bus.emit('travel:event', { kind: event.kind, payload: event });
       }

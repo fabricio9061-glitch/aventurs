@@ -334,3 +334,194 @@
   .people-card.is-merchant .people-face, .people-card.is-wounded .people-face { width: 72px; height: 72px; }
   .people-actions .people-btn { min-width: 0; flex: 1 1 100%; }
 }
+
+/* ============================================================
+   v3.21.1: la parte de abajo del viaje, a la altura de la cabecera.
+   El escenario es un panel oscuro con el paisaje de la zona al
+   fondo: las criaturas grandes, paradas en el suelo. La bitácora
+   es un diario de viaje: una línea de tiempo con el paso de cada
+   suceso y lo último resaltado.
+   ============================================================ */
+.tv-stage {
+  position: relative;
+  overflow: hidden;
+  border-radius: 14px;
+  border: 1px solid #8a6a32;
+  background: radial-gradient(ellipse at 50% 0%, rgba(255, 230, 160, 0.1), transparent 60%), linear-gradient(180deg, #33281b, #1b140d);
+  box-shadow: inset 0 0 0 1px rgba(255, 230, 170, 0.08), 0 10px 26px rgba(0, 0, 0, 0.3);
+  color: #f4e8cc;
+  padding: 14px;
+  box-sizing: border-box;
+}
+.tv-stage.is-night { background: radial-gradient(ellipse at 50% 0%, rgba(150, 170, 255, 0.14), transparent 60%), linear-gradient(180deg, #1f2336, #0d0e17); }
+.tv-stage::before {
+  content: "";
+  position: absolute;
+  inset: 6px;
+  border: 1px solid rgba(232, 196, 110, 0.2);
+  border-radius: 10px;
+  pointer-events: none;
+  z-index: 1;
+}
+/* el suelo */
+.tv-stage::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 38%;
+  background: linear-gradient(180deg, transparent, rgba(0, 0, 0, 0.35));
+  pointer-events: none;
+  z-index: 0;
+}
+.tv-stage > :not(.tv-stage-scene) { position: relative; z-index: 2; }
+.tv-stage-scene { position: absolute; left: 0; right: 0; bottom: 0; height: 62%; z-index: 0; pointer-events: none; opacity: 0.85; }
+.tv-stage-scene .scene { position: absolute; inset: 0; width: 100%; height: 100%; }
+.tv-stage .scene-back { opacity: 0.06; }
+.tv-stage .scene-front { opacity: 0.32; }
+.tv-stage.is-night .scene-light { fill: rgba(255, 220, 130, 0.9); filter: drop-shadow(0 0 3px rgba(255, 200, 90, 0.9)); }
+.tv-stage.is-night .scene-back { fill: #aabeff; stroke: #aabeff; }
+
+/* ---------- Lo que pasa en el camino ---------- */
+.travel-view-v2 .tv-stage .travel-stage-content { background: transparent; border: 0; box-shadow: none; }
+.tv-stage .travel-stage-empty .travel-stage-icon {
+  border-color: #c9a24a;
+  background: radial-gradient(circle at 50% 40%, rgba(255, 236, 190, 0.28), rgba(0, 0, 0, 0.45) 72%);
+  box-shadow: 0 0 0 3px rgba(20, 14, 8, 0.7), 0 0 0 4px rgba(232, 196, 110, 0.5), 0 0 24px rgba(255, 214, 130, 0.2);
+}
+.tv-stage .travel-stage-empty .travel-stage-title { color: #fff3d6; text-shadow: 0 2px 0 rgba(0, 0, 0, 0.5); }
+.tv-stage .travel-stage-empty .travel-stage-desc { color: #d9bd80; opacity: 1; }
+.tv-stage .travel-stage-card {
+  border: 1px solid rgba(232, 196, 110, 0.45);
+  background: linear-gradient(180deg, rgba(40, 30, 20, 0.82), rgba(20, 14, 8, 0.82));
+  box-shadow: inset 0 0 0 1px rgba(255, 236, 190, 0.06), 0 8px 20px rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(2px);
+}
+.tv-stage .travel-stage-card .travel-stage-card-icon {
+  background: radial-gradient(circle at 50% 40%, rgba(255, 236, 190, 0.3), rgba(0, 0, 0, 0.4) 72%);
+  box-shadow: 0 0 0 2px rgba(20, 14, 8, 0.8), 0 0 0 3px rgba(232, 196, 110, 0.55);
+}
+.tv-stage .travel-stage-card-title { color: #e8c46e; }
+.tv-stage .travel-stage-card-text { color: #fff3d6; }
+.tv-stage .travel-auto-indicator { background: rgba(0, 0, 0, 0.35); border-color: rgba(232, 196, 110, 0.4); color: #f0d9a0; }
+.tv-stage .travel-actions-v2 > .btn-ghost { color: #f0d9a0; }
+.tv-stage .travel-actions-v2 > .btn-ghost:hover { background: rgba(255, 236, 190, 0.1); }
+.tv-stage .travel-follow-note { color: #f0d9a0; }
+
+/* ---------- El encuentro: el título arriba, las criaturas grandes en el suelo ---------- */
+.tv-stage > .travel-encounter-v2 { background: transparent; border: 0; box-shadow: none; padding: 10px 14px 6px; }
+.tv-stage .travel-encounter-v2 .encounter-header {
+  flex-direction: column-reverse;
+  align-items: center;
+  text-align: center;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.tv-stage .travel-encounter-v2 .encounter-icon-big {
+  min-width: 0;
+  min-height: 150px;
+  width: 100%;
+  padding: 0 0 10px;
+  gap: 10px;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background: radial-gradient(ellipse 46% 16px at 50% calc(100% - 10px), rgba(0, 0, 0, 0.55), transparent 100%);
+  filter: drop-shadow(0 6px 6px rgba(0, 0, 0, 0.45));
+}
+.tv-stage .travel-encounter-v2 .encounter-icon-big .px-sprite { animation: tv-idle 2.4s ease-in-out infinite; }
+.tv-stage .travel-encounter-v2 .encounter-icon-big .px-sprite:nth-child(2) { animation-delay: -0.8s; }
+.tv-stage .travel-encounter-v2 .encounter-icon-big .px-sprite:nth-child(3) { animation-delay: -1.6s; }
+@keyframes tv-idle { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
+.tv-stage .encounter-title-v2 { font-family: var(--font-display); font-size: 24px; color: #fff3d6; text-shadow: 0 2px 0 rgba(0, 0, 0, 0.5); margin-bottom: 4px; }
+.tv-stage .encounter-meta-v2 { justify-content: center; }
+.tv-stage .encounter-meta-v2 .dim { color: #d9bd80; opacity: 1; }
+.tv-stage .encounter-desc-v2 { text-align: center; color: #e8d4a8; margin: 4px 0 14px; }
+.tv-stage .encounter-actions-v2 > .btn-ghost { color: #f0d9a0; border-color: rgba(232, 196, 110, 0.4); background: rgba(0, 0, 0, 0.25); }
+.tv-stage .encounter-actions-v2 > .btn-ghost:hover { background: rgba(255, 236, 190, 0.12); }
+.tv-stage .encounter-actions-v2 > .btn-secondary { background: rgba(255, 246, 224, 0.92); }
+.tv-stage .road-vote { background: rgba(0, 0, 0, 0.3); border-color: rgba(232, 196, 110, 0.35); color: #f0d9a0; }
+
+/* ---------- Gente en el camino, sobre el escenario (igual que las criaturas: parados en el suelo) ---------- */
+.tv-stage > .people-card { background: transparent; border: 0; box-shadow: none; }
+.tv-stage .people-card .people-kicker { color: #e8c46e; }
+.tv-stage .people-card.is-bandits .people-kicker { color: #ff9a7a; }
+.tv-stage .people-card .encounter-title-v2 { font-size: 22px; }
+.tv-stage .people-card .encounter-header { margin-bottom: 6px; }
+.tv-stage .people-card .people-face,
+.tv-stage .people-card.is-merchant .people-face,
+.tv-stage .people-card.is-wounded .people-face {
+  width: 100%;
+  height: auto;
+  min-height: 130px;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  overflow: visible;
+  align-items: flex-end;
+  background: radial-gradient(ellipse 30% 14px at 50% calc(100% - 10px), rgba(0, 0, 0, 0.55), transparent 100%);
+  padding: 0 0 10px;
+}
+.tv-stage .people-offer-price { flex-wrap: wrap; row-gap: 2px; }
+.tv-stage .people-offer .btn-mini { flex: none; }
+.tv-stage .people-card.is-wounded .people-face img { transform: rotate(-84deg) translate(-20px, 0); }
+
+/* ---------- Diario de viaje ---------- */
+.travel-view-v2 .travel-log-v2 {
+  border: 1px solid #b4955a;
+  background: repeating-linear-gradient(180deg, transparent 0 27px, rgba(140, 105, 50, 0.07) 27px 28px), linear-gradient(180deg, #fffaf0, #f3e4c2);
+  box-shadow: inset 0 0 0 3px rgba(255, 253, 246, 0.8), inset 0 0 0 4px rgba(180, 149, 90, 0.3), inset 0 0 30px rgba(140, 105, 50, 0.12), 0 6px 16px rgba(60, 40, 15, 0.12);
+}
+.travel-log-list { position: relative; gap: 2px; padding: 4px 4px 4px 0; }
+.travel-log-list::before {
+  content: "";
+  position: absolute;
+  left: 19px;
+  top: 14px;
+  bottom: 14px;
+  width: 2px;
+  border-radius: 1px;
+  background: linear-gradient(180deg, #c9a24a, rgba(201, 162, 74, 0.25));
+}
+.travel-view-v2 .travel-log-row {
+  position: relative;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 6px 8px 6px 4px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  box-shadow: none;
+}
+.travel-view-v2 .travel-log-row .travel-log-icon {
+  flex: none;
+  width: 30px;
+  height: 30px;
+  border: 2px solid #c9a24a;
+  background: radial-gradient(circle at 50% 42%, #fffaf0, #ead6a8 78%);
+  box-shadow: 0 0 0 2px #fbf3de;
+  z-index: 1;
+}
+.travel-log-row.is-creature .travel-log-icon { border-color: #b4553a; background: radial-gradient(circle at 50% 50%, #4a3a2a, #1f160e 75%); }
+.travel-log-row.is-danger .travel-log-icon { border-color: #8d2818; }
+.travel-log-row.is-loot .travel-log-icon { border-color: #d4a42c; }
+.travel-log-row.is-heal .travel-log-icon { border-color: #5a8a4a; }
+.travel-log-row.is-people .travel-log-icon { border-color: #8a5ac8; }
+.travel-log-row .travel-log-text { padding-top: 1px; font-size: 13px; line-height: 1.35; color: #3a2a18; }
+.travel-log-step { display: block; font-family: var(--font-display); font-size: 10.5px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #8a6a34; }
+.travel-view-v2 .travel-log-row:first-child { background: rgba(255, 240, 200, 0.75); box-shadow: inset 0 0 0 1px rgba(201, 162, 74, 0.55); border: 0; }
+.travel-view-v2 .travel-log-row:first-child .travel-log-icon { box-shadow: 0 0 0 2px #fbf3de, 0 0 10px rgba(224, 166, 58, 0.6); }
+.travel-view-v2 .travel-log-row.is-start { opacity: 0.75; background: transparent; box-shadow: none; }
+.travel-view-v2 .travel-log-row.is-start .travel-log-text { font-style: italic; padding-top: 6px; }
+.travel-log-empty { color: #8a6a34; }
+.travel-log-list:has(.travel-log-empty)::before { display: none; }
+
+@media (max-width: 600px) {
+  .tv-stage { padding: 10px; }
+  .tv-stage .travel-encounter-v2 .encounter-icon-big { min-height: 110px; }
+  .tv-stage .travel-encounter-v2 .encounter-icon-big .px-sprite { width: 72px !important; height: 72px !important; }
+  .tv-stage .people-card .encounter-header { gap: 12px; }
+}
