@@ -1,0 +1,192 @@
+/* ============================================================
+   v3.22.3: barra "Tu grupo" con más diseño
+   Cada compañero en una tarjetita oscura, como la cabecera de tu
+   personaje: medallón dorado con el nivel, nombre, raza, dónde está,
+   su mascota y la vida/maná con números.
+   ============================================================ */
+.sb-party { gap: 6px; }
+.sb-mates { gap: 6px; }
+
+.mt2 {
+  position: relative;
+  display: grid;
+  grid-template-columns: 46px minmax(0, 1fr) auto;
+  grid-template-areas: "face id pet" "face vit vit";
+  column-gap: 10px;
+  row-gap: 5px;
+  align-items: center;
+  width: 100%;
+  padding: 8px 10px 8px 8px;
+  border-radius: 11px;
+  border: 1px solid #6a5232;
+  background: linear-gradient(135deg, #2e3e2a, #121a10);
+  color: #f4e8cc;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  box-shadow: inset 0 1px 0 rgba(255, 230, 170, 0.12), 0 3px 8px rgba(0, 0, 0, 0.3);
+  transition: transform 90ms ease, box-shadow 120ms ease, border-color 120ms ease;
+  overflow: hidden;
+}
+.mt2-warrior { background: linear-gradient(135deg, #4a2e22, #1f130d); }
+.mt2-mage { background: linear-gradient(135deg, #2e2a4e, #14111f); }
+.mt2::before {
+  content: "";
+  position: absolute;
+  inset: 3px;
+  border: 1px solid rgba(232, 196, 110, 0.2);
+  border-radius: 8px;
+  pointer-events: none;
+}
+.mt2::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(90% 80% at 10% 0%, rgba(255, 230, 170, 0.13), transparent 60%);
+  pointer-events: none;
+}
+.mt2 > * { position: relative; z-index: 1; }
+.mt2:hover { border-color: #c9a24a; transform: translateY(-1px); box-shadow: inset 0 1px 0 rgba(255, 230, 170, 0.12), 0 6px 14px rgba(0, 0, 0, 0.35); }
+.mt2:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(242, 207, 115, 0.85); }
+.mt2.is-apart { filter: saturate(0.75); }
+.mt2.is-apart .mt2-face { opacity: 0.85; }
+.mt2.is-down { filter: grayscale(0.7); border-style: dashed; }
+
+/* Medallón */
+.mt2-face {
+  grid-area: face;
+  position: relative;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 62%, #6a5032, #231910 72%);
+  border: 2px solid #c9a24a;
+  box-shadow: 0 0 0 2px rgba(20, 14, 8, 0.8), 0 0 0 3px rgba(232, 196, 110, 0.5), 0 3px 8px rgba(0, 0, 0, 0.5), inset 0 -5px 10px rgba(0, 0, 0, 0.45);
+  margin-bottom: 6px;
+  justify-self: center;
+}
+.mt2-face > :not(.mt2-lvl) { border-radius: 50%; overflow: hidden; }
+.mt2-face .px-sprite, .mt2-face canvas, .mt2-face img, .mt2-face svg { max-width: 36px; max-height: 36px; }
+.mt2-face[class*="lk-"] {
+  border-color: var(--lk);
+  box-shadow: 0 0 0 2px rgba(20, 14, 8, 0.8), 0 0 0 3px var(--lk2), 0 0 10px color-mix(in srgb, var(--lk) 60%, transparent), inset 0 -5px 10px rgba(0, 0, 0, 0.45);
+}
+.mt2-lvl {
+  position: absolute;
+  left: 50%;
+  bottom: -9px;
+  transform: translateX(-50%);
+  display: inline-flex;
+  align-items: baseline;
+  gap: 2px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #f2d27a, #c9a24a);
+  border: 1px solid #7a5a1c;
+  color: #2a1a06;
+  font-family: var(--font-display);
+  font-style: normal;
+  font-weight: 800;
+  font-size: 11px;
+  line-height: 14px;
+  white-space: nowrap;
+  box-shadow: 0 0 6px rgba(242, 210, 122, 0.35), 0 2px 4px rgba(0, 0, 0, 0.5);
+}
+.mt2-lvl small { font-size: 8px; font-weight: 700; text-transform: uppercase; opacity: 0.8; }
+
+/* Nombre, raza y dónde está */
+.mt2-id { grid-area: id; display: flex; flex-direction: column; min-width: 0; line-height: 1.15; }
+.mt2-name {
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 700;
+  color: #fbeccb;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.5);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mt2-sub { display: flex; align-items: center; gap: 6px; min-width: 0; font-size: 11px; color: #d8c08a; white-space: nowrap; overflow: hidden; }
+.mt2-where {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  flex: none;
+  padding: 0 6px 0 4px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(232, 196, 110, 0.25);
+  font-size: 10px;
+  font-weight: 700;
+  color: #cdb98c;
+}
+.mt2-where.is-near { color: #bfe39a; border-color: rgba(150, 210, 110, 0.4); }
+.mt2-where .px-icon, .mt2-where .px-sprite, .mt2-where svg { width: 10px; height: 10px; }
+
+/* Su mascota: en un circulito con su vida abajo */
+.mt2-pet {
+  grid-area: pet;
+  position: relative;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 40%, #fbf1d6, #d9c08a 75%);
+  border: 2px solid #c9a24a;
+  box-shadow: 0 0 0 1px rgba(20, 14, 8, 0.8), 0 2px 5px rgba(0, 0, 0, 0.45);
+}
+.mt2-pet .px-sprite { width: 24px; height: 24px; }
+.mt2-pet > i {
+  position: absolute;
+  left: 4px;
+  right: 4px;
+  bottom: -4px;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(0, 0, 0, 0.6);
+  border: 1px solid rgba(232, 196, 110, 0.3);
+  overflow: hidden;
+}
+.mt2-pet > i > span { display: block; height: 100%; background: linear-gradient(90deg, #b8432a, #e0664a); }
+.mt2-pet.is-down { filter: grayscale(1); opacity: 0.6; }
+
+/* Vida y maná con números */
+.mt2-vitals { grid-area: vit; display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.mt2-vital { display: grid; grid-template-columns: 12px minmax(0, 1fr) auto; align-items: center; gap: 6px; }
+.mt2-ic { display: flex; justify-content: center; }
+.mt2-ic .px-icon, .mt2-ic .px-sprite, .mt2-ic svg { width: 11px; height: 11px; }
+.mt2-track { height: 7px; border-radius: 4px; background: rgba(0, 0, 0, 0.5); border: 1px solid rgba(232, 196, 110, 0.28); overflow: hidden; }
+.mt2-track > span { display: block; height: 100%; border-radius: 3px; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3); transition: width 300ms ease; }
+.mt2-vital.is-hp .mt2-track > span { background: linear-gradient(90deg, #b8432a, #e0664a); }
+.mt2-vital.is-mana .mt2-track > span { background: linear-gradient(90deg, #3a67a6, #6a9ae6); }
+.mt2-vital.is-mana .mt2-track { height: 5px; }
+.mt2-num { min-width: 44px; text-align: right; font-size: 11px; font-weight: 700; color: #f4e8cc; white-space: nowrap; }
+.mt2-num i { font-style: normal; font-weight: 600; color: #bba77c; }
+.mt2.is-low .mt2-vital.is-hp .mt2-track > span { animation: fx-ending 1s ease-in-out infinite; }
+.mt2.is-low .mt2-vital.is-hp .mt2-num { color: #ff9a80; }
+.mt2-down { font-size: 11px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: #ffb0a0; }
+
+/* El contador "2 de 4" como chapita */
+.sb-party .mt2-count {
+  padding: 1px 8px 1px 6px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #3a2c1d, #1f160d);
+  border: 1px solid #7a5512;
+  color: #f2d27a;
+  font-weight: 700;
+}
+.sb-party .mt2-count:hover { border-color: #c9a24a; }
+
+/* Columna izquierda (≥1280): el cuadro del grupo con más aire */
+@media (min-width: 1280px) {
+  .shell-leftbar .sb-party { padding: 10px 10px 10px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mt2, .mt2:hover { transition: none; transform: none; }
+  .mt2.is-low .mt2-vital.is-hp .mt2-track > span { animation: none; }
+}

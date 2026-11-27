@@ -28,6 +28,8 @@ aventurs/
 │   ├── pelea2.css          Pelea más limpia: crónica por turnos y efectos nuevos (v3.19)
 │   ├── oficios.css         Herrero y cosas para lucirse (v3.20)
 │   ├── pueblo.css          La pantalla del lugar con el estilo de las tarjetas nuevas (v3.20.1)
+│   ├── grupo.css           La barra "Tu grupo" con tarjetitas por compañero (v3.22.3)
+│   ├── inicio.css          "Nueva aventura" sin scroll en la compu (v3.22.3)
 │   ├── habitante.css       La ventana de cada habitante, más linda (v3.20.3)
 │   ├── celular.css         El juego en el celular: todo entra en la pantalla (v3.21.4)
 │   └── maestros.css        Dónde vive el maestro de tu raza (v3.21.6)

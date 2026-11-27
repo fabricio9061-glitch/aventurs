@@ -1,0 +1,75 @@
+/* ============================================================
+   v3.22.3: "Nueva aventura" entra entera en la pantalla de la compu
+   (probado en 1536x730, que es 1920x1080 con Windows al 125%).
+   La página no scrollea: si algo no entra, scrollea solo la ficha
+   por dentro y "Comenzar" queda siempre abajo a la vista.
+   ============================================================ */
+@media (min-width: 921px) and (min-height: 520px) {
+  .cc3 { height: 100vh; height: 100dvh; min-height: 0; overflow: hidden; }
+  .cc3 .cc-topbar { flex: none; padding-block: 6px; }
+  .cc3 .cc-main {
+    flex: 0 1 auto; min-height: 0; margin-block: auto;
+    display: flex; flex-direction: column;
+    padding: 12px 24px;
+  }
+  .cc3 .cc-layout { flex: 0 1 auto; min-height: 0; grid-template-rows: minmax(0, 1fr); }
+  .cc3 .cc-picker, .cc3 .cc-detail { min-height: 0; overflow-y: auto; scrollbar-width: thin; }
+  .cc3 .cc-picker { overflow-x: hidden; }
+
+  /* Ficha más apretada */
+  .cc3 .cc-detail { padding: 14px 18px 0; gap: 10px; }
+  .cc3 .cc-hero { gap: 14px; align-items: center; }
+  .cc3 .cc-hero-portrait { flex-basis: 92px; width: 92px; height: 92px; }
+  .cc3 .cc-hero-portrait .px-sprite { --px-size: 84px !important; }
+  .cc3 .cc-hero-name { font-size: 24px; }
+  .cc3 .cc-hero-type { margin-top: 2px; font-size: 11px; }
+  .cc3 .cc-desc { margin-top: 4px; font-size: 14.5px; line-height: 1.3; }
+  .cc-cols { gap: 12px; }
+  .cc-col { gap: 8px; }
+  .cc3 .cc-passive { gap: 9px; padding: 8px 10px; }
+  .cc3 .cc-passive-icon { flex-basis: 34px; width: 34px; height: 34px; }
+  .cc3 .cc-passive-icon .px-sprite { --px-size: 26px !important; }
+  .cc3 .cc-passive-name { font-size: 14px; line-height: 1.2; }
+  .cc3 .cc-passive-text { font-size: 12px; line-height: 1.34; }
+  .cc3 .cc-kit { font-size: 11.5px; line-height: 1.34; }
+  .cc3 .cc-bars { gap: 4px; }
+  .cc3 .cc-bar-row { grid-template-columns: 66px minmax(0, 1fr) 40px; }
+  .cc3 .cc-bar-val { font-size: 13px; }
+  /* Los cuatro números en una fila, con su explicación chiquita abajo */
+  .cc3 .cc-stats { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 5px; }
+  .cc3 .cc-stat { grid-template-columns: minmax(0, 1fr); text-align: center; padding: 5px 4px; row-gap: 0; }
+  .cc3 .cc-stat > b, .cc3 .cc-stat > span, .cc3 .cc-stat > small { grid-column: 1; grid-row: auto; align-self: auto; }
+  .cc3 .cc-stat > b { font-size: 16px; order: -1; }
+  .cc3 .cc-stat > span { font-size: 9px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .cc3 .cc-stat > small { font-size: 10px; line-height: 1.2; }
+  .cc3 .cc-xstats { gap: 5px; }
+  .cc3 .cc-form { padding: 8px 18px 12px; gap: 4px; }
+  .cc3 .cc-form-row .cc-input { padding-block: 9px; }
+  .cc3 .cc-form-row .cc-start { padding-block: 9px; }
+
+  /* Selector un poco más bajo */
+  .cc3 .cc-picker { padding: 12px 16px 14px; gap: 8px; }
+  .cc3 .cc-title { font-size: 24px; }
+  .cc3 .cc-race { padding: 6px 4px 5px; }
+  .cc3 .cc-race-portrait { width: 58px; height: 58px; }
+  .cc3 .cc-race-portrait .px-sprite { --px-size: 52px !important; }
+}
+/* Con pantalla alta, todo vuelve a tener aire */
+@media (min-width: 921px) and (min-height: 860px) {
+  .cc3 .cc-main { padding-block: 18px; }
+  .cc3 .cc-race-portrait { width: 70px; height: 70px; }
+  .cc3 .cc-race-portrait .px-sprite { --px-size: 64px !important; }
+  .cc3 .cc-hero-portrait { flex-basis: 110px; width: 110px; height: 110px; }
+  .cc3 .cc-hero-portrait .px-sprite { --px-size: 102px !important; }
+  .cc3 .cc-passive-text { font-size: 12.5px; }
+}
+/* Pantallas bajas: la explicación de los números queda en el globo y la frase en dos líneas */
+@media (min-width: 921px) and (max-height: 700px) {
+  .cc3 .cc-main { padding-block: 8px; }
+  .cc3 .cc-stat > small { display: none; }
+  .cc3 .cc-desc { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .cc3 .cc-hero-portrait { flex-basis: 76px; width: 76px; height: 76px; }
+  .cc3 .cc-hero-portrait .px-sprite { --px-size: 68px !important; }
+  .cc3 .cc-race-portrait { width: 52px; height: 52px; }
+  .cc3 .cc-race-portrait .px-sprite { --px-size: 46px !important; }
+}

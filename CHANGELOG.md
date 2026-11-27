@@ -2,6 +2,11 @@
 
 La más nueva arriba. Cómo correr el juego y cómo está armado: [README.md](README.md).
 
+## Versión 3.22.3: inicio sin scroll y barra del grupo nueva
+
+- **Nueva aventura entra entera:** en la compu (también con Windows al 125%, unos 1536x730) se ve todo sin bajar: las razas, la ficha y "Comenzar". La ficha está más apretada: los cuatro números en una fila, la escuela pasó a la derecha y lo que arranca con vos, a la izquierda. Si la pantalla es muy baja, scrollea solo la ficha por dentro y el botón queda siempre abajo a la vista.
+- **Tu grupo:** cada compañero tiene su tarjetita oscura como la de tu personaje: medallón dorado con el nivel (y su marco de Lucirse), nombre, raza, si está con vos o lejos, su mascota en un circulito con su vida, y vida y maná con números.
+
 ## Versión 3.21.7: nivel de las criaturas y Vigor
 
 - **Nivel de las criaturas:** las tarjetas de los enemigos muestran su "Nv", igual que las de tus compañeros, también cuando hay mucha gente en la pelea (antes se escondía para que entrara el nombre).

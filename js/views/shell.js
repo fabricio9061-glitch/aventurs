@@ -46,7 +46,7 @@
           <div class="shell-brand">
             <span class="brand-icon">${A.UI ? A.UI.icon('swords', 26) : ''}</span>
             <span class="brand-name">Aventurs</span>
-            <span class="version-pill" title="Versión del juego">v3.22.2</span>
+            <span class="version-pill" title="Versión del juego">v3.22.3</span>
           </div>
           ${tabs.length > 1 ? `
             <nav class="shell-nav">

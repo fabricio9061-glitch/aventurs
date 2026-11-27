@@ -303,7 +303,8 @@
   function hasMates() {
     return !!(A.Party && A.Party.role && A.Party.status === 'connected' && (A.Party.allies ? A.Party.allies().length : A.Party.ally()));
   }
-  // v3.17: una fila finita por compañero: cara con nivel, nombre, vida (y maná), su mascota y dónde está
+  // v3.22.3: cada compañero en una tarjetita oscura, como la cabecera de tu personaje:
+  // medallón con nivel, nombre, raza y dónde está, su mascota, y vida/maná con números
   function mateRow(m0) {
     const m = liveOf(m0);
     const near = withMe(m0);
@@ -312,16 +313,26 @@
     const petDown = pet && pet.health <= 0;
     const where = near ? 'Con vos' : whereLine(m0);
     const hpP = pct(m.hp, m.maxHp);
+    const race = A.Data && A.Data.getById ? A.Data.getById('races', m.raceId) : null;
+    const type = (race && race.combatType) || 'hybrid';
+    const vital = (cls, ic, cur, max, label) => `
+          <span class="mt2-vital ${cls}" title="${esc(`${label} ${cur}/${max}`)}">
+            <span class="mt2-ic">${icon(ic, 11)}</span>
+            <span class="mt2-track"><span style="width:${pct(cur, max)}%"></span></span>
+            <span class="mt2-num num">${cur}<i>/${max}</i></span>
+          </span>`;
     return `
-      <button class="sb-mate ${near ? 'is-near' : 'is-apart'} ${down ? 'is-down' : ''} ${hpP < 30 && !down ? 'is-low' : ''}" data-action="party" title="${esc(`${m.name}, nivel ${m.level || 1}. Vida ${m.hp}/${m.maxHp}${m.hasMagic ? `, maná ${m.mana}/${m.maxMana}` : ''}${pet ? `. ${pet.name}: ${pet.health}/${pet.maxHealth}` : ''}. ${where}.`)}">
-        <span class="sb-mate-face ${lk(m)}">${heroSprite(m, 26)}<i class="sb-mate-lvl">${m.level || 1}</i></span>
-        <b class="sb-mate-name">${esc(m.name)}</b>
-        <span class="sb-mate-bars">
-          <span class="sb-mate-bar is-hp"><span style="width:${hpP}%"></span><em class="num">${down ? 'Caído' : `${m.hp}/${m.maxHp}`}</em></span>
-          ${m.hasMagic ? `<span class="sb-mate-bar is-mana"><span style="width:${pct(m.mana, m.maxMana)}%"></span></span>` : ''}
+      <button class="mt2 mt2-${type} ${near ? 'is-near' : 'is-apart'} ${down ? 'is-down' : ''} ${hpP < 30 && !down ? 'is-low' : ''}" data-action="party" title="${esc(`${m.name}, nivel ${m.level || 1}. Vida ${m.hp}/${m.maxHp}${m.hasMagic ? `, maná ${m.mana}/${m.maxMana}` : ''}${pet ? `. ${pet.name}: ${pet.health}/${pet.maxHealth}` : ''}. ${where}.`)}">
+        <span class="mt2-face ${lk(m)}">${heroSprite(m, 34)}<i class="mt2-lvl"><small>Nv</small>${m.level || 1}</i></span>
+        <span class="mt2-id">
+          <b class="mt2-name">${esc(m.name)}</b>
+          <span class="mt2-sub">${esc(race ? race.name : '')}<span class="mt2-where ${near ? 'is-near' : ''}">${icon(near ? 'party' : 'map', 10)}${esc(near ? 'Con vos' : 'Lejos')}</span></span>
         </span>
-        ${pet ? `<span class="sb-mate-pet ${petDown ? 'is-down' : ''}" title="${esc(`${pet.name}: ${pet.health}/${pet.maxHealth}`)}">${A.Sprites && A.Sprites.petHtml ? A.Sprites.petHtml(pet, { size: 20 }) : icon('paw', 12)}<i style="width:${pct(pet.health, pet.maxHealth)}%"></i></span>` : '<span class="sb-mate-pet is-none"></span>'}
-        <span class="sb-mate-where ${near ? 'is-near' : ''}" title="${esc(where)}">${icon(near ? 'party' : 'map', 12)}</span>
+        ${pet ? `<span class="mt2-pet ${petDown ? 'is-down' : ''}" title="${esc(`${pet.name}: ${pet.health}/${pet.maxHealth}`)}">${A.Sprites && A.Sprites.petHtml ? A.Sprites.petHtml(pet, { size: 24 }) : icon('paw', 14)}<i><span style="width:${pct(pet.health, pet.maxHealth)}%"></span></i></span>` : ''}
+        <span class="mt2-vitals">
+          ${down ? '<span class="mt2-down">Caído</span>' : vital('is-hp', 'heart', m.hp, m.maxHp, 'Vida')}
+          ${m.hasMagic && !down ? vital('is-mana', 'spell', m.mana, m.maxMana, 'Maná') : ''}
+        </span>
       </button>`;
   }
   /** La sección del grupo arriba de todo en la barra lateral. */
@@ -339,7 +350,7 @@
     const total = mates.length + 1;
     return `
       <section class="sb-party">
-        <h3 class="sb-title"><span>Tu grupo</span><button class="sb-title-link" data-action="party" title="Ver el grupo">${icon('party', 12)}<span>${total} de ${P.MAX_MEMBERS || 4}</span></button></h3>
+        <h3 class="sb-title"><span>Tu grupo</span><button class="sb-title-link mt2-count" data-action="party" title="Ver el grupo">${icon('party', 12)}<span>${total} de ${P.MAX_MEMBERS || 4}</span></button></h3>
         <div class="sb-mates">${mates.map(mateRow).join('')}</div>
       </section>`;
   }

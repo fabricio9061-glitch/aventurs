@@ -300,7 +300,7 @@
             </div>` : ''}
           ${magic ? magicBox(race) : classBox}
           ${magic ? `<p class="cc-kit is-class">${esc(kitText(type, race))}</p>` : ''}
-          ${schoolBox(race)}
+          <p class="cc-kit cc-startkit">${startKitHtml(race)}</p>
         </div>
         <div class="cc-col">
           <div class="cc-bars">
@@ -315,7 +315,7 @@
             <div class="cc-stat" title="Se resta de cada golpe que recibís"><span>Armadura</span><b>${st.armor + startArmor}</b><small>Se resta de cada golpe</small></div>
           </div>
           ${exploreBox(race, st, magic)}
-          <p class="cc-kit cc-startkit">${startKitHtml(race)}</p>
+          ${schoolBox(race)}
         </div>
       </div>
     `;
