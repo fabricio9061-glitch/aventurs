@@ -2,6 +2,12 @@
 
 La más nueva arriba. Cómo correr el juego y cómo está armado: [README.md](README.md).
 
+## Versión 3.23.4: Manto de oscuridad le pega a 3
+
+- **Manto de oscuridad (elfo oscuro):** ya no le pega a todos los enemigos, solo a 3: tu blanco y dos más. Si hay 3 o menos, les pega a todos.
+- El texto del hechizo ahora dice "a 3" (en la ficha, el libro de hechizos y la pelea).
+- Cambian reglas del grupo: actualicen los dos (Ctrl+F5).
+
 ## Versión 3.23.3: el Kraken es una sola criatura
 
 - **El Kraken y sus tentáculos van juntos:** el Kraken queda al medio, grande y medio tapado por el agua, y los tentáculos salen del agua a los dos lados, en arco (los de cerca, más arriba). Antes cada tentáculo era una tarjeta suelta en fila.

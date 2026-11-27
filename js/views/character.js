@@ -64,7 +64,7 @@
     if (!spell) return '';
     const regen = race.manaRegen || null;
     const what = [
-      spell.damage ? `${spell.damage} de daño${spell.area ? ' a todos' : ''}` : '',
+      spell.damage ? `${spell.damage} de daño${spell.area ? (spell.maxTargets ? ` a ${spell.maxTargets}` : ' a todos') : ''}` : '',
       spell.selfHeal ? 'te cura un poco' : '',
       spell.statusEffect ? ({ fire: 'puede quemar', poison: 'envenena', blind: 'puede cegar', shock: 'puede aturdir', cold: 'enfría' })[spell.statusEffect.type] || '' : '',
       `${A.Passives && A.Passives.spellCost ? A.Passives.spellCost({ raceId: race.id, level: 1 }, spell) : spell.manaCost} de maná`,

@@ -602,7 +602,9 @@
     } else if (spell.damage) {
       let targets = spell.area ? hittableEnemies() : [getTarget()].filter(Boolean);
       // v3.13: los de cadena (Tormenta conductora) empiezan por tu blanco
-      if (spell.area && spell.chain) { const mt = getTarget(); if (mt) targets = [mt].concat(targets.filter((e) => e !== mt)); }
+      if (spell.area && (spell.chain || spell.maxTargets)) { const mt = getTarget(); if (mt && targets.includes(mt)) targets = [mt].concat(targets.filter((e) => e !== mt)); }
+      // v3.23.4: algunos de área le pegan solo a unos pocos (tu blanco primero)
+      if (spell.area && spell.maxTargets) targets = targets.slice(0, spell.maxTargets);
       const dice = SC() ? SC().diceOf(spell, p) : spell.damage; // v3.13: los de escuela crecen por tramo de nivel
       const chainDice = SC() && spell.chain ? SC().chainOf(spell, p) : null;
       let refunded = false;

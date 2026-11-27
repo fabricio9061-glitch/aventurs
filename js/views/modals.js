@@ -1217,7 +1217,7 @@
                 <span class="combat-spell-info">
                   <span class="combat-spell-name">${A.Utils.escapeHtml(s.name)}</span>
                   ${spellDescLine(s)}
-                  <span class="combat-spell-meta dim">${waitTxt}${s.damage ? `${A.Schools ? A.Schools.diceOf(s, p) : s.damage} daño${s.area ? ' a todos' : ''}${s.stun ? ', sin turno' : ''}` : s.heal ? `${s.heal} cura${s.selfOnly ? ' (a vos)' : ''}` : (s.effect && A.ItemFx ? A.Utils.escapeHtml(A.ItemFx.summary({ effect: s.effect, subtype: 'scroll' })) : schoolMetaTxt(s))}${hitTxt ? ` · ${hitTxt}` : ''} · Maná ${cost}${cost < s.manaCost ? ` <s>${s.manaCost}</s>` : ''}${s.cooldown ? ` · cada ${s.cooldown} turnos` : ''}${pick ? ' · elegís a quién' : ''}</span>
+                  <span class="combat-spell-meta dim">${waitTxt}${s.damage ? `${A.Schools ? A.Schools.diceOf(s, p) : s.damage} daño${s.area ? (s.maxTargets ? ` a ${s.maxTargets}` : ' a todos') : ''}${s.stun ? ', sin turno' : ''}` : s.heal ? `${s.heal} cura${s.selfOnly ? ' (a vos)' : ''}` : (s.effect && A.ItemFx ? A.Utils.escapeHtml(A.ItemFx.summary({ effect: s.effect, subtype: 'scroll' })) : schoolMetaTxt(s))}${hitTxt ? ` · ${hitTxt}` : ''} · Maná ${cost}${cost < s.manaCost ? ` <s>${s.manaCost}</s>` : ''}${s.cooldown ? ` · cada ${s.cooldown} turnos` : ''}${pick ? ' · elegís a quién' : ''}</span>
                 </span>
               </button>
             `;

@@ -529,7 +529,7 @@
           const mageOnly = !!why.mageOnly;
           const hybridOnly = !!why.hybridOnly; // v3.3: Segundo aliento
           const cost = A.Passives && A.Passives.spellCost ? A.Passives.spellCost(p, s) : s.manaCost;
-          const what = s.damage ? `${s.damage} de daño${s.area ? ' a todos' : ''}` : s.heal ? `cura ${s.heal}${s.selfOnly ? ' (solo a vos)' : ''}` : '';
+          const what = s.damage ? `${s.damage} de daño${s.area ? (s.maxTargets ? ` a ${s.maxTargets}` : ' a todos') : ''}` : s.heal ? `cura ${s.heal}${s.selfOnly ? ' (solo a vos)' : ''}` : '';
           return `
             <div class="learn2-row ${known ? 'is-known' : ''}">
               <span class="learn2-icon">${A.ItemSprites ? A.ItemSprites.spellIcon(s, { size: 36 }) : ''}</span>
@@ -569,7 +569,7 @@
           let meta = '';
           if (r.kind === 'spell') {
             const cost = A.Passives && A.Passives.spellCost ? A.Passives.spellCost(p, r.data) : r.data.manaCost;
-            const dice = r.data.damage ? `${A.Schools.diceOf(r.data, p)} de daño${r.data.area ? ' a todos' : ''} · ` : '';
+            const dice = r.data.damage ? `${A.Schools.diceOf(r.data, p)} de daño${r.data.area ? (r.data.maxTargets ? ` a ${r.data.maxTargets}` : ' a todos') : ''} · ` : '';
             meta = `${dice}${cost} de maná${r.data.cooldown ? ` · cada ${r.data.cooldown} turnos` : ''}`;
           } else if (r.kind === 'tech') meta = `Sin maná · ocupa tu ataque · espera ${r.data.cd} turnos`;
           else meta = 'Sin maná · una vez por pelea';

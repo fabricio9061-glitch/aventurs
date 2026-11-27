@@ -18,7 +18,7 @@
   /** Qué hace, en pocas palabras. */
   function whatItDoes(s) {
     const p = A.State.player;
-    if (s.damage) return `${A.Schools ? A.Schools.diceOf(s, p) : s.damage} de daño${s.area ? ' a todos' : ''}${s.stun ? ' y lo deja sin turno' : ''}${s.drain ? ' (la mitad vuelve como vida)' : ''}`;
+    if (s.damage) return `${A.Schools ? A.Schools.diceOf(s, p) : s.damage} de daño${s.area ? (s.maxTargets ? ` a ${s.maxTargets}` : ' a todos') : ''}${s.stun ? ' y lo deja sin turno' : ''}${s.drain ? ' (la mitad vuelve como vida)' : ''}`;
     if (s.partyBuff) return 'A todo tu grupo';
     if (s.partyHeal) return 'Cura a todo tu grupo';
     if (s.pact) return 'Frenesí ya';
@@ -36,7 +36,7 @@
     out.push(`<span class="book-tag is-mana">${icon('spell', 12)}${cost} de maná${cost < s.manaCost ? ` <s>${s.manaCost}</s>` : ''}</span>`);
     if (s.cooldown) out.push(`<span class="book-tag is-cd" title="Después de usarlo, lo podés volver a usar ${s.cooldown} turnos después">${icon('hourglass', 12)}Cada ${s.cooldown} turnos</span>`);
     if (s.damage) out.push(s.sure ? '<span class="book-tag is-sure" title="No tira el dado: siempre pega">No falla</span>' : `<span class="book-tag" title="Tira el dado como un arma, con +${(A.Balance && A.Balance.SPELL_HIT) || 2} a tu precisión: puede fallar y, con 20, es crítico (doble daño)">Puede fallar</span>`);
-    if (s.area) out.push('<span class="book-tag">A todos</span>');
+    if (s.area) out.push(`<span class="book-tag">${s.maxTargets ? `A ${s.maxTargets}` : 'A todos'}</span>`);
     if (s.schoolRank) out.push(`<span class="book-tag is-race">Escuela · nivel ${s.schoolRank}</span>`); // v3.13
     if (s.quick) out.push('<span class="book-tag is-sure" title="No gasta tu turno: después atacás o lanzás otro hechizo (uno rápido por turno)">Rápido</span>');
     else if (s.racial) out.push('<span class="book-tag is-race">De tu raza</span>');
