@@ -247,6 +247,12 @@ arma o hechizo).
   veneno, llamas, gotas de sangre, bloque de hielo, estrellas del aturdido, sello de maldición,
   enredo, mareo) y curas con columna de luz. Solo visual: `attackStyle` en `js/views/combat-fx.js`,
   estilos en `css/ataques.css`.
+- **Peleas con mucha gente (v3.22.1)**: con 8 o más en la pelea, los caídos salen de la arena y
+  se cuentan arriba, al lado de la ronda ("13 caídos"; al pasar el mouse dice cuáles). El jefe se ve
+  más grande. Si las filas no entran, los dibujos se achican (`is-tight`) y, si igual no entra, la
+  arena se desplaza (`is-scroll`); si sobra lugar, crecen (`is-roomy`). Arreglado: en pantallas bajas
+  la caja del dibujo quedaba alta con el dibujo chico (dados flotando y la fila de arriba cortada).
+  `fitArenaRows` y `fallenChip` en `js/views/combat.js`, estilos al final de `css/pelea2.css`.
 - **Narrador** (`js/systems/narrator.js`): cada acción se cuenta con una frase
   ("El lobo se lanza y te muerde: 5 de daño."), distinta según el arma, la criatura y
   el resultado. Aparece cuando cae el dado; hasta entonces no se adelanta ni la vida

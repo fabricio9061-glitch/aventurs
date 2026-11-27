@@ -246,12 +246,14 @@
           }
         }
       }
+      fitArenaRows(view);
       if (!view.classList.contains('is-crowded') && window.innerWidth >= 1200) {
         requestAnimationFrame(() => {
           const act = view.querySelector('.cb-actions');
           if (act && act.getBoundingClientRect().bottom > window.innerHeight + 2) {
             crowdedFor = c.id;
             view.classList.add('is-crowded');
+            fitArenaRows(view);
           }
         });
       }
@@ -264,6 +266,35 @@
     }
     if (Fx()) Fx().afterRender();
     if (ready) maybeRunQueued();
+  }
+
+  /**
+   * v3.22.1: si las filas no entran en la arena (se cortaban los dibujos de arriba y las tarjetas
+   * tapaban a la fila de abajo), primero se achican los dibujos y, si igual no entra, la arena se desplaza.
+   */
+  function fitArenaRows(view) {
+    const arenaEl = view.querySelector('.cb-arena');
+    if (!arenaEl) return;
+    const over = () => {
+      const box = arenaEl.getBoundingClientRect();
+      let top = Infinity;
+      for (const s of arenaEl.querySelectorAll('.cb-side')) top = Math.min(top, s.getBoundingClientRect().top);
+      return top < box.top + 2 || arenaEl.scrollHeight > arenaEl.clientHeight + 2;
+    };
+    arenaEl.classList.remove('is-tight', 'is-scroll', 'is-roomy');
+    if (!arenaEl.classList.contains('is-packed')) return;
+    if (!over()) {
+      // sobra mucho lugar (ej.: cayeron casi todos): los dibujos vuelven a crecer
+      let top = Infinity;
+      for (const s of arenaEl.querySelectorAll('.cb-side')) top = Math.min(top, s.getBoundingClientRect().top);
+      if (top - arenaEl.getBoundingClientRect().top > 140) {
+        arenaEl.classList.add('is-roomy');
+        if (over()) arenaEl.classList.remove('is-roomy');
+      }
+      return;
+    }
+    arenaEl.classList.add('is-tight');
+    if (over()) arenaEl.classList.add('is-scroll');
   }
 
   let crowdedFor = null; // v3.1: id de la pelea que ya no entraba con la crónica al costado
@@ -314,6 +345,23 @@
   // Cabecera
   // ============================================================
 
+  /** v3.22.1: con mucha gente, los caídos no ocupan lugar en la arena (quedan contados arriba). */
+  function pileDead(c) { return unitCount(c) >= 8; }
+  function isFallen(e, snap) {
+    const k = `enemy:${e.instanceId}`;
+    const hp = snap && snap[k] != null ? snap[k] : e.hp;
+    return hp <= 0 && !(Fx() && Fx().isDying(k));
+  }
+  function fallenChip(c, snap) {
+    if (!pileDead(c)) return '';
+    const fallen = (c.enemies || []).filter((e) => isFallen(e, snap));
+    if (!fallen.length) return '';
+    const names = {};
+    for (const e of fallen) { const nm = e.baseName || String(e.displayName || '').replace(/\s+[A-Z]$/, ''); names[nm] = (names[nm] || 0) + 1; }
+    const title = `Caídos: ${Object.entries(names).map(([nm, q]) => (q > 1 ? `${nm} ×${q}` : nm)).join(', ')}`;
+    return `<span class="cb-fallen" title="${esc(title)}">${icon('skull', 14, 'px-soft')}<b>${fallen.length}</b> ${fallen.length === 1 ? 'caído' : 'caídos'}</span>`;
+  }
+
   function headerHtml(c, frozen, snap) {
     return `
       <header class="cb-header" data-sec="header">
@@ -321,6 +369,7 @@
           ${icon('swords', 32, 'cb-title-icon')}
           <span class="cb-title-text">Combate</span>
           <span class="cb-round">Ronda ${c.round}</span>
+          ${fallenChip(c, snap)}
         </div>
         ${turnQueueHtml(c, frozen, snap)}
       </header>`;
@@ -411,15 +460,21 @@
       for (const a of summonsOf(c, 'solo', snap)) { allies += summonCard(a, cur, shown, { i: 2 }); units += 1; }
     }
 
+    // v3.22.1: con mucha gente en la pelea, los caídos se van de la arena y quedan en una pila
+    // (antes 13 tentáculos caídos ocupaban dos filas y la arena se partía en tres); se cuentan arriba, al lado de la ronda
+    const pile = pileDead(c);
+    const cards = c.enemies.map((e, i) => (pile && isFallen(e, snap) ? ''
+      : enemyCard(e, i, e.instanceId === targetId && !frozen, cur && cur.kind === 'enemy' && cur.id === e.instanceId, shown))).join('');
+    const bossCls = c.enemies.some((e) => e.category === 'boss') ? 'has-boss' : '';
+
     return `
-      <div class="cb-arena ${arenaBg()} ${c.ambush ? 'is-ambush' : ''} ${c.party ? 'is-party' : ''} ${units >= 10 ? 'is-packed' : ''} units-${Math.min(units, 9)} enemies-${Math.min(n, 5)}" data-sec="arena">
+      <div class="cb-arena ${arenaBg()} ${c.ambush ? 'is-ambush' : ''} ${c.party ? 'is-party' : ''} ${units >= 10 ? 'is-packed' : ''} ${bossCls} units-${Math.min(units, 9)} enemies-${Math.min(n, 5)}" data-sec="arena">
         <div class="cb-side cb-allies">
           ${allies}
         </div>
         <div class="cb-vs" aria-hidden="true"></div>
         <div class="cb-side cb-enemies">
-          ${c.enemies.map((e, i) => enemyCard(e, i, e.instanceId === targetId && !frozen,
-            cur && cur.kind === 'enemy' && cur.id === e.instanceId, shown)).join('')}
+          ${cards}
         </div>
       </div>`;
   }

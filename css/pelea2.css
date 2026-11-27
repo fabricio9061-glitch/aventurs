@@ -496,3 +496,61 @@
 .cb-arena.is-packed .cb-unit .cb-fx .px-sprite { width: 13px; height: 13px; }
 .cb-arena.is-packed .cb-unit .cb-fx b { min-width: 11px; height: 12px; line-height: 12px; }
 .cb-fx.effect-vigor { border-color: rgba(140, 230, 120, 0.85); }
+
+/* ---------- v3.22.1: peleas con mucha gente (el Kraken con sus tentáculos) ----------
+   Los caídos salen de la arena y se cuentan arriba, al lado de la ronda; el jefe se ve más grande; si las filas
+   no entran, los dibujos se achican (is-tight) y, si igual no entra, la arena se desplaza (is-scroll). */
+.cb-fallen {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 24px;
+  margin-left: 8px;
+  padding: 0 10px 0 7px;
+  border-radius: 999px;
+  background: rgba(20, 14, 10, 0.45);
+  border: 1px solid rgba(220, 200, 170, 0.28);
+  color: #d9ccb4;
+  font-size: 11.5px;
+  white-space: nowrap;
+  cursor: help;
+}
+.cb-fallen b { font-size: 13px; color: #fff3dc; }
+.cb-fallen .px-sprite { opacity: 0.85; }
+
+/* el jefe destaca entre muchos */
+@media (min-width: 761px) {
+  /* (le gana a la regla de pantallas bajas de v2.css, que dejaba la caja del dibujo en 118px
+     con el dibujo en 64px: los dados quedaban flotando y la fila de arriba se cortaba) */
+  .combat-view.cb.is-arena .cb-arena.is-packed .cb-sprite { height: 84px; }
+  .combat-view.cb.is-arena .cb-arena.is-packed .cb-vs { margin-bottom: 78px; }
+  .combat-view.cb.is-arena .cb-arena.is-packed .cb-unit.cat-boss { --card-w: 150px; }
+  .combat-view.cb.is-arena .cb-arena.is-packed .cb-unit.cat-boss .cb-sprite { height: 118px; }
+  .combat-view.cb.is-arena .cb-arena.is-packed .cb-unit.cat-boss .cb-sprite > .px-sprite { --px-size: 112px !important; }
+  .combat-view.cb.is-arena .cb-arena.is-packed .cb-unit.cat-boss .cb-ribbon { font-size: 9.5px; line-height: 15px; padding: 0 9px; }
+
+}
+@media (min-width: 761px) and (max-height: 740px) {
+  .combat-view.cb.is-arena .cb-arena.is-packed .cb-sprite { height: 70px; }
+  .combat-view.cb.is-arena .cb-arena.is-packed .cb-vs { margin-bottom: 64px; }
+}
+@media (min-width: 761px) {
+  /* sobra lugar: dibujos más grandes */
+  .combat-view.cb.is-arena .cb-arena.is-packed.is-roomy .cb-sprite { height: 124px; }
+  .combat-view.cb.is-arena .cb-arena.is-packed.is-roomy .cb-sprite > .px-sprite { --px-size: 116px !important; }
+  .combat-view.cb.is-arena .cb-arena.is-packed.is-roomy .cb-unit.cat-boss .cb-sprite { height: 168px; }
+  .combat-view.cb.is-arena .cb-arena.is-packed.is-roomy .cb-unit.cat-boss .cb-sprite > .px-sprite { --px-size: 160px !important; }
+  .combat-view.cb.is-arena .cb-arena.is-packed.is-roomy .cb-sprite .cb-dc { transform: none; }
+  .combat-view.cb.is-arena .cb-arena.is-packed.is-roomy .cb-vs { margin-bottom: 116px; }
+  /* no entra: dibujos más chicos y filas más juntas */
+  .combat-view.cb.is-arena .cb-arena.is-packed.is-tight { padding-top: 6px; padding-bottom: 6px; row-gap: 4px; }
+  .combat-view.cb.is-arena .cb-arena.is-packed.is-tight .cb-side { row-gap: 4px; }
+  .combat-view.cb.is-arena .cb-arena.is-packed.is-tight .cb-sprite { height: 62px; margin-bottom: -4px; }
+  .combat-view.cb.is-arena .cb-arena.is-packed.is-tight .cb-sprite > .px-sprite { --px-size: 56px !important; }
+  .combat-view.cb.is-arena .cb-arena.is-packed.is-tight .cb-unit.cat-boss .cb-sprite { height: 86px; }
+  .combat-view.cb.is-arena .cb-arena.is-packed.is-tight .cb-unit.cat-boss .cb-sprite > .px-sprite { --px-size: 80px !important; }
+  .combat-view.cb.is-arena .cb-arena.is-packed.is-tight .cb-sprite .cb-dc { transform: scale(0.7); }
+  .combat-view.cb.is-arena .cb-arena.is-packed.is-tight .cb-vs { margin-bottom: 56px; }
+  /* igual no entra: la arena se desplaza (arranca arriba, así nada queda cortado) */
+  .combat-view.cb.is-arena .cb-arena.is-packed.is-scroll { overflow-y: auto; align-items: start; scrollbar-width: thin; }
+}
