@@ -2,6 +2,12 @@
 
 La más nueva arriba. Cómo correr el juego y cómo está armado: [README.md](README.md).
 
+## Versión 3.21.3: tienda ordenada, ficha del objeto nueva y mejoras más caras
+
+- **Tienda:** el dibujo de cada cosa queda centrado en su círculo, y las etiquetas "Te encanta", "Rinde poco" y "No come" van al lado del precio: ya no tapan el nombre.
+- **La ficha del objeto, nueva:** cabecera oscura con el dibujo en un medallón que brilla del color de la rareza, el nombre grande y los datos en chapitas (rareza, tipo, nivel, daño). Abajo, la descripción en un globo y "Qué te da" y "Para qué sirve" en tarjetas; el precio de venta en una chapita al lado de los botones.
+- **Mejorar en el herrero cuesta bastante más** (además de las Gemas de temple): +1 pide el doble del valor de la pieza (mínimo 1 de plata), +2 cuatro veces (mínimo 2 y media), +3 siete veces (mínimo 5), +4 once veces (mínimo 9) y +5 dieciséis veces (mínimo 15).
+
 ## Versión 3.21.2: la pantalla del final de la pelea, más linda
 
 - **Arriba, una cabecera oscura** con el paisaje del lugar donde peleaste: el trofeo (o la calavera) en un medallón dorado con rayos de luz, y el título grande.

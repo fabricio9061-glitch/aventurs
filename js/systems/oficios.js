@@ -17,9 +17,9 @@
   const MAX = 5;
   const GEM = 'gema_temple';
   /** Parte del valor de la pieza que cuesta cada nivel (+1 a +5): llegar a +5 sale 15 veces lo que vale. */
-  const COST_MULT = [0.8, 1.6, 2.8, 4, 6];
+  const COST_MULT = [2, 4, 7, 11, 16]; // v3.21.3: más caro (antes 0.8, 1.6, 2.8, 4, 6)
   const GEMS = [1, 2, 3, 4, 5];
-  const MIN_COST = [30, 60, 120, 200, 320];
+  const MIN_COST = [100, 250, 500, 900, 1500]; // v3.21.3: antes 30, 60, 120, 200, 320
 
   function St() { return A.State; }
   function gearOf(p, slot) {

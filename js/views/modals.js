@@ -490,27 +490,32 @@
     }
 
     const body = `
-      <div class="item-modal item-modal-v310">
-        <div class="item-modal-header">
-          <div class="item-modal-icon ${rar ? `rarity-frame rarity-${esc(data.rarity || 'common')}` : ''}">${(A.ItemSprites ? A.ItemSprites.html(data, { size: 72 }) : '')}</div>
+      <div class="item-modal item-modal-v310 item2 rar-${esc(data.rarity || 'common')}">
+        <header class="item-modal-header item2-head">
+          <div class="item-modal-icon item2-medal ${rar ? `rarity-frame rarity-${esc(data.rarity || 'common')}` : ''}">${(A.ItemSprites ? A.ItemSprites.html(data, { size: 80 }) : '')}</div>
           <div class="item-modal-head-text">
             <div class="item-modal-name">${esc(data.name)} ${verdict && IC ? IC.verdictBadge(verdict) : ''}</div>
-            <div class="item-modal-chips">${chips.join('<span class="dot">·</span>')}</div>
+            <div class="item-modal-chips">${chips.map((c) => (c.startsWith('<span class="rarity-tag') ? c : `<span class="item2-chip">${c}</span>`)).join('')}</div>
           </div>
-        </div>
+          <button class="modal-close item2-close" data-modal-close aria-label="Cerrar">×</button>
+        </header>
+        <div class="item2-body">
         ${data.description ? `<p class="item-modal-desc">${esc(data.description)}</p>` : ''}
         ${gains}
         ${cmpHtml}
         ${usesHtml ? `<div class="item-uses-box"><div class="gains-title">Para qué sirve</div>${usesHtml}</div>` : ''}
-        ${foot.length ? `<div class="item-meta-line">${foot.join('<span class="dot">·</span>')}</div>` : ''}
         ${hint}
-        <div class="item-modal-actions">
-          ${actions.join('')}
+        <div class="item2-foot">
+          ${foot.length ? `<div class="item-meta-line">${foot.map((f) => `<span class="item2-chip is-light">${f}</span>`).join('')}</div>` : '<span></span>'}
+          <div class="item-modal-actions">
+            ${actions.join('')}
+          </div>
         </div>
         ${giveRow}
+        </div>
       </div>
     `;
-    return modalShell(data.name, body);
+    return modalShell(data.name, body, { cls: 'item2-modal', noHeader: true });
   }
 
   // ---------- Rules ----------
@@ -1383,13 +1388,14 @@
 
   // ---------- Shell helpers ----------
 
-  function modalShell(title, bodyHtml) {
+  function modalShell(title, bodyHtml, opts = {}) {
+    // v3.21.3: opts.cls (una clase más) y opts.noHeader (el cuerpo trae su propia cabecera con la ×)
     return `
-      <div class="modal" role="dialog" aria-modal="true">
-        <header class="modal-header">
+      <div class="modal ${opts.cls || ''}" role="dialog" aria-modal="true" aria-label="${A.Utils.escapeHtml(title)}">
+        ${opts.noHeader ? '' : `<header class="modal-header">
           <h2 class="modal-title">${A.Utils.escapeHtml(title)}</h2>
           <button class="modal-close" data-modal-close aria-label="Cerrar">×</button>
-        </header>
+        </header>`}
         <div class="modal-body">${bodyHtml}</div>
       </div>
     `;
