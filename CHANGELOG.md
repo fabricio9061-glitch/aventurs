@@ -2,6 +2,23 @@
 
 La más nueva arriba. Cómo correr el juego y cómo está armado: [README.md](README.md).
 
+## Versión 3.24.0: cada jefe con su propia pelea
+
+- **Los 26 jefes (además del Kraken) tienen su propia arena:** el lugar, cosas que se mueven en el fondo, cómo se para el jefe y dónde van sus criaturas. Algunos ejemplos:
+  - *Rey Goblin:* sentado en su trono de chatarra, con antorchas; sus goblins a los costados.
+  - *Reina Araña:* telas gigantes y huevos; sus crías cuelgan del techo con su hilo.
+  - *Kitsune:* nueve fuegos en arco detrás de ella, uno prendido por cada cola que tiene.
+  - *Archimago:* flota sobre un círculo de runas que gira, con libros volando; sus aprendices flotan a los lados.
+  - *Señor vampiro:* ventanal con la luna, velas y murciélagos. *Balrog:* en un puente sobre un abismo de fuego.
+  - *Leviatán, Cthulhu e Hidra:* metidos en el agua (mar en tormenta, ciudad hundida con ojos que se abren, pantano).
+  - *Reina de las Sombras:* todo oscuro menos una vela; sus súbditos son sombras. *Titán:* con nubes a la cintura.
+  - *Aurelion Sol:* cielo de estrellas y estrellas fugaces. *El Devorador:* un planeta a medio comer y todo se va para adentro.
+  - *Dios:* rayos de luz que giran y aureola. *Satanás:* trono de huesos y la puerta del infierno. *Mente Colmena:* adentro de su tanque.
+- **Cuando se enfurece, el lugar cambia:** la luna se pone roja, los ojos de Cthulhu se vuelven rojos, el tanque de la Mente Colmena se raja y suenan alarmas, la tierra de Alamuerte tiembla, etc.
+- **Presentación al empezar:** el nombre del jefe y una frase, unos segundos (tocá para saltarla).
+- **En el celular:** el jefe arriba, grande, y sus criaturas abajo.
+- Es solo para mirar: no cambian reglas, no hace falta que el grupo actualice a la vez (igual conviene).
+
 ## Versión 3.23.4: Manto de oscuridad le pega a 3
 
 - **Manto de oscuridad (elfo oscuro):** ya no le pega a todos los enemigos, solo a 3: tu blanco y dos más. Si hay 3 o menos, les pega a todos.

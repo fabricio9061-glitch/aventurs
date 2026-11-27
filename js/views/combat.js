@@ -247,6 +247,18 @@
         }
       }
       fitArenaRows(view);
+      // v3.24.0: el jefe con escena, más grande (usa el alto que sobra arriba); presentación al empezar
+      if (A.BossStage) {
+        const arenaEl = view.querySelector('.cb-arena.has-scene');
+        if (arenaEl) {
+          A.BossStage.keepTime(c, arenaEl);
+          const plate = arenaEl.querySelector('.cb-plate');
+          const room = arenaEl.clientHeight - (plate ? plate.offsetHeight : 110) - 70;
+          const big = Math.max(128, Math.floor(Math.min(room, window.innerWidth < 761 ? 192 : 352) / 32) * 32);
+          arenaEl.style.setProperty('--boss-fit', `${big}px`);
+          A.BossStage.intro(c, view.querySelector('.cb-stage') || view);
+        }
+      }
       if (!view.classList.contains('is-crowded') && window.innerWidth >= 1200) {
         requestAnimationFrame(() => {
           const act = view.querySelector('.cb-actions');
@@ -502,9 +514,12 @@
     const cards = lairHtml + c.enemies.map((e, i) => (inLair.has(e.instanceId) || (pile && isFallen(e, snap)) ? ''
       : card(e, i))).join('');
     const bossCls = `${c.enemies.some((e) => e.category === 'boss') ? 'has-boss' : ''} ${lairs.length ? 'has-lair' : ''}`;
+    // v3.24.0: cada jefe con su lugar (fondo, trono, criaturas alrededor…); ver js/views/jefes-escena.js
+    const stageCls = A.BossStage ? A.BossStage.arenaCls(c) : '';
 
     return `
-      <div class="cb-arena ${arenaBg()} ${c.ambush ? 'is-ambush' : ''} ${c.party ? 'is-party' : ''} ${units >= 10 ? 'is-packed' : ''} ${bossCls} units-${Math.min(units, 9)} enemies-${Math.min(n, 5)}" data-sec="arena">
+      <div class="cb-arena ${arenaBg()} ${c.ambush ? 'is-ambush' : ''} ${c.party ? 'is-party' : ''} ${units >= 10 ? 'is-packed' : ''} ${bossCls} ${stageCls} units-${Math.min(units, 9)} enemies-${Math.min(n, 5)}" data-sec="arena">
+        ${stageCls && A.BossStage ? A.BossStage.sceneHtml(c) : ''}
         <div class="cb-side cb-allies">
           ${allies}
         </div>
@@ -774,7 +789,7 @@
     // v2.5: envalentonado (+daño) o con miedo (-daño): se suma al dado ("2d4+1" -> "2d4+2")
     const dmgTxt = withFlat(String(e.damage || '1d3').replace(/\s+/g, ''), -(fx.damagePenalty || 0));
     return unitCard({
-      kind: `${e.submerged ? 'enemy is-submerged' : 'enemy'}${o.arm ? ' is-arm' : ''}${o.lair ? ' is-lair-boss' : ''}`,
+      kind: `${e.submerged ? 'enemy is-submerged' : 'enemy'}${o.arm ? ' is-arm' : ''}${o.lair ? ' is-lair-boss' : ''}${A.BossStage ? A.BossStage.unitCls(A.State.combat, e) : ''}`,
       key, targetId: e.instanceId, clickable: !e.submerged, i: idx + 2, d: o.d,
       cat, elite: !!e.elite, isTarget: isTarget && !dead, isActive, dead,
       // v3.23.3: los brazos del Kraken, con su letra nomás (el resto, al pasar por encima)
@@ -782,7 +797,7 @@
       title: dead ? `${e.displayName} (caído)` : `${e.displayName}: tocá para apuntarle${o.arm ? `\nPrecisión +${now.attack} · Daño ${dmgTxt} · Armadura ${now.armor} · Velocidad ${e.speed || 10}` : ''}${skills ? `\n\nHabilidades:\n${skills}` : ''}`,
       badges: `${e.elite ? '' : `<span class="cb-badge is-lvl" title="Nivel ${e.tier}">Nv ${e.tier}</span>`}${catBadge}`,
       ribbon,
-      sprite: A.Sprites ? A.Sprites.html(e, { size: 128 }) : '',
+      sprite: (A.Sprites ? A.Sprites.html(e, { size: 128 }) : '') + (A.BossStage ? A.BossStage.propsOf(A.State.combat, e) : ''),
       hp, hpMax: e.maxHp, barCls: 'bar-enemy-hp',
       // v3.8: las colas del kitsune (le crece una por turno)
       sub: tails ? { cls: 'is-tails', cur: tails, max: A.Skills.TAILS_MAX, title: `Colas: ${tails} de ${A.Skills.TAILS_MAX}` } : null,

@@ -33,6 +33,7 @@ aventurs/
 │   ├── habitante.css       La ventana de cada habitante, más linda (v3.20.3)
 │   ├── eventos.css         La ventana de las escenas: paisaje, historia en pasos y lo que puede salir (v3.23)
 │   ├── kraken.css          El Kraken y sus tentáculos como una sola criatura en la pelea (v3.23.3)
+│   ├── jefes.css           Cada jefe con su propia pelea: lugar, pose, criaturas y furia (v3.24)
 │   ├── celular.css         El juego en el celular: todo entra en la pantalla (v3.21.4)
 │   └── maestros.css        Dónde vive el maestro de tu raza (v3.21.6)
 ├── js/
@@ -70,7 +71,7 @@ aventurs/
 │   ├── net/                link.js (conexión con código) y party.js (el grupo)
 │   ├── vendor/             peerjs.min.js (PeerJS 1.5.5, licencia MIT)
 │   ├── editor/             Editor del mundo
-│   ├── views/              Las pantallas (combat-fx.js: el dado y los efectos de la pelea; escenas.js: la silueta de cada lugar)
+│   ├── views/              Las pantallas (combat-fx.js: el dado y los efectos de la pelea; escenas.js: la silueta de cada lugar; jefes-escena.js: la puesta en escena de cada jefe, v3.24)
 │   └── app.js              Arranque
 └── tools/
     ├── simulador.js        Simulador de balance (Node, no se carga en el juego)
@@ -264,6 +265,12 @@ arma o hechizo).
   se vota y viaja por la red; si la opción ya no está, no se elige nada. Después de que cambian las
   opciones, los clicks esperan medio segundo, y el "Seguir" de dos compañeros ya no cierra la escena.
   `ensureKeys`/`optionIndex` en `js/systems/explore.js`. Grupo: VERSION 19 (actualicen todos).
+- **Cada jefe con su pelea (v3.24.0)**: con un jefe en la pelea (menos el Kraken, que tiene la suya),
+  la arena toma su lugar: fondo propio con cosas que se mueven, pose del jefe (trono, volando, en el
+  agua, en un tanque…), sus criaturas a los costados / colgando / volando / como sombras, y cambios
+  cuando se enfurece (`is-raged`) o le queda poca vida (`is-low`). Al empezar, una presentación con
+  su nombre. Solo visual. `A.BossStage` en `js/views/jefes-escena.js` (tabla `STAGES` por jefe),
+  estilos en `css/jefes.css`; la hora de las animaciones sigue al redibujar (`--t`).
 - **Narrador** (`js/systems/narrator.js`): cada acción se cuenta con una frase
   ("El lobo se lanza y te muerde: 5 de daño."), distinta según el arma, la criatura y
   el resultado. Aparece cuando cae el dado; hasta entonces no se adelanta ni la vida

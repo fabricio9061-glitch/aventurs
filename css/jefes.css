@@ -1,0 +1,1008 @@
+/* ============================================================
+   v3.24.0: cada jefe con su propia pelea.
+   La arena cambia según el jefe: el lugar (fondo y cosas que se mueven), cómo se para él
+   (trono, volando, metido en el agua…), dónde van sus criaturas y qué cambia cuando se enfurece.
+   Las piezas las arma js/views/jefes-escena.js. El Kraken tiene la suya en kraken.css.
+   ============================================================ */
+
+/* ---------- la capa del fondo ---------- */
+.cb-arena.has-scene > .cb-scene {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+  transition: filter 900ms ease;
+}
+.cb-arena.has-scene > .cb-side,
+.cb-arena.has-scene > .cb-vs { position: relative; z-index: 1; }
+.cb-arena.has-scene { box-shadow: inset 0 0 80px rgba(0, 0, 0, 0.6); }
+/* las antorchas de la arena común no van */
+.cb-arena.has-scene::after { animation: none; background: none; }
+.cb-scene i { position: absolute; display: block; font-style: normal; }
+
+/* el jefe con escena: más grande, usa el alto que sobra arriba */
+.combat-view.cb .cb-arena.has-scene:not(.is-packed) .cb-unit.is-stage-boss .cb-sprite { height: calc(var(--boss-fit, 160px) + 8px); }
+.combat-view.cb .cb-arena.has-scene:not(.is-packed) .cb-unit.is-stage-boss .cb-sprite > .px-sprite { --px-size: var(--boss-fit, 160px) !important; }
+.cb-unit.is-stage-boss .cb-sprite { overflow: visible; }
+/* el dibujo del jefe es más ancho que su tarjeta: que no tape a sus criaturas */
+.combat-view.cb .cb-arena.has-scene:not(.is-packed) .cb-unit.is-stage-boss { margin-inline: clamp(0px, calc((var(--boss-fit, 160px) - var(--card-w, 184px)) / 2 - 6px), 90px); }
+/* las criaturas que cuelgan o vuelan, más chicas */
+.combat-view.cb .cb-arena.mode-hang:not(.is-packed) .cb-unit.is-minion .cb-sprite,
+.combat-view.cb .cb-arena.mode-float:not(.is-packed) .cb-unit.is-minion .cb-sprite { height: calc(var(--sprite-fit, 128px) * 0.7 + 8px); }
+.combat-view.cb .cb-arena.mode-hang:not(.is-packed) .cb-unit.is-minion .cb-sprite > .px-sprite,
+.combat-view.cb .cb-arena.mode-float:not(.is-packed) .cb-unit.is-minion .cb-sprite > .px-sprite { --px-size: calc(var(--sprite-fit, 128px) * 0.7) !important; }
+.cb-unit.is-stage-boss .cb-sprite > .px-sprite { z-index: 1; }
+.cb-unit.is-stage-boss .bs-back,
+.cb-unit.is-stage-boss .bs-front { position: absolute; inset: 0; pointer-events: none; }
+.cb-unit.is-stage-boss .bs-back { z-index: 0; }
+.cb-unit.is-stage-boss .bs-front { z-index: 2; }
+.cb-unit.is-stage-boss .bs-back i,
+.cb-unit.is-stage-boss .bs-front i { position: absolute; display: block; font-style: normal; }
+.cb-unit.is-stage-boss.is-dead .bs-back,
+.cb-unit.is-stage-boss.is-dead .bs-front { opacity: 0.25; filter: grayscale(1); transition: opacity 800ms ease; }
+
+/* ---------- las criaturas del jefe ---------- */
+.cb-arena.has-scene .cb-unit.is-stage-boss { order: 0; }
+.cb-arena.has-scene .cb-unit.is-minion.m-left { order: -1; }
+.cb-arena.has-scene .cb-unit.is-minion.m-right { order: 1; }
+/* a sus pies: más chicas y pegadas a él */
+.cb-arena.mode-feet .cb-unit.is-minion .cb-sprite > .px-sprite { transform: scale(0.86); transform-origin: bottom center; }
+/* colgando del techo, con su hilo */
+.cb-arena.mode-hang .cb-side.cb-enemies { align-self: stretch; }
+.cb-arena.mode-hang .cb-unit.is-minion { align-self: flex-start; margin-top: 8px; }
+.cb-arena.mode-hang .cb-unit.is-minion::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% - 30px);
+  width: 1px;
+  height: 900px;
+  background: linear-gradient(180deg, rgba(230, 230, 240, 0.15), rgba(230, 230, 240, 0.55));
+}
+.cb-arena.mode-hang .cb-unit.is-minion:not(.is-dead) .cb-sprite { animation: sc-dangle 3.6s ease-in-out infinite; animation-delay: calc(var(--i, 0) * -0.7s); transform-origin: top center; }
+@keyframes sc-dangle { 0%, 100% { transform: rotate(-3deg) translateY(0); } 50% { transform: rotate(3deg) translateY(6px); } }
+/* volando: arriba, subiendo y bajando */
+.cb-arena.mode-float .cb-side.cb-enemies { align-self: stretch; }
+.cb-arena.mode-float .cb-unit.is-minion { align-self: center; }
+.cb-arena.mode-float .cb-unit.is-minion:not(.is-dead) .cb-sprite > .px-sprite,
+.cb-unit.is-stage-boss.pose-float:not(.is-dead) .cb-sprite > .px-sprite,
+.cb-unit.is-stage-boss.pose-cape:not(.is-dead) .cb-sprite > .px-sprite { animation: sc-bob 4s ease-in-out infinite; animation-delay: calc(var(--i, 0) * -0.9s); }
+@keyframes sc-bob { 0%, 100% { translate: 0 -6px; } 50% { translate: 0 6px; } }
+.cb-unit.is-stage-boss.pose-float .cb-shadow,
+.cb-unit.is-stage-boss.pose-cape .cb-shadow { width: 46%; opacity: 0.6; }
+/* sombras: medio transparentes, oscuras, con los ojos prendidos */
+.cb-arena.mode-ghost .cb-unit.is-minion:not(.is-dead) .cb-sprite > .px-sprite {
+  filter: brightness(0.2) saturate(0) drop-shadow(0 0 10px rgba(150, 90, 220, 0.8)) !important;
+  opacity: 0.82;
+  animation: sc-ghost 3.2s ease-in-out infinite;
+  animation-delay: calc(var(--i, 0) * -1.1s);
+}
+@keyframes sc-ghost { 0%, 100% { translate: 0 0; opacity: 0.82; } 50% { translate: 0 -8px; opacity: 0.55; } }
+
+/* ---------- piezas que se repiten ---------- */
+/* lo que cae (nieve, hojas, ceniza, lluvia, polvo) */
+.cb-scene .sc-fall {
+  left: var(--x);
+  top: -8%;
+  width: calc(6px * var(--s));
+  height: calc(6px * var(--s));
+  border-radius: 50%;
+  background: #fff;
+  opacity: 0.8;
+  animation: sc-fall calc(7s + var(--r) * 6s) linear infinite;
+  animation-delay: calc(var(--t, 0ms) - var(--k) * 0.83s - var(--r) * 4s);
+}
+@keyframes sc-fall {
+  0% { top: -8%; translate: 0 0; rotate: 0deg; }
+  100% { top: 104%; translate: var(--drift, 50px) 0; rotate: 360deg; }
+}
+/* lo que sube (brasas, almas, burbujas, chispas) */
+.cb-scene .sc-rise {
+  left: var(--x);
+  top: var(--y);
+  width: calc(5px * var(--s));
+  height: calc(5px * var(--s));
+  border-radius: 50%;
+  background: #ffb35a;
+  box-shadow: 0 0 8px currentColor;
+  opacity: 0;
+  animation: sc-rise calc(5s + var(--r) * 5s) ease-out infinite;
+  animation-delay: calc(var(--t, 0ms) - var(--k) * 0.61s - var(--r) * 3s);
+}
+@keyframes sc-rise {
+  0% { top: var(--y); opacity: 0; translate: 0 0; }
+  15% { opacity: 0.9; }
+  100% { top: calc(var(--y) - 70%); opacity: 0; translate: var(--drift, 20px) 0; }
+}
+/* lo que titila (estrellas, ojos, luciérnagas) */
+.cb-scene .sc-twinkle {
+  left: var(--x);
+  top: var(--y);
+  width: calc(4px * var(--s));
+  height: calc(4px * var(--s));
+  border-radius: 50%;
+  background: #fff;
+  animation: sc-twinkle calc(2.4s + var(--r) * 3s) ease-in-out infinite;
+  animation-delay: calc(var(--t, 0ms) - var(--k) * 0.47s);
+}
+@keyframes sc-twinkle { 0%, 100% { opacity: 0.15; scale: 0.7; } 50% { opacity: 1; scale: 1.1; } }
+/* niebla por el piso */
+.cb-scene .sc-mist {
+  left: -10%;
+  right: -10%;
+  bottom: 0;
+  height: 34%;
+  background:
+    radial-gradient(ellipse 30% 60% at 20% 80%, rgba(200, 220, 210, 0.22), transparent 70%),
+    radial-gradient(ellipse 34% 60% at 60% 85%, rgba(200, 220, 210, 0.2), transparent 70%),
+    radial-gradient(ellipse 30% 60% at 92% 80%, rgba(200, 220, 210, 0.2), transparent 70%);
+  animation: sc-mist 14s ease-in-out infinite alternate;
+  animation-delay: var(--t, 0ms);
+}
+.cb-scene .sc-mist.is-red { filter: sepia(1) saturate(6) hue-rotate(-40deg) brightness(0.8); }
+.cb-scene .sc-mist.is-green { filter: sepia(1) saturate(4) hue-rotate(50deg); }
+@keyframes sc-mist { from { translate: -4% 0; } to { translate: 4% 0; } }
+/* relámpago: toda la arena se ilumina de golpe */
+.cb-scene .sc-flash {
+  inset: 0;
+  background: rgba(220, 235, 255, 0.85);
+  opacity: 0;
+  animation: sc-flash 7s linear infinite;
+  animation-delay: var(--t, 0ms);
+}
+.cb-scene .sc-flash.is-blue { background: rgba(160, 210, 255, 0.75); animation-duration: 5.5s; }
+@keyframes sc-flash { 0%, 88%, 92%, 100% { opacity: 0; } 89% { opacity: 0.7; } 90% { opacity: 0.1; } 91% { opacity: 0.5; } }
+/* brasas */
+.cb-scene .sc-ember { background: #ffae4a; color: #ff7a1a; }
+/* columnas de fuego a los costados */
+.cb-scene .sc-pillar {
+  bottom: 0;
+  width: 9%;
+  height: 78%;
+  background: linear-gradient(0deg, rgba(255, 120, 30, 0.75), rgba(255, 70, 20, 0.35) 55%, transparent);
+  -webkit-mask-image: radial-gradient(ellipse 50% 100% at 50% 100%, #000 55%, transparent 75%);
+  mask-image: radial-gradient(ellipse 50% 100% at 50% 100%, #000 55%, transparent 75%);
+  animation: sc-flame 1.4s ease-in-out infinite alternate;
+  animation-delay: var(--t, 0ms);
+  transform-origin: bottom center;
+}
+.cb-scene .sc-pillar.is-l { left: 1%; }
+.cb-scene .sc-pillar.is-r { right: 1%; animation-delay: calc(var(--t, 0ms) - 0.7s); }
+@keyframes sc-flame { from { scale: 1 0.92; opacity: 0.85; } to { scale: 1.08 1.06; opacity: 1; } }
+/* la marca en el piso (sello, pentagrama) */
+.cb-unit.is-stage-boss .bs-seal {
+  left: 50%;
+  bottom: 0;
+  width: 150%;
+  height: 46px;
+  translate: -50% 0;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 90, 40, 0.75);
+  background:
+    repeating-conic-gradient(from 0deg, rgba(255, 90, 40, 0.5) 0 2deg, transparent 2deg 72deg),
+    radial-gradient(ellipse at center, rgba(255, 70, 20, 0.35), transparent 70%);
+  box-shadow: 0 0 18px rgba(255, 80, 30, 0.6), inset 0 0 14px rgba(255, 80, 30, 0.6);
+  animation: sc-seal 3s ease-in-out infinite;
+  animation-delay: var(--t, 0ms);
+}
+@keyframes sc-seal { 0%, 100% { opacity: 0.7; } 50% { opacity: 1; } }
+/* el agua que tapa la parte de abajo del jefe */
+.cb-unit.is-stage-boss.pose-sea .cb-sprite > .px-sprite { translate: 0 22%; }
+.cb-unit.is-stage-boss .bs-waves {
+  left: -30%;
+  right: -30%;
+  bottom: -4px;
+  height: 40%;
+  background:
+    repeating-linear-gradient(90deg, rgba(200, 236, 255, 0.55) 0 16px, rgba(200, 236, 255, 0.12) 16px 30px) top / 100% 3px no-repeat,
+    linear-gradient(180deg, rgba(40, 96, 130, 0.88), rgba(8, 26, 44, 0.98));
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 20%, #000 80%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 20%, #000 80%, transparent);
+  animation: lair-swell 3.4s ease-in-out infinite;
+}
+.cb-unit.is-stage-boss .bs-waves.is-deep { background: repeating-linear-gradient(90deg, rgba(150, 255, 210, 0.4) 0 16px, rgba(150, 255, 210, 0.1) 16px 30px) top / 100% 3px no-repeat, linear-gradient(180deg, rgba(20, 70, 70, 0.9), rgba(4, 18, 22, 0.98)); }
+.cb-unit.is-stage-boss .bs-waves.is-swamp { height: 34%; background: repeating-linear-gradient(90deg, rgba(190, 220, 140, 0.4) 0 12px, transparent 12px 26px) top / 100% 3px no-repeat, linear-gradient(180deg, rgba(60, 76, 40, 0.92), rgba(24, 30, 16, 0.98)); }
+@keyframes lair-swell { 0%, 100% { translate: 0 0; } 50% { translate: 0 -4px; } }
+
+/* grietas en el piso (zigzag) */
+.cb-scene .sc-crack {
+  left: var(--x); bottom: calc(var(--y) * 0.22);
+  width: calc(190px * var(--s)); height: 26px;
+  background: #0c0806;
+  clip-path: polygon(0 60%, 12% 40%, 22% 66%, 34% 30%, 46% 58%, 58% 22%, 70% 54%, 82% 34%, 100% 48%, 100% 56%, 82% 42%, 70% 64%, 58% 32%, 46% 68%, 34% 40%, 22% 76%, 12% 50%, 0 70%);
+  rotate: calc((var(--r) - 0.5) * 24deg);
+  transition: background 900ms ease, filter 900ms ease;
+}
+.cb-scene .sc-crack.is-lava { background: #ff7a1a; filter: drop-shadow(0 0 6px #ff5a10); animation: sc-seal 2.2s ease-in-out infinite; animation-delay: calc(var(--t, 0ms) - var(--k) * 0.5s); }
+
+/* ---------- la presentación al empezar ---------- */
+.combat-view.cb .cb-stage { position: relative; }
+.cb-boss-intro {
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(ellipse 80% 60% at 50% 50%, rgba(0, 0, 0, 0.35), rgba(0, 0, 0, 0.78));
+  cursor: pointer;
+  animation: bi-in 380ms ease-out both;
+}
+.cb-boss-intro.is-out { animation: bi-out 420ms ease-in both; }
+.bi-band {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 22px 16px 20px;
+  text-align: center;
+  background: linear-gradient(90deg, transparent, rgba(16, 10, 6, 0.92) 18%, rgba(16, 10, 6, 0.92) 82%, transparent);
+  border-top: 1px solid rgba(216, 162, 58, 0.55);
+  border-bottom: 1px solid rgba(216, 162, 58, 0.55);
+  animation: bi-band 2.6s cubic-bezier(.2, .9, .3, 1) both;
+}
+.bi-kicker { font-size: 12px; letter-spacing: 0.3em; text-transform: uppercase; color: #d8a23a; }
+.bi-name {
+  font-family: var(--font-display);
+  font-size: clamp(30px, 5vw, 56px);
+  line-height: 1.05;
+  letter-spacing: 0.06em;
+  color: #fff3d6;
+  text-shadow: 0 0 22px var(--bi-glow, rgba(255, 120, 40, 0.75)), 0 3px 0 rgba(0, 0, 0, 0.6);
+  animation: bi-name 2.6s ease-out both;
+}
+.bi-line { font-size: 16px; font-style: italic; color: rgba(255, 236, 200, 0.85); }
+@keyframes bi-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes bi-out { to { opacity: 0; } }
+@keyframes bi-band { from { clip-path: inset(0 50% 0 50%); } 25%, to { clip-path: inset(0 0 0 0); } }
+@keyframes bi-name { from { letter-spacing: 0.4em; opacity: 0; } 30% { opacity: 1; } to { letter-spacing: 0.06em; } }
+@media (prefers-reduced-motion: reduce) {
+  .bi-band, .bi-name { animation: none; }
+  .cb-scene i, .cb-unit.is-stage-boss .bs-back i, .cb-unit.is-stage-boss .bs-front i { animation: none !important; }
+}
+
+/* ============================================================
+   Cada jefe
+   ============================================================ */
+
+/* ---------- Rey Goblin: en su trono de chatarra, con antorchas ---------- */
+.cb-arena.stage-rey_goblin {
+  --bi-glow: rgba(140, 200, 60, 0.8);
+  background:
+    radial-gradient(ellipse 50% 40% at 70% 70%, rgba(255, 170, 70, 0.18), transparent 70%),
+    linear-gradient(180deg, #221a12 0%, #3a2c1c 55%, #2a2016 62%, #1c150e 100%);
+}
+.stage-rey_goblin .sc-junk {
+  left: 0; right: 0; bottom: 30%; height: 34%;
+  background:
+    radial-gradient(ellipse 9% 40% at 12% 100%, #4a3a26 60%, transparent 62%),
+    radial-gradient(ellipse 7% 30% at 22% 100%, #5a4630 60%, transparent 62%),
+    radial-gradient(ellipse 10% 46% at 88% 100%, #4a3a26 60%, transparent 62%),
+    radial-gradient(ellipse 6% 28% at 78% 100%, #5e4a2e 60%, transparent 62%),
+    conic-gradient(from 200deg at 16% 70%, transparent 0 20deg, #6a5a44 20deg 34deg, transparent 34deg),
+    conic-gradient(from 150deg at 84% 66%, transparent 0 20deg, #6a5a44 20deg 30deg, transparent 30deg);
+  opacity: 0.85;
+}
+.stage-rey_goblin .sc-torch {
+  top: 18%; width: 10px; height: 60px;
+  background: linear-gradient(180deg, #5a3a1c, #2a1a0c);
+  border-radius: 3px;
+}
+.stage-rey_goblin .sc-torch::before {
+  content: ''; position: absolute; left: 50%; bottom: 100%; width: 26px; height: 38px; translate: -50% 4px;
+  border-radius: 50% 50% 40% 40%;
+  background: radial-gradient(ellipse at 50% 70%, #fff2b0, #ffb340 40%, rgba(255, 90, 20, 0.6) 70%, transparent 72%);
+  animation: sc-flame 0.9s ease-in-out infinite alternate;
+  transform-origin: bottom center;
+}
+.stage-rey_goblin .sc-torch::after {
+  content: ''; position: absolute; left: 50%; top: -60px; width: 260px; height: 260px; translate: -50% 0;
+  border-radius: 50%; background: radial-gradient(circle, rgba(255, 160, 60, 0.25), transparent 65%);
+  animation: torch-flicker 2.4s ease-in-out infinite;
+}
+.stage-rey_goblin .sc-torch.is-l { left: 38%; }
+.stage-rey_goblin .sc-torch.is-r { right: 4%; }
+.stage-rey_goblin .sc-spark { background: #ffd27a; color: #ffb340; width: 3px; height: 3px; }
+.cb-unit.pose-throne .cb-sprite > .px-sprite { translate: 0 -18%; }
+.cb-unit.is-stage-boss .bs-throne {
+  left: 50%; bottom: 0; width: 92%; height: 70%; translate: -50% 0;
+  background:
+    linear-gradient(180deg, transparent 0 62%, #6a5636 62% 70%, #4a3a22 70% 82%, #6a5636 82% 86%, #3a2c18 86%),
+    linear-gradient(90deg, transparent 0 8%, #7a6444 8% 16%, transparent 16% 84%, #7a6444 84% 92%, transparent 92%);
+  -webkit-mask-image: linear-gradient(180deg, transparent 0, #000 12%);
+  mask-image: linear-gradient(180deg, transparent 0, #000 12%);
+  border-radius: 40% 40% 4px 4px / 22% 22% 4px 4px;
+  box-shadow: inset 0 -6px 0 rgba(0, 0, 0, 0.25);
+}
+.cb-unit.is-stage-boss .bs-throne::before {
+  /* la chatarra del respaldo: escudos, ollas, una rueda */
+  content: ''; position: absolute; left: 8%; right: 8%; top: 0; height: 66%;
+  border-radius: 46% 46% 6px 6px;
+  background:
+    radial-gradient(circle at 22% 30%, #9a8a6a 0 9%, #5a4a30 9% 12%, transparent 12%),
+    radial-gradient(circle at 76% 34%, #8a7a5a 0 8%, transparent 8%),
+    radial-gradient(circle at 50% 14%, #c8a040 0 6%, transparent 6%),
+    repeating-linear-gradient(80deg, #5a4630 0 10px, #4a3a26 10px 18px);
+  opacity: 0.95;
+}
+.stage-rey_goblin.is-raged .sc-torch::before { filter: hue-rotate(-30deg) saturate(1.6); scale: 1.4; }
+.stage-rey_goblin.is-raged > .cb-scene { filter: saturate(1.3) brightness(1.1); }
+
+/* ---------- Reina Araña: telas gigantes, huevos, crías colgando del techo ---------- */
+.cb-arena.stage-reina_arana {
+  --bi-glow: rgba(150, 230, 120, 0.7);
+  background:
+    radial-gradient(ellipse 40% 30% at 50% 0%, #07060a 60%, transparent 61%),
+    radial-gradient(ellipse 40% 40% at 70% 60%, rgba(120, 200, 120, 0.10), transparent 70%),
+    linear-gradient(180deg, #14121a 0%, #24202a 55%, #1a1716 62%, #121010 100%);
+}
+.stage-reina_arana .sc-web {
+  right: 2%; top: -14%; width: 64%; aspect-ratio: 1;
+  border-radius: 50%;
+  background:
+    repeating-radial-gradient(circle at 50% 50%, transparent 0 22px, rgba(230, 230, 240, 0.22) 22px 23px),
+    repeating-conic-gradient(from 0deg at 50% 50%, rgba(230, 230, 240, 0.28) 0 0.6deg, transparent 0.6deg 22.5deg);
+  -webkit-mask-image: radial-gradient(circle, #000 40%, transparent 70%);
+  mask-image: radial-gradient(circle, #000 40%, transparent 70%);
+  animation: sc-sway 9s ease-in-out infinite alternate;
+  animation-delay: var(--t, 0ms);
+}
+.stage-reina_arana .sc-web.is-2 { right: auto; left: -12%; top: -20%; width: 40%; opacity: 0.6; animation-direction: alternate-reverse; }
+@keyframes sc-sway { from { rotate: -2deg; } to { rotate: 2deg; } }
+.stage-reina_arana .sc-egg {
+  left: var(--x); top: var(--y);
+  width: calc(18px * var(--s)); height: calc(24px * var(--s));
+  border-radius: 50% 50% 46% 46%;
+  background: radial-gradient(ellipse at 40% 35%, #f2eedc, #b8b298 60%, #7a7462);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.2), 0 4px 6px rgba(0, 0, 0, 0.5);
+  animation: sc-egg 2.6s ease-in-out infinite;
+  animation-delay: calc(var(--t, 0ms) - var(--k) * 0.5s);
+}
+@keyframes sc-egg { 0%, 80%, 100% { rotate: 0deg; } 85% { rotate: -6deg; } 90% { rotate: 6deg; } }
+.cb-unit.is-stage-boss .bs-thread {
+  left: 50%; bottom: 70%; width: 2px; height: 900px; translate: -50% 0;
+  background: linear-gradient(180deg, rgba(230, 230, 240, 0.1), rgba(230, 230, 240, 0.6));
+}
+.stage-reina_arana.is-raged .sc-egg { animation-duration: 0.9s; }
+.stage-reina_arana.is-raged > .cb-scene { filter: drop-shadow(0 0 6px rgba(140, 255, 120, 0.6)) hue-rotate(40deg); }
+
+/* ---------- Ent Anciano: claro del bosque, raíces, hojas, luciérnagas ---------- */
+.cb-arena.stage-ent_anciano {
+  --bi-glow: rgba(140, 220, 120, 0.8);
+  background:
+    radial-gradient(ellipse 30% 50% at 70% 20%, rgba(230, 255, 200, 0.22), transparent 70%),
+    linear-gradient(180deg, #24392a 0%, #3e5a40 45%, #2a3e22 62%, #1e2c16 100%);
+}
+.stage-ent_anciano .sc-trees {
+  inset: 0;
+  background:
+    linear-gradient(90deg, transparent 0 3%, #142216 3% 8%, transparent 8% 16%, #1a2a1a 16% 19%, transparent 19% 85%, #142216 85% 90%, transparent 90% 95%, #1a2a1a 95% 98%, transparent 98%),
+    radial-gradient(ellipse 30% 26% at 10% 0%, #10200f 60%, transparent 62%),
+    radial-gradient(ellipse 34% 28% at 88% 0%, #10200f 60%, transparent 62%);
+  opacity: 0.9;
+}
+.stage-ent_anciano .sc-leaf { --drift: 90px; width: calc(10px * var(--s)); height: calc(6px * var(--s)); border-radius: 0 80% 0 80%; background: #7aa64a; }
+.stage-ent_anciano .sc-leaf:nth-child(3n) { background: #a6b848; }
+.stage-ent_anciano .sc-firefly { background: #e8ff9a; box-shadow: 0 0 10px 3px rgba(220, 255, 120, 0.55); }
+.cb-unit.is-stage-boss .bs-roots {
+  left: -40%; right: -40%; bottom: -2px; height: 22%;
+  background:
+    radial-gradient(ellipse 50% 60% at 50% 100%, #3a2a18 60%, transparent 62%),
+    linear-gradient(170deg, transparent 0 46%, #4a3420 46% 54%, transparent 54%) 0 100% / 50% 60% no-repeat,
+    linear-gradient(10deg, transparent 0 46%, #4a3420 46% 54%, transparent 54%) 100% 100% / 50% 60% no-repeat,
+    linear-gradient(176deg, transparent 0 46%, #3e2c1a 46% 52%, transparent 52%) 0 100% / 50% 100% no-repeat,
+    linear-gradient(4deg, transparent 0 46%, #3e2c1a 46% 52%, transparent 52%) 100% 100% / 50% 100% no-repeat;
+}
+.stage-ent_anciano.is-raged .sc-leaf { background: #c8602a; }
+.stage-ent_anciano.is-raged .sc-leaf:nth-child(3n) { background: #e09a2a; }
+.stage-ent_anciano.is-raged { background: radial-gradient(ellipse 30% 50% at 70% 20%, rgba(255, 190, 120, 0.22), transparent 70%), linear-gradient(180deg, #3a3020 0%, #5a4a2c 45%, #3a2e18 62%, #2a2010 100%); }
+
+/* ---------- Leviatán: mar en tormenta, lluvia, relámpagos ---------- */
+.cb-arena.stage-leviatan {
+  --bi-glow: rgba(110, 200, 255, 0.85);
+  background:
+    radial-gradient(ellipse 40% 20% at 30% 10%, rgba(30, 40, 56, 0.9) 60%, transparent 62%),
+    radial-gradient(ellipse 50% 22% at 80% 6%, rgba(24, 32, 46, 0.9) 60%, transparent 62%),
+    linear-gradient(180deg, #2a3646 0%, #44586a 40%, #1e4a66 52%, #123248 70%, #0a2032 100%);
+}
+.stage-leviatan .sc-sea {
+  left: 0; right: 0; top: 50%; bottom: 0;
+  background:
+    repeating-linear-gradient(0deg, transparent 0 18px, rgba(200, 236, 255, 0.08) 18px 20px),
+    linear-gradient(180deg, rgba(120, 190, 230, 0.2), transparent 40%);
+  animation: sc-mist 6s ease-in-out infinite alternate;
+  animation-delay: var(--t, 0ms);
+}
+.stage-leviatan .sc-rain { --drift: -60px; width: 1px; height: calc(22px * var(--s)); border-radius: 0; background: rgba(200, 225, 255, 0.55); rotate: 12deg; animation-duration: calc(0.9s + var(--r) * 0.5s); }
+@keyframes sc-fall-rain { to { top: 104%; } }
+.stage-leviatan .sc-rain { animation-name: sc-fall-rain; }
+.stage-leviatan.is-raged .sc-flash { animation-duration: 3.2s; }
+
+/* ---------- Kitsune: arco de nueve fuegos (uno por cola), torii y luna ---------- */
+.cb-arena.stage-kyubi {
+  --bi-glow: rgba(120, 200, 255, 0.9);
+  background:
+    radial-gradient(ellipse 60% 40% at 70% 60%, rgba(120, 180, 255, 0.12), transparent 70%),
+    linear-gradient(180deg, #161a30 0%, #262a48 50%, #181c26 62%, #10141c 100%);
+}
+.stage-kyubi .sc-moon { right: 12%; top: 8%; width: 70px; height: 70px; border-radius: 50%; background: radial-gradient(circle at 40% 40%, #fff8e8, #f0dcb0 70%); box-shadow: 0 0 40px rgba(255, 240, 200, 0.5); }
+.stage-kyubi .sc-torii {
+  left: 44%; right: 6%; top: 16%; height: 64%;
+  background:
+    linear-gradient(180deg, #8a1c1c 0 6%, transparent 6% 14%, #8a1c1c 14% 18%, transparent 18%),
+    linear-gradient(90deg, transparent 0 14%, #7a1818 14% 18%, transparent 18% 82%, #7a1818 82% 86%, transparent 86%);
+  opacity: 0.55;
+}
+.stage-kyubi .sc-petal { --drift: 80px; width: calc(8px * var(--s)); height: calc(6px * var(--s)); border-radius: 60% 0 60% 0; background: #f4b6c6; }
+.cb-unit.is-stage-boss .bs-wisps { inset: 0; }
+.cb-unit.is-stage-boss .bs-wisp {
+  --a: calc(-80deg + var(--k) * 20deg);
+  left: 50%; bottom: 34%;
+  width: 18px; height: 24px; margin-left: -9px;
+  border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
+  transform: rotate(var(--a)) translateY(calc(var(--boss-fit, 160px) * -0.62)) rotate(calc(-1 * var(--a)));
+  background: radial-gradient(ellipse at 50% 70%, #fff, #8fd0ff 40%, rgba(80, 140, 255, 0.0) 72%);
+  opacity: 0.15;
+  filter: grayscale(1);
+  transition: opacity 500ms ease, filter 500ms ease;
+}
+.cb-unit.is-stage-boss .bs-wisp.is-on { opacity: 1; filter: none; animation: sc-wisp 1.6s ease-in-out infinite; animation-delay: calc(var(--k) * -0.2s); }
+@keyframes sc-wisp { 0%, 100% { scale: 1 1; } 50% { scale: 0.85 1.15; } }
+.stage-kyubi.is-raged .bs-wisp.is-on { background: radial-gradient(ellipse at 50% 70%, #fff, #d28fff 40%, transparent 72%); }
+.stage-kyubi.is-raged .sc-moon { background: radial-gradient(circle at 40% 40%, #f0d8ff, #b080e0 70%); box-shadow: 0 0 50px rgba(200, 140, 255, 0.6); }
+
+/* ---------- Archimago: círculo de runas que gira, libros flotando ---------- */
+.cb-arena.stage-archimago {
+  --bi-glow: rgba(170, 130, 255, 0.9);
+  background:
+    radial-gradient(circle at 70% 40%, rgba(170, 130, 255, 0.25) 0 10%, transparent 40%),
+    linear-gradient(90deg, transparent 0 6%, #2a2244 6% 10%, transparent 10% 90%, #2a2244 90% 94%, transparent 94%),
+    linear-gradient(180deg, #1c1834 0%, #362c5c 50%, #201a30 62%, #16121f 100%);
+}
+.stage-archimago .sc-book {
+  left: var(--x); top: var(--y);
+  width: calc(26px * var(--s)); height: calc(18px * var(--s));
+  background: linear-gradient(90deg, #6a2a2a 0 48%, #e8dcc0 48% 52%, #6a2a2a 52%);
+  border-radius: 2px;
+  box-shadow: 0 0 12px rgba(170, 130, 255, 0.5);
+  animation: sc-bob 5s ease-in-out infinite;
+  animation-delay: calc(var(--t, 0ms) - var(--k) * 0.8s);
+}
+.stage-archimago .sc-book:nth-child(2n) { background: linear-gradient(90deg, #2a3a6a 0 48%, #e8dcc0 48% 52%, #2a3a6a 52%); }
+.stage-archimago .sc-rune { background: #c8b0ff; color: #a070ff; border-radius: 1px; width: 4px; height: 6px; }
+.cb-unit.is-stage-boss .bs-circle {
+  left: 50%; bottom: 2px; width: 170%; height: 54px; translate: -50% 0;
+  border-radius: 50%;
+  border: 2px solid rgba(190, 160, 255, 0.85);
+  background:
+    repeating-conic-gradient(rgba(190, 160, 255, 0.55) 0 3deg, transparent 3deg 30deg),
+    radial-gradient(ellipse at center, rgba(150, 110, 255, 0.35), transparent 70%);
+  box-shadow: 0 0 22px rgba(150, 110, 255, 0.7), inset 0 0 0 10px rgba(150, 110, 255, 0.12);
+  animation: sc-spin 9s linear infinite;
+}
+@keyframes sc-spin { to { rotate: 1turn; } }
+.cb-unit.is-stage-boss .bs-circle { transform: perspective(200px) rotateX(60deg); }
+.cb-arena.stage-archimago .cb-unit.is-minion .cb-shadow { width: 90%; border-radius: 50%; background: radial-gradient(ellipse, rgba(150, 110, 255, 0.5), transparent 70%); box-shadow: 0 0 0 1px rgba(190, 160, 255, 0.5); }
+.stage-archimago.is-raged .bs-circle { border-color: rgba(255, 110, 110, 0.9); filter: hue-rotate(110deg); animation-duration: 2.5s; }
+
+/* ---------- Lich: lápidas, niebla, almas, su filacteria verde ---------- */
+.cb-arena.stage-lich {
+  --bi-glow: rgba(120, 255, 170, 0.85);
+  background:
+    radial-gradient(ellipse 40% 40% at 70% 60%, rgba(100, 255, 160, 0.12), transparent 70%),
+    repeating-linear-gradient(90deg, rgba(0, 0, 0, 0.25) 0 2px, transparent 2px 64px),
+    linear-gradient(180deg, #151a1c 0%, #263030 55%, #1a1e1e 62%, #101414 100%);
+}
+.stage-lich .sc-tombs {
+  left: 0; right: 0; bottom: 30%; height: 18%;
+  background:
+    radial-gradient(ellipse 3% 50% at 8% 100%, #3a4040 60%, transparent 62%),
+    radial-gradient(ellipse 2.5% 40% at 18% 100%, #323838 60%, transparent 62%),
+    radial-gradient(ellipse 3% 50% at 44% 100%, #3a4040 60%, transparent 62%),
+    radial-gradient(ellipse 2.5% 42% at 86% 100%, #323838 60%, transparent 62%),
+    radial-gradient(ellipse 3% 52% at 96% 100%, #3a4040 60%, transparent 62%);
+}
+.stage-lich .sc-soul { background: rgba(170, 255, 200, 0.7); color: #6aff9a; width: calc(8px * var(--s)); height: calc(12px * var(--s)); border-radius: 50% 50% 40% 40%; filter: blur(1px); }
+.cb-unit.is-stage-boss .bs-phylactery {
+  left: 50%; top: 4%; width: 16px; height: 22px; translate: calc(var(--boss-fit, 160px) * 0.42) 0;
+  clip-path: polygon(50% 0, 100% 30%, 100% 70%, 50% 100%, 0 70%, 0 30%);
+  background: linear-gradient(180deg, #d0ffe0, #3ad07a);
+  box-shadow: 0 0 20px #6aff9a;
+  animation: sc-bob 3s ease-in-out infinite, sc-seal 1.6s ease-in-out infinite;
+}
+.stage-lich.is-raged > .cb-scene { filter: saturate(1.8) brightness(1.2); }
+.stage-lich.is-raged .sc-soul { animation-duration: 2.4s; }
+
+/* ---------- Señor vampiro: ventanal con luna, murciélagos, velas ---------- */
+.cb-arena.stage-senor_vampiro {
+  --bi-glow: rgba(255, 60, 60, 0.85);
+  background:
+    linear-gradient(90deg, transparent 0 8%, #1a0f14 8% 10%, transparent 10% 90%, #1a0f14 90% 92%, transparent 92%),
+    linear-gradient(180deg, #1c1222 0%, #2c1830 50%, #1c1014 62%, #140a0c 100%);
+}
+.stage-senor_vampiro .sc-window {
+  right: 10%; top: 4%; width: 26%; height: 48%;
+  border-radius: 50% 50% 0 0 / 40% 40% 0 0;
+  background:
+    linear-gradient(90deg, transparent 0 48%, #140a0e 48% 52%, transparent 52%),
+    linear-gradient(0deg, transparent 0 48%, #140a0e 48% 51%, transparent 51%),
+    radial-gradient(circle at 50% 40%, #ffe6d8 0 18%, rgba(255, 200, 190, 0.4) 22%, transparent 40%),
+    linear-gradient(180deg, #2a1a40, #3a2040);
+  border: 6px solid #140a0e;
+  box-shadow: 0 0 60px rgba(255, 210, 200, 0.18);
+  transition: background 900ms ease;
+}
+.stage-senor_vampiro .sc-candles { bottom: 34%; width: 40px; height: 70px; background: linear-gradient(90deg, transparent 0 20%, #e8dcc0 20% 30%, transparent 30% 45%, #e8dcc0 45% 55%, transparent 55% 70%, #e8dcc0 70% 80%, transparent 80%) bottom / 100% 40% no-repeat; }
+.stage-senor_vampiro .sc-candles::before { content: ''; position: absolute; left: 0; right: 0; top: 38%; height: 16px; background: radial-gradient(circle at 25% 50%, #ffcf6a 0 3px, transparent 4px), radial-gradient(circle at 50% 50%, #ffcf6a 0 3px, transparent 4px), radial-gradient(circle at 75% 50%, #ffcf6a 0 3px, transparent 4px); filter: drop-shadow(0 0 6px #ffb340); animation: torch-flicker 1.6s ease-in-out infinite; }
+.stage-senor_vampiro .sc-candles.is-l { left: 40%; }
+.stage-senor_vampiro .sc-candles.is-r { right: 3%; }
+.stage-senor_vampiro .sc-bat {
+  left: -10%; top: var(--y);
+  width: calc(40px * var(--s)); height: calc(18px * var(--s));
+  background: #0c0608;
+  clip-path: polygon(0 20%, 25% 50%, 40% 30%, 50% 60%, 60% 30%, 75% 50%, 100% 20%, 80% 90%, 50% 70%, 20% 90%);
+  animation: sc-bat calc(7s + var(--r) * 6s) linear infinite, sc-flap 0.3s ease-in-out infinite alternate;
+  animation-delay: calc(var(--t, 0ms) - var(--k) * 1.7s), 0s;
+}
+@keyframes sc-bat { 0% { left: -10%; translate: 0 0; } 50% { translate: 0 30px; } 100% { left: 110%; translate: 0 -10px; } }
+@keyframes sc-flap { from { scale: 1 1; } to { scale: 1 0.4; } }
+.stage-senor_vampiro .cb-unit.pose-cape .cb-sprite > .px-sprite { filter: drop-shadow(0 0 14px rgba(255, 40, 40, 0.5)) !important; }
+.stage-senor_vampiro.is-raged .sc-window { background: linear-gradient(90deg, transparent 0 48%, #140a0e 48% 52%, transparent 52%), linear-gradient(0deg, transparent 0 48%, #140a0e 48% 51%, transparent 51%), radial-gradient(circle at 50% 40%, #ff4a3a 0 18%, rgba(255, 40, 40, 0.5) 22%, transparent 40%), linear-gradient(180deg, #3a0a14, #2a0810); box-shadow: 0 0 80px rgba(255, 40, 40, 0.35); }
+.stage-senor_vampiro.is-raged .sc-bat { animation-duration: 3.4s, 0.2s; }
+
+/* ---------- Balrog: puente de piedra sobre un abismo de fuego, alas de llamas ---------- */
+.cb-arena.stage-balrog {
+  --bi-glow: rgba(255, 110, 30, 0.95);
+  background:
+    radial-gradient(ellipse 70% 30% at 50% 100%, rgba(255, 110, 20, 0.6), transparent 70%),
+    linear-gradient(180deg, #1a0806 0%, #3a1208 50%, #200806 62%, #120404 100%);
+}
+.stage-balrog .sc-chasm { left: 0; right: 0; bottom: 0; height: 30%; background: radial-gradient(ellipse 60% 100% at 50% 100%, #ff8a2a, #b8360c 40%, transparent 80%); opacity: 0.8; animation: sc-seal 2.4s ease-in-out infinite; animation-delay: var(--t, 0ms); }
+.stage-balrog .sc-bridge {
+  left: -2%; right: -2%; bottom: 14%; height: 34px;
+  background: repeating-linear-gradient(90deg, #3a2e28 0 46px, #2a201c 46px 48px), #3a2e28;
+  border-top: 3px solid #5a4a40;
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.6), 0 -2px 12px rgba(255, 120, 40, 0.35);
+}
+.cb-unit.is-stage-boss .bs-wings {
+  left: 50%; bottom: 30%; width: 220%; height: 90%; translate: -50% 0;
+  background:
+    radial-gradient(ellipse 30% 60% at 22% 50%, rgba(255, 140, 40, 0.55), transparent 70%),
+    radial-gradient(ellipse 30% 60% at 78% 50%, rgba(255, 140, 40, 0.55), transparent 70%);
+  -webkit-mask-image: linear-gradient(180deg, #000 30%, transparent);
+  mask-image: linear-gradient(180deg, #000 30%, transparent);
+  animation: sc-wings 2.2s ease-in-out infinite;
+  transform-origin: 50% 80%;
+}
+@keyframes sc-wings { 0%, 100% { scale: 1 1; opacity: 0.8; } 50% { scale: 1.08 1.05; opacity: 1; } }
+.stage-balrog.is-raged .bs-wings { background: radial-gradient(ellipse 34% 66% at 20% 50%, rgba(255, 70, 20, 0.8), transparent 70%), radial-gradient(ellipse 34% 66% at 80% 50%, rgba(255, 70, 20, 0.8), transparent 70%); animation-duration: 1s; }
+.stage-balrog.is-raged .sc-ember { animation-duration: 2.6s; }
+
+/* ---------- Tarrasca: caverna que tiembla, piso partido, polvo ---------- */
+.cb-arena.stage-tarrasca {
+  --bi-glow: rgba(255, 150, 60, 0.85);
+  background:
+    radial-gradient(ellipse 40% 30% at 70% 70%, rgba(255, 130, 40, 0.14), transparent 70%),
+    linear-gradient(180deg, #1e1a16 0%, #3a3028 55%, #2a221a 62%, #1a1410 100%);
+}
+.stage-tarrasca .sc-cave-teeth {
+  left: 0; right: 0; top: 0; height: 26%;
+  background: repeating-conic-gradient(from 160deg at 50% 0, transparent 0 0, transparent 0);
+  -webkit-mask: none;
+  background:
+    linear-gradient(170deg, #110e0c 0 30%, transparent 31%) 0 0 / 7% 100% repeat-x,
+    linear-gradient(190deg, #110e0c 0 30%, transparent 31%) 3.5% 0 / 7% 100% repeat-x;
+}
+.stage-tarrasca .sc-dust { --drift: 10px; background: rgba(200, 180, 150, 0.6); width: calc(4px * var(--s)); height: calc(4px * var(--s)); }
+.cb-unit.is-stage-boss.pose-giant .cb-shadow { width: 110%; height: 22px; }
+.cb-unit.is-stage-boss .bs-quake { left: -20%; right: -20%; bottom: 0; height: 18px; border-radius: 50%; background: radial-gradient(ellipse, rgba(200, 170, 130, 0.45), transparent 70%); animation: sc-quake 3.2s ease-out infinite; }
+@keyframes sc-quake { 0%, 70% { scale: 0.6; opacity: 0; } 75% { scale: 1; opacity: 1; } 100% { scale: 1.6; opacity: 0; } }
+.stage-tarrasca .cb-unit.is-stage-boss:not(.is-dead) .cb-sprite > .px-sprite { animation: sc-stomp 3.2s ease-in infinite; }
+@keyframes sc-stomp { 0%, 60%, 100% { translate: 0 0; } 68% { translate: 0 -8px; } 75% { translate: 0 0; } }
+.stage-tarrasca.is-raged .sc-crack { background: #ff7a1a; filter: drop-shadow(0 0 6px #ff5a10); }
+
+/* ---------- Cthulhu: ciudad hundida, ojos que se abren en lo oscuro ---------- */
+.cb-arena.stage-cthulhu {
+  --bi-glow: rgba(90, 255, 190, 0.85);
+  background:
+    radial-gradient(ellipse 50% 40% at 70% 60%, rgba(60, 200, 150, 0.12), transparent 70%),
+    linear-gradient(180deg, #071a1c 0%, #0e2c2c 50%, #082022 62%, #041214 100%);
+}
+.stage-cthulhu .sc-ruins-sunk {
+  left: 0; right: 0; bottom: 26%; height: 50%;
+  background:
+    linear-gradient(98deg, transparent 0 6%, #0c2224 6% 11%, transparent 11%),
+    linear-gradient(84deg, transparent 0 16%, #0a1e20 16% 20%, transparent 20%),
+    linear-gradient(94deg, transparent 0 86%, #0c2224 86% 92%, transparent 92%),
+    linear-gradient(80deg, transparent 0 40%, #0a1c1e 40% 43%, transparent 43%);
+  opacity: 0.9;
+}
+.stage-cthulhu .sc-eye { width: calc(14px * var(--s)); height: calc(7px * var(--s)); border-radius: 50%; background: radial-gradient(ellipse, #000 0 22%, #c8ff6a 26%, #6ad04a 60%, transparent 64%); box-shadow: 0 0 10px rgba(180, 255, 100, 0.5); animation-name: sc-eye; animation-duration: calc(4s + var(--r) * 5s); }
+@keyframes sc-eye { 0%, 30%, 100% { opacity: 0; scale: 1 0.1; } 40%, 85% { opacity: 1; scale: 1 1; } 60% { scale: 1 0.1; } 64% { scale: 1 1; } }
+.stage-cthulhu .sc-bubble { background: transparent; border: 1px solid rgba(200, 255, 240, 0.5); box-shadow: none; width: calc(7px * var(--s)); height: calc(7px * var(--s)); }
+.stage-cthulhu .sc-madness { inset: 0; box-shadow: inset 0 0 120px rgba(40, 140, 90, 0.5); animation: sc-seal 4s ease-in-out infinite; }
+.stage-cthulhu.is-raged .sc-eye { background: radial-gradient(ellipse, #000 0 22%, #ff6a5a 26%, #c0201a 60%, transparent 64%); box-shadow: 0 0 10px rgba(255, 60, 40, 0.6); }
+.stage-cthulhu.is-raged .sc-madness { box-shadow: inset 0 0 140px rgba(180, 30, 60, 0.55); animation-duration: 1.4s; }
+
+/* ---------- Demonio mayor: cadenas, columnas de fuego, sello en el piso ---------- */
+.cb-arena.stage-demonio_mayor {
+  --bi-glow: rgba(255, 60, 30, 0.95);
+  background:
+    radial-gradient(ellipse 70% 25% at 50% 100%, rgba(255, 70, 20, 0.5), transparent 70%),
+    linear-gradient(180deg, #2a0606 0%, #4a0e0a 50%, #220606 62%, #140404 100%);
+}
+.stage-demonio_mayor .sc-chain {
+  left: var(--x); top: -2%; width: 10px; height: calc(30% + var(--r) * 30%);
+  background: repeating-linear-gradient(180deg, #4a3a36 0 10px, transparent 10px 12px, #2e2422 12px 22px, transparent 22px 24px);
+  border-radius: 4px;
+  -webkit-mask-image: linear-gradient(180deg, #000 80%, transparent);
+  mask-image: linear-gradient(180deg, #000 80%, transparent);
+  animation: sc-sway 4s ease-in-out infinite alternate;
+  animation-delay: calc(var(--t, 0ms) - var(--k) * 0.7s);
+  transform-origin: top center;
+}
+.stage-demonio_mayor.is-raged .bs-seal { border-color: #ffd04a; box-shadow: 0 0 30px rgba(255, 120, 30, 0.9), inset 0 0 20px rgba(255, 200, 60, 0.8); animation-duration: 0.8s; }
+.stage-demonio_mayor.is-raged .sc-pillar { height: 96%; }
+
+/* ---------- Fénix Ancestral: bosque de piedra, ceniza, un sol de fuego detrás ---------- */
+.cb-arena.stage-fenix_ancestral {
+  --bi-glow: rgba(255, 180, 60, 0.95);
+  background:
+    radial-gradient(ellipse 50% 50% at 70% 40%, rgba(255, 170, 60, 0.22), transparent 70%),
+    linear-gradient(180deg, #3a2a24 0%, #5a463a 45%, #3a3230 62%, #2a2422 100%);
+}
+.stage-fenix_ancestral .sc-stone-trees {
+  inset: 0;
+  background:
+    linear-gradient(90deg, transparent 0 4%, #6a645e 4% 7%, transparent 7% 14%, #5a5550 14% 16%, transparent 16% 88%, #6a645e 88% 91%, transparent 91% 96%, #5a5550 96% 98%, transparent 98%) 0 30% / 100% 70% no-repeat;
+  opacity: 0.7;
+}
+.stage-fenix_ancestral .sc-ash { --drift: 40px; background: rgba(200, 190, 180, 0.7); width: calc(4px * var(--s)); height: calc(4px * var(--s)); }
+.cb-unit.is-stage-boss .bs-sun {
+  left: 50%; top: 50%; width: 120%; aspect-ratio: 1; translate: -50% -58%;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle, rgba(255, 240, 180, 0.6) 0 20%, rgba(255, 150, 40, 0.45) 40%, transparent 66%),
+    repeating-conic-gradient(rgba(255, 180, 60, 0.35) 0 6deg, transparent 6deg 18deg);
+  -webkit-mask-image: radial-gradient(circle, #000 40%, transparent 70%);
+  mask-image: radial-gradient(circle, #000 40%, transparent 70%);
+  animation: sc-spin 30s linear infinite, sc-seal 2.4s ease-in-out infinite;
+}
+.stage-fenix_ancestral.is-raged .bs-sun { width: 160%; filter: saturate(1.5) brightness(1.2); }
+.stage-fenix_ancestral.is-raged .sc-ash { background: #ffb340; box-shadow: 0 0 6px #ff7a1a; }
+
+/* ---------- Hidra: pantano, las sombras de sus cabezas, burbujas de veneno ---------- */
+.cb-arena.stage-hidra {
+  --bi-glow: rgba(150, 230, 80, 0.85);
+  background:
+    radial-gradient(ellipse 14% 50% at 6% 60%, #1e2618 60%, transparent 61%),
+    radial-gradient(ellipse 13% 46% at 96% 62%, #1c2416 60%, transparent 61%),
+    linear-gradient(180deg, #2a3424 0%, #46523a 45%, #2a3420 62%, #1e2618 100%);
+}
+.stage-hidra .sc-swamp { left: 0; right: 0; bottom: 0; height: 32%; background: linear-gradient(180deg, rgba(70, 90, 40, 0.7), rgba(30, 40, 20, 0.95)); border-top: 2px solid rgba(190, 220, 140, 0.3); }
+.stage-hidra .sc-reeds {
+  left: 0; right: 0; bottom: 26%; height: 30%;
+  background:
+    linear-gradient(90deg, transparent 0 3%, #3a4a22 3% 3.4%, transparent 3.4% 6%, #34421e 6% 6.4%, transparent 6.4% 92%, #3a4a22 92% 92.4%, transparent 92.4% 95%, #34421e 95% 95.4%, transparent 95.4%) 0 100% / 100% 80% no-repeat,
+    radial-gradient(ellipse 0.6% 6% at 3.2% 22%, #5a3a1e 70%, transparent 72%),
+    radial-gradient(ellipse 0.6% 6% at 6.2% 30%, #5a3a1e 70%, transparent 72%),
+    radial-gradient(ellipse 0.6% 6% at 92.2% 24%, #5a3a1e 70%, transparent 72%),
+    radial-gradient(ellipse 0.6% 6% at 95.2% 32%, #5a3a1e 70%, transparent 72%);
+  animation: sc-sway 5s ease-in-out infinite alternate;
+  transform-origin: bottom center;
+}
+.stage-hidra .sc-bubble.is-green { background: rgba(160, 230, 80, 0.4); color: #a0e650; width: calc(8px * var(--s)); height: calc(8px * var(--s)); }
+.stage-hidra.is-raged .sc-swamp { background: linear-gradient(180deg, rgba(110, 170, 30, 0.75), rgba(40, 70, 10, 0.95)); box-shadow: 0 -4px 20px rgba(160, 255, 60, 0.35); }
+
+/* ---------- Rey de la Escarcha: trono de hielo, nieve, sus lobos a los pies ---------- */
+.cb-arena.stage-rey_escarcha {
+  --bi-glow: rgba(150, 220, 255, 0.95);
+  background:
+    radial-gradient(ellipse 40% 40% at 70% 50%, rgba(180, 230, 255, 0.2), transparent 70%),
+    linear-gradient(180deg, #24344a 0%, #4a6a86 50%, #3a5268 62%, #283a4c 100%);
+}
+.stage-rey_escarcha .sc-ice {
+  bottom: 30%; width: 22%; height: 46%;
+  background:
+    linear-gradient(80deg, transparent 0 30%, rgba(200, 240, 255, 0.55) 30% 40%, transparent 40%),
+    linear-gradient(100deg, transparent 0 50%, rgba(170, 220, 255, 0.5) 50% 62%, transparent 62%),
+    linear-gradient(86deg, transparent 0 66%, rgba(220, 245, 255, 0.45) 66% 74%, transparent 74%);
+  clip-path: polygon(0 100%, 12% 20%, 22% 100%, 36% 0, 50% 100%, 62% 30%, 76% 100%, 88% 40%, 100% 100%);
+  background-color: rgba(160, 210, 240, 0.25);
+}
+.stage-rey_escarcha .sc-ice.is-l { left: 0; }
+.stage-rey_escarcha .sc-ice.is-r { right: 0; scale: -1 1; }
+.stage-rey_escarcha .sc-snow { --drift: 40px; background: #f4fbff; }
+.stage-rey_escarcha .sc-frost { inset: 0; box-shadow: inset 0 0 90px rgba(220, 245, 255, 0.4); }
+.cb-unit.is-stage-boss .bs-throne.is-ice { background: linear-gradient(180deg, transparent 0 62%, #bfe6f8 62% 70%, #8ac0e0 70% 82%, #bfe6f8 82% 86%, #6aa0c4 86%), linear-gradient(90deg, transparent 0 8%, #a8d8f0 8% 16%, transparent 16% 84%, #a8d8f0 84% 92%, transparent 92%); box-shadow: 0 0 24px rgba(190, 235, 255, 0.5); }
+.cb-unit.is-stage-boss .bs-throne.is-ice::before { background: linear-gradient(180deg, rgba(220, 245, 255, 0.85), rgba(140, 200, 235, 0.7)); clip-path: polygon(0 100%, 0 40%, 14% 10%, 28% 34%, 42% 0, 58% 0, 72% 34%, 86% 10%, 100% 40%, 100% 100%); }
+.stage-rey_escarcha.is-raged .sc-snow { animation-duration: 1.6s; --drift: 160px; }
+.stage-rey_escarcha.is-raged .sc-frost { box-shadow: inset 0 0 140px rgba(240, 250, 255, 0.75); }
+
+/* ---------- Gólem Primordial: desierto, viento de arena, rocas que flotan a su alrededor ---------- */
+.cb-arena.stage-golem_primordial {
+  --bi-glow: rgba(255, 190, 90, 0.9);
+  background:
+    radial-gradient(circle at 18% 16%, rgba(255, 245, 200, 0.85) 0 4%, transparent 5%),
+    radial-gradient(ellipse 55% 18% at 25% 64%, #b89048 60%, transparent 61%),
+    linear-gradient(180deg, #d0a466 0%, #e6c890 46%, #b88c48 60%, #94702e 100%);
+}
+.stage-golem_primordial .sc-sandwind { inset: 0; background: repeating-linear-gradient(176deg, transparent 0 26px, rgba(255, 230, 180, 0.18) 26px 28px); animation: sc-wind 2.4s linear infinite; animation-delay: var(--t, 0ms); }
+@keyframes sc-wind { from { background-position: 0 0; } to { background-position: -300px 20px; } }
+.stage-golem_primordial .sc-sand { left: 110%; top: var(--y); width: calc(30px * var(--s)); height: 2px; background: rgba(255, 236, 200, 0.6); border-radius: 2px; animation: sc-gust calc(1.6s + var(--r) * 1.4s) linear infinite; animation-delay: calc(var(--t, 0ms) - var(--k) * 0.33s); }
+@keyframes sc-gust { from { left: 110%; } to { left: -20%; } }
+.cb-unit.is-stage-boss .bs-rock {
+  left: var(--x); top: var(--y);
+  width: calc(26px * var(--s)); height: calc(20px * var(--s));
+  background: linear-gradient(135deg, #8a7258, #5a4632);
+  clip-path: polygon(10% 30%, 40% 0, 90% 14%, 100% 60%, 70% 100%, 20% 90%, 0 60%);
+  animation: sc-bob 3.6s ease-in-out infinite;
+  animation-delay: calc(var(--k) * -0.7s);
+}
+.cb-unit.is-stage-boss .bs-glyphs { left: -30%; right: -30%; bottom: -4px; height: 20px; border-radius: 50%; background: repeating-linear-gradient(90deg, transparent 0 14px, rgba(255, 150, 40, 0) 14px 20px); transition: background 600ms ease; }
+.stage-golem_primordial.is-raged .bs-glyphs { background: repeating-linear-gradient(90deg, transparent 0 14px, rgba(255, 150, 40, 0.85) 14px 18px); filter: drop-shadow(0 0 6px #ff8a2a); }
+.stage-golem_primordial.is-raged .bs-rock { animation-duration: 1.2s; filter: drop-shadow(0 0 6px rgba(255, 140, 40, 0.8)); }
+
+/* ---------- Reina de las Sombras: todo oscuro menos una vela; sus súbditos son sombras ---------- */
+.cb-arena.stage-reina_sombras {
+  --bi-glow: rgba(180, 120, 255, 0.9);
+  background: linear-gradient(180deg, #0c0a12 0%, #16121e 55%, #0e0c12 62%, #08070a 100%);
+}
+.stage-reina_sombras .sc-dark {
+  inset: 0;
+  background: radial-gradient(circle var(--light, 380px) at 22% 78%, transparent 0 40%, rgba(4, 2, 8, 0.75) 100%);
+  animation: torch-flicker 2.2s ease-in-out infinite;
+  transition: --light 900ms ease;
+}
+.stage-reina_sombras .sc-candle { left: 4%; bottom: 30%; width: 10px; height: 26px; background: linear-gradient(180deg, #f0e6d0, #b8ac90); border-radius: 2px; }
+.stage-reina_sombras .sc-candle::before { content: ''; position: absolute; left: 50%; bottom: 100%; width: 12px; height: 18px; translate: -50% 2px; border-radius: 50% 50% 40% 40%; background: radial-gradient(ellipse at 50% 70%, #fff6c0, #ffb340 50%, transparent 72%); filter: drop-shadow(0 0 10px #ffb340); animation: sc-flame 0.6s ease-in-out infinite alternate; }
+.cb-unit.is-stage-boss.pose-shadow:not(.is-dead) .cb-sprite > .px-sprite { filter: brightness(0.55) saturate(0.6) drop-shadow(0 0 18px rgba(150, 80, 230, 0.75)) !important; }
+.stage-reina_sombras.is-raged .sc-dark { --light: 230px; background: radial-gradient(circle 230px at 22% 78%, transparent 0 40%, rgba(4, 2, 8, 0.88) 100%); }
+
+/* ---------- Volibear: cumbre en tormenta, rayos ---------- */
+.cb-arena.stage-volibear {
+  --bi-glow: rgba(120, 200, 255, 0.95);
+  background:
+    linear-gradient(135deg, transparent 0 40%, #4a5464 40% 41%, transparent 41%),
+    conic-gradient(from 135deg at 30% 36%, #3a4450 0 90deg, transparent 90deg),
+    linear-gradient(180deg, #1a2230 0%, #34404e 40%, #3a4450 62%, #2a323c 100%);
+}
+.stage-volibear .sc-clouds { left: -10%; right: -10%; top: -8%; height: 34%; background: radial-gradient(ellipse 20% 60% at 10% 40%, #222a36 60%, transparent 62%), radial-gradient(ellipse 22% 70% at 34% 30%, #1c2430 60%, transparent 62%), radial-gradient(ellipse 22% 70% at 60% 40%, #222a36 60%, transparent 62%), radial-gradient(ellipse 24% 70% at 88% 30%, #1c2430 60%, transparent 62%); animation: sc-mist 10s ease-in-out infinite alternate; animation-delay: var(--t, 0ms); }
+.stage-volibear .sc-snow.is-storm { --drift: -120px; width: 2px; height: calc(10px * var(--s)); border-radius: 1px; background: rgba(220, 235, 255, 0.7); animation-duration: calc(1.4s + var(--r) * 0.8s); }
+.stage-volibear .sc-bolt {
+  top: 8%; width: 24px; height: 70%;
+  background: linear-gradient(180deg, #fff, #9ad4ff);
+  clip-path: polygon(40% 0, 70% 0, 52% 38%, 80% 38%, 30% 100%, 44% 52%, 20% 52%);
+  filter: drop-shadow(0 0 12px #6ac0ff);
+  opacity: 0;
+  animation: sc-bolt 5.5s linear infinite;
+  animation-delay: var(--t, 0ms);
+}
+.stage-volibear .sc-bolt.is-1 { left: 52%; }
+.stage-volibear .sc-bolt.is-2 { left: 88%; animation-delay: calc(var(--t, 0ms) - 2.6s); animation-duration: 6.3s; }
+@keyframes sc-bolt { 0%, 88%, 93%, 100% { opacity: 0; } 89%, 91% { opacity: 1; } 90% { opacity: 0.2; } }
+.cb-unit.is-stage-boss .bs-storm { left: -16%; right: -16%; top: 6%; bottom: 0; border-radius: 50%; background: radial-gradient(ellipse, rgba(120, 200, 255, 0.28), transparent 68%); animation: sc-seal 1.4s ease-in-out infinite; }
+.stage-volibear.is-raged .sc-bolt { animation-duration: 2.2s; }
+.stage-volibear.is-raged .bs-storm { background: radial-gradient(ellipse, rgba(140, 220, 255, 0.55), transparent 68%); animation-duration: 0.6s; }
+
+/* ---------- Titán: más alto que la montaña, nubes a la cintura ---------- */
+.cb-arena.stage-titan {
+  --bi-glow: rgba(255, 220, 140, 0.9);
+  background:
+    linear-gradient(180deg, #7a92aa 0%, #b0c0cc 40%, #5a646e 62%, #444c56 100%);
+}
+.stage-titan .sc-peaks {
+  left: 0; right: 0; bottom: 36%; height: 46%;
+  background:
+    conic-gradient(from 150deg at 12% 0, #5a6470 0 60deg, transparent 60deg) 0 0 / 30% 100% no-repeat,
+    conic-gradient(from 145deg at 50% 10%, #4e5864 0 70deg, transparent 70deg) 30% 0 / 30% 100% no-repeat,
+    conic-gradient(from 150deg at 50% 20%, #56606c 0 60deg, transparent 60deg) 100% 0 / 30% 100% no-repeat;
+  opacity: 0.85;
+}
+.stage-titan .sc-pebble { --drift: 0px; background: #6a6058; border-radius: 3px; width: calc(7px * var(--s)); height: calc(6px * var(--s)); animation-duration: calc(2.6s + var(--r) * 2s); opacity: 0; }
+.stage-titan.is-raged .sc-pebble { opacity: 0.9; }
+.combat-view.cb .cb-arena.stage-titan:not(.is-packed) .cb-unit.is-stage-boss .cb-sprite > .px-sprite { --px-size: calc(var(--boss-fit, 160px) * 1.25) !important; }
+.combat-view.cb .cb-arena.stage-titan:not(.is-packed) .cb-unit.is-stage-boss .cb-sprite { height: calc(var(--boss-fit, 160px) * 1.12); }
+.cb-unit.is-stage-boss .bs-clouds {
+  left: -60%; right: -60%; bottom: 8%; height: 34%;
+  background:
+    radial-gradient(ellipse 18% 46% at 14% 60%, rgba(245, 248, 252, 0.95) 60%, transparent 64%),
+    radial-gradient(ellipse 22% 52% at 38% 50%, rgba(235, 240, 248, 0.92) 60%, transparent 64%),
+    radial-gradient(ellipse 22% 50% at 64% 56%, rgba(245, 248, 252, 0.95) 60%, transparent 64%),
+    radial-gradient(ellipse 18% 44% at 88% 60%, rgba(235, 240, 248, 0.9) 60%, transparent 64%);
+  animation: sc-mist 8s ease-in-out infinite alternate;
+  opacity: 0.7;
+  filter: blur(5px);
+}
+.combat-view.cb .cb-arena.stage-titan .cb-unit.is-stage-boss .cb-plate { position: relative; z-index: 3; }
+
+/* ---------- Ysera: el Sueño Esmeralda ---------- */
+.cb-arena.stage-ysera {
+  --bi-glow: rgba(120, 255, 170, 0.9);
+  background:
+    radial-gradient(ellipse 60% 40% at 50% 70%, rgba(120, 240, 170, 0.25), transparent 70%),
+    linear-gradient(180deg, #1e3a3a 0%, #2e5a4e 48%, #22403a 62%, #18302a 100%);
+}
+.stage-ysera .sc-dream { inset: 0; background: radial-gradient(ellipse 30% 20% at 20% 30%, rgba(200, 255, 220, 0.15), transparent 70%), radial-gradient(ellipse 30% 20% at 80% 20%, rgba(220, 200, 255, 0.15), transparent 70%); animation: sc-mist 8s ease-in-out infinite alternate; filter: blur(4px); }
+.stage-ysera .sc-sparkle { background: #d8ffe8; color: #8affc0; width: 3px; height: 3px; }
+.stage-ysera .sc-petal.is-dream { --drift: 60px; width: calc(7px * var(--s)); height: calc(5px * var(--s)); border-radius: 60% 0 60% 0; background: #b6f4cc; }
+.cb-unit.is-stage-boss .bs-aura { left: -20%; right: -20%; top: 0; bottom: 6%; border-radius: 50%; background: radial-gradient(ellipse, rgba(140, 255, 190, 0.32), transparent 70%); animation: sc-seal 3s ease-in-out infinite; }
+.stage-ysera.is-raged { background: radial-gradient(ellipse 60% 40% at 50% 70%, rgba(190, 120, 240, 0.25), transparent 70%), linear-gradient(180deg, #1e1a3a 0%, #3a2a5a 48%, #2a1e40 62%, #1a142a 100%); }
+.stage-ysera.is-raged .bs-aura { background: radial-gradient(ellipse, rgba(190, 120, 255, 0.4), transparent 70%); }
+
+/* ---------- Aurelion Sol: cielo de estrellas, constelaciones, estrellas fugaces ---------- */
+.cb-arena.stage-aurelion_sol {
+  --bi-glow: rgba(255, 220, 120, 0.95);
+  background:
+    radial-gradient(ellipse 40% 30% at 20% 20%, rgba(120, 80, 200, 0.25), transparent 70%),
+    radial-gradient(ellipse 40% 30% at 80% 30%, rgba(60, 120, 220, 0.25), transparent 70%),
+    linear-gradient(180deg, #0a0c24 0%, #18184a 55%, #1a1a3a 62%, #10102a 100%);
+}
+.stage-aurelion_sol .sc-star { width: calc(3px * var(--s)); height: calc(3px * var(--s)); box-shadow: 0 0 6px #fff; }
+.stage-aurelion_sol .sc-constellation {
+  left: 40%; top: 8%; width: 40%; height: 30%;
+  background:
+    linear-gradient(20deg, transparent 0 49.6%, rgba(255, 230, 160, 0.35) 49.6% 50.4%, transparent 50.4%) 0 0 / 50% 60% no-repeat,
+    linear-gradient(-30deg, transparent 0 49.6%, rgba(255, 230, 160, 0.35) 49.6% 50.4%, transparent 50.4%) 50% 30% / 40% 60% no-repeat,
+    radial-gradient(circle at 0 60%, #ffe8a0 0 3px, transparent 4px),
+    radial-gradient(circle at 50% 0, #ffe8a0 0 3px, transparent 4px),
+    radial-gradient(circle at 90% 90%, #ffe8a0 0 3px, transparent 4px);
+  animation: sc-seal 4s ease-in-out infinite;
+}
+.stage-aurelion_sol .sc-comet {
+  left: var(--x); top: var(--y);
+  width: 90px; height: 2px;
+  background: linear-gradient(90deg, transparent, #fff);
+  rotate: 24deg;
+  opacity: 0;
+  animation: sc-comet 6s ease-in infinite;
+  animation-delay: calc(var(--t, 0ms) - var(--k) * 2.1s);
+}
+@keyframes sc-comet { 0%, 80% { opacity: 0; translate: 0 0; } 85% { opacity: 1; } 100% { opacity: 0; translate: 260px 120px; } }
+.cb-unit.is-stage-boss .bs-forge { left: 50%; top: 40%; width: 70%; aspect-ratio: 1; translate: -50% -50%; border-radius: 50%; background: radial-gradient(circle, #fff 0 8%, #ffe08a 18%, rgba(255, 170, 60, 0.4) 40%, transparent 66%); animation: sc-seal 2s ease-in-out infinite; }
+.stage-aurelion_sol.is-raged .sc-comet { animation-duration: 2.4s; }
+.stage-aurelion_sol.is-raged .bs-forge { width: 110%; background: radial-gradient(circle, #fff 0 8%, #ffb08a 18%, rgba(255, 80, 60, 0.5) 40%, transparent 66%); }
+
+/* ---------- Alamuerte: la tierra se parte, lava por las grietas ---------- */
+.cb-arena.stage-alamuerte {
+  --bi-glow: rgba(255, 100, 20, 0.95);
+  background:
+    radial-gradient(ellipse 60% 30% at 50% 100%, rgba(255, 100, 20, 0.4), transparent 70%),
+    linear-gradient(180deg, #1a1210 0%, #3a2218 50%, #241410 62%, #160c0a 100%);
+}
+.stage-alamuerte .sc-smoke { left: -10%; right: -10%; top: 0; height: 50%; background: radial-gradient(ellipse 30% 50% at 20% 20%, rgba(30, 20, 20, 0.6), transparent 70%), radial-gradient(ellipse 30% 50% at 70% 10%, rgba(30, 20, 20, 0.6), transparent 70%); animation: sc-mist 12s ease-in-out infinite alternate; }
+.cb-unit.is-stage-boss .bs-molten { left: -20%; right: -20%; bottom: 10%; top: 20%; background: radial-gradient(ellipse 40% 50% at 50% 60%, rgba(255, 110, 20, 0.35), transparent 70%); animation: sc-seal 1.8s ease-in-out infinite; }
+.stage-alamuerte.is-raged .sc-crack { scale: 1.3 1.6; filter: drop-shadow(0 0 12px #ff5a10) brightness(1.3); }
+.stage-alamuerte.is-raged > .cb-scene { animation: sc-shake 4s ease-in-out infinite; }
+@keyframes sc-shake { 0%, 90%, 100% { translate: 0 0; } 92% { translate: -4px 2px; } 94% { translate: 4px -2px; } 96% { translate: -3px 1px; } }
+
+/* ---------- El Devorador: un planeta a medio comer, todo se va para adentro ---------- */
+.cb-arena.stage-devorador {
+  --bi-glow: rgba(200, 100, 255, 0.95);
+  background:
+    radial-gradient(circle at 70% 46%, #000 0 8%, rgba(60, 10, 80, 0.8) 14%, transparent 40%),
+    linear-gradient(180deg, #08040e 0%, #140a20 55%, #100818 62%, #08040c 100%);
+}
+.stage-devorador .sc-planet {
+  left: 6%; top: 8%; width: 110px; height: 110px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #6aa0d0, #2a5a8a 60%, #12304a);
+  -webkit-mask-image: radial-gradient(circle at 100% 50%, transparent 0 34%, #000 35%);
+  mask-image: radial-gradient(circle at 100% 50%, transparent 0 34%, #000 35%);
+  box-shadow: 0 0 30px rgba(100, 160, 220, 0.3);
+}
+.stage-devorador .sc-vortex {
+  left: 70%; top: 46%; width: 900px; height: 900px; translate: -50% -50%;
+  border-radius: 50%;
+  background: repeating-conic-gradient(rgba(160, 80, 220, 0.12) 0 8deg, transparent 8deg 30deg);
+  -webkit-mask-image: radial-gradient(circle, transparent 0 8%, #000 20%, transparent 60%);
+  mask-image: radial-gradient(circle, transparent 0 8%, #000 20%, transparent 60%);
+  animation: sc-spin 40s linear infinite reverse;
+}
+.stage-devorador .sc-drain {
+  left: var(--x); top: var(--y);
+  width: 3px; height: 3px; border-radius: 50%; background: #e8d0ff; box-shadow: 0 0 6px #c080ff;
+  animation: sc-drain calc(3s + var(--r) * 3s) ease-in infinite;
+  animation-delay: calc(var(--t, 0ms) - var(--k) * 0.4s);
+}
+@keyframes sc-drain { 0% { opacity: 0; } 20% { opacity: 1; } 100% { left: 70%; top: 46%; opacity: 0; scale: 0.2; } }
+.stage-devorador.is-raged .sc-planet { -webkit-mask-image: radial-gradient(circle at 100% 50%, transparent 0 62%, #000 63%); mask-image: radial-gradient(circle at 100% 50%, transparent 0 62%, #000 63%); }
+.stage-devorador.is-raged .sc-vortex { animation-duration: 12s; }
+
+/* ---------- Dios: cielo de luz, rayos que giran, aureola, plumas ---------- */
+.cb-arena.stage-dios {
+  --bi-glow: rgba(255, 236, 150, 1);
+  background:
+    radial-gradient(ellipse 50% 50% at 70% 30%, rgba(255, 250, 220, 0.85), transparent 70%),
+    linear-gradient(180deg, #a8cce8 0%, #e4eef4 50%, #f2ead4 64%, #ddd0b0 100%);
+}
+.stage-dios .sc-heaven { inset: 0; background: radial-gradient(ellipse 18% 8% at 20% 30%, rgba(255, 255, 255, 0.9) 60%, transparent 62%), radial-gradient(ellipse 22% 9% at 86% 18%, rgba(255, 255, 255, 0.85) 60%, transparent 62%); }
+.stage-dios .sc-feather { --drift: 70px; width: calc(5px * var(--s)); height: calc(14px * var(--s)); border-radius: 50% 50% 50% 50% / 70% 70% 30% 30%; background: #fff; box-shadow: 0 0 6px rgba(255, 240, 180, 0.8); animation-duration: calc(10s + var(--r) * 6s); }
+.stage-dios .sc-cloudfloor { left: -10%; right: -10%; bottom: -6%; height: 34%; background: radial-gradient(ellipse 18% 50% at 10% 50%, #fff 60%, transparent 64%), radial-gradient(ellipse 20% 50% at 34% 60%, #f6f6f6 60%, transparent 64%), radial-gradient(ellipse 22% 50% at 62% 50%, #fff 60%, transparent 64%), radial-gradient(ellipse 18% 50% at 90% 60%, #f6f6f6 60%, transparent 64%); opacity: 0.8; animation: sc-mist 12s ease-in-out infinite alternate; }
+.cb-unit.is-stage-boss .bs-rays {
+  left: 50%; top: 40%; width: 300%; aspect-ratio: 1; translate: -50% -50%;
+  background: repeating-conic-gradient(rgba(255, 240, 170, 0.45) 0 6deg, transparent 6deg 20deg);
+  -webkit-mask-image: radial-gradient(circle, #000 10%, transparent 60%);
+  mask-image: radial-gradient(circle, #000 10%, transparent 60%);
+  animation: sc-spin 24s linear infinite;
+}
+.cb-unit.is-stage-boss .bs-halo { left: 50%; top: 2%; width: 46%; height: 16px; translate: -50% 0; border-radius: 50%; border: 4px solid #ffe27a; box-shadow: 0 0 16px #ffd84a, inset 0 0 8px #ffd84a; animation: sc-bob 3s ease-in-out infinite; }
+.cb-arena.stage-dios .cb-unit.is-minion .cb-sprite > .px-sprite { filter: drop-shadow(0 0 10px rgba(255, 230, 140, 0.8)) !important; }
+.stage-dios.is-raged > .cb-scene::after { content: ''; position: absolute; inset: 0; background: #fff; animation: sc-flash 3.5s linear infinite; }
+.stage-dios.is-raged .bs-rays { animation-duration: 6s; }
+
+/* ---------- Satanás: trono de huesos, la puerta del infierno, su perro ---------- */
+.cb-arena.stage-satanas {
+  --bi-glow: rgba(255, 40, 20, 1);
+  background:
+    radial-gradient(ellipse 70% 30% at 50% 100%, rgba(255, 60, 10, 0.6), transparent 70%),
+    linear-gradient(180deg, #160202 0%, #3a0606 50%, #1e0404 62%, #100202 100%);
+}
+.stage-satanas .sc-hellgate {
+  left: 46%; right: 6%; top: 0; height: 74%;
+  border-radius: 50% 50% 0 0 / 30% 30% 0 0;
+  background: radial-gradient(ellipse 50% 70% at 50% 100%, rgba(255, 90, 20, 0.55), rgba(80, 0, 0, 0.4) 60%, transparent 80%);
+  border: 10px solid #1a0a08;
+  border-bottom: none;
+  box-shadow: inset 0 0 50px rgba(255, 80, 20, 0.5);
+  opacity: 0.85;
+}
+.cb-unit.is-stage-boss .bs-throne.is-bone { background: linear-gradient(180deg, transparent 0 62%, #d8ccb4 62% 66%, #3a2a24 66% 84%, #c8bca4 84% 88%, #2a1a14 88%), linear-gradient(90deg, transparent 0 8%, #d0c4ac 8% 14%, transparent 14% 86%, #d0c4ac 86% 92%, transparent 92%); }
+.cb-unit.is-stage-boss .bs-throne.is-bone::before { background: radial-gradient(circle at 20% 24%, #e8dcc4 0 7%, #1a0a08 7% 9%, transparent 9%), radial-gradient(circle at 50% 14%, #e8dcc4 0 8%, #1a0a08 8% 10%, transparent 10%), radial-gradient(circle at 80% 24%, #e8dcc4 0 7%, #1a0a08 7% 9%, transparent 9%), repeating-linear-gradient(90deg, #cfc2a8 0 8px, #8a7c66 8px 10px); clip-path: polygon(0 100%, 0 30%, 10% 0, 20% 30%, 30% 6%, 40% 30%, 50% 0, 60% 30%, 70% 6%, 80% 30%, 90% 0, 100% 30%, 100% 100%); }
+.cb-unit.is-stage-boss .bs-seal.is-under { width: 200%; bottom: -10px; }
+.stage-satanas.is-raged .sc-hellgate { background: radial-gradient(ellipse 60% 80% at 50% 100%, rgba(255, 140, 30, 0.85), rgba(160, 0, 0, 0.6) 60%, transparent 80%); }
+.stage-satanas.is-raged .sc-pillar { height: 98%; filter: saturate(1.5); }
+
+/* ---------- La Mente Colmena: en su tanque de luz verde, alarmas ---------- */
+.cb-arena.stage-mente_colmena {
+  --bi-glow: rgba(100, 255, 140, 0.95);
+  background:
+    repeating-linear-gradient(90deg, rgba(100, 255, 140, 0.05) 0 1px, transparent 1px 40px),
+    repeating-linear-gradient(0deg, rgba(100, 255, 140, 0.05) 0 1px, transparent 1px 40px),
+    linear-gradient(180deg, #0a1414 0%, #142424 55%, #0e1a1a 62%, #081010 100%);
+}
+.stage-mente_colmena .sc-lab { left: 0; right: 0; bottom: 30%; height: 30%; background: linear-gradient(90deg, #1a2a2a 0 6%, transparent 6% 94%, #1a2a2a 94%), repeating-linear-gradient(90deg, transparent 0 12px, rgba(100, 255, 140, 0.25) 12px 14px) 0 20% / 6% 30% no-repeat; }
+.stage-mente_colmena .sc-wave-psi {
+  left: 70%; top: 44%; width: 40px; height: 40px; translate: -50% -50%;
+  border-radius: 50%; border: 2px solid rgba(120, 255, 160, 0.6);
+  animation: sc-psi 4s ease-out infinite;
+  animation-delay: calc(var(--t, 0ms) - var(--k) * 1.33s);
+}
+@keyframes sc-psi { from { width: 40px; height: 40px; opacity: 1; } to { width: 900px; height: 900px; opacity: 0; } }
+.stage-mente_colmena .sc-alarm { inset: 0; background: radial-gradient(circle at 4% 10%, rgba(255, 40, 40, 0.6), transparent 16%), radial-gradient(circle at 96% 10%, rgba(255, 40, 40, 0.6), transparent 16%); opacity: 0; }
+.stage-mente_colmena.is-raged .sc-alarm { animation: sc-seal 0.9s ease-in-out infinite; }
+.cb-unit.is-stage-boss .bs-tank {
+  left: -14%; right: -14%; top: -4%; bottom: 2px;
+  border-radius: 40% 40% 8px 8px / 14% 14% 8px 8px;
+  background: linear-gradient(180deg, rgba(120, 255, 160, 0.15), rgba(80, 220, 120, 0.4));
+  box-shadow: 0 0 40px rgba(100, 255, 140, 0.4), inset 0 0 30px rgba(100, 255, 140, 0.35);
+  border: 3px solid #3a5050;
+  border-bottom: 10px solid #2a3a3a;
+}
+.cb-unit.is-stage-boss .bs-glass { left: -14%; right: -14%; top: -4%; bottom: 2px; border-radius: 40% 40% 8px 8px / 14% 14% 8px 8px; background: linear-gradient(90deg, transparent 0 14%, rgba(255, 255, 255, 0.18) 14% 20%, transparent 20% 80%, rgba(255, 255, 255, 0.08) 80% 84%, transparent 84%); }
+.cb-unit.is-stage-boss .bs-front .bs-bubble { left: calc(14% + var(--x) * 0.72); top: var(--y); width: 6px; height: 6px; border-radius: 50%; border: 1px solid rgba(200, 255, 220, 0.7); animation: sc-rise calc(3s + var(--r) * 3s) ease-out infinite; animation-delay: calc(var(--k) * -0.6s); }
+.stage-mente_colmena.is-raged .bs-tank { box-shadow: 0 0 40px rgba(255, 80, 80, 0.5), inset 0 0 30px rgba(100, 255, 140, 0.35); }
+.stage-mente_colmena.is-raged .bs-glass { background: linear-gradient(90deg, transparent 0 14%, rgba(255, 255, 255, 0.18) 14% 20%, transparent 20%), linear-gradient(60deg, transparent 0 48%, rgba(255, 255, 255, 0.6) 48% 49%, transparent 49%), linear-gradient(-50deg, transparent 0 58%, rgba(255, 255, 255, 0.5) 58% 59%, transparent 59%); }
+
+/* ---------- cuando el jefe cae: todo se apaga ---------- */
+.cb-arena.has-scene.is-down > .cb-scene { filter: grayscale(0.7) brightness(0.7); }
+
+/* ---------- celular: el jefe arriba, sus criaturas abajo ---------- */
+@media (max-width: 760px) {
+  .combat-view.cb .cb-arena.has-scene .cb-side.cb-enemies { flex-wrap: wrap !important; justify-content: center; row-gap: 8px; }
+  .combat-view.cb .cb-arena.has-scene .cb-unit.is-stage-boss { order: -5; flex: 0 0 100%; width: 100%; max-width: none; margin-inline: 0; }
+  .combat-view.cb .cb-arena.has-scene .cb-unit.is-minion { flex: 0 1 calc(50% - 6px); min-width: 0; }
+  .cb-arena.has-scene .cb-unit.is-stage-boss .cb-plate { max-width: 220px; width: 100%; margin: 0 auto; }
+  .cb-arena.has-scene .cb-unit.is-minion.m-left,
+  .cb-arena.has-scene .cb-unit.is-minion.m-right { order: 1; }
+  .cb-arena.mode-hang .cb-unit.is-minion { align-self: auto; margin-top: 0; }
+  .cb-arena.mode-hang .cb-unit.is-minion::before { height: 40px; }
+  .cb-arena.mode-float .cb-unit.is-minion { align-self: auto; }
+  .stage-rey_goblin .sc-torch.is-l { left: 4%; }
+  .stage-kyubi .sc-torii { left: 10%; right: 10%; }
+  .stage-mente_colmena .sc-wave-psi, .stage-devorador .sc-drain { left: 50%; }
+  .stage-devorador .sc-vortex { left: 50%; top: 30%; }
+  .cb-scene .sc-pillar { width: 14%; }
+}
