@@ -68,7 +68,7 @@
         <div class="shell-body">
           <aside class="shell-leftbar" id="shell-leftbar"></aside>
           <main class="shell-main" id="shell-main">
-            <button class="mob-status" id="mob-status" data-action="to-sidebar" aria-label="Ver tu personaje"></button>
+            <div class="mob-status" id="mob-status"></div>
             <aside class="shell-chronicles" id="shell-chronicles"></aside>
             <div class="shell-main-content" id="shell-main-content"></div>
           </main>
@@ -86,8 +86,8 @@
 
     bindEvents();
     // v3.19.4: al cruzar el ancho de la columna izquierda, se vuelve a armar la barra
-    lastWide = leftWide();
-    if (!wideHandler) { wideHandler = () => { const w = leftWide(); if (w !== lastWide) { lastWide = w; renderSidebar(); } }; window.addEventListener('resize', wideHandler); }
+    lastWide = wideKey();
+    if (!wideHandler) { wideHandler = () => { const w = wideKey(); if (w !== lastWide) { lastWide = w; renderSidebar(); } }; window.addEventListener('resize', wideHandler); }
     renderSidebar();
     renderChroniclesPanel();
     renderActiveView();
@@ -121,6 +121,8 @@
 
   /** v2.0: en el celular, una franja con lo esencial arriba de todo (la ficha completa queda abajo). */
   function renderMobStatus(p) {
+    return; // v3.21.4: arriba va la cabecera de la ficha (ver renderSidebar)
+    // eslint-disable-next-line no-unreachable
     if (!mobStatusEl || !p) return;
     const bar = (cls, cur, max) => `<span class="mob-bar ${cls}"><span style="width:${pct(cur, max)}%"></span></span>`;
     mobStatusEl.innerHTML = `
@@ -322,6 +324,12 @@
     `;
 
     bindSidebarEvents();
+    // v3.21.4: en el celular, la cabecera grande de la ficha (retrato, barras, XP) va arriba
+    if (mobStatusEl) {
+      mobStatusEl.innerHTML = '';
+      const head = phone() && sidebarEl.querySelector('.sb-head');
+      if (head) { const w = document.createElement('div'); w.className = 'sb sb-mobtop'; w.appendChild(head); mobStatusEl.appendChild(w); }
+    }
   }
 
   // v3.17: lo que te da tu mascota, en palabras cortas (el texto largo va al pasar el mouse)
@@ -614,6 +622,9 @@
 
   /** v3.19.4: la columna de la izquierda solo cuando hay lugar (si no, la mascota y el grupo van a la derecha, como antes). */
   function leftWide() { return window.innerWidth >= 1280; }
+  /** v3.21.4: en el celular la cabecera de la ficha va arriba de todo. */
+  function phone() { return window.innerWidth <= 900; }
+  function wideKey() { return (leftWide() ? 'L' : '') + (phone() ? 'P' : ''); }
   function bindSidebarEvents() {
     bindSideIn(sidebarEl);
     if (leftEl && leftEl.firstElementChild) bindSideIn(leftEl);

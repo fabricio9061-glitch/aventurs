@@ -3,27 +3,19 @@
    v3.21.4: el juego en el celular.
    - La página nunca más ancha que la pantalla (la cabecera era
      más ancha y el teléfono achicaba todo).
-   - Arriba la franja con vida, maná, comida y experiencia; abajo
-     la ficha ya no repite el retrato ni las barras.
+   - Arriba la cabecera grande de la ficha (retrato, barras y XP);
+     la franja chica de antes ya no está.
    - La crónica de arriba muestra una sola entrada, entera.
    ============================================================ */
 
 html, body { max-width: 100%; overflow-x: clip; }
 
-/* ---------- La franja de arriba: con la experiencia finita ---------- */
+/* ---------- Arriba, la cabecera grande de la ficha (retrato, barras y XP) ---------- */
 .mob-xp { display: none; }
 @media (max-width: 900px) {
-  .mob-status { position: relative; overflow: hidden; padding-bottom: 11px; }
-  .mob-xp { display: block; position: absolute; left: 0; right: 0; bottom: 0; height: 4px; background: rgba(0, 0, 0, 0.12); }
-  .mob-xp > span { display: block; height: 100%; background: linear-gradient(90deg, #8a5ac8, #b48ae6); }
-  .mob-coins { align-self: flex-start; padding-top: 2px; }
-
-  /* la ficha de abajo: sin el retrato ni las barras (ya están arriba) */
-  .shell-sidebar .sb-head .sb-portrait,
-  .shell-sidebar .sb-head .sb-vitals { display: none; }
-  .shell-sidebar .sb-head { padding-top: 12px; padding-bottom: 12px; min-height: 0; }
-  .shell-sidebar .sb-head .sb-id { flex: 1; min-width: 0; }
-  .shell-sidebar .sb-head .sb-head-btns { margin-left: auto; justify-self: end; }
+  .mob-status { display: block; padding: 0; border: 0; background: none; box-shadow: none; border-radius: 0; margin-bottom: 8px; }
+  .mob-status:empty { display: none; }
+  .mob-status .sb.sb-mobtop { position: static; max-height: none; overflow: hidden; border-radius: 14px; }
 }
 
 /* ---------- La cabecera entra en la pantalla ---------- */

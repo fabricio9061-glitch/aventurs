@@ -5,7 +5,7 @@ La más nueva arriba. Cómo correr el juego y cómo está armado: [README.md](RE
 ## Versión 3.21.4: el juego en el celular
 
 - **La página entra en la pantalla:** la cabecera (Grupo, Diario, Menú) era más ancha que el teléfono, así que el celular achicaba todo y quedaba una franja oscura a la derecha. Ahora los botones van con su dibujo y el nombre chiquito abajo, y todo entra justo.
-- **Sin el personaje repetido:** arriba queda la franja con vida, maná, comida, plata y ahora también la experiencia (una rayita violeta abajo). La ficha de abajo ya no repite el retrato ni las barras: empieza con el nombre y sigue con tus números, el equipo y la mochila.
+- **Sin el personaje repetido:** arriba de todo va la cabecera grande de tu ficha (retrato con el nivel, raza y clase, la pasiva, y las barras de vida, maná, comida y experiencia). La franja chica de antes se fue, y la ficha de abajo sigue con tus números, el equipo y la mochila.
 - **La crónica de arriba:** en el celular muestra solo la última, con el texto entero en dos renglones (antes salían puntitos).
 - **Las criaturas "???":** la silueta se dibuja en el dibujo mismo; en el iPhone se veían vacías.
 - **Pequeñas cosas:** las chapitas del pueblo ya no quedan abajo del botón del sonido, y las pestañas del Diario entran en la pantalla.
