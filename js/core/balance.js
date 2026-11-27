@@ -453,14 +453,16 @@
     const out = { attackPenalty: 0, defensePenalty: 0, armorPenalty: 0, damagePenalty: 0 };
     for (const ef of (entity && entity.effects) || []) {
       const v = Number(ef.value) || 1;
-      if (ef.type === 'cold') { out.defensePenalty += 2; out.attackPenalty += 1; }
-      if (ef.type === 'blind') out.attackPenalty += 4;
+      // v3.22.4: los efectos se acumulan; los de número fijo suben la mitad por cada carga de más
+      const k = (base) => stackedFixed(base, ef.stacks);
+      if (ef.type === 'cold') { out.defensePenalty += k(2); out.attackPenalty += k(1); }
+      if (ef.type === 'blind') out.attackPenalty += k(4);
       // v2.4: Pergamino de maldición: -N a su precisión y a su defensa
       if (ef.type === 'curse') { out.attackPenalty += v; out.defensePenalty += v; }
-      if (ef.type === 'prone') out.defensePenalty += 3;
-      if (ef.type === 'fear') { out.attackPenalty += 2; out.damagePenalty += 1; }
-      if (ef.type === 'grab') out.attackPenalty += 2;
-      if (ef.type === 'corrode') out.armorPenalty += 2;
+      if (ef.type === 'prone') out.defensePenalty += k(3);
+      if (ef.type === 'fear') { out.attackPenalty += k(2); out.damagePenalty += k(1); }
+      if (ef.type === 'grab') out.attackPenalty += k(2);
+      if (ef.type === 'corrode') out.armorPenalty += k(2);
       if (ef.type === 'rally') { out.attackPenalty -= v; out.damagePenalty -= v; }
       if (ef.type === 'guard') out.defensePenalty -= v;
       // v3.11: desequilibrado (Embestida, Polvo de hada): -N de precisión hasta su próximo ataque; expuesto: -N de defensa
@@ -468,6 +470,68 @@
       if (ef.type === 'exposed') out.defensePenalty += v;
     }
     return out;
+  }
+
+  // ---------- v3.22.4: efectos que se acumulan ----------
+  // Volver a aplicar un efecto le suma una carga (hasta STACK_MAX): el daño por turno,
+  // los bonus y las penalizaciones se multiplican por las cargas y los turnos se renuevan.
+  // Los que no tienen número (aturdido, silencio, herida maldita) suman un turno por carga.
+  const STACK_MAX = 3;
+  const STACK_TURNS = { stun: true, silence: true, noheal: true };
+  function stackedFixed(base, stacks) {
+    const s = Math.max(1, Math.min(STACK_MAX, stacks || 1));
+    return base + Math.round(base / 2) * (s - 1);
+  }
+  /** Pone el efecto o le suma una carga. Devuelve el efecto. */
+  function stackEffect(target, type, turns, value, source, extra) {
+    target.effects = target.effects || [];
+    turns = Math.max(1, turns || 1);
+    value = Number(value) || 1;
+    const old = target.effects.find((e) => e.type === type);
+    if (!old) {
+      const ef = Object.assign({ type, turns, value, source: source || 'unknown', stacks: 1, per: value }, extra || {});
+      target.effects.push(ef);
+      return ef;
+    }
+    const was = old.stacks || 1;
+    const per = Math.max(old.per || Math.round((Number(old.value) || 1) / was), value);
+    old.stacks = Math.min(STACK_MAX, was + 1);
+    old.per = per;
+    if (STACK_TURNS[type]) {
+      old.turns = Math.min(Math.max(old.turns, turns) + (old.stacks > was ? 1 : 0), turns + STACK_MAX - 1);
+      old.value = Math.max(Number(old.value) || 1, value);
+    } else {
+      old.turns = Math.max(old.turns, turns);
+      old.value = per * old.stacks;
+    }
+    if (source) old.source = source;
+    return old;
+  }
+  /** Igual para las mejoras (pociones, hechizos, mascotas): los números de la mejora se multiplican. */
+  function stackBuff(old, mods, turns) {
+    const was = old.stacks || 1;
+    const base = old.baseMods || old.mods || {};
+    const next = {};
+    for (const key of Object.keys(mods || {})) {
+      const a = base[key];
+      const b = mods[key];
+      next[key] = typeof b === 'number' ? Math.max(typeof a === 'number' ? a : 0, b) : b;
+    }
+    for (const key of Object.keys(base)) if (!(key in next)) next[key] = base[key];
+    old.baseMods = next;
+    old.stacks = Math.min(STACK_MAX, was + 1);
+    const out = {};
+    for (const key of Object.keys(next)) {
+      const v = next[key];
+      // esquivar el próximo golpe y la ventaja no se multiplican; robar vida y espinas suben la mitad
+      if (typeof v !== 'number' || key === 'dodgeNext' || key === 'advantage') out[key] = v;
+      else if (key === 'lifesteal' || key === 'reflect') out[key] = Math.min(0.9, v * (1 + 0.5 * (old.stacks - 1)));
+      else out[key] = v * old.stacks;
+    }
+    old.mods = out;
+    old.turns = Math.max(old.turns || 0, turns || 0);
+    old.fresh = true;
+    return old;
   }
 
   // ---------- Élite (v2.5) ----------
@@ -763,6 +827,10 @@
     spellPowerOf,
     classOf,
     statusMods,
+    STACK_MAX,
+    stackEffect,
+    stackBuff,
+    stackedFixed,
     Pet,
     Economy,
     Travel,

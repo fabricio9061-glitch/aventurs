@@ -99,10 +99,7 @@
       addLog(c, 'system', { text: `${t.displayName} queda expuesto (−${spell.expose.value} de defensa).`, fx: { kind: 'status', target: fxKey(t), effect: 'exposed' } });
     }
     if (spell.curse) {
-      t.effects = t.effects || [];
-      const old = t.effects.find((e) => e.type === 'curse');
-      if (old) { old.turns = Math.max(old.turns, spell.curse.turns || 2); old.value = Math.max(old.value || 1, spell.curse.amount || 1); }
-      else t.effects.push({ type: 'curse', turns: spell.curse.turns || 2, value: spell.curse.amount || 1, source: spell.id });
+      A.Balance.stackEffect(t, 'curse', spell.curse.turns || 2, spell.curse.amount || 1, spell.id); // v3.22.4: se acumula
       addLog(c, 'system', { text: `${t.displayName} queda maldito (−${spell.curse.amount} de precisión y defensa).`, fx: { kind: 'status', target: fxKey(t), effect: 'curse' }, say: { text: `Una sombra se le pega a ${noun}: pega peor y le pegás más fácil.`, tone: 'good' } });
     }
     if (spell.stagger) {
@@ -124,12 +121,7 @@
     h.effects = h.effects || [];
     const turns = cfg.turns || 3;
     const old = h.effects.find((e) => e.type === 'buff' && e.source === spell.id);
-    if (old) {
-      for (const k of Object.keys(mods)) old.mods[k] = typeof mods[k] === 'number' ? Math.max(old.mods[k] || 0, mods[k]) : mods[k];
-      old.turns = Math.max(old.turns, turns);
-      old.fresh = true;
-      return old;
-    }
+    if (old) return A.Balance.stackBuff(old, mods, turns); // v3.22.4: la mejora se acumula
     const buff = { type: 'buff', source: spell.id, name: spell.name, stat: cfg.stat || Object.keys(mods)[0] || 'damage', mods, turns, value: 1, fresh: true, school: true };
     if (cfg.touch) buff.touch = { status: cfg.touch.status, chance: cfg.touch.chance || 0, turns: cfg.touch.turns || 2, value: SC().val(cfg.touch.value || 1, b), zap: cfg.touch.zap ? SC().val(cfg.touch.zap, b) : 0 };
     if (cfg.echo) buff.echo = cfg.echo;
@@ -222,10 +214,7 @@
       if (!t) why = 'No hay a quién maldecir.';
       else {
         const amt = SC().val(spell.hex.amount, b);
-        t.effects = t.effects || [];
-        const old = t.effects.find((e) => e.type === 'curse');
-        if (old) { old.turns = Math.max(old.turns, spell.hex.turns || 3); old.value = Math.max(old.value || 1, amt); }
-        else t.effects.push({ type: 'curse', turns: spell.hex.turns || 3, value: amt, source: spell.id });
+        A.Balance.stackEffect(t, 'curse', spell.hex.turns || 3, amt, spell.id); // v3.22.4: se acumula
         const noun = A.Skills ? A.Skills.noun(t) : t.displayName;
         addLog(c, 'player', { text: `Lanzaste ${spell.name}: ${t.displayName} queda maldito (−${amt} de precisión y defensa, ${spell.hex.turns || 3} turnos).`, fx: { kind: 'status', target: fxKey(t), effect: 'curse' }, say: { text: `Una sombra se le pega a ${noun}: pega peor y le pegás más fácil.`, tone: 'good' } });
         ok = true;
@@ -278,10 +267,8 @@
   function stunTarget(c, t, turns, spell) {
     if (!t || t.hp <= 0) return;
     const n = t.category === 'boss' ? 1 : Math.max(1, turns || 1);
-    t.effects = t.effects || [];
-    const old = t.effects.find((e) => e.type === 'stun');
-    if (old) old.turns = Math.max(old.turns, n);
-    else t.effects.push({ type: 'stun', turns: n, value: 1, source: spell.id });
+    const st = A.Balance.stackEffect(t, 'stun', n, 1, spell.id); // v3.22.4: se acumula (los jefes, igual, un turno)
+    if (t.category === 'boss') st.turns = Math.min(st.turns, 1);
     const noun = A.Skills ? A.Skills.noun(t) : t.displayName;
     addLog(c, 'system', {
       text: `${t.displayName} queda sin moverse (${n === 1 ? 'pierde su próximo turno' : `pierde ${n} turnos`}).`,

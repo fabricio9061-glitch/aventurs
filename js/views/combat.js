@@ -496,7 +496,7 @@
   };
   const FX_WHAT = {
     bleed: 'pierde vida en cada turno', poison: 'pierde vida en cada turno', fire: 'pierde vida en cada turno',
-    cold: '−2 de defensa y −1 de precisión', blind: '−4 de precisión', shock: 'puede quedar aturdido',
+    cold: '−2 de defensa y −1 de precisión por carga', blind: '−4 de precisión', shock: 'puede quedar aturdido',
     stun: 'pierde el turno', silence: 'no puede usar magia', noheal: 'se cura la mitad',
     vigor: 'tiene más vida máxima; al terminar, esa vida de más se va',
   };
@@ -523,7 +523,11 @@
       const what = FX_WHAT[ef.type] ? ` (${FX_WHAT[ef.type]})` : '';
       const ending = ef.turns === 1 ? ' is-ending' : '';
       const left = ef.turns === 1 ? 'último turno' : `${ef.turns} turnos más`;
-      return `<span class="cb-fx effect-${esc(ch.cls || ef.type)} ${kind}${ending}" title="${esc(ch.label)}${esc(what)}: ${left}">${icon(ch.icon, 16, 'px-soft')}<b>${ef.turns}</b></span>`;
+      // v3.22.4: cargas acumuladas (x2, x3)
+      const st = ef.stacks > 1 ? ef.stacks : 0;
+      const stTxt = st ? ` (x${st}, acumulado)` : '';
+      const stB = st ? `<u class="cb-fx-n">x${st}</u>` : '';
+      return `<span class="cb-fx effect-${esc(ch.cls || ef.type)} ${kind}${ending}${st ? ' is-stacked' : ''}" title="${esc(ch.label)}${esc(what)}${stTxt}: ${left}">${icon(ch.icon, 16, 'px-soft')}${stB}<b>${ef.turns}</b></span>`;
     }).join('');
     const more = list.length > max ? `<span class="cb-fx cb-fx-more" title="${list.length - max} efectos más">+${list.length - max}</span>` : '';
     return `<div class="cb-fx-row">${chips}${more}</div>`;

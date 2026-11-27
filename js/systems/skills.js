@@ -1263,10 +1263,7 @@
     },
 
     guard(sk, x, k) {
-      x.effects = x.effects || [];
-      const old = x.effects.find((e) => e.type === 'guard');
-      if (old) old.turns = Math.max(old.turns, sk.turns || 2);
-      else x.effects.push({ type: 'guard', turns: sk.turns || 2, value: sk.value || 3, source: sk.id });
+      A.Balance.stackEffect(x, 'guard', sk.turns || 2, sk.value || 3, sk.id); // v3.22.4: se acumula
       k.log('enemy', { text: `${x.displayName} se pone en guardia (+${sk.value || 3} de defensa).`, fx: { kind: 'status', target: k.fxKey(x), effect: 'guard', skill: sk.id }, say: { text: fill(guardLine(x), x), tone: 'bad' } });
       // y ataca igual
       if (A.State.player.hp > 0) k.strike(x, { skill: sk.id });
@@ -1276,10 +1273,7 @@
       const group = k.alive();
       const alone = group.length <= 1;
       group.forEach((e, i) => {
-        e.effects = e.effects || [];
-        const old = e.effects.find((f) => f.type === 'rally');
-        if (old) old.turns = Math.max(old.turns, sk.turns || 3);
-        else e.effects.push({ type: 'rally', turns: sk.turns || 3, value: sk.value || 1, source: sk.id });
+        A.Balance.stackEffect(e, 'rally', sk.turns || 3, sk.value || 1, sk.id); // v3.22.4: se acumula
         k.log('enemy', {
           text: `${e.displayName} se envalentona (+1 de precisión y daño).`,
           fx: { kind: 'status', target: k.fxKey(e), effect: 'rally', skill: i === 0 ? sk.id : undefined, skillOn: i === 0 ? k.fxKey(x) : undefined },
@@ -1479,8 +1473,7 @@
       k.healPet(Math.max(1, Math.round(pet.maxHealth * (sk.amount || 0.25))), { say: `${cap(noun(pet))} ${line}` });
     },
     guard(sk, pet, t, k) {
-      pet.effects = pet.effects || [];
-      pet.effects.push({ type: 'guard', turns: sk.turns || 2, value: sk.value || 3, source: sk.id });
+      A.Balance.stackEffect(pet, 'guard', sk.turns || 2, sk.value || 3, sk.id); // v3.22.4: se acumula
       k.log('pet', { text: `${pet.name} se pone en guardia.`, fx: { kind: 'status', target: 'pet', effect: 'guard' }, say: { text: `${cap(noun(pet))} se cubre y espera el próximo golpe.`, tone: 'good' } });
     },
     rally(sk, pet, t, k) {
@@ -1491,7 +1484,7 @@
       for (const h of all) {
         h.effects = h.effects || [];
         const old = h.effects.find((e) => e.type === 'buff' && e.source === `pet_${sk.id}`);
-        if (old) old.turns = Math.max(old.turns, sk.turns || 3);
+        if (old) A.Balance.stackBuff(old, { precision: 1, damage: 1 }, sk.turns || 3); // v3.22.4: se acumula
         else h.effects.push({ type: 'buff', source: `pet_${sk.id}`, name: sk.name, stat: 'damage', mods: { precision: 1, damage: 1 }, turns: sk.turns || 3, value: 1 });
       }
       const group = all.length > 1;

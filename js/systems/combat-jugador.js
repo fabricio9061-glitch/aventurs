@@ -38,6 +38,7 @@
   function getTarget(...a) { return C.getTarget(...a); }
   function hittableEnemies(...a) { return C.hittableEnemies(...a); }
   function SC(...a) { return C.SC(...a); }
+  function addBuffTo(...a) { return A.ItemFx.addBuffTo(...a); } // v3.22.4
   function personalMark(...a) { return C.personalMark(...a); }
   function placePersonalMark(...a) { return C.placePersonalMark(...a); }
   function arcaneEcho(...a) { return C.arcaneEcho(...a); }
@@ -91,14 +92,12 @@
     addLog(c, 'player', { text: `${T.name}.`, fx: { kind: 'buff', target: 'player', label: T.name, icon: T.icon }, say: { text: T.say, tone: 'crit' } });
     if (T.buff) {
       const mods = T.buff(b);
-      p.effects = (p.effects || []).filter((e) => !(e.type === 'buff' && e.source === T.id));
-      p.effects.push({ type: 'buff', source: T.id, name: T.name, mods, turns: T.turns || 2, value: 1, fresh: true });
+      addBuffTo(p, { source: T.id, name: T.name, mods, turns: T.turns || 2 }); // v3.22.4: se acumula
       // en grupo, a tus compañeros también
       if (T.allies && c.party) {
         for (const h of heroesOf(c)) {
           if (h === p || h.hp <= 0) continue;
-          h.effects = (h.effects || []).filter((e) => !(e.type === 'buff' && e.source === `${T.id}:aliado`));
-          h.effects.push({ type: 'buff', source: `${T.id}:aliado`, name: T.name, mods: { ...T.allies }, turns: T.turns || 2, value: 1, fresh: true });
+          addBuffTo(h, { source: `${T.id}:aliado`, name: T.name, mods: { ...T.allies }, turns: T.turns || 2 });
         }
       }
       // v3.11 (dossier): el Aullido de manada además llama a un lobo que pelea a tu lado unas rondas
@@ -222,15 +221,12 @@
     }
     if (T.buff && p.hp > 0) {
       const mods = T.buff.mods(b);
-      p.effects = (p.effects || []).filter((e) => !(e.type === 'buff' && e.source === T.id));
-      const buff = { type: 'buff', source: T.id, name: T.name, stat: Object.keys(mods)[0] || (T.buff.touch ? 'reflect' : 'armor'), mods, turns: T.buff.turns || 2, value: 1, fresh: true, school: true };
+      const buff = addBuffTo(p, { source: T.id, name: T.name, stat: Object.keys(mods)[0] || (T.buff.touch ? 'reflect' : 'armor'), mods, turns: T.buff.turns || 2, school: true });
       if (T.buff.touch) buff.touch = { status: T.buff.touch.status, chance: T.buff.touch.chance || 0, turns: T.buff.touch.turns || 2, value: 1, zap: T.buff.touch.zap ? T.buff.touch.zap(b) : 0 };
-      p.effects.push(buff);
       if (T.buff.allies && c.party) {
         for (const h of heroesOf(c)) {
           if (h === p || h.hp <= 0) continue;
-          h.effects = (h.effects || []).filter((e) => !(e.type === 'buff' && e.source === `${T.id}:aliado`));
-          h.effects.push({ type: 'buff', source: `${T.id}:aliado`, name: T.name, stat: Object.keys(T.buff.allies)[0], mods: { ...T.buff.allies }, turns: T.buff.turns || 2, value: 1, fresh: true });
+          addBuffTo(h, { source: `${T.id}:aliado`, name: T.name, stat: Object.keys(T.buff.allies)[0], mods: { ...T.buff.allies }, turns: T.buff.turns || 2 });
         }
       }
     }

@@ -1143,7 +1143,7 @@
         opening.push({ type: 'note', say: f.enemies.length > 1 ? 'Tu ataque por sorpresa los dejó heridos: arrancan con menos vida.' : femOne ? 'Tu ataque por sorpresa la dejó herida: arranca con menos vida.' : 'Tu ataque por sorpresa lo dejó herido: arranca con menos vida.', tone: 'good' });
       }
       if (f.rally) {
-        for (const e of f.enemies) { e.effects = e.effects || []; e.effects.push({ type: 'rally', turns: 2, value: 1, source: 'explore' }); }
+        for (const e of f.enemies) { A.Balance.stackEffect(e, 'rally', 2, 1, 'explore'); }
       }
       A.Combat.start({ enemies: f.enemies, surprise: f.surprise, ambush: f.ambush, opening, openingHid: f.openingHid, fromTravel: false });
     } else if (res.tame && sc.enemies && sc.enemies[0]) {

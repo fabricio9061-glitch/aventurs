@@ -219,26 +219,18 @@
     const turns = opts.turns || 3;
     const value = opts.value || 1;
     const source = opts.source || 'unknown';
-    if (type !== 'bleed' && type !== 'poison') {
-      // fuego, frío, choque, ceguera, silencio: se refrescan, no se acumulan
-      const existing = target.effects.find((e) => e.type === type);
-      if (existing) {
-        existing.turns = Math.max(existing.turns, turns);
-        existing.value = Math.max(existing.value, value);
-        return true;
-      }
-    } else {
-      // v2.5: sangrado y veneno se acumulan, pero hasta 3 a la vez (el más viejo se renueva)
-      const same = target.effects.filter((e) => e.type === type);
-      if (same.length >= MAX_STACKS) {
-        const oldest = same.reduce((a, b) => (a.turns <= b.turns ? a : b));
-        oldest.turns = Math.max(oldest.turns, turns);
-        oldest.value = Math.max(oldest.value, value);
-        oldest.source = source;
-        return true;
-      }
+    // v3.22.4: todos los efectos se acumulan en cargas (hasta 3): más daño, más bonus o más turnos.
+    // Antes sangrado y veneno iban en entradas sueltas: se juntan en una sola.
+    const loose = target.effects.filter((e) => e.type === type);
+    if (loose.length > 1) {
+      const keep = loose[0];
+      keep.stacks = Math.min(B().STACK_MAX, loose.length);
+      keep.per = Math.max(...loose.map((e) => Number(e.per || e.value) || 1));
+      keep.value = keep.per * keep.stacks;
+      keep.turns = Math.max(...loose.map((e) => e.turns || 1));
+      target.effects = target.effects.filter((e) => e.type !== type || e === keep);
     }
-    target.effects.push({ type, turns, value, source });
+    B().stackEffect(target, type, turns, value, source);
     return true;
   }
 
@@ -282,7 +274,9 @@
   function inflict(c, victim, type, opts = {}) {
     if (!victim || !c) return false;
     if (applyStatus(victim, type, opts)) {
-      const entry = { text: `${targetName(victim)} sufre ${effectLabel(type)}.`, fx: { kind: 'status', target: fxKey(victim), effect: type } };
+      const ef = (victim.effects || []).find((e) => e.type === type);
+      const n = ef && ef.stacks > 1 ? ` (x${ef.stacks})` : '';
+      const entry = { text: `${targetName(victim)} sufre ${effectLabel(type)}${n}.`, fx: { kind: 'status', target: fxKey(victim), effect: type } };
       if (opts.quiet) entry.say = { text: '', tone: 'bad' };
       else if (opts.say && opts.say.text) entry.say = opts.say;
       addLog(c, 'system', entry);
@@ -384,9 +378,9 @@
       if (ef.type === 'bleed' || ef.type === 'poison' || ef.type === 'fire') {
         dmg += ef.value;
         if (!tickType) tickType = ef.type;
-        parts.push(`${effectLabel(ef.type)} ${ef.value}`);
+        parts.push(`${effectLabel(ef.type)}${ef.stacks > 1 ? ` x${ef.stacks}` : ''} ${ef.value}`);
       }
-      if (ef.type === 'shock' && Math.random() < STUN_CHANCE) stunned = true;
+      if (ef.type === 'shock' && Math.random() < STUN_CHANCE + 0.15 * ((ef.stacks || 1) - 1)) stunned = true; // v3.22.4: cada carga, más chance
       if (ef.type === 'stun') stunned = true; // v2.4: pergaminos que paralizan
       ef.turns -= 1;
     }

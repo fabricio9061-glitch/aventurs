@@ -255,3 +255,15 @@
   .cb-chip.is-r-legendary::after { animation: none !important; }
   .fx-speed, .fx-orb, .fx-trail, .fx-mote, .fx-lightning, .fx-pillar, .fx-rune, .fx-impact, .fx-drop { display: none; }
 }
+
+/* v3.22.4: efectos acumulados (x2, x3) */
+.cb-fx.is-stacked { box-shadow: 0 0 0 1px rgba(255, 214, 120, 0.55), 0 1px 3px rgba(0, 0, 0, 0.5); }
+.cb-fx .cb-fx-n {
+  text-decoration: none;
+  font-size: 9.5px;
+  font-weight: 800;
+  color: #ffd877;
+  margin: 0 1px 0 -1px;
+  letter-spacing: -0.3px;
+}
+.cb-arena.is-packed .cb-unit .cb-fx .cb-fx-n { font-size: 8.5px; }

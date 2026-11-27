@@ -96,14 +96,19 @@
     const turns = Math.max(1, ef.duration || 3);
     const mods = modsOf(ef);
     const old = p.effects.find((e) => e.type === 'buff' && e.source === item.id);
-    if (old) {
-      old.turns = Math.max(old.turns, turns);
-      old.mods = mods;
-      old.fresh = true;
-      return old;
-    }
+    if (old) return A.Balance.stackBuff(old, mods, turns); // v3.22.4: tomar otra igual la acumula
     const buff = { type: 'buff', source: item.id, name: BUFF_NAME[ef.stat] || item.name, stat: ef.stat, mods, turns, value: 1, fresh: true };
     p.effects.push(buff);
+    return buff;
+  }
+
+  /** v3.22.4: pone una mejora cualquiera; si ya tenía la misma (misma fuente), se acumula. */
+  function addBuffTo(h, o) {
+    h.effects = h.effects || [];
+    const old = h.effects.find((e) => e.type === 'buff' && e.source === o.source);
+    if (old) return A.Balance.stackBuff(old, o.mods || {}, o.turns || 2);
+    const buff = Object.assign({ type: 'buff', value: 1, fresh: true }, o, { mods: { ...(o.mods || {}) }, turns: o.turns || 2 });
+    h.effects.push(buff);
     return buff;
   }
 
@@ -146,11 +151,13 @@
     if (ef.type === 'stun') return { icon: 'hourglass', label: 'Aturdido', cls: 'stun' };
     if (ef.type === 'curse') return { icon: 'skull', label: 'Maldición', cls: 'curse' };
     // v2.5: estados de las criaturas
+    // v3.22.4: con cargas, los números suben
+    const k = (n) => (A.Balance && A.Balance.stackedFixed ? A.Balance.stackedFixed(n, ef.stacks) : n);
     const NEW = {
-      prone: { icon: 'arrow-down', label: 'Derribado (−3 de defensa)' },
-      fear: { icon: 'warning', label: 'Miedo (−2 de precisión, −1 de daño)' },
-      grab: { icon: 'lock', label: 'Atrapado (no puede huir, −2 de precisión)' },
-      corrode: { icon: 'poison', label: 'Ácido (−2 de armadura)' },
+      prone: { icon: 'arrow-down', label: `Derribado (−${k(3)} de defensa)` },
+      fear: { icon: 'warning', label: `Miedo (−${k(2)} de precisión, −${k(1)} de daño)` },
+      grab: { icon: 'lock', label: `Atrapado (no puede huir, −${k(2)} de precisión)` },
+      corrode: { icon: 'poison', label: `Ácido (−${k(2)} de armadura)` },
       rally: { icon: 'arrow-up', label: `Envalentonado (+${ef.value || 1} de precisión y daño)` },
       guard: { icon: 'shield', label: `En guardia (+${ef.value || 3} de defensa)` },
       vigor: { icon: 'heart', label: `Vigor (+${ef.value || 0} de vida máxima)` }, // v3.21.7
@@ -535,11 +542,9 @@
   /** Deja a un enemigo sin turnos (a los jefes, como mucho uno). Devuelve los turnos que quedó. */
   function stunEnemy(t, turns, source) {
     const n = t.category === 'boss' ? 1 : Math.max(1, turns || 1);
-    t.effects = t.effects || [];
-    const old = t.effects.find((e) => e.type === 'stun');
-    if (old) old.turns = Math.max(old.turns, n);
-    else t.effects.push({ type: 'stun', turns: n, value: 1, source });
-    return n;
+    const st = A.Balance.stackEffect(t, 'stun', n, 1, source); // v3.22.4: se acumula (los jefes, igual, un turno)
+    if (t.category === 'boss') st.turns = Math.min(st.turns, 1);
+    return st.turns;
   }
 
   function logStatus(ctx, t, st, source) {
@@ -616,12 +621,8 @@
     const ef = item.effect;
     const t = ctx.target();
     if (!t) return { ok: false, why: 'No hay a quién apuntarle.' };
-    t.effects = t.effects || [];
-    const old = t.effects.find((e) => e.type === 'curse');
     const turns = ef.duration || 3;
-    const value = Number(ef.amount) || 1;
-    if (old) { old.turns = Math.max(old.turns, turns); old.value = Math.max(old.value, value); }
-    else t.effects.push({ type: 'curse', turns, value, source: item.id });
+    const value = A.Balance.stackEffect(t, 'curse', turns, Number(ef.amount) || 1, item.id).value; // v3.22.4: se acumula
     ctx.log('player', {
       text: `${item.name}: ${t.displayName} queda maldito (-${value} precisión y defensa).`,
       fx: { kind: 'status', target: ctx.fxKey(t), effect: 'curse' },
@@ -776,6 +777,7 @@
     modsOf,
     buffMods,
     addBuff,
+    addBuffTo, // v3.22.4
     tickBuffs,
     immunityOf,
     chip,

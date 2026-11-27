@@ -488,8 +488,7 @@
       }
       const e = pool[Math.floor(Math.random() * pool.length)];
       A.State.withHero(h, () => {
-        e.effects = e.effects || [];
-        e.effects.push({ type: 'stun', turns, value: 1, source: 'polvo_hada' });
+        A.Balance.stackEffect(e, 'stun', turns, 1, 'polvo_hada');
         const n = A.Skills ? A.Skills.noun(e) : e.displayName;
         const fem = A.Narrator && A.Narrator.isFem ? A.Narrator.isFem(e.id) : false;
         addLog(combat, 'system', { text: `Polvo de hada: ${e.displayName} se duerme.`, fx: { kind: 'status', target: fxKey(e), effect: 'stun', passive: 'polvo_hada' }, say: { text: `Soplás tu polvo de hada: ${n} se queda ${fem ? 'dormida' : 'dormido'} y pierde su primer turno.`, tone: 'good' } });
@@ -545,8 +544,7 @@
         addLog(c, 'system', { text: o.say, fx: { kind: 'note' }, say: { text: o.say, tone: o.tone || 'good' } });
       } else if (o.type === 'buff' && o.mods) {
         // v3.1: una mejora al empezar (pelear de frente: guardia alta)
-        p.effects = (p.effects || []).filter((e) => !(e.type === 'buff' && e.source === (o.source || 'explore')));
-        p.effects.push({ type: 'buff', source: o.source || 'explore', name: o.name || 'Mejora', mods: o.mods, turns: o.turns || 2, value: 1, fresh: true });
+        A.ItemFx.addBuffTo(p, { source: o.source || 'explore', name: o.name || 'Mejora', mods: o.mods, turns: o.turns || 2 });
         if (o.say) addLog(c, 'system', { text: o.say, fx: { kind: 'note' }, say: { text: o.say, tone: 'good' } });
       }
     }

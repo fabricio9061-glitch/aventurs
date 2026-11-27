@@ -248,8 +248,7 @@
       const boss = alive.find((e) => e !== x && (e.category === 'boss' || e.miniBoss) && ratio(e.hp, e.maxHp) < 0.6);
       if (boss && (c._covered || 0) !== c.round && !(boss.effects || []).some((e) => e.type === 'guard')) {
         c._covered = c.round;
-        boss.effects = boss.effects || [];
-        boss.effects.push({ type: 'guard', turns: 2, value: 2, source: 'escolta' });
+        A.Balance.stackEffect(boss, 'guard', 2, 2, 'escolta');
         k.log('enemy', {
           text: `${x.displayName} cubre a ${boss.displayName} (+2 de defensa).`,
           fx: { kind: 'status', target: k.fxKey(boss), effect: 'guard' },

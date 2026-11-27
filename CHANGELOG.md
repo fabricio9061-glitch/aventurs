@@ -2,6 +2,19 @@
 
 La más nueva arriba. Cómo correr el juego y cómo está armado: [README.md](README.md).
 
+## Versión 3.23.2: los efectos se acumulan
+
+- **Todos los efectos se acumulan:** si a alguien le volvés a poner el mismo efecto, suma una carga (hasta 3). Se ve en la chapita como x2 o x3, y la crónica lo cuenta ("sufre veneno (x2)").
+  - *Veneno, fuego y sangrado:* el daño por turno se suma (veneno de 2 tres veces = 6 por turno). Sangrado y veneno ya no salen en chapitas sueltas: es una sola con su x.
+  - *Maldición, expuesto, desequilibrado, envalentonado y en guardia:* el número se multiplica por las cargas.
+  - *Frío, ceguera, derribado, miedo, atrapado y ácido:* suben la mitad por cada carga de más (frío x3: −4 de defensa y −2 de precisión).
+  - *Choque:* cada carga suma chance de quedar aturdido.
+  - *Aturdido, silencio y herida maldita:* cada carga suma un turno (a los jefes, igual, solo un turno de aturdido).
+  - *Mejoras* (pociones, hechizos de escuela, técnicas, el ánimo de la mascota): tomar o lanzar la misma otra vez multiplica lo que da. Robar vida y espinas suben la mitad; esquivar el próximo golpe y la ventaja no se multiplican.
+  - Al volver a ponerlo, los turnos se renuevan.
+- Medido con las herramientas de equilibrio: no cambió nada fuera del azar.
+- Jugar en grupo: cambiaron las reglas, así que los dos tienen que tener esta versión.
+
 ## Versión 3.23.1: criaturas más inteligentes contra los que se defienden bien
 
 Antes, si tenías mucha defensa o mucha armadura, las criaturas seguían pegando igual y casi siempre fallaban o no te hacían nada. Ahora se dan cuenta y cambian:

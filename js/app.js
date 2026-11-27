@@ -10,7 +10,7 @@
   'use strict';
 
   function boot() {
-    console.log('[Aventurs] v3.23.1');
+    console.log('[Aventurs] v3.23.2');
 
     // 1. Cargar contenido del juego (seeds + overrides del editor)
     A.Data.init();
