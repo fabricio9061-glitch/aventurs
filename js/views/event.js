@@ -124,6 +124,71 @@
     return bits.length ? `<span class="ui-check is-party">${U().icon('party', 14)}<span>${U().esc(bits.join(' · '))}</span></span>` : '';
   }
 
+  // ============================================================
+  // v3.23: lo que puede pasar con cada opción (íconos chicos) y la cadena
+  // ============================================================
+
+  /** Íconos de lo que trae un resultado: [{ icon, text, tone }] */
+  function previewOf(out, opt) {
+    if (!out) return [];
+    const needs = (opt && opt.needs) || {};
+    const bits = [];
+    const add = (icon, text, tone, cls) => bits.push({ icon, text, tone, cls });
+    if (out.fight) add('swords', out.fight.surprise ? 'Pelea con ventaja' : out.fight.ambush ? 'Te atacan primero' : 'Pelea', out.fight.ambush ? 'bad' : 'warn');
+    if (out.train) add('up', out.train === 'any' || !A.Explore.STATS[out.train] ? '+1 para siempre' : `+1 ${A.Explore.STATS[out.train].label}`, 'gold');
+    if (typeof out.coins === 'number' && out.coins > 0) add('coin', 'Monedas', 'good');
+    if ((out.items && out.items.length) || out.loot) add('bag', out.loot > 1 || (out.items && out.items.length > 1) ? 'Botín' : 'Un hallazgo', 'good');
+    if (out.heal) add('heart', 'Vida', 'good');
+    if (out.mana) add('spell', 'Maná', 'mana');
+    if (out.food > 0) add('food', 'Comida', 'good');
+    if (out.xp >= 0.5) add('xp', 'XP', 'gold');
+    if (out.hurt) add('heart', 'Herida', 'bad', 'is-hurt');
+    // lo que cuesta la opción ya se ve en "Cuesta"
+    if (typeof out.coins === 'number' && out.coins < 0 && !needs.coins) add('coin', 'Perdés plata', 'bad');
+    if (out.food < 0 && !needs.food) add('food', 'Hambre', 'bad');
+    if (out.time >= 2) add('hourglass', 'Tiempo', 'bad');
+    if (out.tame) add('paw', 'Domarla', 'good');
+    if (out.study) add('eye', '+2 después', 'good');
+    if (out.bonus) add('eye', `+${out.bonus} al paso siguiente`, 'good');
+    return bits.slice(0, 4);
+  }
+  function previewRow(o) {
+    // las de criaturas ya cuentan "Bien: ... Mal: ..." en su texto
+    if (o.hint) return '';
+    const ok = previewOf(o.ok, o);
+    const bad = o.check ? previewOf(o.fail || { text: '' }, o) : [];
+    if (!ok.length && !bad.length) return '';
+    const pill = (b) => `<span class="sp-bit is-${b.tone}">${U().icon(b.icon, 14, b.cls)}<span>${U().esc(b.text)}</span></span>`;
+    return `
+      <span class="scene-preview">
+        ${ok.length ? `<span class="sp-side is-ok">${o.check ? '<span class="sp-tag">Bien</span>' : ''}${ok.map(pill).join('')}</span>` : ''}
+        ${bad.length ? `<span class="sp-side is-bad"><span class="sp-tag">Mal</span>${bad.map(pill).join('')}</span>` : ''}
+      </span>`;
+  }
+  function chainLeads(o) {
+    return !!((o.ok && o.ok.next) || (o.fail && o.fail.next));
+  }
+
+  /** Los puntitos de "Paso 2 de 3" y lo que ya pasó. */
+  function chainHtml(sc) {
+    const max = sc.stepsMax || 1;
+    if (max <= 1 && !(sc.trail && sc.trail.length)) return '';
+    const now = sc.stepNo || 1;
+    const trail = sc.trail || [];
+    const dots = [];
+    for (let i = 1; i <= Math.max(max, now); i++) {
+      const t = trail[i - 1 - Math.max(0, (now - 1) - trail.length)];
+      const cls = i < now ? (t && !t.ok ? 'is-fail' : 'is-done') : i === now ? 'is-now' : '';
+      dots.push(`<span class="sc-dot ${cls}" title="Paso ${i}">${i < now ? U().icon(t && !t.ok ? 'skull' : 'check', 12) : i}</span>`);
+    }
+    return `
+      <div class="scene-chain">
+        <span class="sc-label">${U().icon('compass', 16)}<span>Historia en ${max} pasos · <b>Paso ${now}</b></span></span>
+        <span class="sc-dots">${dots.join('<span class="sc-line"></span>')}</span>
+      </div>
+      ${trail.length ? `<div class="scene-trail">${trail.map((t) => `<span class="st-item ${t.ok ? 'is-ok' : 'is-fail'}">${U().icon(t.ok ? 'check' : 'skull', 12)}<span>${U().esc(t.label)}</span></span>`).join('')}</div>` : ''}`;
+  }
+
   function optionsHtml(sc) {
     if (A.Explore.ensureKeys) A.Explore.ensureKeys(sc);
     // v2.5: con muchas opciones van en dos columnas (entra todo sin bajar)
@@ -138,9 +203,10 @@
             : o.needs && o.needs.food ? `<span class="ui-check is-cost">${U().icon('food', 16)}<span>${o.needs.food} de comida</span></span>`
             : needItem ? `<span class="ui-check is-cost">${A.ItemSprites ? A.ItemSprites.html(needItem.id, { size: 18 }) : ''}<span>Gastás 1</span></span>` : '';
           return `
-            <button class="scene-opt ${blocked ? 'is-blocked' : ''} ${sc.votes && sc.votes[myHid()] === i ? 'is-voted' : ''}" data-scene-opt="${U().esc(o.key || String(i))}" ${blocked ? 'disabled' : ''}>
-              <span class="scene-opt-label">${U().esc(o.label)}${sc.party ? voteTags(sc, i) : ''}</span>
+            <button class="scene-opt ${blocked ? 'is-blocked' : ''} ${sc.votes && sc.votes[myHid()] === i ? 'is-voted' : ''} ${chainLeads(o) ? 'is-chain' : ''} ${o.check ? `is-stat-${U().esc(o.check.stat)}` : 'is-free'}" data-scene-opt="${U().esc(o.key || String(i))}" ${blocked ? 'disabled' : ''}>
+              <span class="scene-opt-label">${U().esc(o.label)}${chainLeads(o) ? `<span class="scene-opt-more" title="Esta opción sigue la historia">${U().icon('compass', 12)}Sigue</span>` : ''}${sc.party ? voteTags(sc, i) : ''}</span>
               ${o.hint ? `<span class="scene-opt-hint">${U().esc(o.hint)}</span>` : ''}
+              ${sc.kind === 'event' || sc.kind === 'custom' ? previewRow(o) : ''}
               <span class="scene-opt-meta">
                 ${o.check ? U().checkLine(o.check, sc.tier, sc.bonus || 0, sc.party ? o.party : null) : ''}
                 ${sc.party && o.party ? partyTag(o.party) : ''}
@@ -195,7 +261,8 @@
     const btn = res.fight
       ? `${U().icon('swords', 22)}<span>${res.fight.surprise ? '¡Atacar primero!' : res.fight.ambush ? (sc.party ? '¡A defenderse!' : '¡Defenderte!') : '¡A pelear!'}</span>`
       : res.tame ? `${U().icon('paw', 22)}<span>${other ? 'Seguir' : 'Acercarte'}</span>`
-        : res.again ? `${U().icon('eye', 22)}<span>Decidir qué hacer (+2)</span>` : `<span>Seguir</span>`;
+        : res.again ? `${U().icon('eye', 22)}<span>Decidir qué hacer (+2)</span>`
+          : res.next ? `${U().icon('compass', 22)}<span>Seguir la historia${res.nextBonus ? ` (+${res.nextBonus})` : ''}</span>` : `<span>${sc.stepsMax > 1 ? 'Terminar' : 'Seguir'}</span>`;
     // v3.3: las escenas de grupo ya vienen en plural: no se pasan a tercera persona
     const text = other && A.Persp && !res.plural ? A.Persp.third(res.text, other) : res.text;
     return `
@@ -203,13 +270,15 @@
         ${voteResultHtml(res)}
         <div class="scene-choice">${U().icon('check', 14)}<span>${other ? `${U().esc(other)} ${res.vote ? 'hace' : 'eligió'}: ` : ''}${U().esc(res.label)}</span></div>
         ${rollHtml(res)}
+        ${res.roll && res.roll.feat ? `<div class="scene-feat">${U().icon('up', 18)}<span>¡Hazaña! Lo ${res.roll.byHid && res.roll.byHid !== myHid() ? `logró ${U().esc(res.roll.by)}` : 'lograste'} contra todo pronóstico: +1 para siempre en ${U().esc((A.Explore.STATS[res.check.stat] || {}).label || '')}.</span></div>` : ''}
         ${text ? `<p class="scene-outcome">${U().esc(text)}</p>` : ''}
         ${res.studied && res.studied.length ? `<p class="scene-studied">${U().icon('skulls', 16)}<span>Al bestiario: ${U().esc(res.studied.join(', '))} (ya conocés sus habilidades y su botín).</span></p>` : ''}
         ${res.group ? groupChipsHtml(res.group) : `
         ${res.chips && res.chips.length && other ? `<div class="scene-for">Para ${U().esc(other)}:</div>` : ''}
         ${U().chips(res.chips)}`}
         <div class="scene-actions">
-          <button class="btn-primary scene-next ${res.fight ? 'is-fight' : ''}" data-scene-next>${btn}</button>
+          ${res.next ? `<span class="scene-next-note">Paso ${(sc.stepNo || 1) + 1} de ${Math.max(sc.stepsMax || 1, (sc.stepNo || 1) + 1)}</span>` : ''}
+          <button class="btn-primary scene-next ${res.fight ? 'is-fight' : ''} ${res.next ? 'is-chain' : ''}" data-scene-next>${btn}</button>
         </div>
       </div>
     `;
@@ -227,14 +296,17 @@
     const region = A.Data.getById('regions', sc.regionId);
     const biome = (region && region.biome) || 'plains';
     return `
-      <div class="modal scene-modal is-${sc.kind} biome-${biome}" role="dialog" aria-modal="true" aria-label="${U().esc(sc.title)}">
+      <div class="modal scene-modal is-${sc.kind} biome-${biome} ${sc.stepsMax > 1 ? 'is-chain' : ''} ${sc.party ? 'is-party' : ''}" role="dialog" aria-modal="true" aria-label="${U().esc(sc.title)}">
         <div class="scene-art">
+          ${A.Scenes && region ? `<span class="scene-art-land">${A.Scenes.html(region)}</span>` : ''}
           <span class="scene-art-icon">${U().icon(sc.icon || 'scroll', 64)}</span>
           <span class="scene-art-place">${U().biomeIcon(region, 18)}<span>${U().esc(region ? region.name : '')}</span></span>
+          <span class="scene-art-kind">${sc.party ? `${U().icon('party', 14)}<span>En grupo</span>` : sc.kind === 'creature' || sc.kind === 'night' ? `${U().icon('paw', 14)}<span>Criatura</span>` : sc.stepsMax > 1 ? `${U().icon('compass', 14)}<span>Historia</span>` : `${U().icon('scroll', 14)}<span>Suceso</span>`}</span>
           ${U().voiceToggle ? `<span class="scene-voice">${U().voiceToggle(20)}</span>` : ''}
         </div>
         <div class="scene-body">
-          <h2 class="scene-title">${U().esc(sc.title)}</h2>
+          <h2 class="scene-title">${U().esc(sc.title)}${sc.stepTitle ? `<small class="scene-subtitle">${U().esc(sc.stepTitle)}</small>` : ''}</h2>
+          ${chainHtml(sc)}
           ${voteBar(sc)}
           <p class="scene-text">${U().esc(sc.text)}</p>
           ${enemiesRow(sc)}
@@ -248,7 +320,7 @@
   let spokenKey = null;
   function speak(sc) {
     if (!A.Voice || !A.Voice.isOn() || !sc) return;
-    const key = `${sc.regionId}|${sc.title}|${sc.text}|${sc.stage}|${sc.result ? sc.result.label : ''}`;
+    const key = `${sc.regionId}|${sc.title}|${sc.stepNo || 1}|${sc.text}|${sc.stage}|${sc.result ? sc.result.label : ''}`;
     if (key === spokenKey) return;
     spokenKey = key;
     if (sc.stage === 'result' && sc.result) {

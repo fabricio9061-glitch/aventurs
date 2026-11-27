@@ -31,6 +31,7 @@ aventurs/
 │   ├── grupo.css           La barra "Tu grupo" con tarjetitas por compañero (v3.22.3)
 │   ├── inicio.css          "Nueva aventura" sin scroll en la compu (v3.22.3)
 │   ├── habitante.css       La ventana de cada habitante, más linda (v3.20.3)
+│   ├── eventos.css         La ventana de las escenas: paisaje, historia en pasos y lo que puede salir (v3.23)
 │   ├── celular.css         El juego en el celular: todo entra en la pantalla (v3.21.4)
 │   └── maestros.css        Dónde vive el maestro de tu raza (v3.21.6)
 ├── js/
@@ -46,6 +47,7 @@ aventurs/
 │   │   ├── seed-recipes.js     recetas de los talleres
 │   │   ├── seed-npcs.js        habitantes (tiendas, maestros, posadas)
 │   │   ├── seed-events.js      escenas para explorar y qué criaturas aparecen en cada lugar
+│   │   ├── seed-cadenas.js     escenas en cadena: pasos que siguen (steps + next) y puntos de explorar (train) (v3.23)
 │   │   ├── seed-quests.js      misiones
 │   │   ├── seed-escuelas.js    las 18 escuelas de raza y los objetos retirados
 │   │   └── seed-jefes-medidos.js  lo que mide tools/jefes.js --datos (lo muestra el editor)

@@ -603,6 +603,7 @@
         <div class="xs-row ${x.down ? 'is-down' : ''}">
           <span class="xs-ic">${pxi(x.icon, 22)}</span>
           <span class="xs-main"><b>${esc(x.label)}</b><small class="dim">${esc(x.hint || '')}${x.down ? ' Con hambre fuerte, baja.' : ''}</small></span>
+          ${x.trained ? `<span class="xs-won" title="Lo ganaste en escenas y hazañas (hasta ${A.Explore.TRAIN_CAP || 3})">+${x.trained} ganado</span>` : ''}
           <span class="xs-val num">${sign(x.value)}</span>
         </div>`).join('');
     const body = `
@@ -610,6 +611,7 @@
         <p class="xs-lead">Cuando una escena te pide una tirada, se tira un dado de 20 y se le suma el número de lo que pide. Si llegás a lo que hace falta, sale bien.</p>
         <div class="xs-list">${rows}</div>
         <p class="xs-note dim">Sacar 20 siempre sale bien y sacar 1 siempre sale mal. Observar antes de decidir suma a la próxima tirada.</p>
+        <p class="xs-note dim">Algunas historias de varios pasos te dejan +1 para siempre en un número, y lograr una tirada muy difícil (30% o menos) también: es una hazaña. Hasta +${A.Explore && A.Explore.TRAIN_CAP ? A.Explore.TRAIN_CAP : 3} en cada uno.</p>
       </div>`;
     return modalShell('Tus números al explorar', body);
   }

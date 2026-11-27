@@ -75,6 +75,13 @@
     return race && race.explore && typeof race.explore[stat] === 'number' ? race.explore[stat] : fallback;
   }
 
+  /** v3.23: puntos de explorar ganados en escenas (p.exploreTrain), hasta TRAIN_CAP por número. */
+  const TRAIN_CAP = 3;
+  function trained(p, stat) {
+    const t = p && p.exploreTrain;
+    return t && typeof t[stat] === 'number' ? Math.max(0, Math.min(TRAIN_CAP, t[stat])) : 0;
+  }
+
   /** Bonus del jugador para una tirada (check: la tirada entera, para las que comparan con algo). */
   function statMod(stat, p, check, opts = {}) {
     p = p || player();
@@ -104,9 +111,10 @@
       }
       case 'ingenio': mod = exploreBase(p, 'ingenio', ({ warrior: 0, hybrid: 1, mage: 3 })[type] || 0); break;
       case 'punteria': mod = exploreBase(p, 'punteria', 1); break;
-      case 'suerte': mod = exploreBase(p, 'suerte', 0); return mod;
+      case 'suerte': mod = exploreBase(p, 'suerte', 0) + trained(p, 'suerte'); return mod;
       default: mod = 0;
     }
+    mod += trained(p, stat); // v3.23: los puntos que te dejaron las escenas
     // El hambre fuerte te quita reflejos
     if (!opts.noHunger && A.Survival && A.Survival.getStatus) {
       const s = A.Survival.getStatus();
@@ -125,7 +133,7 @@
     return SHEET.map((id) => {
       const value = statMod(id, p, null, opts);
       const base = opts.noHunger ? value : statMod(id, p, null, { noHunger: true });
-      return { id, label: STATS[id].label, icon: STATS[id].icon, hint: STATS[id].hint, value, down: value < base };
+      return { id, label: STATS[id].label, icon: STATS[id].icon, hint: STATS[id].hint, value, down: value < base, trained: trained(p || player(), id) };
     });
   }
 
@@ -314,6 +322,26 @@
       A.Time.advance(out.time, 'event');
       chips.push({ kind: 'time', value: out.time });
     }
+    // v3.23: un punto de explorar para siempre (out.train: 'ingenio', o 'any' = el más bajo)
+    if (out.train) {
+      let stat = out.train;
+      if (!STATS[stat] || stat === 'carrera') {
+        const list = SHEET.filter((k) => trained(p, k) < TRAIN_CAP);
+        stat = list.length ? list.sort((a, b) => (statMod(a, p, null, { noHunger: true }) - statMod(b, p, null, { noHunger: true })) || (Math.random() - 0.5))[0] : null;
+      }
+      if (stat) {
+        p.exploreTrain = p.exploreTrain || {};
+        if (trained(p, stat) < TRAIN_CAP) {
+          p.exploreTrain[stat] = trained(p, stat) + 1;
+          chips.push({ kind: 'train', stat, value: 1, label: STATS[stat].label });
+        } else {
+          // ya está al tope: se lo lleva en experiencia
+          const amount = Math.max(1, Math.round(xpUnit(tier) * 0.5));
+          chips.push({ kind: 'xp', value: amount });
+          for (const lv of gainXp(amount)) chips.push({ kind: 'level', value: lv.level });
+        }
+      }
+    }
     return chips;
   }
 
@@ -349,6 +377,8 @@
       if (out.hurt != null && bad.has(h)) { o.hurt = out.hurt; o.hurtFlat = out.hurtFlat; }
       if (typeof out.coins === 'number' && (out.coins > 0 ? !paid.coins || me : (paid.coins ? me : bad.has(h)))) { o.coins = out.coins; o.coinsFlat = out.coinsFlat; }
       if (out.xp) { o.xp = out.xp; o.xpFlat = out.xpFlat; }
+      // v3.23: lo que se aprende, lo aprenden todos (la hazaña, solo el que tiró)
+      if (out.train && (!out.trainHid || A.State.hidOf(h) === out.trainHid)) o.train = out.train;
       if (out.items && (!(paid.coins || paid.food) || me)) o.items = out.items.map((it) => it.slice());
       if (out.loot) o.loot = out.loot;
     });
@@ -393,6 +423,7 @@
       case 'xp': return `+${c.value} XP`;
       case 'level': return `¡nivel ${c.value}!`;
       case 'time': return 'pasó el tiempo';
+      case 'train': return `+1 ${c.label || ''} para siempre`; // v3.23
       case 'learn': return `aprendiste ${c.name || ''}`; // v3.13: lo que te enseña una prueba de escuela
       default: return '';
     }
@@ -660,7 +691,28 @@
   /** Escena de un evento del bioma. */
   /** v3.3: ¿alguna opción de la escena termina en pelea? */
   function sceneCanFight(sc) {
-    return (sc.options || []).some((o) => ['ok', 'fail'].some((k) => o[k] && o[k].fight));
+    const opts = (sc.options || []).concat(...Object.values(sc.steps || {}).map((st) => st.options || []));
+    return opts.some((o) => ['ok', 'fail'].some((k) => o[k] && o[k].fight));
+  }
+
+  /** v3.23: cuántos pasos tiene el camino más largo de una escena en cadena. */
+  function chainDepth(ev) {
+    const steps = ev.steps || {};
+    const seen = new Set();
+    const depth = (opts) => {
+      let best = 0;
+      for (const o of opts || []) {
+        for (const k of ['ok', 'fail']) {
+          const nx = o[k] && o[k].next;
+          if (!nx || !steps[nx] || seen.has(nx)) continue;
+          seen.add(nx);
+          best = Math.max(best, 1 + depth(steps[nx].options));
+          seen.delete(nx);
+        }
+      }
+      return best;
+    };
+    return 1 + depth(ev.options);
   }
 
   function eventScene(region, ev) {
@@ -675,6 +727,11 @@
       options: JSON.parse(JSON.stringify(ev.options || [])),
       stage: 'choose',
       plural: !!ev.party, // v3.3: las escenas de grupo ya están contadas en plural
+      // v3.23: escenas en cadena: cada paso abre el siguiente (ev.steps + outcome.next)
+      steps: ev.steps ? JSON.parse(JSON.stringify(ev.steps)) : undefined,
+      stepNo: 1,
+      stepsMax: ev.steps ? chainDepth(ev) : 1,
+      trail: [],
     };
   }
 
@@ -939,6 +996,12 @@
     if (needs.coins && typeof outcome.coins === 'number' && outcome.coins < 0 && !outcome.coinsFlat) {
       outcome = { ...outcome, coins: -Math.max(1, Math.round(coinUnit(sc.tier) * needs.coins)), coinsFlat: true };
     }
+    // v3.23: hazaña: lograr una tirada difícil (30% o menos) te deja un punto de explorar en ese número
+    if (rollRes && rollRes.success && !outcome.train && !outcome.study && SHEET.includes(opt.check.stat) && !opt.check.noTrain) {
+      const pr2 = partyRoll(opt.check, sc, p);
+      const ch = A.State.withHero(pr2.roller, () => chanceOf(opt.check, sc.tier, pr2.roller, pr2.extra));
+      if (ch <= 0.3) { outcome = { ...outcome, train: opt.check.stat, trainHid: sc.party ? A.State.hidOf(pr2.roller) : undefined }; rollRes.feat = true; }
+    }
     // v2.1: salir bien de una tirada también enseña algo (un poco de experiencia)
     if (rollRes && rollRes.success && !outcome.fight && !outcome.study) outcome = { ...outcome, xp: (outcome.xp || 0) + 0.3 };
     // v3.1: observar: al bestiario de los que están ahí, y se vuelve a elegir con +2
@@ -987,6 +1050,9 @@
       tame: !!outcome.tame,
       // v3.1: observar sale bien: se vuelve a elegir (sin "observar" y con +2)
       again: !!(outcome.study && !fight),
+      // v3.23: la historia sigue en otro paso (y lo que suma a la próxima tirada)
+      next: !fight && outcome.next && sc.steps && sc.steps[outcome.next] ? outcome.next : null,
+      nextBonus: outcome.bonus || 0,
       plural: !!sc.plural, // v3.3: texto en plural: no se pasa a tercera persona
       studied: studied.map((id) => { const d = A.Data.getById('enemies', id); return d ? d.name : id; }),
     };
@@ -1014,6 +1080,28 @@
     return sc.result;
   }
 
+  /** v3.23: pasar al paso siguiente de una escena en cadena. */
+  function nextStep(sc, res) {
+    const step = sc.steps[res.next];
+    sc.trail = (sc.trail || []).concat([{ title: sc.stepTitle || sc.title, label: res.label, ok: res.success !== false, rolled: !!res.roll, by: res.by }]).slice(-5);
+    sc.stepNo = (sc.stepNo || 1) + 1;
+    sc.stepsMax = Math.max(sc.stepsMax || 1, sc.stepNo);
+    sc.stepKey = res.next;
+    sc.stepTitle = step.title || null;
+    if (step.icon) sc.icon = step.icon;
+    sc.text = step.text || '';
+    sc.options = JSON.parse(JSON.stringify(step.options || [{ label: 'Seguir', ok: { text: '' } }]));
+    sc.options.forEach((o, i) => { o.key = `${res.next}_${i}`; });
+    sc.bonus = res.nextBonus || 0;
+    sc.stage = 'choose';
+    sc.result = null;
+    sc.votes = {};
+    sc.votedAt = {};
+    tagPartyOptions(sc);
+    A.State.openModal('event', sc);
+    A.State.persist();
+  }
+
   /** Cerrar el resultado: si hay pelea, empieza; si había que domar, abre la doma. */
   function proceed() {
     const sc = current();
@@ -1034,6 +1122,11 @@
       sc.text = `${sc.text.replace(/\s*Ya sabés por dónde ir\.$/, '')} Ya sabés por dónde ir.`;
       tagPartyOptions(sc);
       A.State.openModal('event', sc);
+      return;
+    }
+    // v3.23: escena en cadena: se pasa al paso siguiente
+    if (res && res.next && sc.steps && sc.steps[res.next]) {
+      nextStep(sc, res);
       return;
     }
     A.State.closeModal();
@@ -1276,5 +1369,7 @@
     creatureScene,
     unlucky, // v3.3: a quiénes les toca lo malo en grupo
     partyRoll, // v3.3: quién tira en grupo (best / together)
+    chainDepth, // v3.23: pasos de una escena en cadena
+    TRAIN_CAP, // v3.23: tope de puntos de explorar ganados por número
   };
 })(window.Aventurs);

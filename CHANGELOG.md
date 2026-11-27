@@ -2,6 +2,14 @@
 
 La más nueva arriba. Cómo correr el juego y cómo está armado: [README.md](README.md).
 
+## Versión 3.23.0: escenas que siguen y puntos de explorar
+
+- **Historias en varios pasos:** muchas escenas ya no terminan en un click. Lo que elegís abre otro paso (subir la torre del mago piso por piso, seguir un mapa en una botella, rescatar a un chico perdido, escoltar una caravana, las tres pruebas del círculo de piedras...). 8 historias nuevas para ir solo y 4 para el grupo (un puente caído, el guardián de piedra, las fiestas del pueblo, un barco encallado). En grupo se vota en cada paso.
+- **Escenas de antes, mejoradas:** 15 escenas que ya existían ahora tienen un paso más (el cofre con fondo falso, el ermitaño que te enseña, la granja del perro perdido, la sala detrás de la puerta de palancas, la bestia que vuelve a buscarlos...).
+- **Puntos de explorar:** algunas historias te dejan +1 para siempre en Fuerza, Agilidad, Ingenio, Puntería o Suerte. Y lograr una tirada muy difícil (30% o menos) es una **hazaña**: +1 en ese número. Hasta +3 en cada uno; se ve en "Tus números al explorar".
+- **Ventana nueva:** el paisaje del lugar arriba, qué tipo de escena es (suceso, historia, en grupo, criatura), los pasos de la historia con puntitos y lo que ya elegiste, y cada opción muestra con iconos qué puede salir bien y qué mal (monedas, botín, herida, pelea, +1 para siempre). Color al costado según el número que pide. La barra de votar ya no corta el texto.
+- Party: versión 20 (actualicen los dos).
+
 ## Versión 3.22.3: inicio sin scroll y barra del grupo nueva
 
 - **Nueva aventura entra entera:** en la compu (también con Windows al 125%, unos 1536x730) se ve todo sin bajar: las razas, la ficha y "Comenzar". La ficha está más apretada: los cuatro números en una fila, la escuela pasó a la derecha y lo que arranca con vos, a la izquierda. Si la pantalla es muy baja, scrollea solo la ficha por dentro y el botón queda siempre abajo a la vista.

@@ -164,8 +164,11 @@
     for (const ev of D.events || []) {
       const name = ev.title || ev.id;
       if (!Array.isArray(ev.options) || !ev.options.length) out.push({ level: 'error', collection: 'events', entityId: ev.id, msg: `"${name}" no tiene opciones para elegir.` });
-      for (const o of ev.options || []) {
+      // v3.23: también las opciones de los pasos de una escena en cadena
+      const allOpts = (ev.options || []).concat(...Object.values(ev.steps || {}).map((st) => (st && st.options) || []));
+      for (const o of allOpts) {
         for (const r of [o.ok, o.fail]) for (const it of (r && r.items) || []) if (!anyItem(it[0])) out.push({ level: 'error', collection: 'events', entityId: ev.id, msg: `"${name}" da un objeto que no existe ("${it[0]}").` });
+        for (const r of [o.ok, o.fail]) if (r && r.next && !(ev.steps && ev.steps[r.next])) out.push({ level: 'error', collection: 'events', entityId: ev.id, msg: `"${name}" sigue en un paso que no existe ("${r.next}").` });
       }
       for (const rid of ev.regions || []) if (!regionIds.has(rid)) out.push({ level: 'error', collection: 'events', entityId: ev.id, msg: `"${name}" es de un lugar que no existe ("${rid}").` });
     }

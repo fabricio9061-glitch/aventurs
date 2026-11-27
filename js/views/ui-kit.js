@@ -50,6 +50,7 @@
       case 'level': return `<span class="ui-chip is-gold">${icon('up', 18)}<span>¡Nivel ${c.value}!</span></span>`;
       case 'time': return `<span class="ui-chip">${icon('hourglass', 18)}<span>Pasó el tiempo</span></span>`;
       case 'pet': return `<span class="ui-chip is-good">${icon('paw', 18)}<span>+${c.value} vida (mascota)</span></span>`;
+      case 'train': return `<span class="ui-chip is-gold is-train">${icon('up', 18)}<span>+1 ${esc(c.label || '')} para siempre</span></span>`; // v3.23
       case 'learn': return `<span class="ui-chip is-gold">${icon('book', 18)}<span>Aprendiste ${esc(c.name || '')}</span></span>`; // v3.13
       default: return '';
     }
