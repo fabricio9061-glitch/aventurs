@@ -2,6 +2,16 @@
 
 La más nueva arriba. Cómo correr el juego y cómo está armado: [README.md](README.md).
 
+## Versión 3.24.2: los jugadores ordenados en la pelea
+
+- **Cada uno con su mascota, juntos:** en grupo, cada héroe va al lado de su mascota (y de lo que invocó), como un equipo. Un equipo nunca se parte entre dos filas. Antes iban todos seguidos y la mascota podía quedar en la otra fila, lejos de su dueño.
+- **Tu equipo primero,** con el piso dorado. Los demás tienen el piso plateado.
+- **Al equipo que le toca jugar se le ilumina el piso.**
+- **Con 4 jugadores que no entran en una fila:** de a dos (2 arriba y 2 abajo), no 3 y 1.
+- **En el celular:** un equipo por fila (el héroe y su mascota uno al lado del otro).
+- La mascota se ve un poco más chica que su dueño.
+- Es solo para mirar: no cambian reglas.
+
 ## Versión 3.24.1: jefes en grupo
 
 - **Peleas de jefe en grupo de 3 o 4 (con mascotas):** el jefe va solo arriba, al medio y más grande, y sus criaturas abajo. Antes, con mucha gente, el jefe quedaba chiquito en una punta y las crías de la Reina Araña colgaban encima de las otras tarjetas.

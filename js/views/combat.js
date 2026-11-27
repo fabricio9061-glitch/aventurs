@@ -246,6 +246,12 @@
           }
         }
       }
+      // v3.24.2: 4 equipos que no entran en una fila: de a dos (2 y 2, no 3 y 1)
+      const teamSide = view.querySelector('.cb-allies.teams-4');
+      if (teamSide) {
+        const tops = [...teamSide.querySelectorAll('.cb-team')].map((t) => t.offsetTop);
+        if (new Set(tops).size > 1) teamSide.classList.add('is-2x2');
+      }
       fitArenaRows(view);
       // v3.24.0: el jefe con escena, más grande (usa el alto que sobra arriba); presentación al empezar
       if (A.BossStage) {
@@ -461,6 +467,7 @@
     const shown = (key, value) => (snap && snap[key] != null ? snap[key] : value);
     let allies = '';
     let units = n;
+    let teams = 0; // v3.24.2: equipos (héroe + mascota) en grupo
     if (c.party) {
       // v3.0: los dos héroes (el tuyo primero) con sus mascotas
       let i = 0;
@@ -468,13 +475,18 @@
         const hk = `hero:${hid}`;
         const pk = `pet:${hid}`;
         const ally = hid !== localHid();
-        allies += playerCard(hero, cur && cur.kind === 'player' && cur.hid === hid, c, shown, { key: hk, i: i++, ally, gone, fled });
+        // v3.24.2: cada héroe con su mascota y sus invocados, juntos (un equipo no se parte entre filas)
+        let team = '';
+        team += playerCard(hero, cur && cur.kind === 'player' && cur.hid === hid, c, shown, { key: hk, i: i++, ally, gone, fled });
         units += 1;
         const pet = hero.pet;
         // v3.3: la mascota del que huyó se fue con él
         const showPet = pet && !fled && (pet.health > 0 || (Fx() && Fx().isDying(pk)) || (snap && snap[pk] > 0));
-        if (showPet) { allies += petCard(pet, cur && cur.kind === 'pet' && cur.hid === hid, shown, { key: pk, i: i++, owner: ally ? hero.name : null }); units += 1; }
-        for (const a of summonsOf(c, hid, snap)) { allies += summonCard(a, cur, shown, { i: i++, owner: ally ? hero.name : null }); units += 1; }
+        if (showPet) { team += petCard(pet, cur && cur.kind === 'pet' && cur.hid === hid, shown, { key: pk, i: i++, owner: ally ? hero.name : null }); units += 1; }
+        for (const a of summonsOf(c, hid, snap)) { team += summonCard(a, cur, shown, { i: i++, owner: ally ? hero.name : null }); units += 1; }
+        const turn = cur && cur.hid === hid && (cur.kind === 'player' || cur.kind === 'pet');
+        allies += `<div class="cb-team ${ally ? '' : 'is-mine'} ${turn ? 'is-turn' : ''} ${gone || fled ? 'is-out' : ''}" title="${esc(hero.name)}${showPet ? ` y ${esc(pet.name)}` : ''}">${team}</div>`;
+        teams += 1;
       }
     } else {
       const showPet = p.pet && (p.pet.health > 0 || (Fx() && Fx().isDying('pet')) || (snap && snap.pet > 0));
@@ -523,7 +535,7 @@
     return `
       <div class="cb-arena ${arenaBg()} ${c.ambush ? 'is-ambush' : ''} ${c.party ? 'is-party' : ''} ${units >= 10 ? 'is-packed' : ''} ${bossCls} ${stageCls} ${stackCls} units-${Math.min(units, 9)} enemies-${Math.min(n, 5)}" data-sec="arena">
         ${stageCls && A.BossStage ? A.BossStage.sceneHtml(c) : ''}
-        <div class="cb-side cb-allies">
+        <div class="cb-side cb-allies ${c.party ? `has-teams teams-${Math.min(teams, 4)}` : ''}">
           ${allies}
         </div>
         <div class="cb-vs" aria-hidden="true"></div>

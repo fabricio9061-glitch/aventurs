@@ -1,0 +1,60 @@
+/* ============================================================
+   v3.24.2: en grupo, cada héroe con su mascota (y sus invocados) va junto, como un equipo.
+   Antes las tarjetas iban todas seguidas y, al pasar a la segunda fila, la mascota
+   quedaba lejos de su dueño. Ahora un equipo nunca se parte entre filas, el tuyo va primero
+   y tiene el piso dorado, y el equipo al que le toca jugar se ilumina.
+   ============================================================ */
+.cb-side.cb-allies.has-teams {
+  display: flex;
+  flex-wrap: wrap !important;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 14px 18px;
+}
+.cb-team {
+  position: relative;
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: flex-end;
+  gap: 6px;
+  padding: 0 6px 6px;
+  min-width: 0;
+}
+/* el piso del equipo: un óvalo debajo de los dos */
+.cb-team::before {
+  content: '';
+  position: absolute;
+  left: 2%;
+  right: 2%;
+  bottom: 0;
+  height: 22px;
+  border-radius: 50%;
+  background: radial-gradient(ellipse at center, rgba(200, 220, 255, 0.16), transparent 70%);
+  box-shadow: 0 0 0 1px rgba(200, 220, 255, 0.12);
+  pointer-events: none;
+  transition: background 300ms ease, box-shadow 300ms ease;
+}
+.cb-team.is-mine::before {
+  background: radial-gradient(ellipse at center, rgba(242, 207, 115, 0.3), transparent 70%);
+  box-shadow: 0 0 0 1px rgba(242, 207, 115, 0.35);
+}
+.cb-team.is-turn::before {
+  background: radial-gradient(ellipse at center, rgba(255, 226, 140, 0.55), transparent 72%);
+  box-shadow: 0 0 0 2px rgba(255, 220, 120, 0.6), 0 0 18px rgba(255, 210, 100, 0.35);
+}
+.cb-team.is-out { opacity: 0.6; }
+.cb-team > .cb-unit { position: relative; z-index: 1; }
+/* la mascota, un poco más chica que su dueño */
+.cb-team > .cb-unit.is-pet .cb-sprite > .px-sprite { scale: 0.86; transform-origin: bottom center; }
+
+/* celular: un equipo por fila, el héroe y su mascota uno al lado del otro */
+@media (max-width: 760px) {
+  .cb-side.cb-allies.has-teams { gap: 10px; }
+  .cb-team { flex: 0 0 100%; justify-content: center; padding-inline: 0; }
+  .cb-team > .cb-unit { flex: 1 1 0; width: auto; max-width: 50%; }
+}
+/* 4 equipos en dos filas: 2 y 2 */
+.cb-side.cb-allies.has-teams.is-2x2 { display: grid; grid-template-columns: repeat(2, auto); justify-content: center; justify-items: center; }
+@media (max-width: 760px) {
+  .cb-side.cb-allies.has-teams.is-2x2 { display: flex; }
+}

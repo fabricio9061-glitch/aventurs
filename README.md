@@ -33,6 +33,7 @@ aventurs/
 │   ├── habitante.css       La ventana de cada habitante, más linda (v3.20.3)
 │   ├── eventos.css         La ventana de las escenas: paisaje, historia en pasos y lo que puede salir (v3.23)
 │   ├── kraken.css          El Kraken y sus tentáculos como una sola criatura en la pelea (v3.23.3)
+│   ├── equipos.css         En grupo, cada héroe con su mascota como un equipo en la pelea (v3.24.2)
 │   ├── jefes.css           Cada jefe con su propia pelea: lugar, pose, criaturas y furia (v3.24)
 │   ├── celular.css         El juego en el celular: todo entra en la pantalla (v3.21.4)
 │   └── maestros.css        Dónde vive el maestro de tu raza (v3.21.6)
