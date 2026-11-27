@@ -13,6 +13,8 @@
      - las animaciones de las tarjetas se re-aplican después de cada
        render con un delay negativo, así no se cortan a la mitad
    La capa no captura clics (pointer-events: none): nunca tapa botones.
+   v3.22: cada arma pega distinto, estados y curas con dibujo propio
+   (ver "cada arma pega distinto" más abajo).
    ============================================================ */
 
 (function (A) {
@@ -522,7 +524,14 @@
       case 'attack': {
         if (entry._diceAt != null) showDice(entry, entry._diceAt);
         const lunge = String(fx.actor || '').startsWith('enemy') ? 'fx-lunge-left' : 'fx-lunge-right';
-        later(at - t - 170, () => { playCardFx(fx.actor, lunge, 380); speedLines(fx.actor, lunge === 'fx-lunge-left' ? -1 : 1); });
+        // v3.22: cada arma (o boca, o garra) pega distinto
+        const style = entry._style || (entry._style = attackStyle(entry));
+        if (style.kind === 'arrow') {
+          later(at - t - 300, () => playCardFx(fx.actor, lunge === 'fx-lunge-left' ? 'fx-shoot-left' : 'fx-shoot-right', 380));
+          later(at - t - ARROW_MS, () => arrowFly(fx.actor, fx.target, entry.result === 'evaded' || entry.result === 'fumble'));
+        } else {
+          later(at - t - 170, () => { playCardFx(fx.actor, lunge, 380); speedLines(fx.actor, lunge === 'fx-lunge-left' ? -1 : 1); });
+        }
         later(at - t, () => impact(entry));
         break;
       }
@@ -578,6 +587,7 @@
           if (fx.amount > 0) floatNumber(fx.target || me, `+${fx.amount}`, 'is-heal');
           if (fx.mana > 0) later(fx.amount > 0 ? 220 : 0, () => floatNumber(fx.target || me, `+${fx.mana}`, 'is-mana'));
           sparkles(fx.target || me, 'heal');
+          if (fx.amount > 0) healBeam(fx.target || me, false); else if (fx.mana > 0) healBeam(fx.target || me, true);
           playCardFx(fx.target || me, 'fx-heal', 600);
         });
         break;
@@ -593,6 +603,7 @@
         later(at - t, () => {
           for (const k of [fx.target || me].concat(Array.isArray(fx.also) ? fx.also : [])) {
             floatText(k, fx.label || 'Mejora', 'is-status is-buff', -20, fx.icon || 'star');
+            buffAura(k);
             playCardFx(k, 'fx-heal', 500);
           }
         });
@@ -602,16 +613,18 @@
         later(at - t, () => {
           floatNumber(fx.target, `-${fx.amount}`, `is-tick is-tick-${fx.effect || 'poison'}`, fx.effect || 'poison');
           playCardFx(fx.target, 'fx-hit-soft', 320);
+          effectFx(fx.target, fx.effect || 'poison', 5);
         });
         break;
       }
       case 'status': {
-        later(at - t, () => floatText(fx.target, effectName(fx.effect), `is-status is-status-${fx.effect}`, 0, statusIcon(fx.effect)));
+        later(at - t, () => { floatText(fx.target, effectName(fx.effect), `is-status is-status-${fx.effect}`, 0, statusIcon(fx.effect)); effectFx(fx.target, fx.effect, 9, true); });
         break;
       }
       case 'stun': {
         later(at - t, () => {
           floatText(fx.target, 'Aturdido', 'is-status is-status-shock', 0, 'shock');
+          effectFx(fx.target, 'stun', 0, true);
           playCardFx(fx.target, 'fx-stun', 600);
         });
         break;
@@ -664,7 +677,9 @@
     if (res === 'hit' || res === 'crit') {
       const crit = res === 'crit';
       floatNumber(target, `-${entry.dmg || 0}`, crit ? 'is-dmg is-crit' : 'is-dmg');
-      slash(target, crit);
+      const style = entry._style || (entry._style = attackStyle(entry));
+      styleHit(style, fx.actor, target, crit);
+      if (crit) critBurst(target);
       sparks(target, crit ? 14 : 8, crit ? 'crit' : 'hit');
       playCardFx(target, crit ? 'fx-hit-crit' : 'fx-hit', crit ? 560 : 420);
       impactRing(target, crit);
@@ -782,10 +797,14 @@
     }
     if (element === 'holy') { spawn('fx-pillar', cx, r.bottom, null, 700); }
     if (element === 'arcane') { spawn('fx-rune', cx, cy, null, 700); }
+    if (element === 'dark') { spawn('fx-void', cx, cy, null, 900); }
+    if (element === 'ice') { iceShards(r, crit ? 7 : 5); }
+    if (element === 'fire') { flames(r, crit ? 6 : 4); }
+    if (element === 'earth') { rocks(r, crit ? 9 : 6); return; }
     for (let i = 0; i < n; i++) {
       const p = spawn(`fx-mote is-${element}`, cx + (Math.random() * r.width * 0.7 - r.width * 0.35), cy + (Math.random() * r.height * 0.5 - r.height * 0.1), null, 1000);
       if (!p) continue;
-      const up = element === 'fire' || element === 'poison' || element === 'holy';
+      const up = element === 'fire' || element === 'poison' || element === 'holy' || element === 'dark';
       p.style.setProperty('--dx', `${Math.random() * 40 - 20}px`);
       p.style.setProperty('--dy', `${up ? -(30 + Math.random() * 50) : 20 + Math.random() * 40}px`);
       p.style.setProperty('--rot', `${Math.round(Math.random() * 180)}deg`);
@@ -861,6 +880,390 @@
         p.style.animationDelay = `${Math.round(120 + (GRID - y) * 18 + Math.random() * 90)}ms`;
       }
     }
+  }
+
+  // ---------------------------------------------------------------
+  // v3.22: cada arma pega distinto (corte, hachazo, mazazo, estocada,
+  // puñalada, flecha, mordida, zarpazo, picotazo, puñetazo, varita),
+  // las armas con fuego/hielo/rayo/veneno/sangrado lo muestran al pegar,
+  // y los estados, los venenos que pican, las curas y las mejoras tienen
+  // su propio dibujo.
+  // ---------------------------------------------------------------
+
+  const ARROW_MS = 240;
+  const STYLE_RX = [
+    [/arco|ballesta|honda|flecha|dardo|rifle|pistola|arcabuz/, 'arrow'],
+    [/maza|martillo|garrote|porra|mazo|nudillo|cachiporra|mangual|lucero|yunque|pu[ñn]o|guante/, 'smash'],
+    [/hacha|guada[ñn]a|segur|cuchilla de carnicero/, 'chop'],
+    [/lanza|tridente|pica|alabarda|estoque|florete|jabalina|arp[oó]n|cuerno/, 'thrust'],
+    [/daga|pu[ñn]al|cuchillo|navaja|estilete|colmillo de vidrio/, 'stab'],
+    [/colmillo|garra|zarpa/, 'claw'],
+    [/varita|bast[oó]n|cetro|b[aá]culo|vara\b|vara |orbe|grimorio|tomo/, 'staff'],
+  ];
+  const SKILL_RX = [
+    [/mord|colmill|dentell|fauce|trag/, 'bite'],
+    [/garra|zarpa|ara[ñn]|desgarr/, 'claw'],
+    [/picot|pico|aguij|pinch|espina|p[uú]a/, 'peck'],
+    [/flech|dispar|arco|lanzar|escup|proyect/, 'arrow'],
+    [/embest|carga|cabez|aplast|pis[oa]|golpe|pu[ñn]|cola|coz|tromp|derrib|mazazo/, 'smash'],
+    [/tajo|corte|espad|filo|hoja|cuchill/, 'slash'],
+    [/estocad|lanza|ensart|cuerno/, 'thrust'],
+  ];
+  const WEAPON_ELEMENT = { fire: 'fire', cold: 'ice', shock: 'shock', poison: 'poison', bleed: 'bleed', blind: 'holy', curse: 'dark' };
+  const TAG_ELEMENT = { fire: 'fire', poison: 'poison', acid: 'poison', holy: 'holy', void: 'dark', curse: 'dark', sin: 'dark', blood: 'bleed', ice: 'ice', cold: 'ice', frost: 'ice', shock: 'shock', storm: 'shock' };
+
+  function matchRx(list, txt) {
+    for (const [rx, kind] of list) if (rx.test(txt)) return kind;
+    return null;
+  }
+
+  function weaponByName(name) {
+    if (!name || !A.Data || !A.Data.weapons) return null;
+    return A.Data.weapons.find((w) => w.name === name) || null;
+  }
+
+  function weaponStyle(w, name) {
+    const txt = `${(w && w.id) || ''} ${(w && w.name) || name || ''}`.toLowerCase();
+    let kind = matchRx(STYLE_RX, txt);
+    if (!kind) kind = w && w.magic ? 'staff' : 'slash';
+    const se = w && w.statusEffect && w.statusEffect.type;
+    return { kind, element: WEAPON_ELEMENT[se] || null };
+  }
+
+  /** Qué dibujo lleva este ataque. Solo mira datos (no cambia nada de la pelea). */
+  function attackStyle(entry) {
+    const fx = entry.fx || {};
+    const actor = String(fx.actor || '');
+    const skillTxt = String(entry.skill || '').toLowerCase().replace(/_/g, ' ');
+    try {
+      if (actor === 'player' || actor.startsWith('hero:')) {
+        if (!entry.weapon || entry.weapon === 'puños') return { kind: 'punch', element: null };
+        return weaponStyle(weaponByName(entry.weapon), entry.weapon);
+      }
+      if (actor === 'pet' || actor.startsWith('pet:')) {
+        return { kind: matchRx(SKILL_RX, skillTxt) || (Math.random() < 0.5 ? 'bite' : 'claw'), element: null };
+      }
+      if (actor.startsWith('enemy:')) {
+        const c = A.State && A.State.combat;
+        const inst = c && c.enemies ? c.enemies.find((e) => `enemy:${e.instanceId}` === actor) : null;
+        if (!inst) return { kind: 'slash', element: null };
+        const tags = (inst.tags || []).concat(inst.family || []);
+        let element = null;
+        for (const tg of tags) if (TAG_ELEMENT[tg]) { element = TAG_ELEMENT[tg]; break; }
+        if (inst.equippedWeapon) {
+          const w = A.Data.getById('weapons', inst.equippedWeapon);
+          const st = weaponStyle(w);
+          return { kind: st.kind, element: st.element || element };
+        }
+        const fromSkill = matchRx(SKILL_RX, skillTxt);
+        if (fromSkill) return { kind: fromSkill, element };
+        const own = (inst.skills || []).join(' ').toLowerCase().replace(/_/g, ' ');
+        const fromOwn = matchRx(SKILL_RX, own);
+        if (fromOwn) return { kind: fromOwn, element };
+        const fam = inst.family || [];
+        const has = (k) => fam.includes(k) || tags.includes(k);
+        if (has('flying') && (has('beast') || has('insect'))) return { kind: 'peck', element };
+        if (has('construct') || has('giant') || has('big') || has('heavy') || has('elemental')) return { kind: 'smash', element };
+        if (has('beast') || has('dragon') || has('reptile') || has('insect') || has('aberration')) return { kind: Math.random() < 0.5 ? 'bite' : 'claw', element };
+        if (has('spirit') || has('ethereal')) return { kind: 'claw', element: element || 'dark' };
+        if (has('plant')) return { kind: 'smash', element };
+        return { kind: 'slash', element };
+      }
+    } catch (err) { /* si algo falta, queda el corte de siempre */ }
+    return { kind: 'slash', element: null };
+  }
+
+  function centerOf(key) {
+    const r = spriteRect(key);
+    return r ? { r, x: r.left + r.width / 2, y: r.top + r.height / 2 } : null;
+  }
+
+  /** De qué lado viene el golpe (+1 = de la izquierda). */
+  function sideOf(actorKey, targetKey) {
+    const a = spriteRect(actorKey);
+    const b = spriteRect(targetKey);
+    if (a && b) return a.left + a.width / 2 <= b.left + b.width / 2 ? 1 : -1;
+    return String(actorKey || '').startsWith('enemy') ? -1 : 1;
+  }
+
+  function styleHit(style, actorKey, key, crit) {
+    const c = centerOf(key);
+    if (!c) return;
+    const { r, x, y } = c;
+    const dir = sideOf(actorKey, key);
+    const size = Math.max(60, Math.min(150, r.width * 1.1));
+    const put = (cls, px, py, ttl, vars, html) => {
+      const el = spawn(cls, px, py, html || null, ttl);
+      if (el && vars) for (const k in vars) el.style.setProperty(k, vars[k]);
+      return el;
+    };
+    switch (style.kind) {
+      case 'chop': {
+        // hachazo: un tajo grueso de arriba abajo y astillas que caen
+        put(`fx-chop${crit ? ' is-crit' : ''}`, x, y, 460, { '--s': `${size}px`, '--a': `${dir > 0 ? 62 : 118}deg` });
+        for (let i = 0; i < (crit ? 8 : 5); i++) put('fx-chip', x + (Math.random() * 30 - 15), y, 700, { '--dx': `${dir * (10 + Math.random() * 40)}px`, '--dy': `${20 + Math.random() * 40}px`, '--rot': `${Math.round(Math.random() * 360)}deg` });
+        break;
+      }
+      case 'smash': {
+        // mazazo: grieta en estrella, polvo abajo y la arena se sacude
+        put(`fx-crack${crit ? ' is-crit' : ''}`, x, y, 620, { '--s': `${size * 0.9}px`, '--rot': `${Math.round(Math.random() * 60)}deg` }, '<svg viewBox="0 0 100 100"><path d="M50 50 L18 30 M50 50 L30 88 M50 50 L86 22 M50 50 L92 66 M50 50 L56 6 M50 50 L8 58 M30 36 L22 18 M70 32 L80 40 M62 72 L70 90" /></svg>');
+        for (let i = 0; i < (crit ? 6 : 4); i++) put('fx-dust', r.left + r.width * (0.15 + Math.random() * 0.7), r.bottom - 6, 760, { '--dx': `${(Math.random() < 0.5 ? -1 : 1) * (14 + Math.random() * 26)}px` });
+        playCardFx('arena', crit ? 'fx-arena-bump-strong' : 'fx-arena-bump', 280);
+        break;
+      }
+      case 'thrust': {
+        // estocada: una línea rápida que atraviesa
+        put(`fx-thrust${crit ? ' is-crit' : ''}${dir < 0 ? ' is-left' : ''}`, x, y + (Math.random() * 16 - 8), 380, { '--s': `${size * 1.3}px` });
+        put('fx-pierce', x, y, 420);
+        break;
+      }
+      case 'stab': {
+        // puñalada: dos pinchazos seguidos
+        for (let i = 0; i < 2; i++) {
+          const el = put(`fx-thrust is-short${dir < 0 ? ' is-left' : ''}${crit ? ' is-crit' : ''}`, x + (i ? 8 : -6), y + (i ? 10 : -8), 420, { '--s': `${size * 0.8}px` });
+          if (el) el.style.animationDelay = `${i * 110}ms`;
+          const p = put('fx-pierce is-small', x + (i ? 8 : -6), y + (i ? 10 : -8), 520);
+          if (p) p.style.animationDelay = `${i * 110}ms`;
+        }
+        break;
+      }
+      case 'arrow': {
+        // la flecha se clava y tiembla un poquito
+        put(`fx-arrow-stuck${dir < 0 ? ' is-left' : ''}`, x - dir * 6, y - r.height * 0.05, 820, null, arrowSvg());
+        put('fx-pierce is-small', x, y, 420);
+        break;
+      }
+      case 'bite': {
+        // mordida: dos filas de dientes que se cierran
+        const s = Math.max(56, Math.min(120, r.width * 0.85));
+        put('fx-jaw is-top', x, y, 520, { '--s': `${s}px` }, teethSvg(false));
+        put('fx-jaw is-bottom', x, y, 520, { '--s': `${s}px` }, teethSvg(true));
+        if (crit) for (let i = 0; i < 4; i++) put('fx-mote is-bleed', x + (Math.random() * 30 - 15), y + 8, 900, { '--dx': `${Math.random() * 30 - 15}px`, '--dy': `${25 + Math.random() * 30}px`, '--rot': '0deg' });
+        break;
+      }
+      case 'claw': {
+        // zarpazo: tres rayas paralelas
+        const a = dir > 0 ? -55 : -125;
+        for (let i = 0; i < 3; i++) {
+          const el = put(`fx-claw${crit ? ' is-crit' : ''}`, x + (i - 1) * 14, y + (i - 1) * 6, 480, { '--a': `${a}deg`, '--s': `${size * 0.9}px` });
+          if (el) el.style.animationDelay = `${i * 45}ms`;
+        }
+        break;
+      }
+      case 'peck': {
+        // picotazo: puntitos rápidos
+        for (let i = 0; i < 3; i++) {
+          const p = put('fx-pierce is-small', x + (Math.random() * 30 - 15), y + (Math.random() * 30 - 15), 380);
+          if (p) p.style.animationDelay = `${i * 70}ms`;
+        }
+        break;
+      }
+      case 'punch': {
+        // puñetazo: estrellita de historieta
+        put(`fx-pow${crit ? ' is-crit' : ''}`, x, y, 460, { '--s': `${size * 0.7}px`, '--rot': `${Math.round(Math.random() * 40 - 20)}deg` });
+        break;
+      }
+      case 'staff': {
+        // varitazo: un golpecito con chispas mágicas
+        slash(key, crit);
+        sparks(key, 6, 'spell-arcane');
+        spawn('fx-rune is-small', x, y, null, 600);
+        break;
+      }
+      default: {
+        // espada: el corte de siempre + una media luna
+        slash(key, crit);
+        put(`fx-arc${crit ? ' is-crit' : ''}${dir < 0 ? ' is-left' : ''}`, x, y, 420, { '--s': `${size}px` });
+      }
+    }
+    if (style.element) weaponElement(r, style.element, crit);
+  }
+
+  /** El arma tiene fuego, hielo, rayo, veneno o hace sangrar: se ve un poco al pegar. */
+  function weaponElement(r, element, crit) {
+    const cx = r.left + r.width / 2;
+    const cy = r.top + r.height / 2;
+    if (element === 'shock') {
+      for (let i = 0; i < (crit ? 3 : 2); i++) {
+        const z = spawn('fx-zap', cx + (Math.random() * r.width * 0.6 - r.width * 0.3), cy + (Math.random() * 30 - 15), '<svg viewBox="0 0 20 40"><polyline points="12,0 4,18 12,20 6,40" /></svg>', 360);
+        if (z) z.style.animationDelay = `${i * 70}ms`;
+      }
+      return;
+    }
+    if (element === 'fire') flames(r, crit ? 4 : 2);
+    if (element === 'ice') iceShards(r, crit ? 4 : 3);
+    const kind = element === 'bleed' ? 'bleed' : element;
+    const n = crit ? 7 : 4;
+    for (let i = 0; i < n; i++) {
+      const p = spawn(`fx-mote is-${kind}`, cx + (Math.random() * r.width * 0.5 - r.width * 0.25), cy + (Math.random() * 20 - 10), null, 900);
+      if (!p) continue;
+      const down = kind === 'bleed' || kind === 'ice';
+      p.style.setProperty('--dx', `${Math.random() * 36 - 18}px`);
+      p.style.setProperty('--dy', `${down ? 22 + Math.random() * 30 : -(22 + Math.random() * 36)}px`);
+      p.style.setProperty('--rot', `${Math.round(Math.random() * 120)}deg`);
+      p.style.animationDelay = `${Math.round(Math.random() * 100)}ms`;
+    }
+  }
+
+  function arrowSvg() {
+    return '<svg viewBox="0 0 48 12"><path class="sh" d="M6 6 H40" /><path class="hd" d="M40 2 L48 6 L40 10 Z" /><path class="fl" d="M0 1 L8 6 L0 11 L4 6 Z" /></svg>';
+  }
+
+  function teethSvg(bottom) {
+    return bottom
+      ? '<svg viewBox="0 0 100 30"><path d="M4 28 L14 4 L24 28 L34 6 L44 28 L54 4 L64 28 L74 6 L84 28 L94 4 L98 28 Z" /></svg>'
+      : '<svg viewBox="0 0 100 30"><path d="M4 2 L14 26 L24 2 L34 24 L44 2 L54 26 L64 2 L74 24 L84 2 L94 26 L98 2 Z" /></svg>';
+  }
+
+  /** La flecha sale del arquero y vuela hasta el blanco (o pasa de largo si esquiva). */
+  function arrowFly(fromKey, toKey, miss) {
+    const a = spriteRect(fromKey);
+    const b = spriteRect(toKey);
+    if (!a || !b) return;
+    const x0 = a.left + a.width / 2;
+    const y0 = a.top + a.height * 0.45;
+    let dx = b.left + b.width / 2 - x0;
+    let dy = b.top + b.height * 0.45 - y0;
+    if (miss) { dx *= 1.35; dy = dy * 1.35 - 30; }
+    const o = spawn('fx-arrow', x0, y0, arrowSvg(), ARROW_MS + 60);
+    if (!o) return;
+    o.style.setProperty('--dx', `${dx}px`);
+    o.style.setProperty('--dy', `${dy}px`);
+    o.style.setProperty('--rot', `${Math.atan2(dy, dx)}rad`);
+    o.style.animationDuration = `${ARROW_MS}ms`;
+  }
+
+  /** Crítico: rayos de luz detrás del golpe. */
+  function critBurst(key) {
+    const c = centerOf(key);
+    if (!c) return;
+    const s = Math.max(120, Math.min(240, c.r.width * 1.8));
+    const el = spawn('fx-crit-rays', c.x, c.y, null, 640);
+    if (el) el.style.setProperty('--s', `${s}px`);
+  }
+
+  function flames(r, n) {
+    for (let i = 0; i < n; i++) {
+      const f = spawn('fx-flame', r.left + r.width * (0.2 + Math.random() * 0.6), r.top + r.height * (0.55 + Math.random() * 0.3), null, 900);
+      if (!f) continue;
+      f.style.setProperty('--h', `${16 + Math.round(Math.random() * 16)}px`);
+      f.style.animationDelay = `${Math.round(Math.random() * 180)}ms`;
+    }
+  }
+
+  function iceShards(r, n) {
+    const cx = r.left + r.width / 2;
+    const cy = r.top + r.height / 2;
+    for (let i = 0; i < n; i++) {
+      const ang = (i / n) * Math.PI * 2 + Math.random() * 0.5;
+      const s = spawn('fx-shard', cx, cy, null, 820);
+      if (!s) continue;
+      s.style.setProperty('--dx', `${Math.cos(ang) * (26 + Math.random() * 22)}px`);
+      s.style.setProperty('--dy', `${Math.sin(ang) * (26 + Math.random() * 22)}px`);
+      s.style.setProperty('--rot', `${ang + Math.PI / 2}rad`);
+    }
+  }
+
+  function rocks(r, n) {
+    for (let i = 0; i < n; i++) {
+      const p = spawn('fx-rock', r.left + r.width * (0.2 + Math.random() * 0.6), r.top + r.height * (0.3 + Math.random() * 0.4), null, 900);
+      if (!p) continue;
+      p.style.setProperty('--dx', `${Math.random() * 60 - 30}px`);
+      p.style.setProperty('--dy', `${30 + Math.random() * 40}px`);
+      p.style.setProperty('--rot', `${Math.round(Math.random() * 360)}deg`);
+    }
+    for (let i = 0; i < 3; i++) {
+      const d = spawn('fx-dust', r.left + r.width * (0.2 + Math.random() * 0.6), r.bottom - 6, null, 760);
+      if (d) d.style.setProperty('--dx', `${(Math.random() < 0.5 ? -1 : 1) * (14 + Math.random() * 26)}px`);
+    }
+  }
+
+  /**
+   * Lo que se ve cuando un estado entra (big) o cuando pica en su turno:
+   * burbujas de veneno, llamitas, gotas de sangre, escarcha, chispas,
+   * estrellitas del aturdido, una marca oscura de la maldición…
+   */
+  function effectFx(key, effect, n, big) {
+    const c = centerOf(key);
+    if (!c) return;
+    const { r, x, y } = c;
+    const rnd = (a, b) => a + Math.random() * (b - a);
+    switch (effect) {
+      case 'poison': case 'corrode': {
+        for (let i = 0; i < n; i++) {
+          const b = spawn('fx-bubble', r.left + r.width * rnd(0.2, 0.8), r.top + r.height * rnd(0.45, 0.8), null, 1100);
+          if (!b) continue;
+          const s = Math.round(rnd(5, 11));
+          b.style.width = b.style.height = `${s}px`;
+          b.style.setProperty('--dy', `${-rnd(30, 60)}px`);
+          b.style.animationDelay = `${Math.round(rnd(0, 260))}ms`;
+        }
+        if (big) spawn('fx-cloud is-poison', x, y + r.height * 0.1, null, 1100);
+        break;
+      }
+      case 'fire': flames(r, big ? 7 : 4); break;
+      case 'bleed': {
+        for (let i = 0; i < n; i++) {
+          const p = spawn('fx-mote is-bleed', r.left + r.width * rnd(0.3, 0.7), y + rnd(-10, 10), null, 900);
+          if (!p) continue;
+          p.style.setProperty('--dx', `${rnd(-10, 10)}px`);
+          p.style.setProperty('--dy', `${rnd(26, 50)}px`);
+          p.style.setProperty('--rot', '0deg');
+          p.style.animationDelay = `${Math.round(rnd(0, 200))}ms`;
+        }
+        break;
+      }
+      case 'cold': {
+        iceShards(r, big ? 6 : 4);
+        if (big) spawn('fx-frost', x, y, null, 1100);
+        break;
+      }
+      case 'shock': weaponElement(r, 'shock', big); break;
+      case 'stun': case 'prone': {
+        const ring = spawn('fx-stars', x, r.top + r.height * 0.12, `${pxIcon('star', 12)}${pxIcon('star', 12)}${pxIcon('star', 12)}`, 1300);
+        if (ring) ring.style.setProperty('--w', `${Math.max(40, r.width * 0.6)}px`);
+        break;
+      }
+      case 'curse': case 'fear': case 'noheal': case 'blind': case 'silence': {
+        spawn(`fx-sigil is-${effect}`, x, y, null, 1100);
+        for (let i = 0; i < 6; i++) {
+          const p = spawn('fx-mote is-dark', x + rnd(-r.width * 0.3, r.width * 0.3), y + rnd(-10, 20), null, 1000);
+          if (!p) continue;
+          p.style.setProperty('--dx', `${rnd(-14, 14)}px`);
+          p.style.setProperty('--dy', `${-rnd(26, 50)}px`);
+          p.style.setProperty('--rot', '0deg');
+          p.style.animationDelay = `${Math.round(rnd(0, 200))}ms`;
+        }
+        break;
+      }
+      case 'grab': spawn('fx-bind', x, y, null, 1000); break;
+      case 'stagger': case 'exposed': spawn('fx-swirl', x, r.top + r.height * 0.15, null, 1000); break;
+      case 'rally': case 'fury': case 'guard': case 'vigor': case 'immune': buffAura(key); break;
+      default: break;
+    }
+  }
+
+  /** Cura: una columna de luz verde que sube y un aro en el piso (azul si es maná). */
+  function healBeam(key, mana) {
+    const c = centerOf(key);
+    if (!c) return;
+    const { r, x } = c;
+    const b = spawn(`fx-heal-beam${mana ? ' is-mana' : ''}`, x, r.bottom, null, 900);
+    if (b) { b.style.width = `${Math.max(40, r.width * 0.7)}px`; b.style.height = `${r.height * 1.15}px`; }
+    const g = spawn(`fx-heal-ring${mana ? ' is-mana' : ''}`, x, r.bottom - 4, null, 900);
+    if (g) g.style.setProperty('--w', `${Math.max(50, r.width * 0.9)}px`);
+    for (let i = 0; i < 5; i++) {
+      const p = spawn(`fx-plus${mana ? ' is-mana' : ''}`, r.left + r.width * (0.2 + Math.random() * 0.6), r.top + r.height * (0.5 + Math.random() * 0.4), '+', 1000);
+      if (p) p.style.animationDelay = `${Math.round(Math.random() * 300)}ms`;
+    }
+  }
+
+  /** Mejora: un aro dorado que sube por la tarjeta. */
+  function buffAura(key) {
+    const c = centerOf(key);
+    if (!c) return;
+    const a = spawn('fx-buff-ring', c.x, c.r.bottom - 6, null, 900);
+    if (a) a.style.setProperty('--w', `${Math.max(50, c.r.width * 0.9)}px`);
   }
 
   // ---------------------------------------------------------------

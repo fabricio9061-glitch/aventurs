@@ -239,6 +239,14 @@ arma o hechizo).
 - **Marco para todos (v3.21.8)**: el marco que te comprás en "Lucirse" ahora lo ven tus compañeros:
   en la lista del grupo, en la ventana del grupo, en la tarjeta de pelea (brillo del color del marco
   abajo de los pies y borde de la tarjeta) y en la fila de turnos. `A.Oficios.frameCls(héroe o ficha)`.
+- **Efectos de ataque (v3.22.0)**: cada arma pega distinto: corte con media luna (espada), hachazo
+  con astillas, mazazo con grieta y polvo, estocada (lanza), doble puñalada (daga), flecha que vuela
+  y se clava (arco), puñetazo, varitazo; las criaturas muerden, arañan o picotean según su especie
+  y habilidades. Armas con fuego/hielo/rayo/veneno/sangrado lo muestran al pegar. Crítico con rayos
+  de luz. Hechizos oscuros (morado) y de tierra (piedras). Estados con dibujo propio (burbujas de
+  veneno, llamas, gotas de sangre, bloque de hielo, estrellas del aturdido, sello de maldición,
+  enredo, mareo) y curas con columna de luz. Solo visual: `attackStyle` en `js/views/combat-fx.js`,
+  estilos en `css/ataques.css`.
 - **Narrador** (`js/systems/narrator.js`): cada acción se cuenta con una frase
   ("El lobo se lanza y te muerde: 5 de daño."), distinta según el arma, la criatura y
   el resultado. Aparece cuando cae el dado; hasta entonces no se adelanta ni la vida

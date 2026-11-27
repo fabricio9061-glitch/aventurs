@@ -1,0 +1,424 @@
+/* ============================================================
+   Aventurs — v3.22: efectos de ataque
+   Cada arma pega distinto: corte (espada), hachazo, mazazo, estocada,
+   puñalada, flecha que vuela, mordida, zarpazo, picotazo, puñetazo y
+   varitazo. Más: rayos del crítico, armas con elemento, hechizos oscuros
+   y de tierra, estados (veneno, llamas, sangre, escarcha, aturdido,
+   maldición, atrapado, mareo), curas y mejoras.
+   Todo vive en .fx-layer (no captura clics). Solo transform y opacity.
+   ============================================================ */
+
+/* ---------- Espada: media luna ---------- */
+.fx-arc {
+  width: var(--s, 110px);
+  height: var(--s, 110px);
+  margin: calc(var(--s, 110px) / -2) 0 0 calc(var(--s, 110px) / -2);
+  border-radius: 50%;
+  border: 5px solid transparent;
+  border-top-color: rgba(255, 250, 235, 0.95);
+  border-right-color: rgba(255, 230, 190, 0.55);
+  filter: drop-shadow(0 0 8px rgba(255, 225, 170, 0.9));
+  animation: arc-swing 380ms ease-out both;
+}
+.fx-arc.is-left { transform: scaleX(-1); animation-name: arc-swing-left; }
+.fx-arc.is-crit { border-width: 7px; border-top-color: #fff3c0; border-right-color: rgba(255, 210, 90, 0.7); filter: drop-shadow(0 0 12px rgba(255, 210, 90, 1)); }
+@keyframes arc-swing { 0% { opacity: 0; transform: rotate(-100deg) scale(0.7); } 30% { opacity: 1; } 100% { opacity: 0; transform: rotate(60deg) scale(1.05); } }
+@keyframes arc-swing-left { 0% { opacity: 0; transform: scaleX(-1) rotate(-100deg) scale(0.7); } 30% { opacity: 1; } 100% { opacity: 0; transform: scaleX(-1) rotate(60deg) scale(1.05); } }
+
+/* ---------- Hacha: tajo grueso y astillas ---------- */
+.fx-chop {
+  width: var(--s, 110px);
+  height: 10px;
+  margin: -5px 0 0 calc(var(--s, 110px) / -2);
+  border-radius: 50% / 100%;
+  background: linear-gradient(90deg, transparent, #fff 25%, #ffd9a8 60%, rgba(255, 140, 80, 0.4) 85%, transparent);
+  box-shadow: 0 0 14px rgba(255, 190, 120, 0.9);
+  animation: chop 440ms cubic-bezier(.2, .9, .3, 1) both;
+}
+.fx-chop.is-crit { height: 14px; background: linear-gradient(90deg, transparent, #fff 20%, #ffd25a 60%, rgba(255, 120, 40, 0.5) 85%, transparent); }
+@keyframes chop {
+  0% { opacity: 1; transform: rotate(var(--a, 60deg)) translateX(-40%) scaleX(0.1); }
+  35% { opacity: 1; transform: rotate(var(--a, 60deg)) translateX(0) scaleX(1); }
+  100% { opacity: 0; transform: rotate(var(--a, 60deg)) translateX(6%) scaleX(1.05) scaleY(0.4); }
+}
+.fx-chip {
+  width: 6px;
+  height: 4px;
+  margin: -2px 0 0 -3px;
+  background: #c9a46a;
+  box-shadow: 0 0 3px rgba(0, 0, 0, 0.5);
+  animation: chip 700ms cubic-bezier(.3, .6, .6, 1) both;
+}
+@keyframes chip {
+  0% { opacity: 1; transform: translate(0, 0) rotate(0); }
+  100% { opacity: 0; transform: translate(var(--dx), var(--dy)) rotate(var(--rot, 180deg)); }
+}
+
+/* ---------- Maza: grieta en estrella y polvo ---------- */
+.fx-crack {
+  width: var(--s, 100px);
+  height: var(--s, 100px);
+  margin: calc(var(--s, 100px) / -2) 0 0 calc(var(--s, 100px) / -2);
+  animation: crack 600ms ease-out both;
+}
+.fx-crack svg { width: 100%; height: 100%; overflow: visible; }
+.fx-crack path { fill: none; stroke: #fff4dc; stroke-width: 3.5; stroke-linecap: round; filter: drop-shadow(0 0 4px rgba(255, 200, 120, 0.95)); }
+.fx-crack.is-crit path { stroke: #ffe27a; stroke-width: 5; }
+@keyframes crack {
+  0% { opacity: 0; transform: rotate(var(--rot, 0)) scale(0.3); }
+  20% { opacity: 1; transform: rotate(var(--rot, 0)) scale(1.05); }
+  100% { opacity: 0; transform: rotate(var(--rot, 0)) scale(1.15); }
+}
+.fx-dust {
+  width: 22px;
+  height: 14px;
+  margin: -7px 0 0 -11px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(220, 200, 170, 0.85), rgba(180, 160, 130, 0) 70%);
+  animation: dust 760ms ease-out both;
+}
+@keyframes dust {
+  0% { opacity: 0; transform: translate(0, 0) scale(0.4); }
+  25% { opacity: 1; }
+  100% { opacity: 0; transform: translate(var(--dx, 20px), -10px) scale(1.8); }
+}
+
+/* ---------- Lanza / daga: estocada y pinchazo ---------- */
+.fx-thrust {
+  width: var(--s, 130px);
+  height: 4px;
+  margin: -2px 0 0 calc(var(--s, 130px) * -0.85);
+  border-radius: 4px;
+  background: linear-gradient(90deg, transparent, rgba(255, 240, 210, 0.6) 40%, #fff 92%, #fff);
+  box-shadow: 0 0 10px rgba(255, 230, 190, 0.9);
+  transform-origin: 85% 50%;
+  animation: thrust 340ms cubic-bezier(.1, .9, .3, 1) both;
+}
+.fx-thrust.is-left { margin-left: calc(var(--s, 130px) * -0.15); transform-origin: 15% 50%; background: linear-gradient(270deg, transparent, rgba(255, 240, 210, 0.6) 40%, #fff 92%, #fff); animation-name: thrust-left; }
+.fx-thrust.is-short { height: 3px; }
+.fx-thrust.is-crit { height: 6px; box-shadow: 0 0 16px rgba(255, 210, 90, 1); }
+@keyframes thrust { 0% { opacity: 0; transform: translateX(-50%) scaleX(0.2); } 40% { opacity: 1; transform: translateX(0) scaleX(1); } 100% { opacity: 0; transform: translateX(8%) scaleX(1); } }
+@keyframes thrust-left { 0% { opacity: 0; transform: translateX(50%) scaleX(0.2); } 40% { opacity: 1; transform: translateX(0) scaleX(1); } 100% { opacity: 0; transform: translateX(-8%) scaleX(1); } }
+.fx-pierce {
+  width: 34px;
+  height: 34px;
+  margin: -17px 0 0 -17px;
+  background: radial-gradient(circle, #fff 0%, rgba(255, 235, 200, 0.9) 18%, rgba(255, 200, 140, 0) 60%);
+  clip-path: polygon(50% 0, 58% 42%, 100% 50%, 58% 58%, 50% 100%, 42% 58%, 0 50%, 42% 42%);
+  animation: pierce 400ms ease-out both;
+}
+.fx-pierce.is-small { width: 22px; height: 22px; margin: -11px 0 0 -11px; }
+@keyframes pierce { 0% { opacity: 0; transform: scale(0.2) rotate(0); } 30% { opacity: 1; transform: scale(1.1) rotate(20deg); } 100% { opacity: 0; transform: scale(0.8) rotate(45deg); } }
+
+/* ---------- Arco: la flecha vuela y se clava ---------- */
+.fx-arrow, .fx-arrow-stuck {
+  width: 44px;
+  height: 12px;
+  margin: -6px 0 0 -22px;
+}
+.fx-arrow svg, .fx-arrow-stuck svg { width: 100%; height: 100%; display: block; overflow: visible; }
+.fx-arrow .sh, .fx-arrow-stuck .sh { stroke: #8a5a2b; stroke-width: 2.6; }
+.fx-arrow .hd, .fx-arrow-stuck .hd { fill: #e8e8f0; stroke: #6c6c78; stroke-width: 0.8; }
+.fx-arrow .fl, .fx-arrow-stuck .fl { fill: #e2533c; }
+.fx-arrow { animation: arrow-fly 240ms linear both; filter: drop-shadow(0 0 3px rgba(255, 255, 255, 0.6)); }
+@keyframes arrow-fly {
+  from { opacity: 1; transform: translate(0, 0) rotate(var(--rot, 0)); }
+  90% { opacity: 1; }
+  to { opacity: 0.2; transform: translate(var(--dx), var(--dy)) rotate(var(--rot, 0)); }
+}
+.fx-arrow-stuck { margin-left: -40px; animation: arrow-stuck 800ms ease-out both; transform-origin: 90% 50%; }
+.fx-arrow-stuck.is-left { margin-left: -4px; transform: scaleX(-1); transform-origin: 10% 50%; animation-name: arrow-stuck-left; }
+@keyframes arrow-stuck {
+  0% { opacity: 1; transform: rotate(-4deg); }
+  10% { transform: rotate(5deg); } 20% { transform: rotate(-3deg); } 30% { transform: rotate(2deg); } 45% { transform: rotate(0); opacity: 1; }
+  100% { opacity: 0; transform: rotate(0) translateY(6px); }
+}
+@keyframes arrow-stuck-left {
+  0% { opacity: 1; transform: scaleX(-1) rotate(-4deg); }
+  10% { transform: scaleX(-1) rotate(5deg); } 20% { transform: scaleX(-1) rotate(-3deg); } 30% { transform: scaleX(-1) rotate(2deg); } 45% { transform: scaleX(-1); opacity: 1; }
+  100% { opacity: 0; transform: scaleX(-1) translateY(6px); }
+}
+/* el que dispara se echa un poquito para atrás */
+.cb-unit.fx-shoot-right .cb-sprite { animation: shoot-right 380ms ease-out var(--fx-delay, 0ms) both; }
+.cb-unit.fx-shoot-left .cb-sprite { animation: shoot-left 380ms ease-out var(--fx-delay, 0ms) both; }
+@keyframes shoot-right { 0% { transform: none; } 35% { transform: translateX(-10px) scale(0.97); } 55% { transform: translateX(4px); } 100% { transform: none; } }
+@keyframes shoot-left { 0% { transform: none; } 35% { transform: translateX(10px) scale(0.97); } 55% { transform: translateX(-4px); } 100% { transform: none; } }
+
+/* ---------- Mordida: dientes que se cierran ---------- */
+.fx-jaw {
+  width: var(--s, 90px);
+  height: calc(var(--s, 90px) * 0.3);
+  margin-left: calc(var(--s, 90px) / -2);
+}
+.fx-jaw svg { width: 100%; height: 100%; display: block; }
+.fx-jaw path { fill: #fffaf0; stroke: #5a1a12; stroke-width: 2; stroke-linejoin: round; filter: drop-shadow(0 0 4px rgba(255, 120, 100, 0.8)); }
+.fx-jaw.is-top { margin-top: calc(var(--s, 90px) * -0.3); animation: jaw-top 500ms cubic-bezier(.5, 0, .3, 1) both; }
+.fx-jaw.is-bottom { margin-top: 0; animation: jaw-bottom 500ms cubic-bezier(.5, 0, .3, 1) both; }
+@keyframes jaw-top { 0% { opacity: 0; transform: translateY(-26px); } 20% { opacity: 1; } 45% { transform: translateY(2px); } 60% { opacity: 1; transform: translateY(0); } 100% { opacity: 0; transform: translateY(-6px); } }
+@keyframes jaw-bottom { 0% { opacity: 0; transform: translateY(26px); } 20% { opacity: 1; } 45% { transform: translateY(-2px); } 60% { opacity: 1; transform: translateY(0); } 100% { opacity: 0; transform: translateY(6px); } }
+
+/* ---------- Garra: tres rayas ---------- */
+.fx-claw {
+  width: var(--s, 100px);
+  height: 5px;
+  margin: -2px 0 0 calc(var(--s, 100px) / -2);
+  border-radius: 50%;
+  background: linear-gradient(90deg, transparent, #fff 30%, #ffb3a0 70%, transparent);
+  box-shadow: 0 0 9px rgba(255, 140, 120, 0.9);
+  animation: claw 460ms ease-out both;
+}
+.fx-claw.is-crit { height: 7px; background: linear-gradient(90deg, transparent, #fff 30%, #ff6a50 70%, transparent); }
+@keyframes claw {
+  0% { opacity: 0; transform: rotate(var(--a, -55deg)) scaleX(0); }
+  15% { opacity: 1; }
+  45% { opacity: 1; transform: rotate(var(--a, -55deg)) scaleX(1); }
+  100% { opacity: 0; transform: rotate(var(--a, -55deg)) scaleX(1) scaleY(0.4); }
+}
+
+/* ---------- Puño: estrella de historieta ---------- */
+.fx-pow {
+  width: var(--s, 80px);
+  height: var(--s, 80px);
+  margin: calc(var(--s, 80px) / -2) 0 0 calc(var(--s, 80px) / -2);
+  background: radial-gradient(circle, #fff 0%, #ffe08a 35%, #ff9a3a 70%);
+  clip-path: polygon(50% 0, 61% 30%, 95% 18%, 72% 45%, 100% 62%, 66% 64%, 74% 98%, 50% 74%, 24% 96%, 32% 64%, 0 58%, 28% 44%, 6% 16%, 39% 30%);
+  animation: pow 440ms cubic-bezier(.2, 1.4, .4, 1) both;
+}
+.fx-pow.is-crit { background: radial-gradient(circle, #fff 0%, #fff27a 35%, #ff5a2a 70%); }
+@keyframes pow { 0% { opacity: 0; transform: rotate(var(--rot, 0)) scale(0.2); } 35% { opacity: 1; transform: rotate(var(--rot, 0)) scale(1.1); } 100% { opacity: 0; transform: rotate(var(--rot, 0)) scale(0.9); } }
+
+/* ---------- Varita: runita chica ---------- */
+.fx-rune.is-small { width: 54px; height: 54px; margin: -27px 0 0 -27px; }
+
+/* ---------- Crítico: rayos detrás ---------- */
+.fx-crit-rays {
+  width: var(--s, 180px);
+  height: var(--s, 180px);
+  margin: calc(var(--s, 180px) / -2) 0 0 calc(var(--s, 180px) / -2);
+  border-radius: 50%;
+  background: repeating-conic-gradient(rgba(255, 230, 140, 0.75) 0 7deg, rgba(255, 230, 140, 0) 7deg 22deg);
+  -webkit-mask: radial-gradient(circle, transparent 18%, #000 30%, transparent 70%);
+  mask: radial-gradient(circle, transparent 18%, #000 30%, transparent 70%);
+  mix-blend-mode: screen;
+  animation: crit-rays 620ms ease-out both;
+}
+@keyframes crit-rays { 0% { opacity: 0; transform: scale(0.4) rotate(0); } 25% { opacity: 1; } 100% { opacity: 0; transform: scale(1.25) rotate(25deg); } }
+
+/* ---------- Partículas nuevas ---------- */
+.fx-mote.is-bleed { width: 5px; height: 8px; border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%; background: #d0342c; box-shadow: 0 0 4px rgba(150, 0, 0, 0.8); }
+.fx-mote.is-dark { width: 8px; height: 8px; background: #3a1a5a; box-shadow: 0 0 8px #a050ff, inset 0 0 3px #c890ff; }
+.fx-mote.is-shock { width: 4px; height: 4px; background: #fff7a0; box-shadow: 0 0 8px #ffe040; }
+
+.fx-flame {
+  width: 14px;
+  height: var(--h, 22px);
+  margin: calc(var(--h, 22px) * -1) 0 0 -7px;
+  border-radius: 50% 50% 40% 40% / 70% 70% 30% 30%;
+  background: radial-gradient(ellipse at 50% 80%, #fff6c0 0%, #ffc24a 35%, #ff6a1a 70%, rgba(255, 60, 0, 0) 100%);
+  transform-origin: 50% 100%;
+  mix-blend-mode: screen;
+  animation: flame 850ms ease-out both;
+}
+@keyframes flame {
+  0% { opacity: 0; transform: scale(0.3, 0.2); }
+  25% { opacity: 1; transform: scale(1, 1) translateX(-1px); }
+  50% { transform: scale(0.85, 1.15) translateX(2px); }
+  75% { opacity: 0.8; transform: scale(0.9, 0.9) translate(-1px, -6px); }
+  100% { opacity: 0; transform: scale(0.4, 0.6) translateY(-16px); }
+}
+
+.fx-shard {
+  width: 6px;
+  height: 16px;
+  margin: -8px 0 0 -3px;
+  background: linear-gradient(180deg, #ffffff, #bfeaff 50%, #6cb8ff);
+  clip-path: polygon(50% 0, 100% 35%, 50% 100%, 0 35%);
+  filter: drop-shadow(0 0 4px rgba(140, 210, 255, 0.95));
+  animation: shard 800ms cubic-bezier(.2, .8, .4, 1) both;
+}
+@keyframes shard { 0% { opacity: 0; transform: translate(0, 0) rotate(var(--rot, 0)) scale(0.3); } 20% { opacity: 1; } 100% { opacity: 0; transform: translate(var(--dx), var(--dy)) rotate(var(--rot, 0)) scale(1); } }
+
+.fx-rock {
+  width: 8px;
+  height: 7px;
+  margin: -4px 0 0 -4px;
+  border-radius: 2px;
+  background: #8a6a46;
+  box-shadow: inset -2px -2px 0 rgba(0, 0, 0, 0.35);
+  animation: chip 880ms cubic-bezier(.3, .2, .7, 1) both;
+}
+
+.fx-zap {
+  width: 16px;
+  height: 34px;
+  margin: -17px 0 0 -8px;
+  animation: zap 340ms steps(4) both;
+}
+.fx-zap svg { width: 100%; height: 100%; overflow: visible; }
+.fx-zap polyline { fill: none; stroke: #fff9b0; stroke-width: 3; stroke-linejoin: round; filter: drop-shadow(0 0 4px #ffe040); }
+@keyframes zap { 0% { opacity: 1; transform: scale(0.6); } 25% { opacity: 0.3; } 50% { opacity: 1; transform: scale(1.1) scaleX(-1); } 100% { opacity: 0; transform: scale(1); } }
+
+/* ---------- Hechizos oscuros (Maldición, Drenar vida, Tormenta del vacío…) ---------- */
+.fx-orb.is-dark { --c1: #e0c0ff; --c2: rgba(120, 50, 200, 0.95); --c3: rgba(40, 0, 80, 0); mix-blend-mode: normal; }
+.fx-trail.is-dark { background: #7a3ad0; box-shadow: 0 0 8px rgba(140, 60, 255, 0.9); }
+.fx-burst.is-dark { background: radial-gradient(circle, #e8d0ff 0%, rgba(110, 40, 190, 0.9) 30%, rgba(30, 0, 60, 0) 70%); mix-blend-mode: normal; }
+.fx-burst.is-earth { background: radial-gradient(circle, #fff1d0 0%, rgba(200, 150, 90, 0.9) 30%, rgba(120, 80, 30, 0) 70%); }
+.fx-burst.is-holy { background: radial-gradient(circle, #fff 0%, rgba(255, 240, 170, 0.95) 25%, rgba(255, 220, 120, 0) 70%); }
+.fx-shockwave.is-dark { --c: rgba(170, 90, 255, 0.95); }
+.fx-cast-ring.is-dark { border-color: rgba(160, 80, 255, 0.9); box-shadow: 0 0 16px rgba(120, 40, 220, 0.8), inset 0 0 12px rgba(120, 40, 220, 0.6); }
+.fx-spark.is-spell-dark { background: #a060ff; box-shadow: 0 0 6px rgba(150, 70, 255, 0.9); }
+.fx-spark.is-spell-earth { background: #c89a60; box-shadow: none; }
+.fx-spark.is-spell-holy { background: #fff2b0; box-shadow: 0 0 6px rgba(255, 230, 140, 0.9); }
+.fx-num.is-spell-dark { color: #d6a8ff; text-shadow: 0 0 8px rgba(140, 60, 255, 0.9), 0 2px 0 #1a0830; }
+.fx-void {
+  width: 110px;
+  height: 110px;
+  margin: -55px 0 0 -55px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #05000a 0%, #1a0630 35%, rgba(120, 50, 220, 0.6) 55%, rgba(80, 20, 160, 0) 72%);
+  animation: void-pull 880ms cubic-bezier(.5, 0, .3, 1) both;
+}
+@keyframes void-pull { 0% { opacity: 0; transform: scale(1.4) rotate(0); } 30% { opacity: 1; transform: scale(1) rotate(60deg); } 100% { opacity: 0; transform: scale(0.1) rotate(220deg); } }
+
+/* ---------- Estados ---------- */
+.fx-bubble {
+  width: 8px;
+  height: 8px;
+  margin: -4px 0 0 -4px;
+  border-radius: 50%;
+  border: 2px solid #a8e85a;
+  background: rgba(130, 210, 60, 0.25);
+  box-shadow: 0 0 5px rgba(130, 210, 60, 0.7);
+  animation: bubble 1000ms ease-out both;
+}
+@keyframes bubble { 0% { opacity: 0; transform: translateY(0) scale(0.4); } 20% { opacity: 1; } 85% { opacity: 1; transform: translateY(var(--dy, -40px)) scale(1); } 100% { opacity: 0; transform: translateY(var(--dy, -40px)) scale(1.5); } }
+
+.fx-cloud {
+  width: 130px;
+  height: 70px;
+  margin: -35px 0 0 -65px;
+  border-radius: 50%;
+  filter: blur(6px);
+  animation: cloud 1100ms ease-out both;
+}
+.fx-cloud.is-poison { background: radial-gradient(ellipse, rgba(150, 220, 70, 0.6), rgba(90, 160, 30, 0) 70%); }
+@keyframes cloud { 0% { opacity: 0; transform: scale(0.5); } 30% { opacity: 1; } 100% { opacity: 0; transform: scale(1.4) translateY(-12px); } }
+
+.fx-frost {
+  width: 120px;
+  height: 120px;
+  margin: -60px 0 0 -60px;
+  border-radius: 18%;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.55), rgba(170, 225, 255, 0.25) 40%, rgba(120, 190, 255, 0.45));
+  border: 2px solid rgba(220, 245, 255, 0.85);
+  box-shadow: 0 0 16px rgba(140, 210, 255, 0.8), inset 0 0 18px rgba(255, 255, 255, 0.5);
+  animation: frost 1100ms ease-out both;
+}
+@keyframes frost { 0% { opacity: 0; transform: scale(0.6) rotate(45deg); } 25% { opacity: 1; transform: scale(1) rotate(45deg); } 70% { opacity: 0.9; } 100% { opacity: 0; transform: scale(1.1) rotate(45deg); } }
+
+.fx-stars {
+  width: var(--w, 60px);
+  height: 14px;
+  margin: -7px 0 0 calc(var(--w, 60px) / -2);
+  display: flex;
+  justify-content: space-between;
+  animation: stars-spin 1250ms linear both;
+}
+.fx-stars > * { filter: drop-shadow(0 0 4px #ffe040); animation: stars-bob 420ms ease-in-out infinite alternate; }
+.fx-stars > *:nth-child(2) { animation-delay: 140ms; }
+.fx-stars > *:nth-child(3) { animation-delay: 280ms; }
+@keyframes stars-spin { 0% { opacity: 0; transform: scaleX(0.4); } 15% { opacity: 1; transform: scaleX(1); } 50% { transform: scaleX(-1); } 85% { opacity: 1; transform: scaleX(1); } 100% { opacity: 0; transform: scaleX(0.6); } }
+@keyframes stars-bob { from { transform: translateY(-3px); } to { transform: translateY(3px); } }
+
+.fx-sigil {
+  width: 92px;
+  height: 92px;
+  margin: -46px 0 0 -46px;
+  border-radius: 50%;
+  border: 2px solid rgba(170, 90, 255, 0.9);
+  background:
+    linear-gradient(0deg, transparent 47%, rgba(170, 90, 255, 0.85) 47% 53%, transparent 53%),
+    linear-gradient(60deg, transparent 47%, rgba(170, 90, 255, 0.85) 47% 53%, transparent 53%),
+    linear-gradient(120deg, transparent 47%, rgba(170, 90, 255, 0.85) 47% 53%, transparent 53%);
+  box-shadow: 0 0 14px rgba(140, 60, 255, 0.8), inset 0 0 12px rgba(140, 60, 255, 0.6);
+  animation: sigil 1050ms ease-out both;
+}
+.fx-sigil.is-fear { border-color: rgba(255, 120, 90, 0.9); box-shadow: 0 0 14px rgba(255, 80, 60, 0.7); }
+.fx-sigil.is-blind { border-color: rgba(255, 245, 200, 0.95); box-shadow: 0 0 20px rgba(255, 240, 180, 0.9); }
+@keyframes sigil { 0% { opacity: 0; transform: scale(0.3) rotate(-90deg); } 30% { opacity: 1; transform: scale(1) rotate(0); } 70% { opacity: 0.9; } 100% { opacity: 0; transform: scale(0.8) rotate(60deg); } }
+
+.fx-bind {
+  width: 110px;
+  height: 60px;
+  margin: -30px 0 0 -55px;
+  border-radius: 50%;
+  border: 4px solid rgba(110, 160, 70, 0.95);
+  border-left-color: transparent;
+  border-right-color: transparent;
+  box-shadow: 0 0 8px rgba(60, 100, 30, 0.8);
+  animation: bind 1000ms ease-out both;
+}
+@keyframes bind { 0% { opacity: 0; transform: scale(1.6) rotate(0); } 30% { opacity: 1; transform: scale(1) rotate(200deg); } 75% { opacity: 1; } 100% { opacity: 0; transform: scale(0.9) rotate(260deg); } }
+
+.fx-swirl {
+  width: 46px;
+  height: 46px;
+  margin: -23px 0 0 -23px;
+  border-radius: 50%;
+  border: 3px dotted rgba(255, 230, 140, 0.95);
+  animation: swirl 1000ms linear both;
+}
+@keyframes swirl { 0% { opacity: 0; transform: rotate(0) scale(0.5); } 20% { opacity: 1; transform: rotate(120deg) scale(1); } 100% { opacity: 0; transform: rotate(720deg) scale(0.8); } }
+
+/* ---------- Curas y mejoras ---------- */
+.fx-heal-beam {
+  margin-left: 0;
+  transform: translate(-50%, -100%);
+  transform-origin: 50% 100%;
+  background: linear-gradient(0deg, rgba(140, 255, 150, 0.7), rgba(180, 255, 190, 0.35) 55%, rgba(200, 255, 210, 0));
+  border-radius: 40% 40% 8px 8px;
+  filter: blur(1px);
+  mix-blend-mode: screen;
+  animation: heal-beam 880ms ease-out both;
+}
+.fx-heal-beam.is-mana { background: linear-gradient(0deg, rgba(120, 180, 255, 0.7), rgba(160, 200, 255, 0.35) 55%, rgba(200, 220, 255, 0)); }
+@keyframes heal-beam { 0% { opacity: 0; transform: translate(-50%, -100%) scaleY(0.1); } 30% { opacity: 1; transform: translate(-50%, -100%) scaleY(1); } 100% { opacity: 0; transform: translate(-50%, -100%) scaleY(1.05) scaleX(0.4); } }
+.fx-heal-ring, .fx-buff-ring {
+  width: var(--w, 80px);
+  height: calc(var(--w, 80px) * 0.28);
+  margin: calc(var(--w, 80px) * -0.14) 0 0 calc(var(--w, 80px) / -2);
+  border-radius: 50%;
+  border: 3px solid rgba(140, 255, 150, 0.9);
+  box-shadow: 0 0 12px rgba(120, 255, 140, 0.8);
+  animation: heal-ring 880ms ease-out both;
+}
+.fx-heal-ring.is-mana { border-color: rgba(130, 190, 255, 0.95); box-shadow: 0 0 12px rgba(110, 170, 255, 0.8); }
+@keyframes heal-ring { 0% { opacity: 0; transform: scale(0.3); } 30% { opacity: 1; } 100% { opacity: 0; transform: scale(1.3); } }
+.fx-buff-ring { border-color: rgba(255, 215, 100, 0.95); box-shadow: 0 0 12px rgba(255, 200, 80, 0.85); animation: buff-ring 880ms ease-out both; }
+@keyframes buff-ring { 0% { opacity: 0; transform: translateY(0) scale(0.6); } 25% { opacity: 1; transform: translateY(0) scale(1); } 100% { opacity: 0; transform: translateY(-70px) scale(0.7); } }
+.fx-plus {
+  margin: -10px 0 0 -6px;
+  font: 700 18px/1 var(--font-ui, sans-serif);
+  color: #9dff9a;
+  text-shadow: 0 0 6px rgba(80, 255, 100, 0.9), 0 1px 0 #0a3010;
+  animation: plus 950ms ease-out both;
+}
+.fx-plus.is-mana { color: #a8ccff; text-shadow: 0 0 6px rgba(90, 150, 255, 0.9), 0 1px 0 #0a1a40; }
+@keyframes plus { 0% { opacity: 0; transform: translateY(0) scale(0.5); } 25% { opacity: 1; transform: translateY(-8px) scale(1); } 100% { opacity: 0; transform: translateY(-46px) scale(0.8); } }
+
+/* ---------- Celular: un poco más chico para que no tape ---------- */
+@media (max-width: 520px) {
+  .fx-crit-rays { --s: 150px; }
+  .fx-frost { width: 96px; height: 96px; margin: -48px 0 0 -48px; }
+  .fx-cloud { width: 100px; height: 56px; margin: -28px 0 0 -50px; }
+  .fx-void { width: 86px; height: 86px; margin: -43px 0 0 -43px; }
+  .fx-sigil { width: 72px; height: 72px; margin: -36px 0 0 -36px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fx-arc, .fx-chop, .fx-chip, .fx-crack, .fx-dust, .fx-thrust, .fx-arrow, .fx-arrow-stuck, .fx-jaw, .fx-claw, .fx-pow,
+  .fx-crit-rays, .fx-flame, .fx-shard, .fx-rock, .fx-zap, .fx-void, .fx-bubble, .fx-cloud, .fx-frost, .fx-stars,
+  .fx-sigil, .fx-bind, .fx-swirl, .fx-heal-beam, .fx-heal-ring, .fx-buff-ring, .fx-plus { display: none; }
+  .cb-unit.fx-shoot-right .cb-sprite, .cb-unit.fx-shoot-left .cb-sprite { animation: none; }
+}

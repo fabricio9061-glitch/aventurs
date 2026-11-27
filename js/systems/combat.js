@@ -337,6 +337,8 @@
     if (/rayo|chispa|trueno|eléctr|electr/.test(txt)) return 'shock';
     if (/veneno|ácido|acido|toxi/.test(txt)) return 'poison';
     if (/luz|sagrad|divin/.test(txt)) return 'holy';
+    // v3.22: hechizos oscuros con su propio color (solo cambia el dibujo)
+    if (/oscur|sombra|maldi|penumbra|vac[ií]o|terror|drenar|vamp[ií]r|sangre|carmes|singular|eclipse|necro|muerte/.test(txt)) return 'dark';
     return 'arcane';
   }
 
